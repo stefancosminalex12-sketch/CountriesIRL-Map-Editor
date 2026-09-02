@@ -1,0 +1,62 @@
+# Publishes the Map Editor to maps.countriesirl.com.
+#
+# Runs on every push to main. There is no manual publish step and nothing to copy by
+# hand: GitHub checks the code out, installs, runs the same build that runs locally, and
+# serves the result. Updating the live editor is `git push`.
+#
+# The build is self-contained. `npm run build` triggers the `prebuild` hook, which runs
+# `prepare-assets` — the three scripts that generate the map geometry, the flag artwork
+# and the sound effects from the sources vendored in `data/` and `assets/`. Nothing is
+# fetched from the network at build time, so a build here produces byte-identical assets
+# to a build on your machine.
+name: Deploy Map Editor
+
+on:
+  push:
+    branches: [main]
+  # Lets you re-publish from the Actions tab without making a commit.
+  workflow_dispatch:
+
+# The permissions GitHub Pages deployment needs, and nothing more.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time. If you push twice quickly, the older run is abandoned
+# rather than racing the newer one to publish.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # `npm ci` installs exactly what package-lock.json pins, so a build here can
+      # never quietly pick up a different dependency version than the one you tested.
+      - run: npm ci
+
+      # Runs prepare-assets (via prebuild), then typechecks, then builds.
+      - run: npm run build
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
