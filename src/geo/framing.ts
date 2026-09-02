@@ -1,0 +1,461 @@
+/**
+ * Geometry-derived camera framing.
+ *
+ * The camera is fitted to the geography that is actually on the map, not to a
+ * lat/lon rectangle. Two things make that safe:
+ *
+ *   1. a per-region `domain` — a declarative cartographic scope (e.g. "European
+ *      Russia ends near the 50th meridian", "the world view crops Antarctica");
+ *   2. automatic outlier rejection inside that domain — the region's major
+ *      landmasses define a core, and a minor polygon is framed only if it sits
+ *      close to that core (island chains connecting one hop at a time).
+ *
+ * Rule 2 is what keeps Svalbard from deciding where the top of a map of Europe is,
+ * without hiding it: Svalbard holds well under 1% of Europe's area and stays 3°+
+ * clear of the core, so it drops out of the camera while still rendering. A dense
+ * archipelago such as Indonesia or the Pacific island groups connects to its core
+ * and is never mistaken for an outlier.
+ *
+ * Because the bounds come from real polygons, the framing adapts on its own to
+ * whichever dataset is loaded (110m / 50m / 10m, and later historical ones).
+ */
+import { geoArea } from 'd3-geo'
+import type { MultiPoint } from 'geojson'
+import type { LoadedDataset } from './datasets'
+import {
+  countriesInRegions,
+  resolveFraming,
+  type BBox,
+  type ExcludedArea,
+  type ScopeFraming,
+} from './regions'
+import type { RegionId } from '../types/map'
+
+/** One polygon reduced to what the camera needs to know about it. */
+interface PolygonExtent {
+  west: number
+  south: number
+  east: number
+  north: number
+  /** Approximate area of the part inside the domain, in steradians. */
+  weight: number
+  /** Vertices inside the domain, already normalised into the domain's longitude frame. */
+  points: [number, number][]
+  /**
+   * The four real vertices reaching this polygon's edges. Sampling may thin `points`,
+   * but these must always survive or the fit would quietly clip the extremes.
+   */
+  extremes: [number, number][]
+}
+
+export interface ResolvedFraming extends ScopeFraming {
+  /** Points the projection is fitted to. */
+  fitTarget: MultiPoint
+  /**
+   * Area carried by each fit-target point, as a parallel array.
+   *
+   * A vertex on Ukraine's steppe and a vertex on a Hebridean skerry are both one
+   * point to `fitExtent`, which is why a plain fit cannot tell the region's body
+   * from its fringe. The weight is the polygon's own area shared out across its
+   * vertices, so the camera can ask a question a point cloud alone cannot answer:
+   * *how much of this region would actually leave the frame if I zoomed in?*
+   *
+   * Deliberately geographic and projection-free. Where those points land on screen
+   * depends on the active projection, so the decision that uses these weights lives
+   * in `fit.ts` and is recomputed per projection.
+   */
+  fitWeights: number[]
+  /**
+   * One representative point per framed landmass.
+   *
+   * Area weights alone cannot protect an archipelago. Guam, Palau, the Marshalls and
+   * the Marianas together hold a rounding error of Oceania's area, so an area budget
+   * will spend all of them to gain a few percent of zoom on Australia — and half the
+   * region leaves the frame while the budget still reads as untouched. But
+   * `selectFramedPolygons` has already decided these are part of the composition,
+   * and that decision has to mean something downstream.
+   *
+   * So each framed polygon contributes a point the camera must keep on screen. The
+   * budget then spends only what lies *between* landmasses — a peninsula's last
+   * kilometres, the outer edge of a steppe — and never a whole island.
+   */
+  fitAnchors: [number, number][]
+  /** Geographic bounds the camera settled on, for display and debugging. */
+  fitBBox: BBox
+  /** Extra viewport padding requested by the region's margin, as a fraction. */
+  margin: number
+  /** Whether real geometry drove the result, or the static fallback window did. */
+  source: 'geometry' | 'fallback'
+}
+
+/** Brings a longitude into the frame centred on `centerLon`, crossing the antimeridian. */
+function normaliseLon(lon: number, centerLon: number): number {
+  let x = lon
+  while (x - centerLon > 180) x -= 360
+  while (centerLon - x > 180) x += 360
+  return x
+}
+
+/** True when a polygon lies wholly inside an area the region excludes. */
+function isExcluded(
+  west: number,
+  south: number,
+  east: number,
+  north: number,
+  excluded: ExcludedArea[],
+): boolean {
+  for (const area of excluded) {
+    const [aw, as, ae, an] = area.bbox
+    if (west >= aw && east <= ae && south >= as && north <= an) return true
+  }
+  return false
+}
+
+/**
+ * Reduces every member polygon to its in-domain extent.
+ *
+ * Excluded areas are applied first, against each polygon's full extent, so geography
+ * the region does not contain never influences anything downstream — not the area
+ * budget, not the core, not the bounds. Polygons fully outside the domain are skipped.
+ */
+function collectExtents(
+  memberIds: Set<string>,
+  dataset: LoadedDataset,
+  domain: BBox,
+  excluded: ExcludedArea[],
+): PolygonExtent[] {
+  const [dw, ds, de, dn] = domain
+  const centerLon = (dw + de) / 2
+  const out: PolygonExtent[] = []
+
+  for (const id of memberIds) {
+    const feature = dataset.byId.get(id)
+    if (!feature) continue
+
+    const polygons =
+      feature.geometry.type === 'Polygon'
+        ? [feature.geometry.coordinates]
+        : feature.geometry.coordinates
+
+    for (const polygon of polygons) {
+      // Full extent, used for the exclusion test.
+      let fullWest = Infinity
+      let fullSouth = Infinity
+      let fullEast = -Infinity
+      let fullNorth = -Infinity
+
+      // In-domain extent and vertices, used for framing.
+      let west = Infinity
+      let south = Infinity
+      let east = -Infinity
+      let north = -Infinity
+      let inside = 0
+      let total = 0
+      const points: [number, number][] = []
+      let atWest: [number, number] | null = null
+      let atEast: [number, number] | null = null
+      let atSouth: [number, number] | null = null
+      let atNorth: [number, number] | null = null
+
+      for (const ring of polygon) {
+        for (const [lon, lat] of ring) {
+          total++
+          const x = normaliseLon(lon, centerLon)
+          if (x < fullWest) fullWest = x
+          if (x > fullEast) fullEast = x
+          if (lat < fullSouth) fullSouth = lat
+          if (lat > fullNorth) fullNorth = lat
+
+          if (x < dw || x > de || lat < ds || lat > dn) continue
+          inside++
+          if (x < west) {
+            west = x
+            atWest = [x, lat]
+          }
+          if (x > east) {
+            east = x
+            atEast = [x, lat]
+          }
+          if (lat < south) {
+            south = lat
+            atSouth = [x, lat]
+          }
+          if (lat > north) {
+            north = lat
+            atNorth = [x, lat]
+          }
+          points.push([x, lat])
+        }
+      }
+
+      if (inside === 0) continue
+      if (isExcluded(fullWest, fullSouth, fullEast, fullNorth, excluded)) continue
+
+      // Scale the polygon's area by the share of it that lies inside the domain, so
+      // a country straddling the edge (Russia across Europe/Asia) contributes only
+      // its in-domain mass to the outlier budget.
+      const area = geoArea({ type: 'Polygon', coordinates: polygon }) * (inside / total)
+      const extremes = [atWest, atEast, atSouth, atNorth].filter(
+        (p): p is [number, number] => p !== null,
+      )
+      out.push({ west, south, east, north, weight: area, points, extremes })
+    }
+  }
+
+  return out
+}
+
+/** Union of polygon extents. */
+function unionExtents(extents: PolygonExtent[]): BBox {
+  let west = Infinity
+  let south = Infinity
+  let east = -Infinity
+  let north = -Infinity
+  for (const e of extents) {
+    if (e.west < west) west = e.west
+    if (e.south < south) south = e.south
+    if (e.east > east) east = e.east
+    if (e.north > north) north = e.north
+  }
+  return [west, south, east, north]
+}
+
+/**
+ * Separation between two polygon extents, in degrees; zero when they overlap.
+ *
+ * Measured on both axes and combined with `max`, so proximity means genuinely
+ * nearby — not merely "inside the same bounding box". Comparing against a union box
+ * instead would let Iceland pass as a neighbour of Ireland purely because Norway had
+ * already stretched the box's latitude range over it.
+ */
+function separation(a: PolygonExtent, b: PolygonExtent): number {
+  const lon = Math.max(0, a.west - b.east, b.west - a.east)
+  const lat = Math.max(0, a.south - b.north, b.south - a.north)
+  return Math.max(lon, lat)
+}
+
+/** Safety bound on the chain-admission loop below. */
+const MAX_ADMISSION_PASSES = 8
+
+/**
+ * Decides which polygons the camera should frame.
+ *
+ * Major landmasses (anything holding at least `coreAreaFraction` of the region's
+ * area) always count. Minor polygons are admitted when they sit within
+ * `maxDetachmentDegrees` of what has been accepted so far, and the pass repeats so
+ * an island chain can connect hop by hop.
+ *
+ * Pairwise gap-walking along one edge is not enough here: Svalbard reaches the
+ * Norwegian mainland through Bear Island and Jan Mayen in short hops, and would
+ * sneak back into a map of Europe. Measuring detachment from the accumulated core
+ * instead closes that path, because the whole Arctic group stays 3°+ clear of it.
+ */
+function selectFramedPolygons(
+  extents: PolygonExtent[],
+  totalWeight: number,
+  coreAreaFraction: number,
+  maxDetachmentDegrees: number,
+): PolygonExtent[] {
+  if (coreAreaFraction <= 0 || !Number.isFinite(maxDetachmentDegrees)) return extents
+
+  const threshold = coreAreaFraction * totalWeight
+  let accepted = extents.filter((e) => e.weight >= threshold)
+
+  // Nothing dominant enough to anchor the region (a scatter of small islands):
+  // fall back to framing everything rather than picking an arbitrary anchor.
+  if (accepted.length === 0) return extents
+
+  let pending = extents.filter((e) => e.weight < threshold)
+
+  for (let pass = 0; pass < MAX_ADMISSION_PASSES && pending.length > 0; pass++) {
+    const admitted: PolygonExtent[] = []
+    const remaining: PolygonExtent[] = []
+
+    for (const extent of pending) {
+      let near = false
+      for (const anchor of accepted) {
+        if (separation(extent, anchor) <= maxDetachmentDegrees) {
+          near = true
+          break
+        }
+      }
+      if (near) admitted.push(extent)
+      else remaining.push(extent)
+    }
+
+    if (admitted.length === 0) break
+    accepted = accepted.concat(admitted)
+    pending = remaining
+  }
+
+  return accepted
+}
+
+/** Caps how many points reach `fitExtent`; the projection pass is linear in this. */
+const MAX_FIT_POINTS = 6000
+
+interface FitTarget {
+  target: MultiPoint
+  weights: number[]
+  anchors: [number, number][]
+}
+
+function buildFitTarget(framed: PolygonExtent[], bbox: BBox): FitTarget {
+  const kept: [number, number][] = []
+  const keptWeights: number[] = []
+  const extremes: [number, number][] = []
+  const extremeWeights: number[] = []
+
+  for (const extent of framed) {
+    // The polygon's area, shared equally across the vertices that represent it, so a
+    // large landmass outweighs a reef no matter how finely either is drawn.
+    const perPoint = extent.points.length > 0 ? extent.weight / extent.points.length : 0
+    for (const point of extent.points) {
+      kept.push(point)
+      keptWeights.push(perPoint)
+    }
+    for (const point of extent.extremes) {
+      extremes.push(point)
+      extremeWeights.push(perPoint)
+    }
+  }
+
+  if (kept.length === 0) {
+    const [w, s, e, n] = bbox
+    return {
+      target: {
+        type: 'MultiPoint',
+        coordinates: [
+          [w, s],
+          [e, s],
+          [e, n],
+          [w, n],
+        ],
+      },
+      weights: [1, 1, 1, 1],
+      anchors: [],
+    }
+  }
+
+  const stride = Math.ceil(kept.length / MAX_FIT_POINTS)
+  const sampled: [number, number][] = []
+  const sampledWeights: number[] = []
+  for (let i = 0; i < kept.length; i += stride) {
+    sampled.push(kept[i])
+    // Sampling thins the cloud; scaling by the stride keeps each polygon's total
+    // area intact, so the weights still say what they said before it was thinned.
+    sampledWeights.push(keptWeights[i] * stride)
+  }
+
+  /**
+   * Only real vertices go into the fit.
+   *
+   * Adding the corners of the bounding box instead would put points where no land is:
+   * on a conic the meridian fan is widest at the low-latitude corners, so those
+   * phantom points stretch the horizontal fit and leave vertical slack above the
+   * map — which is precisely where Svalbard reappeared on a map of Europe.
+   */
+  return {
+    target: { type: 'MultiPoint', coordinates: sampled.concat(extremes) },
+    weights: sampledWeights.concat(extremeWeights),
+    // The centre of each framed polygon's in-domain extent. A marker saying "a
+    // landmass is here", not a claim about its shape.
+    anchors: framed.map((e) => [(e.west + e.east) / 2, (e.south + e.north) / 2]),
+  }
+}
+
+/** Window sampled when no geometry is available yet, matching the old behaviour. */
+function fallbackTarget(bbox: BBox, steps = 24): MultiPoint {
+  const [w, s, e, n] = bbox
+  const coordinates: [number, number][] = []
+  for (let i = 0; i <= steps; i++) {
+    const lon = w + ((e - w) * i) / steps
+    for (let j = 0; j <= steps; j++) {
+      const lat = s + ((n - s) * j) / steps
+      coordinates.push([lon, Math.max(-89.5, Math.min(89.5, lat))])
+    }
+  }
+  return { type: 'MultiPoint', coordinates }
+}
+
+const cache = new Map<string, ResolvedFraming>()
+
+/**
+ * Resolves the camera for a scope. Cached per dataset + region combination, since
+ * this walks every vertex of every member country.
+ */
+export function computeFraming(
+  regionIds: RegionId[],
+  dataset: LoadedDataset | null,
+): ResolvedFraming {
+  const scope = resolveFraming(regionIds)
+
+  if (!dataset) {
+    return {
+      ...scope,
+      fitTarget: fallbackTarget(scope.bbox),
+      // A sampled lat/lon window has no polygons behind it, so every point counts
+      // the same and the core below degenerates to the window itself.
+      fitWeights: [],
+      fitAnchors: [],
+      fitBBox: scope.bbox,
+      margin: scope.framing.margin,
+      source: 'fallback',
+    }
+  }
+
+  const key = `${dataset.dataset.id}|${[...scope.regionIds].sort().join('+')}`
+  const cached = cache.get(key)
+  if (cached) return cached
+
+  const members = countriesInRegions(scope.regionIds, dataset.meta)
+  const extents = collectExtents(
+    members,
+    dataset,
+    scope.framing.domain,
+    scope.excludedAreas,
+  )
+
+  let resolved: ResolvedFraming
+
+  if (extents.length === 0) {
+    resolved = {
+      ...scope,
+      fitTarget: fallbackTarget(scope.bbox),
+      // A sampled lat/lon window has no polygons behind it, so every point counts
+      // the same and the core below degenerates to the window itself.
+      fitWeights: [],
+      fitAnchors: [],
+      fitBBox: scope.bbox,
+      margin: scope.framing.margin,
+      source: 'fallback',
+    }
+  } else {
+    const totalWeight = extents.reduce((sum, x) => sum + x.weight, 0)
+    const { coreAreaFraction, maxDetachmentDegrees } = scope.framing.trim
+    const framed = selectFramedPolygons(
+      extents,
+      totalWeight,
+      coreAreaFraction,
+      maxDetachmentDegrees,
+    )
+    const fitBBox = unionExtents(framed)
+
+    const fit = buildFitTarget(framed, fitBBox)
+
+    resolved = {
+      ...scope,
+      fitTarget: fit.target,
+      fitWeights: fit.weights,
+      fitAnchors: fit.anchors,
+      fitBBox,
+      margin: scope.framing.margin,
+      centerLon: (fitBBox[0] + fitBBox[2]) / 2,
+      centerLat: (fitBBox[1] + fitBBox[3]) / 2,
+      source: 'geometry',
+    }
+  }
+
+  cache.set(key, resolved)
+  return resolved
+}

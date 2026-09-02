@@ -1,0 +1,11 @@
+node_modules
+dist
+public/geo
+public/sfx
+.DS_Store
+*.local
+public/flags/
+.cache/
+
+# Local preview-server config, not part of the project
+.claude/

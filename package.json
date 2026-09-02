@@ -1,0 +1,48 @@
+{
+  "name": "map-editor",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "prepare-data": "node scripts/prepare-data.mjs",
+    "predev": "npm run prepare-assets",
+    "dev": "vite",
+    "prebuild": "npm run prepare-assets",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "generate-sfx": "node scripts/generate-sfx.mjs",
+    "prepare-assets": "npm run prepare-data && npm run prepare-flags && npm run generate-sfx",
+    "fetch-lakes": "node scripts/fetch-lakes.mjs",
+    "fetch-country-fixes": "node scripts/fetch-country-fixes.mjs",
+    "prepare-flags": "node scripts/prepare-flags.mjs",
+    "fetch-eez": "node scripts/fetch-eez.mjs"
+  },
+  "dependencies": {
+    "d3-geo": "^3.1.1",
+    "d3-geo-projection": "^4.0.0",
+    "d3-selection": "^3.0.0",
+    "d3-zoom": "^3.0.0",
+    "flag-icons": "^7.5.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "topojson-client": "^3.1.0",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@types/d3-geo": "^3.1.0",
+    "@types/d3-selection": "^3.0.11",
+    "@types/d3-zoom": "^3.0.8",
+    "@types/geojson": "^7946.0.14",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/topojson-client": "^3.1.5",
+    "@types/topojson-specification": "^1.0.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "topojson-server": "^3.0.1",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11",
+    "world-atlas": "^2.0.2",
+    "world-countries": "^5.0.0"
+  }
+}

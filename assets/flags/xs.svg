@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" id="flag-xs" viewBox="0 0 640 480">
+  <!--
+    Somaliland.
+
+    The dataset carries this entity as XSO / iso2 "XS", and `flag-icons` has no
+    artwork for it, so the flag is constructed here rather than left blank.
+
+    Three equal bands, and the black star is the five-pointed star from the library's
+    own `so.svg` — the same path data — recoloured and rescaled to sit in the white
+    band. The shahada on the green band is set as text: it needs Arabic glyph
+    outlines, which cannot be reproduced faithfully by hand, so it is left to the
+    system's Arabic face. Where no such face exists the band renders plain, which is
+    the same result as omitting it. At every zoom this map reaches, the inscription
+    is well under a pixel.
+  -->
+  <g fill-rule="evenodd">
+    <path fill="#008000" d="M0 0h640v160H0z"/>
+    <path fill="#fff" d="M0 160h640v160H0z"/>
+    <path fill="#ff0000" d="M0 320h640v160H0z"/>
+    <text x="320" y="80" fill="#fff" font-size="86" text-anchor="middle"
+      dominant-baseline="central" direction="rtl"
+      font-family="'Segoe UI','Noto Naskh Arabic','Arial Unicode MS',sans-serif"
+    >لا إله إلا الله محمد رسول الله</text>
+    <path fill="#000" transform="translate(320 240) scale(.521) translate(-253.65 -266.6)"
+      d="M336.5 381.2 254 327.7l-82.1 54 30.5-87.7-82-54.2L222 239l31.4-87.5 32.1 87.3 101.4.1-81.5 54.7z"/>
+  </g>
+</svg>
