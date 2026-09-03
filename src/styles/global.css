@@ -2352,3 +2352,248 @@ body {
   height: 16px;
   width: 16px;
 }
+
+/* ========================================================== touch and small screens */
+
+/*
+ * The map is a gesture surface, so the browser must not treat it as a page to scroll.
+ *
+ * Without this, a one-finger drag scrolls or bounces the page and a pinch zooms the
+ * document, because the browser claims those gestures before d3-zoom ever sees them.
+ * `touch-action: none` hands both to the map, which is where they belong — and it is
+ * what d3-zoom's own documentation asks for. The tap highlight goes with it: a grey
+ * flash over a country on every tap reads as a rendering fault rather than as feedback.
+ */
+#map-canvas-svg {
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/*
+ * Every control gets bigger where the pointer is a finger.
+ *
+ * Keyed on `pointer: coarse` rather than on width, because the two questions are
+ * different: a 1024px tablet needs large hit targets and a 700px browser window on a
+ * desktop does not. Driving it from the size tokens means one change reaches every
+ * button, field, select and swatch that was already built on them, instead of a list of
+ * exceptions that will drift.
+ *
+ * 44px is the size a fingertip reliably hits — Apple's and Google's guidelines agree on
+ * roughly that, and the existing 26–30px controls are well under it.
+ */
+@media (pointer: coarse) {
+  :root {
+    --control-h: 44px;
+    --control-h-sm: 40px;
+  }
+
+  .btn,
+  .chip,
+  .map-toggle,
+  .theme-choice,
+  .preset-color,
+  .disclosure__toggle,
+  .export__item,
+  /* The searchable pickers' result rows — tapped one at a time, from a long list. */
+  .picker__option,
+  .rail-item {
+    min-height: 44px;
+  }
+
+  .chip {
+    padding-inline: 12px;
+  }
+
+  /* Comfortable rows in the rail, without making it wider than the map can spare. */
+  .rail-item {
+    padding: 11px 2px 10px;
+  }
+
+  /* The zoom buttons are the most-tapped things on the map. */
+  .map-canvas__controls button {
+    width: 44px;
+    height: 44px;
+  }
+
+  /*
+   * 16px on every text field, because iOS Safari zooms the whole page in when it
+   * focuses an input with smaller text — the map jumps, and the author has to pinch
+   * back out to see what they were editing.
+   */
+  .input,
+  .select select,
+  .app__title,
+  input[type='text'],
+  input[type='number'],
+  input[type='search'] {
+    font-size: 16px;
+  }
+
+  /*
+   * Sliders are dragged, so both the thumb and the strip it lives on have to be
+   * findable. The visible track keeps its 6px — only the element's own height grows,
+   * which is the part a finger actually has to land on.
+   */
+  .slider {
+    height: 40px;
+  }
+  .slider::-webkit-slider-thumb {
+    width: 22px;
+    height: 22px;
+  }
+  .slider::-moz-range-thumb {
+    width: 22px;
+    height: 22px;
+  }
+
+  /*
+   * Colour wells. These are `input[type=color]`, so tapping one opens the system colour
+   * picker — a 20px strip is the hardest thing in the editor to hit, and the miss lands
+   * on the map behind it.
+   */
+  .swatch input[type='color'] {
+    height: 34px;
+  }
+
+  /* The panel's own close control, and the comparison group rows and their colours. */
+  .sidebar__collapse {
+    width: 40px;
+    height: 40px;
+  }
+
+  .compare-group__pick {
+    min-height: 40px;
+  }
+
+  .compare-group input[type='color'] {
+    width: 34px;
+    height: 34px;
+  }
+
+  /* The highlight presets, tapped from a row of six. */
+  .preset-color {
+    width: 36px;
+    height: 36px;
+  }
+
+  /* A removable member chip's × is tiny by design; a finger needs more than a glyph. */
+  .compare-members__drop {
+    padding: 6px;
+    margin: -6px -6px -6px 0;
+  }
+
+  /*
+   * The composition frame's grips, widened for a fingertip. The visible marks are
+   * unchanged — only the invisible hit area around them grows, so the frame still
+   * reads as a hairline while being grabbable.
+   */
+  .map-screen__handle--left,
+  .map-screen__handle--right {
+    width: 28px;
+    margin-left: -14px;
+  }
+  .map-screen__handle--top,
+  .map-screen__handle--bottom {
+    height: 28px;
+    margin-top: -14px;
+  }
+  .map-screen__handle--top-left,
+  .map-screen__handle--top-right,
+  .map-screen__handle--bottom-left,
+  .map-screen__handle--bottom-right {
+    width: 34px;
+    height: 34px;
+    margin-left: -17px;
+    margin-top: -17px;
+  }
+}
+
+/*
+ * Tablets and narrow windows.
+ *
+ * The panel stops being a fixed 260px and takes what the viewport can spare, so it
+ * never runs off the right edge on a phone. Both the panel and its inner track the same
+ * width — the inner is fixed on purpose, so its contents do not reflow while the panel
+ * slides, and the two must agree or the slide reveals a gap.
+ */
+@media (max-width: 760px) {
+  .sidebar__panel,
+  .sidebar__panel-inner {
+    width: min(300px, calc(100vw - 56px - 8px));
+  }
+}
+
+/*
+ * Phones.
+ *
+ * The map stays the subject: the sidebar is still an overlay that takes part in no
+ * layout, so opening a section never resizes or re-projects the map — the same
+ * arrangement that made this fast on desktop is what keeps the map full-bleed here.
+ *
+ * What changes is the chrome around it. The header's title field is the one element
+ * that cannot keep a fixed width at 375px, and the status bar carries six readings that
+ * do not fit; the two that matter on a small screen are what is selected and the zoom
+ * level, so the rest step aside rather than wrapping into a second row that would cost
+ * the map more height than the information is worth.
+ */
+@media (max-width: 620px) {
+  .app__title {
+    width: auto;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  /* The brand is the least useful thing on a 375px header. */
+  .app__brand {
+    display: none;
+  }
+
+  .app__header {
+    gap: 8px;
+    padding: 0 8px;
+  }
+
+  /* Region, polygon count and "with data" are reference, not working information. */
+  .statusbar > span:nth-child(-n + 6) {
+    display: none;
+  }
+
+  .statusbar {
+    padding-inline: 8px;
+  }
+
+  /*
+   * The legend's own controls and the merge actions stack rather than sitting in two
+   * columns, which at this width would leave each button too narrow to label.
+   */
+  .merge-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+/*
+ * Short viewports — a phone held sideways is about 375px tall.
+ *
+ * Every pixel of chrome is a pixel the map does not get, so the header and the status
+ * bar give some back. The rail already scrolls when its sections do not fit, so it
+ * needs nothing here beyond tighter rows.
+ */
+@media (max-height: 520px) {
+  .app {
+    grid-template-rows: 34px 1fr 22px;
+  }
+
+  .app__header {
+    padding: 0 8px;
+  }
+
+  @media (pointer: coarse) {
+    .rail-item {
+      padding: 7px 2px 6px;
+    }
+
+    .rail-item__caption {
+      display: none;
+    }
+  }
+}

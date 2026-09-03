@@ -249,7 +249,18 @@ export function buildProjection(spec: ProjectionSpec): GeoProjection {
 
   // The region's margin is applied as viewport padding rather than by inflating the
   // geographic window, so it adds breathing room without altering the geometry.
-  const padding = spec.padding + framing.margin * Math.min(width, height)
+  /*
+   * On a phone the document's 32px is not breathing room, it is a fifth of the map:
+   * 32px either side of a 345px canvas leaves 275px to draw the world in. Below 480px on
+   * the short side the padding is capped at 10 — enough to keep a coastline off the edge,
+   * and it gives the map back about a sixth of its size.
+   *
+   * Gated on the viewport rather than applied everywhere, because the desktop value is
+   * the one every region's framing was tuned against and must not move.
+   */
+  const compact = Math.min(width, height) < 480
+  const basePadding = compact ? Math.min(spec.padding, 10) : spec.padding
+  const padding = basePadding + framing.margin * Math.min(width, height)
   const pad = Math.min(padding, Math.min(width, height) / 4)
   const fitBox: [[number, number], [number, number]] = [
     [pad, pad],
