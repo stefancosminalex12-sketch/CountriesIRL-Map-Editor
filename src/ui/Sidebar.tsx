@@ -223,8 +223,11 @@ export function Sidebar() {
    * Which section is open, or null for none. Local because it is a fact about this
    * window rather than about the map or the person — nothing here belongs in the
    * document, and it is not worth a preference either.
+   *
+   * Closed on load. The editor opens on the map itself rather than on a panel of
+   * controls: nothing has been asked for yet, so nothing is in the way of it.
    */
-  const [openId, setOpenId] = useState<string | null>('map')
+  const [openId, setOpenId] = useState<string | null>(null)
 
   /*
    * What the panel is currently rendering, which lags `openId` on the way closed.
@@ -234,7 +237,7 @@ export function Sidebar() {
    * dropped — closed, the section's controls are not mounted at all, and a folded panel
    * is not re-rendering its inputs every time the document changes.
    */
-  const [renderedId, setRenderedId] = useState<string | null>('map')
+  const [renderedId, setRenderedId] = useState<string | null>(null)
   const timer = useRef<number | null>(null)
 
   useEffect(() => {
