@@ -119,7 +119,8 @@ export function Inspector() {
   if (selectedCountryIds.length === 0) {
     return (
       <p className="hint">
-        Click a {noun.one} on the map to select it. Shift-click adds to the selection.
+        Tap a {noun.one} on the map to select it. Tap more to add them; tap a selected
+        one to remove it.
       </p>
     )
   }

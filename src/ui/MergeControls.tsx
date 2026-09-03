@@ -183,8 +183,8 @@ export function MergeControls() {
 
       {drafts.length === 0 ? (
         <p className="hint">
-          Add a group, pick {noun.many} on the map — shift-click adds — then add them to
-          the group and merge it.
+          Add a group, tap {noun.many} on the map to select them, then add them to the
+          group and merge it.
         </p>
       ) : (
         <>

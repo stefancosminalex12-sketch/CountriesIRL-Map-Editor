@@ -416,7 +416,7 @@ function PresetControls({ dataKey }: { dataKey: string }) {
  * The active group is named in the action itself, so the question "where is this going?"
  * is answered by the button the author is about to press.
  *
- * Selection is the map's own — click, shift-click, the existing outlines. Nothing here
+ * Selection is the map's own — tapping entities, the existing outlines. Nothing here
  * selects anything; it only reads what is selected and writes it into a group.
  */
 function ComparisonControls() {
@@ -632,7 +632,7 @@ function ComparisonControls() {
 
       <p className="hint">
         {selected.length === 0
-          ? 'Pick a group, then click a country on the map — shift-click to add more.'
+          ? 'Pick a group, then tap countries on the map to add them.'
           : 'Countries in no group stay neutral. Where a country is in more than one, the first group wins.'}
       </p>
     </>

@@ -419,7 +419,7 @@ export const useMapStore = create<MapStore>((set, get) => ({
   /**
    * Puts the current map selection into one draft.
    *
-   * The selection is the *existing* selection — the same clicks, the same shift-click,
+   * The selection is the *existing* selection — the same taps,
    * the same store — and this only copies it. Deliberately additive and duplicate-free,
    * so an author can select three countries, add them, select four more and add those
    * without the second gesture discarding the first.
@@ -488,7 +488,23 @@ export const useMapStore = create<MapStore>((set, get) => ({
     if (get().hoveredCountryId !== id) set({ hoveredCountryId: id })
   },
 
-  selectCountry(id, additive = false) {
+  /**
+   * Adds an entity to the selection, or takes it back out.
+   *
+   * **Toggling is the primary behaviour, on every device.** Tapping entities one after
+   * another builds a selection; tapping one already in it removes that one. Nothing has
+   * to be held down.
+   *
+   * That used to require Shift, and Shift is not a thing a phone has. The alternative —
+   * a modifier on desktop and a different rule on touch — would have meant two selection
+   * models to keep in step, and an editor that behaves differently depending on what you
+   * happen to be holding. One rule is simpler to explain and simpler to keep correct.
+   *
+   * `additive: false` still replaces the selection outright. Nothing in the UI passes it
+   * today; it stays because "select exactly this" is a meaningful thing to ask for
+   * programmatically, and removing it would only mean re-inventing it later.
+   */
+  selectCountry(id, additive = true) {
     if (id === null) {
       set({ selectedCountryIds: [] })
       return

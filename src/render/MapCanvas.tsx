@@ -904,8 +904,16 @@ export function MapCanvas() {
           // Dragging the legend is not a statement about the selection, so a click
           // that starts and ends on it leaves the selection exactly as it was.
           if ((event.target as Element | null)?.closest?.(`[${LEGEND_MARKER}]`)) return
+          /*
+           * Every click toggles. No modifier is consulted, because a phone has none —
+           * see `selectCountry`. Shift-clicking still works; it simply is not required,
+           * and does the same thing a plain click does.
+           *
+           * A click that hits no entity clears the selection, which is the same gesture
+           * on both devices and the only one that needs to exist for "start over".
+           */
           const id = pickCountryAt(event)
-          selectCountry(id, event.shiftKey || event.ctrlKey || event.metaKey)
+          selectCountry(id)
           if (id) playSfx('tick')
         }}
       >
