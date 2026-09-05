@@ -36,8 +36,34 @@ export function ScreenControls() {
   const height = Math.max(1, Math.round(box?.height ?? 1))
   const rect = screen.rect
   const composed = screen.enabled && rect !== null
+  const freeform = composed && screen.aspect === 'freeform'
 
-  const choose = (id: ScreenAspectId, ratio: number) => {
+  /**
+   * Taking the frame away.
+   *
+   * The same patch the Clear button used to send, now reached by pressing whichever
+   * option is currently selected. It is the one that returns the workspace to having no
+   * composition at all — not merely switched off, but with the rectangle and the ratio
+   * forgotten — which is what makes the next choice start fresh rather than resume.
+   */
+  const remove = () => {
+    dispatch({ op: 'set_screen', patch: { enabled: false, rect: null, aspect: null } })
+    playSfx('toggleOff')
+  }
+
+  /**
+   * Choosing a ratio, or unchoosing the one already chosen.
+   *
+   * Every option in this panel is the same control seen once per ratio, so the selected
+   * one is the only thing that can say "no frame" — pressing it is the gesture, and a
+   * separate Clear button beside it was a second way to say what the selection could
+   * already say for itself.
+   */
+  const choose = (id: ScreenAspectId, ratio: number, active: boolean) => {
+    if (active) {
+      remove()
+      return
+    }
     dispatch({
       op: 'set_screen',
       patch: { enabled: true, rect: fitAspect(ratio, width, height), aspect: id },
@@ -133,29 +159,46 @@ export function ScreenControls() {
           <span className="field__value">{composed ? (screen.aspect ?? 'Custom') : 'Full'}</span>
         </span>
         <div className="aspect-grid" role="group" aria-label="Screen aspect ratio">
-          {SCREEN_ASPECTS.map((preset) => (
-            <button
-              key={preset.id}
-              type="button"
-              className={`chip${screen.aspect === preset.id ? ' chip--active' : ''}`}
-              aria-pressed={screen.aspect === preset.id}
-              onClick={() => choose(preset.id, preset.ratio)}
-            >
-              {preset.id}
-            </button>
-          ))}
+          {SCREEN_ASPECTS.map((preset) => {
+            /*
+             * Selected means *there is a frame* in this ratio, not merely that this ratio
+             * was the last one named. The two come apart when the switch above is turned
+             * off with a frame still remembered, and telling them apart is what this
+             * control now depends on: a chip that lit up while nothing was framed would
+             * offer to remove a frame that is not there.
+             */
+            const active = composed && screen.aspect === preset.id
+            return (
+              <button
+                key={preset.id}
+                type="button"
+                className={`chip${active ? ' chip--active' : ''}`}
+                aria-pressed={active}
+                title={active ? `Remove the ${preset.id} frame` : `Frame ${preset.id}`}
+                onClick={() => choose(preset.id, preset.ratio, active)}
+              >
+                {preset.id}
+              </button>
+            )
+          })}
         </div>
       </div>
 
       {/*
         Freeform is not one of the presets above: it is the absence of a ratio, so
-        choosing it releases the constraint rather than resizing anything.
+        choosing it releases the constraint rather than resizing anything. Pressing it
+        while it is the selected option removes the frame, exactly as pressing a selected
+        ratio does — it is an option in the same set and behaves like one.
       */}
       <button
         type="button"
-        className={`btn${screen.aspect === 'freeform' ? ' btn--on' : ''}`}
-        aria-pressed={screen.aspect === 'freeform'}
+        className={`btn${freeform ? ' btn--on' : ''}`}
+        aria-pressed={freeform}
         onClick={() => {
+          if (freeform) {
+            remove()
+            return
+          }
           dispatch({
             op: 'set_screen',
             patch: {
@@ -214,22 +257,10 @@ export function ScreenControls() {
 
       <p className="hint">
         {composed
-          ? 'Everything inside the frame is exported. Drag inside it to move it, or its edges to resize.'
+          ? 'Everything inside the frame is exported. Drag inside it to move it, or its edges to resize. Press the selected ratio again to remove it.'
           : 'Choose a ratio, or fit one to the region on screen.'}
       </p>
 
-      {screen.rect && (
-        <button
-          type="button"
-          className="btn btn--ghost"
-          onClick={() => {
-            dispatch({ op: 'set_screen', patch: { enabled: false, rect: null, aspect: null } })
-            playSfx('click')
-          }}
-        >
-          Clear frame
-        </button>
-      )}
     </div>
   )
 }
