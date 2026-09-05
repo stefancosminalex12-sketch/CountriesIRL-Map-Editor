@@ -48,6 +48,7 @@ type DataScale = 'palette' | 'predefined'
 export function DataPalette() {
   const doc = useMapStore((s) => s.doc)
   const dispatch = useMapStore((s) => s.dispatch)
+  const mergeMode = useMapStore((s) => s.mergeMode)
 
   const layer = doc.layers.find((l) => l.id === doc.activeLayerId) ?? doc.layers[0]
   const key = layer?.dataKey ?? 'value'
@@ -157,14 +158,23 @@ export function DataPalette() {
             values at all — each has its own workflow for what a selection means, and
             neither wants a value editor.
           */}
-          <hr className="rule" />
           {/*
             Bounded, so a large selection scrolls here instead of pushing everything
             below it — the Merge panel in particular — down the section.
+
+            Hidden entirely while Merge is open. There the group *is* the read-out of
+            what has been picked, and a second list of the same entities above it is
+            duplication that grows and shrinks with every tap — which is precisely what
+            Merge is not allowed to do.
           */}
-          <div className="selection-scroll">
-            <Inspector />
-          </div>
+          {!mergeMode && (
+            <>
+              <hr className="rule" />
+              <div className="selection-scroll">
+                <Inspector />
+              </div>
+            </>
+          )}
         </>
       )}
 
@@ -245,12 +255,22 @@ export function DataPalette() {
             The same country panel the Data section shows, so selecting a country in
             Flags mode reports the same information it does everywhere else — with the
             one control that is specific to this mode underneath it.
+
+            Both are gone in Merge mode, together, because both are the selection — and
+            in Merge mode the selection means something else. What is highlighted there
+            is a group being assembled, not a set of countries being edited, so offering
+            to change its flag offers to do the one thing the tap was not for. The
+            merged entity gets its own flag afterwards, from its own row in Merge.
           */}
-          <hr className="rule" />
-          <div className="selection-scroll">
-            <Inspector />
-          </div>
-          <FlagOverrideControls />
+          {!mergeMode && (
+            <>
+              <hr className="rule" />
+              <div className="selection-scroll">
+                <Inspector />
+              </div>
+              <FlagOverrideControls />
+            </>
+          )}
         </>
       )}
 

@@ -1,17 +1,13 @@
 /**
- * Merge: making one custom entity out of several map entities.
+ * Merge: making one entity out of several.
  *
- * The workflow is four steps and reads in order down the panel — **add a group, select
- * on the map, add selected, merge**. That is the whole change here. The mechanism
- * underneath is untouched: the same selection store, the same `create_merge` operation,
- * the same topological dissolve, the same merged entities afterwards.
+ * **Add a group, tap entities on the map, confirm.** There is no staging step and no
+ * intermediate screen: a group that is collecting takes what is tapped as it is tapped,
+ * so the map is the input rather than something you gather from and then hand over.
  *
- * What it replaces was one button that consumed whatever happened to be selected at the
- * moment it was pressed. That made a merge something the author committed to before they
- * could see it, gave them nowhere to put a second one they were still assembling, and
- * offered no way to collect six entities in two comfortable gestures rather than one
- * careful one. A **group** is that missing middle: a numbered basket you fill, review and
- * merge when it is right.
+ * The merge itself is untouched — the same `create_merge` operation, the same
+ * topological dissolve, the same merged entity afterwards, with its own name, flag and
+ * unmerge. What changed is only how a group is filled.
  *
  * A group is not map content — nothing on the map is different because one exists — so it
  * lives beside the selection in the store rather than in the document. See `MergeDraft`.
@@ -27,22 +23,17 @@ import { useNoun } from '../maps/useNoun'
 /** Sentinel for "no flag": a select cannot carry `null`. */
 const NO_FLAG = ''
 
-/** Idle time before a typed name reaches its destination. */
+/** Idle time before a typed name reaches the document. */
 const NAME_COMMIT_MS = 250
 
 /**
  * A name field that types locally and commits on a pause.
  *
- * The input is uncontrolled by its source while it has focus. That is the point: a
+ * The input is uncontrolled by the document while it has focus. That is the point: a
  * keystroke updates one piece of local state and re-renders one `<input>`, instead of
- * replacing the document and re-rendering the map with it. Used by both the group and
- * the merged entity, so the two behave identically under the hand.
+ * replacing the document and re-rendering the map with it.
  */
-function NameField({
-  value,
-  onCommit,
-  label,
-}: {
+function NameField({ value, onCommit, label }: {
   value: string
   onCommit: (next: string) => void
   label: string
@@ -51,8 +42,6 @@ function NameField({
   const timer = useRef<number | null>(null)
   const editing = useRef(false)
 
-  // Follow the source while the author is not typing — undo, or an edit from anywhere
-  // else, should show up here.
   useEffect(() => {
     if (!editing.current) setDraft(value)
   }, [value])
@@ -91,25 +80,32 @@ function NameField({
   )
 }
 
-/** Member codes as chips — the same compact three-letter read-out as before. */
-function MemberChips({
-  members,
-  onRemove,
-  label,
-}: {
+/**
+ * The entities in a group, one per row, with the code left and its remove at the right.
+ *
+ * **The box is a fixed height, not a growing one.** That is the whole reason this is a
+ * separate element: if it grew with its contents, every entity tapped would push the
+ * groups below it — and the merged entities below those — a row further down, so the
+ * control the author was reaching for would move while they were reaching for it. At a
+ * fixed height the list scrolls inside itself and nothing outside it ever moves.
+ */
+function MemberList({ members, onRemove, label }: {
   members: string[]
   onRemove?: (id: string) => void
   label: string
 }) {
   return (
-    <ul className="compare-members" aria-label={label}>
+    <ul className="merge-members" aria-label={label}>
+      {members.length === 0 && (
+        <li className="merge-members__empty">Tap on the map to add.</li>
+      )}
       {members.map((id) => (
-        <li key={id} className="compare-members__item">
-          {id}
+        <li key={id} className="merge-members__row">
+          <span className="merge-members__code">{id}</span>
           {onRemove && (
             <button
               type="button"
-              className="compare-members__drop"
+              className="merge-members__remove"
               aria-label={`Remove ${id}`}
               title={`Remove ${id}`}
               onClick={() => {
@@ -128,244 +124,233 @@ function MemberChips({
 
 export function MergeControls() {
   const merges = useMapStore((s) => s.doc.merges)
-  const selected = useMapStore((s) => s.selectedCountryIds)
   const geo = useMapStore((s) => s.geo)
   const dispatch = useMapStore((s) => s.dispatch)
   const noun = useNoun()
 
   const drafts = useMapStore((s) => s.mergeDrafts)
-  const activeId = useMapStore((s) => s.activeMergeDraftId)
+  const collectingId = useMapStore((s) => s.activeMergeDraftId)
   const addDraft = useMapStore((s) => s.addMergeDraft)
-  const setActive = useMapStore((s) => s.setActiveMergeDraft)
-  const updateDraft = useMapStore((s) => s.updateMergeDraft)
-  const addSelection = useMapStore((s) => s.addSelectionToMergeDraft)
+  const setCollecting = useMapStore((s) => s.setActiveMergeDraft)
   const removeMember = useMapStore((s) => s.removeFromMergeDraft)
   const deleteDraft = useMapStore((s) => s.deleteMergeDraft)
   const commitDraft = useMapStore((s) => s.commitMergeDraft)
+  const setMergeMode = useMapStore((s) => s.setMergeMode)
 
   /*
-   * Every entity's own flag, plus the historical set. Sorted by name so the list reads
-   * as one alphabet rather than as two appended groups — the point of offering them
-   * together is that the author is choosing a flag, not choosing a category first.
+   * Merge mode is simply this panel being open — it is unmounted when the section is
+   * collapsed, so mounting and unmounting is exactly the signal, with nothing to keep
+   * in step. It is what lets a tap on the map start a group, and what keeps the Data
+   * section's selection card out of the way while it does.
    */
-  const flagOptions = [
-    ...FLAG_EXTRAS.map((extra) => ({ code: extra.code, name: extra.name })),
-    ...Object.entries(geo?.meta ?? {})
-      .filter(([, meta]) => hasFlag(meta.iso2))
-      .map(([, meta]) => ({ code: (meta.iso2 as string).toLowerCase(), name: meta.name })),
-  ].sort((a, b) => a.name.localeCompare(b.name))
+  useEffect(() => {
+    setMergeMode(true)
+    return () => setMergeMode(false)
+  }, [setMergeMode])
 
-  const active = drafts.find((d) => d.id === activeId) ?? drafts[drafts.length - 1] ?? null
-  const activeIndex = active ? drafts.findIndex((d) => d.id === active.id) : -1
-  const canMerge = !!active && active.members.length >= 2
+  /*
+   * Which rows are open. Local, a set, and independent per row: expanding one group to
+   * check what is in it says nothing about any other.
+   */
+  const [open, setOpen] = useState<Set<string>>(new Set())
+  const toggleOpen = (id: string) =>
+    setOpen((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+
+  /*
+   * Every entity's own flag, plus the historical set, sorted into one alphabet — the
+   * point of offering them together is that the author is choosing a flag, not choosing
+   * a category first.
+   *
+   * One entry per flag, not per entity. A code can be reached by more than one record —
+   * Kosovo is in the dataset as both UNK and XKX, and both carry `xk` — and the choice
+   * here is of a flag, so the same artwork twice is one option, not two. Listing it
+   * twice also gave two `<option>`s the same React key, which React is entitled to
+   * resolve by dropping one.
+   */
+  const byCode = new Map<string, string>()
+  for (const extra of FLAG_EXTRAS) byCode.set(extra.code, extra.name)
+  for (const meta of Object.values(geo?.meta ?? {})) {
+    if (!hasFlag(meta.iso2)) continue
+    const code = (meta.iso2 as string).toLowerCase()
+    if (!byCode.has(code)) byCode.set(code, meta.name)
+  }
+  const flagOptions = [...byCode]
+    .map(([code, name]) => ({ code, name }))
+    .sort((a, b) => a.name.localeCompare(b.name))
 
   return (
     <div className="stack">
-      {/*
-        Everything the author acts with stays above everything that grows.
-
-        Add group, the group switcher, Add selected and Merge are the four things this
-        panel is for, and each of the lists below them — a group's members, then the
-        merged entities — grows without limit. With the actions underneath, filling a
-        group would push the button that merges it off the bottom of the panel, further
-        away with every entity added. Above them it never moves.
-      */}
+      {/* The one control that is always in the same place. */}
       <button
         type="button"
         className="btn"
         onClick={() => {
-          addDraft()
+          // Opened as it is created, so the entities tapped next are visibly arriving.
+          const id = addDraft()
+          setOpen((prev) => new Set(prev).add(id))
           playSfx('confirm')
         }}
       >
         Add group
       </button>
 
-      {drafts.length === 0 ? (
+      {/*
+        One region of constant height for everything that can grow.
+
+        A group appearing, a group being confirmed, an entity arriving — none of it
+        changes how tall this panel is, so no control is ever anywhere but where it was
+        a moment ago. Without this, creating a group pushes the merged entities down and
+        confirming one pulls them back up, and the button under the pointer moves while
+        it is being used.
+      */}
+      <div className="merge-scroll">
+      {drafts.length === 0 && merges.length === 0 && (
         <p className="hint">
-          Add a group, tap {noun.many} on the map to select them, then add them to the
-          group and merge it.
+          Tap {noun.many} on the map — the first one starts a group.
         </p>
-      ) : (
-        <>
-          {/*
-            The group switcher. Only shown once there is a choice to make: with one group
-            open, a row of one tab is a control that cannot do anything.
-          */}
-          {drafts.length > 1 && (
-            <div className="merge-tabs" role="group" aria-label="Merge groups">
-              {drafts.map((draft, index) => (
-                <button
-                  key={draft.id}
-                  type="button"
-                  className={`chip${draft.id === active?.id ? ' chip--active' : ''}`}
-                  aria-pressed={draft.id === active?.id}
-                  onClick={() => {
-                    setActive(draft.id)
-                    playSfx('click')
-                  }}
-                >
-                  {index + 1}
-                  {draft.members.length > 0 && (
-                    <span className="merge-tabs__count">{draft.members.length}</span>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
+      )}
 
-          {active && (
-            <>
-              <span className="field__label">
-                Group {activeIndex + 1}
-                {drafts.length > 1 ? ` of ${drafts.length}` : ''}
-              </span>
-
-              <div className="merge-actions">
-                <button
-                  type="button"
-                  className="btn"
-                  disabled={selected.length === 0}
-                  onClick={() => {
-                    addSelection(active.id)
-                    playSfx('confirm')
-                  }}
-                >
-                  {selected.length > 0 ? `Add selected (${selected.length})` : 'Add selected'}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn--on"
-                  disabled={!canMerge}
-                  onClick={() => {
-                    commitDraft(active.id)
-                    playSfx('confirm')
-                  }}
-                >
-                  Merge
-                </button>
-              </div>
-
+      {drafts.map((draft, index) => {
+        const collecting = draft.id === collectingId
+        const expanded = open.has(draft.id)
+        return (
+          <div key={draft.id} className={`merge-group${collecting ? ' merge-group--on' : ''}`}>
+            <div className="merge-group__head">
               {/*
-                Name and flag are decided before the merge rather than after it, which is
-                what lets the button above finish the job instead of starting a second
-                round of editing on the thing it just made.
+                One tap does both things the row is for: it makes this the group that
+                map taps land in, and it opens it so you can see them arriving.
               */}
-              <div className="field">
-                <span className="field__label">{noun.One} Name</span>
-                <NameField
-                  value={active.name}
-                  label={`Name for group ${activeIndex + 1}`}
-                  onCommit={(name) => updateDraft(active.id, { name })}
-                />
-              </div>
-
-              <SelectField
-                label="Select Flag"
-                value={active.flag ?? NO_FLAG}
-                onChange={(code) => {
-                  updateDraft(active.id, { flag: code === NO_FLAG ? null : code })
+              <button
+                type="button"
+                className="merge-group__pick"
+                aria-expanded={expanded}
+                onClick={() => {
+                  setCollecting(collecting ? null : draft.id)
+                  toggleOpen(draft.id)
                   playSfx('click')
                 }}
               >
-                <option value={NO_FLAG}>None</option>
-                {flagOptions.map((option) => (
-                  <option key={option.code} value={option.code}>
-                    {option.name}
-                  </option>
-                ))}
-              </SelectField>
-
-              {/*
-                What is in the group, in the same compact code read-out the comparison
-                groups use. Scrolled on its own so a group of thirty cannot push the
-                merged entities below it — or the actions above it — out of reach.
-              */}
-              {active.members.length > 0 ? (
-                <div className="selection-scroll">
-                  <MemberChips
-                    members={active.members}
-                    label={`Group ${activeIndex + 1} members`}
-                    onRemove={(id) => removeMember(active.id, id)}
-                  />
-                </div>
-              ) : (
-                <p className="hint">
-                  Nothing in this group yet. Select {noun.many} on the map, then Add
-                  selected.
-                </p>
-              )}
+                <span className="merge-group__name">Group {index + 1}</span>
+                <span className="merge-group__count">{draft.members.length}</span>
+                {collecting && <span className="merge-group__live">collecting</span>}
+              </button>
 
               <button
                 type="button"
-                className="btn btn--ghost"
+                className="btn btn--on merge-group__confirm"
+                disabled={draft.members.length < 2}
                 onClick={() => {
-                  deleteDraft(active.id)
+                  commitDraft(draft.id)
+                  playSfx('confirm')
+                }}
+              >
+                Confirm
+              </button>
+
+              <button
+                type="button"
+                className="merge-group__drop"
+                aria-label={`Discard group ${index + 1}`}
+                title="Discard group"
+                onClick={() => {
+                  deleteDraft(draft.id)
                   playSfx('click')
                 }}
               >
-                Remove group
+                ×
               </button>
-            </>
-          )}
-        </>
-      )}
+            </div>
+
+            {expanded && (
+              <MemberList
+                members={draft.members}
+                label={`Group ${index + 1} members`}
+                onRemove={(id) => removeMember(draft.id, id)}
+              />
+            )}
+          </div>
+        )
+      })}
 
       {merges.length > 0 && <hr className="rule" />}
 
       {/*
-        The merged entities themselves: what each is called, what it flies, what it holds.
-        Listed rather than hidden behind a selector, because the whole point of allowing
-        several is that they are separate things the author can still get back to.
+        The merged entities. Same row, same expansion — what differs is that these exist
+        on the map, so opening one offers its name and its flag alongside its members.
       */}
-      {merges.map((entity) => (
-        <div key={entity.id} className="merge-entity">
-          <div className="field">
-            <span className="field__label">{noun.One} Name</span>
-            <NameField
-              value={entity.name}
-              label={`Name for ${entity.name}`}
-              onCommit={(name) => dispatch({ op: 'update_merge', id: entity.id, patch: { name } })}
-            />
+      {merges.map((entity) => {
+        const expanded = open.has(entity.id)
+        return (
+          <div key={entity.id} className="merge-group merge-group--done">
+            <div className="merge-group__head">
+              <button
+                type="button"
+                className="merge-group__pick"
+                aria-expanded={expanded}
+                onClick={() => {
+                  toggleOpen(entity.id)
+                  playSfx('click')
+                }}
+              >
+                <span className="merge-group__name">{entity.name}</span>
+                <span className="merge-group__count">{entity.members.length}</span>
+              </button>
+
+              <button
+                type="button"
+                className="merge-group__drop"
+                aria-label={`Unmerge ${entity.name}`}
+                title="Unmerge"
+                onClick={() => {
+                  // Nothing to undo but the record: the entities were never altered.
+                  dispatch({ op: 'delete_merge', id: entity.id })
+                  playSfx('click')
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {expanded && (
+              <>
+                <NameField
+                  value={entity.name}
+                  label={`Name for ${entity.name}`}
+                  onCommit={(name) =>
+                    dispatch({ op: 'update_merge', id: entity.id, patch: { name } })
+                  }
+                />
+                <SelectField
+                  label="Flag"
+                  value={entity.flag ?? NO_FLAG}
+                  onChange={(code) => {
+                    dispatch({
+                      op: 'update_merge',
+                      id: entity.id,
+                      patch: { flag: code === NO_FLAG ? null : code },
+                    })
+                    playSfx('click')
+                  }}
+                >
+                  <option value={NO_FLAG}>None</option>
+                  {flagOptions.map((option) => (
+                    <option key={option.code} value={option.code}>
+                      {option.name}
+                    </option>
+                  ))}
+                </SelectField>
+                <MemberList members={entity.members} label={`${entity.name} members`} />
+              </>
+            )}
           </div>
-
-          <SelectField
-            label="Select Flag"
-            value={entity.flag ?? NO_FLAG}
-            onChange={(code) => {
-              dispatch({
-                op: 'update_merge',
-                id: entity.id,
-                patch: { flag: code === NO_FLAG ? null : code },
-              })
-              playSfx('click')
-            }}
-          >
-            <option value={NO_FLAG}>None</option>
-            {flagOptions.map((option) => (
-              <option key={option.code} value={option.code}>
-                {option.name}
-              </option>
-            ))}
-          </SelectField>
-
-          <div className="selection-scroll">
-            <MemberChips members={entity.members} label={`${entity.name} members`} />
-          </div>
-
-          <button
-            type="button"
-            className="btn btn--ghost"
-            onClick={() => {
-              // Nothing to undo but the record: the entities were never altered.
-              dispatch({ op: 'delete_merge', id: entity.id })
-              playSfx('click')
-            }}
-          >
-            Remove merge
-          </button>
-        </div>
-      ))}
+        )
+      })}
+      </div>
     </div>
   )
 }

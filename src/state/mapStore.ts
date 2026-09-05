@@ -61,8 +61,6 @@ interface HistoryEntry {
  */
 export interface MergeDraft {
   id: string
-  name: string
-  flag: string | null
   members: CountryId[]
 }
 
@@ -133,6 +131,16 @@ interface MapStore {
   /* merges being assembled. See {@link MergeDraft}. */
   mergeDrafts: MergeDraft[]
   activeMergeDraftId: string | null
+  /**
+   * Whether the Merge panel is the one open.
+   *
+   * Set by the panel itself as it mounts and unmounts, because that is the only place
+   * that knows. It exists so two things elsewhere can be true: tapping an entity starts
+   * a group without anyone pressing a button first, and the selection card the Data
+   * section normally shows stays out of the way — in Merge the group *is* the read-out,
+   * and a second list of the same entities above it is duplication that moves.
+   */
+  mergeMode: boolean
 
   /* operation log — the audit trail the AI assistant will write into */
   log: OperationResult[]
@@ -152,10 +160,11 @@ interface MapStore {
   setRegions: (regionIds: RegionId[]) => void
   toggleRegion: (regionId: RegionId) => void
 
-  addMergeDraft: () => void
-  setActiveMergeDraft: (id: string) => void
-  updateMergeDraft: (id: string, patch: Partial<Omit<MergeDraft, 'id'>>) => void
-  addSelectionToMergeDraft: (id: string) => void
+  /** Creates a group, makes it the collecting one, and returns its id. */
+  addMergeDraft: () => string
+  setMergeMode: (on: boolean) => void
+  /** Makes a group the one that map clicks land in, or `null` to stop collecting. */
+  setActiveMergeDraft: (id: string | null) => void
   removeFromMergeDraft: (id: string, memberId: CountryId) => void
   deleteMergeDraft: (id: string) => void
   /** Turns a draft into a real merged entity through the ordinary operation. */
@@ -187,6 +196,7 @@ export const useMapStore = create<MapStore>((set, get) => ({
 
   mergeDrafts: [],
   activeMergeDraftId: null,
+  mergeMode: false,
 
   log: [],
 
@@ -397,65 +407,67 @@ export const useMapStore = create<MapStore>((set, get) => ({
 
   /* ------------------------------------------------------------ merge drafts */
 
-  addMergeDraft() {
+  addMergeDraft(): string {
     const { mergeDrafts } = get()
     const id = `draft-${Date.now().toString(36)}`
     // Numbered by position rather than by a running counter, so deleting Group 2 of
     // three leaves Group 1 and Group 2 rather than Group 1 and Group 3.
-    const draft: MergeDraft = { id, name: '', flag: null, members: [] }
+    const draft: MergeDraft = { id, members: [] }
     set({ mergeDrafts: [...mergeDrafts, draft], activeMergeDraftId: id })
+    return id
   },
 
   setActiveMergeDraft(id) {
     set({ activeMergeDraftId: id })
   },
 
-  updateMergeDraft(id, patch) {
-    set({
-      mergeDrafts: get().mergeDrafts.map((d) => (d.id === id ? { ...d, ...patch } : d)),
-    })
+  /**
+   * Leaving the panel stops collecting, but keeps the groups.
+   *
+   * Otherwise taps made elsewhere in the editor would keep dropping into a group nobody
+   * can see. The groups themselves survive, so coming back finds the work where it was.
+   */
+  setMergeMode(on) {
+    set(on ? { mergeMode: true } : { mergeMode: false, activeMergeDraftId: null })
   },
 
   /**
-   * Puts the current map selection into one draft.
+   * Takes an entity out of a group, and off the map with it.
    *
-   * The selection is the *existing* selection — the same taps,
-   * the same store — and this only copies it. Deliberately additive and duplicate-free,
-   * so an author can select three countries, add them, select four more and add those
-   * without the second gesture discarding the first.
+   * The highlight and the group are the same fact seen twice while a group is
+   * collecting — a tap puts an entity in both — so a removal has to leave both. Left
+   * highlighted, the entity would read as being in the group it had just been taken out
+   * of, and the next tap on it would invert: unhighlighting it while putting it back in.
    */
-  addSelectionToMergeDraft(id) {
-    const { mergeDrafts, selectedCountryIds } = get()
-    if (selectedCountryIds.length === 0) return
-    set({
-      mergeDrafts: mergeDrafts.map((draft) =>
-        draft.id === id
-          ? {
-              ...draft,
-              members: [
-                ...draft.members,
-                ...selectedCountryIds.filter((c) => !draft.members.includes(c)),
-              ],
-            }
-          : draft,
-      ),
-    })
-  },
-
   removeFromMergeDraft(id, memberId) {
+    const collecting = get().mergeMode && get().activeMergeDraftId === id
     set({
       mergeDrafts: get().mergeDrafts.map((draft) =>
         draft.id === id
           ? { ...draft, members: draft.members.filter((m) => m !== memberId) }
           : draft,
       ),
+      ...(collecting
+        ? { selectedCountryIds: get().selectedCountryIds.filter((c) => c !== memberId) }
+        : null),
     })
   },
 
   deleteMergeDraft(id) {
+    const gone = get().mergeDrafts.find((d) => d.id === id)
     const remaining = get().mergeDrafts.filter((d) => d.id !== id)
+    // Same reasoning as `removeFromMergeDraft`: what a discarded group was holding
+    // stops being highlighted, because there is no longer anything it is highlighted for.
+    const collecting = get().mergeMode && get().activeMergeDraftId === id
     set({
       mergeDrafts: remaining,
+      ...(collecting && gone
+        ? {
+            selectedCountryIds: get().selectedCountryIds.filter(
+              (c) => !gone.members.includes(c),
+            ),
+          }
+        : null),
       activeMergeDraftId:
         get().activeMergeDraftId === id ? (remaining[remaining.length - 1]?.id ?? null) : get().activeMergeDraftId,
     })
@@ -476,12 +488,11 @@ export const useMapStore = create<MapStore>((set, get) => ({
     get().dispatch({
       op: 'create_merge',
       id: mergeId,
-      name: draft.name.trim() || defaultMergeName(get().geo, draft.members),
+      name: defaultMergeName(get().geo, draft.members),
       members: [...draft.members],
     })
-    if (draft.flag) get().dispatch({ op: 'update_merge', id: mergeId, patch: { flag: draft.flag } })
     get().deleteMergeDraft(id)
-    set({ selectedCountryIds: [] })
+    set({ selectedCountryIds: [], activeMergeDraftId: null })
   },
 
   setHovered(id) {
@@ -519,6 +530,38 @@ export const useMapStore = create<MapStore>((set, get) => ({
     } else {
       set({ selectedCountryIds: current.length === 1 && current[0] === id ? [] : [id] })
     }
+
+    /*
+     * A group that is collecting takes what is clicked, as it is clicked.
+     *
+     * This is what removes the staging step: there is no selection to gather and then
+     * hand over, because the map *is* the input. Tapping an entity puts it in the group
+     * and tapping it again takes it out, so the gesture that builds a group is the same
+     * one that builds a selection, and the two never disagree about what is in it.
+     *
+     * Only ever true while a group is open for collecting; with none, this is the plain
+     * selection it always was and no group exists to notice.
+     */
+    /*
+     * In Merge, the first tap makes the group. There is nothing to press first: an
+     * author who taps an entity has already said what they want, and asking them to
+     * declare a container beforehand is a step that only exists for the machine.
+     */
+    let collecting = get().activeMergeDraftId
+    if (!collecting && get().mergeMode) collecting = get().addMergeDraft()
+    if (!collecting) return
+    set({
+      mergeDrafts: get().mergeDrafts.map((draft) =>
+        draft.id === collecting
+          ? {
+              ...draft,
+              members: draft.members.includes(id)
+                ? draft.members.filter((m) => m !== id)
+                : [...draft.members, id],
+            }
+          : draft,
+      ),
+    })
   },
 
   clearSelection() {

@@ -2026,6 +2026,209 @@ body {
   opacity: 1;
 }
 
+/* ------------------------------------------------------------------- merge */
+
+/*
+ * Everything in Merge that can grow, inside one box that cannot.
+ *
+ * Groups arrive, groups are confirmed and become merged entities, entities are tapped
+ * into a list — all of it happens in here, at a height that never changes. The button
+ * above it and the section below it therefore never move, which is the whole point:
+ * a control that shifts while it is being used is a control that gets mis-tapped.
+ */
+.merge-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  height: min(360px, 46vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (pointer: coarse) {
+  .merge-scroll {
+    height: min(400px, 50vh);
+  }
+}
+
+
+
+/*
+ * One group, or one merged entity: the same row either way, so the list reads as one
+ * thing at two stages rather than as two different lists.
+ */
+.merge-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+
+/* The group taking map taps. The accent is the only state the row needs to show. */
+.merge-group--on {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.merge-group__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.merge-group__pick {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  padding: 4px 2px;
+  background: none;
+  border: 0;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+}
+
+.merge-group__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.merge-group__count {
+  flex: none;
+  padding: 0 5px;
+  background: var(--line);
+  border-radius: 999px;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Says which group is taking taps, in words, for when the accent is not enough. */
+.merge-group__live {
+  flex: none;
+  color: var(--accent);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.merge-group__confirm {
+  flex: none;
+  height: var(--control-h-sm);
+  padding-inline: 10px;
+  font-size: 11px;
+}
+
+.merge-group__drop {
+  flex: none;
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  cursor: pointer;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.merge-group__drop:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+/*
+ * The entities in a group.
+ *
+ * **Fixed height, deliberately** — not a max-height that grows to it. A list that grows
+ * pushes every group below it down a row for each entity tapped, which moves the
+ * controls out from under the pointer while the author is using them. Holding the height
+ * constant means the list scrolls inside itself and nothing outside it moves, ever.
+ */
+.merge-members {
+  height: 132px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  list-style: none;
+}
+
+.merge-members__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 4px 0 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.merge-members__row:last-child {
+  border-bottom: 0;
+}
+
+.merge-members__code {
+  overflow: hidden;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Hard right, so every row's remove sits on one line down the edge of the list. */
+.merge-members__remove {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--text-dim);
+  cursor: pointer;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.merge-members__remove:hover {
+  color: var(--text);
+}
+
+.merge-members__empty {
+  padding: 8px;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+@media (pointer: coarse) {
+  .merge-members {
+    height: 176px;
+  }
+  .merge-members__row {
+    min-height: 40px;
+  }
+  .merge-members__remove {
+    width: 40px;
+    height: 40px;
+  }
+  .merge-group__drop {
+    width: 40px;
+    height: 40px;
+  }
+}
+
 /* One merged entity's block, separated so several read as a list. */
 .merge-entity {
   display: flex;
