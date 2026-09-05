@@ -2,6 +2,7 @@
 import { DEFAULT_ATLAS_ID, getAtlas } from '../maps/atlas'
 import { buildPalettes, DEFAULT_PALETTE_ID } from './palettes'
 import { DEFAULT_PRESET_ID } from './presets'
+import { LABEL_OUTLINE, LABEL_SIZE } from '../types/map'
 import type {
   CountryEntry,
   CountryId,
@@ -172,6 +173,20 @@ export function createMapDocument(
     screen: { enabled: false, rect: null, aspect: null },
     // Nothing merged: every country is its own entity, which is the base state.
     merges: [],
+    /*
+     * Off by default: a map says what its author asked it to say, and 250 names is a
+     * decision rather than a starting point. The appearance beneath the switch is
+     * settled anyway, so turning it on is the whole of the setup — white on black is
+     * the one pairing that reads over land, over a data ramp and over a flag alike.
+     */
+    labels: {
+      enabled: false,
+      color: '#ffffff',
+      outlineColor: '#000000',
+      font: 'system',
+      size: LABEL_SIZE.default,
+      outlineWidth: LABEL_OUTLINE.default,
+    },
     legend: {
       /*
        * On by default, but only *shown* when the active mode has something to

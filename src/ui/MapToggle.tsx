@@ -23,6 +23,7 @@ export type MapToggleIcon =
   | 'graticule'
   | 'globe'
   | 'legend'
+  | 'names'
 
 /**
  * One glyph per control, each a closed idea at 14 px:
@@ -33,6 +34,7 @@ export type MapToggleIcon =
  *   globe     — …the sphere's outline, deliberately round for the same reason
  *   coastline — a shore: land above the line, water below it
  *   legend    — a panel with two keyed rows, which is what the thing itself looks like
+ *   names     — a letter on a rule: type sitting on the land, which is the feature
  *
  * Water started as a lake outline, which at 14 px is a blob and reads as neither a
  * lake nor anything else; ripples survive the size, which is the only test that
@@ -72,6 +74,14 @@ const ICON_PATHS: Record<MapToggleIcon, JSX.Element> = {
     <>
       <circle cx="8" cy="8" r="5.6" />
       <path d="M8 2.4c1.7 1.6 2.6 3.5 2.6 5.6S9.7 12.4 8 13.6C6.3 12.4 5.4 10.1 5.4 8s.9-4 2.6-5.6z" />
+    </>
+  ),
+  names: (
+    <>
+      {/* A capital A standing on the ground it is drawn on. */}
+      <path d="M4.1 10.8 8 3.6l3.9 7.2" />
+      <path d="M5.7 8.4h4.6" />
+      <path d="M2.6 13.4h10.8" />
     </>
   ),
   legend: (

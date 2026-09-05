@@ -60,6 +60,8 @@ import {
   patternGeometry,
 } from './MapFlags'
 import { flagFootprints, flagTerritories } from './flagPlacement'
+import { buildLabelShape, layoutLabels, type LabelShape } from './labelPlacement'
+import { MapLabels } from './MapLabels'
 import { flagCodeFor, hasFlag, useFlagStore } from '../flags/flagStore'
 import { resolveScreen } from './screenFrame'
 import { mergeCountries } from '../geo/merge'
@@ -83,6 +85,15 @@ import {
 export const MAP_SVG_ID = 'map-canvas-svg'
 
 const ZOOM_RANGE: [number, number] = [1, 40]
+
+/**
+ * Smallest an entity may be drawn, on a compact viewport, and still be given a flag.
+ *
+ * Six pixels is below the size at which a flag reads as anything but a coloured dot, so
+ * the cutoff costs nothing that could have been seen while removing the SVG parse
+ * behind it. See `visibleFlagTiles`.
+ */
+const COMPACT_FLAG_MIN_PX = 6
 
 export function MapCanvas() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -288,6 +299,141 @@ export function MapCanvas() {
       })
       .filter((s): s is NonNullable<typeof s> => s !== null && s.d.length > 0)
   }, [projection, geo, mergeGeometry, insets])
+
+  /* ----------------------------------------------------------------- labels */
+
+  const labels = doc.labels
+  const labelsOn = labels.enabled
+
+  /**
+   * Whether the label geometry should be kept ready.
+   *
+   * The same latch the flags use, for the same reason: gating the memo on the switch
+   * itself would make turning the feature off replace its inputs with nothing, so
+   * turning it back on would present changed dependencies and pay the whole cost again.
+   * Latched, the second toggle and every one after it does no geometric work at all —
+   * and an author who never turns labels on never pays for them once.
+   */
+  const [labelsPrepared, setLabelsPrepared] = useState(false)
+  useEffect(() => {
+    if (labelsOn) setLabelsPrepared(true)
+  }, [labelsOn])
+  const prepareLabels = labelsOn || labelsPrepared
+
+  /**
+   * Where every name goes, and how much room it has.
+   *
+   * One list covering countries and merged bodies together, built from exactly the
+   * geometry each of them is *drawn* from: a country from its own feature through the
+   * projection that draws it — the main one, or an inset's — and a merged body from the
+   * same dissolve `mergedShapes` paints. So a merge's name follows its real outline,
+   * including when that outline is in several disconnected pieces, and deleting the
+   * merge brings its members' own names back because they are simply in this list
+   * again. There is no labelling path that knows what a merge is.
+   *
+   * What this memo does *not* depend on is worth as much as what it does. Not the
+   * names, not the colours, not the font, not the size — so renaming a merged entity,
+   * or dragging any of the appearance controls, recomputes none of it. And not the
+   * camera either: these are user-space coordinates, so pan and zoom carry them.
+   */
+  const labelShapes = useMemo<LabelShape[]>(() => {
+    if (!prepareLabels || !projection || !geo) return []
+    const out: LabelShape[] = []
+
+    for (const feature of geo.features) {
+      const id = feature.properties.countryId
+      if (mergedMemberIds.has(id)) continue
+      const inset = insets.find((resolved) => resolved.members.has(id))
+      const shape = buildLabelShape(
+        id,
+        feature.geometry,
+        inset ? inset.projection : projection,
+        inset ? inset.inset.id : null,
+      )
+      if (shape) out.push(shape)
+    }
+
+    for (const entity of mergeGeometry) {
+      const geometry = mergeCountries(geo, entity.members)
+      if (!geometry) continue
+      const inset = insetForGroup(insets, entity.members)
+      const shape = buildLabelShape(
+        entity.id,
+        geometry,
+        inset ? inset.projection : projection,
+        inset ? inset.inset.id : null,
+      )
+      if (shape) out.push(shape)
+    }
+
+    return out
+  }, [prepareLabels, projection, geo, mergedMemberIds, mergeGeometry, insets])
+
+  /**
+   * What each entity is called, by the document's own naming rule.
+   *
+   * The author's override first, then the merged entity's name, then the dataset's —
+   * the same order the inspector shows and the same order the hover label follows. A
+   * label is not a new opinion about what a place is called; it is the existing one,
+   * drawn on the map.
+   */
+  const labelNames = useMemo(() => {
+    const names = new Map<string, string>()
+    if (!prepareLabels || !geo) return names
+    for (const shape of labelShapes) {
+      const override = doc.countries[shape.id]?.label
+      const merged = doc.merges.find((m) => m.id === shape.id)?.name
+      const name = override ?? merged ?? geo.meta[shape.id]?.name ?? null
+      if (name) names.set(shape.id, name)
+    }
+    return names
+  }, [prepareLabels, geo, labelShapes, doc.countries, doc.merges])
+
+  /**
+   * The names as they will actually be set: wrapped, sized, placed, de-conflicted.
+   *
+   * The cheap half of the feature, and deliberately separate from the geometry above.
+   * Its inputs are the names, the author's two typographic settings and the stepped
+   * zoom — so a rename, a font change or a drag of the size slider redoes arithmetic
+   * over numbers that were measured once, and never touches a projection.
+   *
+   * The stepped zoom is here because two things depend on the camera: which names clear
+   * the legibility floor, and therefore which of them are competing for the same space.
+   * Stepping it means that set is reconsidered at doublings rather than on every frame
+   * of a pinch.
+   */
+  /*
+   * The zoom, quantised — the one thing the labels ask the camera, and only so they can
+   * decide which of them are large enough to be worth drawing.
+   *
+   * Stepped rather than live because it reaches a memoised component: a continuous value
+   * would re-render every name on every frame of a pinch to change nothing but which ones
+   * are shown. But *quarter*-octaves rather than doublings, because the step size is what
+   * a reader experiences as the feature's smoothness. At doublings, thirty-five names
+   * arrived at the same instant — nothing had moved, yet the map lurched, and a lurch is
+   * indistinguishable from instability to the person watching it. Quartering the step
+   * brings them in a handful at a time, at four times as many render points, each of
+   * which is a cheap reconciliation because no geometry is recomputed.
+   */
+  const labelZoomStep = useMemo(
+    () => (transform.k > 0 ? Math.pow(2, Math.round(Math.log2(transform.k) * 4) / 4) : 1),
+    [transform.k],
+  )
+  const labelStyle = useMemo(
+    () => ({ scale: labels.size, font: labels.font }),
+    [labels.size, labels.font],
+  )
+  /*
+   * Note what is *not* in this dependency list: the zoom. The layout is a statement about
+   * the map in its own coordinates, so the camera has nothing to say about it — which is
+   * what makes a label stay exactly where it was put when the reader zooms. The stepped
+   * zoom below is passed to the renderer instead, where it decides only which of these
+   * are large enough to be worth drawing.
+   */
+  const labelPlacements = useMemo(
+    () => (labelsOn ? layoutLabels(labelShapes, labelNames, labelStyle) : []),
+    [labelsOn, labelShapes, labelNames, labelStyle],
+  )
 
   /**
    * Every lake as one path.
@@ -627,10 +773,49 @@ export function MapCanvas() {
    * Only in flags mode: it is painted with flag patterns, so without them there is
    * nothing to paint it with.
    */
+  /**
+   * The flags actually worth painting, on a screen that cannot afford all of them.
+   *
+   * Every flag is an SVG *document*, and the browser parses it in full whatever size it
+   * ends up drawn at: Serbia's coat of arms is 181 KB of paths whether it covers a
+   * quarter of the screen or four pixels. On a desktop that is fine. On a phone at world
+   * zoom the median country is **5 pixels across** and three quarters of them are under
+   * twelve, so the tab was asked to hold 265 parsed SVG documents in order to paint a
+   * field of dots — and the renderer's memory is not the JS heap, which is why this
+   * showed up as the tab being killed and restored rather than as an error.
+   *
+   * So on a compact viewport a flag is skipped while the entity it belongs to is too
+   * small to show one. Nothing is lost that could have been seen: below this size a flag
+   * is a smudge of average colour, and the entity keeps its ordinary land fill until it
+   * is big enough to wear one.
+   *
+   * **Desktop is not filtered at all** — same array, same identity, same work as before.
+   *
+   * The threshold is checked against a *stepped* zoom rather than the live one, so the
+   * set changes at doublings instead of on every frame of a pinch. Zooming in brings the
+   * smaller flags in a few at a time, which is the behaviour anyone would expect and
+   * costs one cheap filter per step rather than a rebuild.
+   */
+  const compactViewport = Math.min(width, height) < 480
+  const flagZoomStep = useMemo(
+    () => (zoomK > 0 ? Math.pow(2, Math.round(Math.log2(zoomK))) : 1),
+    [zoomK],
+  )
+
+  const visibleFlagTiles = useMemo(() => {
+    if (!compactViewport) return flagTiles
+    return flagTiles.filter(
+      (tile) => Math.max(tile.width, tile.height) * flagZoomStep >= COMPACT_FLAG_MIN_PX,
+    )
+  }, [compactViewport, flagTiles, flagZoomStep])
+
+  /** Ids that still have a pattern, so nothing can reference one that was skipped. */
+  const flaggedIds = useMemo(() => new Set(visibleFlagTiles.map((t) => t.id)), [visibleFlagTiles])
+
   const maritimeCodes = useMemo(
     // A tile exists exactly when the map draws the entity and has a pattern for it.
-    () => new Map(flagTiles.map((tile) => [tile.id, tile.iso2])),
-    [flagTiles],
+    () => new Map(visibleFlagTiles.map((tile) => [tile.id, tile.iso2])),
+    [visibleFlagTiles],
   )
 
   /**
@@ -687,6 +872,21 @@ export function MapCanvas() {
   }, [footprints, geo, projection, flagCodeOf])
 
   /**
+   * Islands, restricted to entities that still have a pattern.
+   *
+   * The island layer paints from its country's own pattern — `url(#map-flag-XX)` — so an
+   * island whose country was skipped above would reference a paint server that does not
+   * exist, and SVG renders that as nothing at all. Filtering by the same set keeps the
+   * two in step: an island appears exactly when its country's flag does.
+   *
+   * Untouched off a compact viewport, where nothing is skipped and the set is everything.
+   */
+  const visibleFlagIslands = useMemo(
+    () => (compactViewport ? flagIslands.filter((i) => flaggedIds.has(i.countryId)) : flagIslands),
+    [compactViewport, flagIslands, flaggedIds],
+  )
+
+  /**
    * The projected extent of everything the mode draws, which is what one world flag has
    * to cover.
    *
@@ -696,12 +896,12 @@ export function MapCanvas() {
    * themselves, so the camera carries it and zoom and pan recompute nothing.
    */
   const worldFlagBounds = useMemo(() => {
-    if (!dominationCode || flagTiles.length === 0) return null
+    if (!dominationCode || visibleFlagTiles.length === 0) return null
     let x0 = Infinity
     let y0 = Infinity
     let x1 = -Infinity
     let y1 = -Infinity
-    for (const tile of flagTiles) {
+    for (const tile of visibleFlagTiles) {
       const boxes = [tile, ...tile.territories]
       for (const box of boxes) {
         if (!Number.isFinite(box.x) || !Number.isFinite(box.y)) continue
@@ -712,14 +912,14 @@ export function MapCanvas() {
       }
     }
     return Number.isFinite(x0) && x1 > x0 && y1 > y0 ? { x0, y0, x1, y1 } : null
-  }, [dominationCode, flagTiles])
+  }, [dominationCode, visibleFlagTiles])
 
   /** Tiles by country, so a country's border can be sized against its own land. */
   const flagTileById = useMemo(() => {
-    const map = new Map<string, (typeof flagTiles)[number]>()
-    for (const tile of flagTiles) map.set(tile.id, tile)
+    const map = new Map<string, (typeof visibleFlagTiles)[number]>()
+    for (const tile of visibleFlagTiles) map.set(tile.id, tile)
     return map
-  }, [flagTiles])
+  }, [visibleFlagTiles])
 
   /**
    * Which countries have a pattern to point their fill at.
@@ -748,7 +948,7 @@ export function MapCanvas() {
   const flagFillById = useMemo(() => {
     const map = new Map<string, string>()
     if (!flagsOn) return map
-    for (const tile of flagTiles) {
+    for (const tile of visibleFlagTiles) {
       /*
        * Under domination every country points at the single world pattern, so the flag
        * runs continuously across the borders instead of repeating whole inside each one.
@@ -757,7 +957,7 @@ export function MapCanvas() {
       else if (loadedFlags[tile.iso2]) map.set(tile.id, `url(#${flagPatternId(tile.id)})`)
     }
     return map
-  }, [flagsOn, flagTiles, loadedFlags, worldFlagFill])
+  }, [flagsOn, visibleFlagTiles, loadedFlags, worldFlagFill])
 
   /**
    * Fetches artwork for whatever is on screen, once per code, ever.
@@ -768,8 +968,8 @@ export function MapCanvas() {
   const requestFlags = useFlagStore((s) => s.request)
   useEffect(() => {
     if (dominationCode) requestFlags([dominationCode])
-    else if (flagTiles.length) requestFlags(flagTiles.map((tile) => tile.iso2))
-  }, [dominationCode, flagTiles, requestFlags])
+    else if (visibleFlagTiles.length) requestFlags(visibleFlagTiles.map((tile) => tile.iso2))
+  }, [dominationCode, visibleFlagTiles, requestFlags])
 
   /** Which merged bodies have artwork ready, and the pattern each one points at. */
   const mergedFlagFillById = useMemo(() => {
@@ -962,7 +1162,7 @@ export function MapCanvas() {
           (dominationCode ? (
             <WorldFlagPattern iso2={dominationCode} bounds={worldFlagBounds} />
           ) : (
-            <FlagPatterns tiles={flagTiles} />
+            <FlagPatterns tiles={visibleFlagTiles} />
           ))}
 
         {/*
@@ -1226,7 +1426,7 @@ export function MapCanvas() {
           */}
           {flagsOn && (
             <FlagIslands
-              islands={flagIslands}
+              islands={visibleFlagIslands}
               zoomK={zoomK}
               floorPx={MIN_RENDERED_SIZE_PX}
               borderColor={FLAG_BORDER_COLOR}
@@ -1252,7 +1452,7 @@ export function MapCanvas() {
           */}
           {flagsOn && !worldFlagFill && (
             <FlagTerritories
-              tiles={flagTiles}
+              tiles={visibleFlagTiles}
               shapeById={shapeById}
               borderColor={FLAG_BORDER_COLOR}
               borderWidth={(tile) => flagBorderWidth(tile, style.borderWidth, zoomK)}
@@ -1410,6 +1610,20 @@ export function MapCanvas() {
             )
           })}
 
+          {/*
+            The names, over everything the map draws.
+
+            Last inside the transformed group, so a name is never covered by a flag, a
+            border, a lake or a selection outline — and still inside it, so the camera
+            moves the names with the land they belong to.
+          */}
+          {labelsOn && (
+            <MapLabels
+              placements={labelPlacements}
+              labels={labels}
+              zoomStep={labelZoomStep}
+            />
+          )}
         </g>
 
         {/*

@@ -20,6 +20,7 @@ import { PROJECTIONS } from '../geo/projections'
 import type {
   CountryEntry,
   CountryId,
+  CountryLabels,
   MapDocument,
   MapGroup,
   MapStyle,
@@ -326,6 +327,12 @@ function applyOperation(doc: MapDocument, op: MapOperation): MapDocument {
       return { ...doc, scope: { ...doc.scope, projectionId: op.projectionId } }
     case 'set_style':
       return { ...doc, style: { ...doc.style, ...(op.patch as Partial<MapStyle>) } }
+    /*
+     * A shallow merge like the style's, so one control writes one field: setting the
+     * outline colour leaves the face, the size and the switch exactly as they were.
+     */
+    case 'set_labels':
+      return { ...doc, labels: { ...doc.labels, ...(op.patch as Partial<CountryLabels>) } }
     case 'set_map_name':
       return { ...doc, name: op.name }
     case 'set_active_layer':

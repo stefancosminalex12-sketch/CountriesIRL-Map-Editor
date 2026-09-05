@@ -15,6 +15,23 @@
  */
 declare module 'd3-geo-projection' {
   import type { GeoProjection } from 'd3-geo'
+  import type { GeoGeometryObjects } from 'd3-geo'
+
+  /**
+   * A geometry re-expressed in the projection's plane.
+   *
+   * The projection applied as a *coordinate transform* rather than as a renderer:
+   * where `geoPath` turns geography into a path string, this turns it into ordinary
+   * GeoJSON whose coordinates are projected x/y. Clipping and antimeridian cutting
+   * happen exactly as they do when drawing, so what comes back matches the shape on
+   * screen — which is the point, since it is measured against the drawn map.
+   *
+   * Null when the object is clipped away entirely.
+   */
+  export function geoProject<T extends GeoGeometryObjects>(
+    object: T,
+    projection: GeoProjection,
+  ): T | null
 
   /**
    * Nell–Hammer, a pseudocylindrical projection.

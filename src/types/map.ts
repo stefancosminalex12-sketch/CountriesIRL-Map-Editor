@@ -537,6 +537,46 @@ export interface MapStyle {
   showSphere: boolean
 }
 
+/* ------------------------------------------------------------------ labels */
+
+/** The faces a name may be set in. Real stacks, so an export resolves them too. */
+export type LabelFontId = 'system' | 'sans' | 'condensed' | 'serif' | 'mono'
+
+export const LABEL_FONTS: ReadonlyArray<{ id: LabelFontId; name: string; stack: string }> = [
+  { id: 'system', name: 'System', stack: 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif' },
+  { id: 'sans', name: 'Sans', stack: 'Helvetica Neue, Helvetica, Arial, sans-serif' },
+  { id: 'condensed', name: 'Condensed', stack: 'Arial Narrow, Helvetica Neue Condensed, Arial, sans-serif' },
+  { id: 'serif', name: 'Serif', stack: 'Georgia, Times New Roman, serif' },
+  { id: 'mono', name: 'Mono', stack: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' },
+]
+
+/** What the author may set, and the range each control covers. */
+export const LABEL_SIZE = { min: 0.5, max: 2.5, step: 0.05, default: 1 }
+export const LABEL_OUTLINE = { min: 0, max: 0.32, step: 0.01, default: 0.14 }
+
+/**
+ * Names drawn on the territories themselves.
+ *
+ * Appearance only. *Where* a name goes and *how big it is* are decided from the
+ * projected geometry — see `render/labelPlacement` — so nothing here can move a label
+ * off its country or make one too big for the shape it sits on. What these fields do
+ * is decide how the text is painted, plus a scale over the size the geometry earned.
+ *
+ * Which is also why changing any of them is cheap: the placement memo does not read
+ * this object, so a colour, a face or a thickness re-renders the text nodes and
+ * recomputes no geometry at all.
+ */
+export interface CountryLabels {
+  enabled: boolean
+  color: string
+  outlineColor: string
+  font: LabelFontId
+  /** Multiplier over the fitted size, not an absolute size. See `LABEL_SIZE`. */
+  size: number
+  /** Outline width as a fraction of the font size, so it scales with the text. */
+  outlineWidth: number
+}
+
 /* ----------------------------------------------------------------- document */
 
 export interface MapDocument {
@@ -564,6 +604,8 @@ export interface MapDocument {
   screen: ScreenFrame
   /** Custom entities dissolved from countries. See {@link MergedEntity}. */
   merges: MergedEntity[]
+  /** Names drawn on the map. See {@link CountryLabels}. */
+  labels: CountryLabels
   geoEdits: GeoEdit[]
   style: MapStyle
 }

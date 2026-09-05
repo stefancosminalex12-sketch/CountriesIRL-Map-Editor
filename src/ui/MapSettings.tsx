@@ -5,7 +5,15 @@ import { useMapStore } from '../state/mapStore'
 import { playSfx } from '../audio/sfx'
 import { MapToggle } from './MapToggle'
 import { SelectField } from './Select'
-import type { MapStyle, ProjectionId } from '../types/map'
+import {
+  LABEL_FONTS,
+  LABEL_OUTLINE,
+  LABEL_SIZE,
+  type CountryLabels,
+  type LabelFontId,
+  type MapStyle,
+  type ProjectionId,
+} from '../types/map'
 
 /**
  * What the map is *of*: which data, drawn how, and what to do with everything outside
@@ -92,11 +100,13 @@ export function MapScopeSettings() {
 export function MapDisplayToggles() {
   const style = useMapStore((s) => s.doc.style)
   const legendVisible = useMapStore((s) => s.doc.legend.visible)
+  const labels = useMapStore((s) => s.doc.labels)
   const dispatch = useMapStore((s) => s.dispatch)
   const setStyle = (patch: Partial<MapStyle>) => dispatch({ op: 'set_style', patch })
 
   // `MapToggle` owns the sound, so all five behave alike.
   return (
+    <div className="stack">
       <div className="toggles">
         <MapToggle
           icon="borders"
@@ -145,7 +155,132 @@ export function MapDisplayToggles() {
           checked={legendVisible}
           onChange={(visible) => dispatch({ op: 'set_legend', patch: { visible } })}
         />
+        {/*
+          Names on the territories. A layer switch like the five above it, in the same
+          grid, because that is what it is — what it draws is decided by the map's own
+          entities, so there is nothing to choose before turning it on.
+        */}
+        <MapToggle
+          icon="names"
+          label="Country Names"
+          checked={labels.enabled}
+          onChange={(enabled) => dispatch({ op: 'set_labels', patch: { enabled } })}
+        />
       </div>
+
+      {/*
+        The appearance controls, and only while there is something to apply them to.
+
+        Under the switch rather than in a section of their own: they are one feature's
+        settings, they are meaningless with the feature off, and five controls that
+        appear when a switch is turned on ask nothing of anyone who leaves it alone.
+      */}
+      {labels.enabled && <CountryNameStyle labels={labels} />}
+    </div>
+  )
+}
+
+/**
+ * How the names look: two colours, a face, a size and an outline.
+ *
+ * None of these decides *where* a name goes or how big it is relative to its country —
+ * that comes from the projected geometry, and Size is a multiplier over it rather than
+ * an absolute. Which is why dragging any of them is cheap: the renderer's placement
+ * memo does not read this object at all, so nothing here recomputes any geometry.
+ */
+function CountryNameStyle({ labels }: { labels: CountryLabels }) {
+  const dispatch = useMapStore((s) => s.dispatch)
+  const set = (patch: Partial<CountryLabels>) => dispatch({ op: 'set_labels', patch })
+
+  return (
+    <div className="stack">
+      <div className="swatches">
+        <label className="swatch">
+          <input
+            type="color"
+            value={labels.color}
+            onChange={(e) => set({ color: e.target.value })}
+          />
+          <span>Text</span>
+        </label>
+        <label className="swatch">
+          <input
+            type="color"
+            value={labels.outlineColor}
+            onChange={(e) => set({ outlineColor: e.target.value })}
+          />
+          <span>Outline</span>
+        </label>
+      </div>
+
+      <SelectField
+        label="Font"
+        value={labels.font}
+        onChange={(value) => {
+          set({ font: value as LabelFontId })
+          playSfx('click')
+        }}
+      >
+        {LABEL_FONTS.map((font) => (
+          <option key={font.id} value={font.id}>
+            {font.name}
+          </option>
+        ))}
+      </SelectField>
+
+      {/*
+        A scale, not a size in pixels. Every name is already fitted to the country it
+        sits on, so one number that moves all of them together keeps that relationship
+        — a map where every name is 14px is a map where Russia is captioned and Belgium
+        is buried.
+      */}
+      <ScaleField
+        label="Font size"
+        value={labels.size}
+        range={LABEL_SIZE}
+        onChange={(size) => set({ size })}
+      />
+      <ScaleField
+        label="Outline thickness"
+        value={labels.outlineWidth}
+        range={LABEL_OUTLINE}
+        onChange={(outlineWidth) => set({ outlineWidth })}
+      />
+    </div>
+  )
+}
+
+/** A slider over a proportion, showing it as the percentage it is. */
+function ScaleField({
+  label,
+  value,
+  range,
+  onChange,
+}: {
+  label: string
+  value: number
+  range: { min: number; max: number; step: number }
+  onChange: (next: number) => void
+}) {
+  const percent = Math.round(value * 100)
+  return (
+    <label className="field">
+      <span className="field__row">
+        <span className="field__label">{label}</span>
+        <span className="field__value">{percent}%</span>
+      </span>
+      <input
+        className="slider"
+        type="range"
+        min={range.min}
+        max={range.max}
+        step={range.step}
+        value={value}
+        aria-label={label}
+        aria-valuetext={`${percent} percent`}
+        onChange={(event) => onChange(Number(event.target.value))}
+      />
+    </label>
   )
 }
 
