@@ -69,6 +69,10 @@ let volume = 1
 const buffers = new Map<SfxName, AudioBuffer>()
 const pending = new Map<SfxName, Promise<AudioBuffer | null>>()
 
+/** Whether the context has actually been through a user gesture and started running. */
+let unlocked = false
+let unlockInstalled = false
+
 function ensureContext(): AudioContext | null {
   if (typeof window === 'undefined') return null
   if (!context) {
@@ -118,9 +122,82 @@ export function getSfxVolume(): number {
   return volume
 }
 
-/** Warms the cache so the first interaction is not silent while a file loads. */
+/**
+ * Warms the cache so the first interaction is not silent while a file loads, and arms
+ * the gesture listener that wakes the context on mobile.
+ */
 export function preloadSfx(): void {
+  installUnlock()
   for (const name of Object.keys(SFX_FILES) as SfxName[]) void load(name)
+}
+
+/**
+ * Wakes the context, from inside a real user gesture.
+ *
+ * Everything below exists because of one fact: `preloadSfx` runs when the app mounts,
+ * so the context is constructed before anyone has touched anything, and a context
+ * created outside a gesture starts *suspended*. On a desktop that resolves itself —
+ * the first click resumes it and the sound plays. On a phone it does not, for three
+ * separate reasons, and this handles all three.
+ *
+ * Playing a silent one-frame buffer is the second half of the wake-up. `resume()`
+ * alone is not enough on iOS: the context reports `running` and stays mute until some
+ * buffer has actually been started inside a gesture. One frame at the sample rate is
+ * inaudible and costs nothing.
+ */
+function unlock(): void {
+  const ctx = ensureContext()
+  if (!ctx) return
+
+  void ctx.resume()
+  try {
+    const source = ctx.createBufferSource()
+    source.buffer = ctx.createBuffer(1, 1, ctx.sampleRate)
+    source.connect(ctx.destination)
+    source.start(0)
+  } catch {
+    // An unlock that fails is not worth breaking a tap over; the next gesture retries.
+  }
+
+  if (ctx.state === 'running') unlocked = true
+}
+
+/**
+ * Listens for the first gesture, and for coming back from the background.
+ *
+ * The gesture list is deliberately broad and captured: whichever of `pointerdown`,
+ * `touchend`, `mousedown` or `keydown` arrives first is the one that counts, and
+ * capture means the map's own handlers cannot stop it from being seen. The listeners
+ * remove themselves once the context is actually running.
+ *
+ * `visibilitychange` is the one that is easy to miss and the most annoying in practice.
+ * iOS suspends the audio context when the page goes to the background — switch apps,
+ * take a call, lock the phone — and it never resumes on its own. Without this, sound
+ * works until the first interruption and is then silent for the rest of the session,
+ * which reads as the feature being broken rather than as the browser having paused it.
+ * `pageshow` covers the same thing for a page restored from the back/forward cache.
+ */
+function installUnlock(): void {
+  if (unlockInstalled || typeof window === 'undefined') return
+  unlockInstalled = true
+
+  const events = ['pointerdown', 'touchend', 'mousedown', 'keydown'] as const
+  const onGesture = () => {
+    unlock()
+    if (unlocked) {
+      for (const type of events) window.removeEventListener(type, onGesture, true)
+    }
+  }
+  for (const type of events) window.addEventListener(type, onGesture, true)
+
+  const revive = () => {
+    // `interrupted` is iOS's own state and is not in the DOM typings' union.
+    if (context && (context.state as string) !== 'running') void context.resume()
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') revive()
+  })
+  window.addEventListener('pageshow', revive)
 }
 
 /**
@@ -133,9 +210,6 @@ export function playSfx(name: SfxName): void {
   const ctx = ensureContext()
   if (!ctx || !master) return
 
-  // Browsers start the context suspended until the user interacts with the page.
-  if (ctx.state === 'suspended') void ctx.resume()
-
   const start = (buffer: AudioBuffer | null) => {
     if (!buffer || !context || !master || volume <= 0) return
     const source = context.createBufferSource()
@@ -147,7 +221,21 @@ export function playSfx(name: SfxName): void {
     source.start()
   }
 
-  const ready = buffers.get(name)
-  if (ready) start(ready)
-  else void load(name).then(start)
+  const play = () => {
+    const ready = buffers.get(name)
+    if (ready) start(ready)
+    else void load(name).then(start)
+  }
+
+  /*
+   * Running is the normal case — every desktop interaction after the first, and every
+   * mobile one after the unlock — and it takes exactly the path it always did.
+   *
+   * Suspended is the first tap on a phone, and the tap after coming back from the
+   * background. Waiting for `resume()` to settle before starting is what makes that
+   * first tap audible rather than swallowed: the old code resumed and started in the
+   * same breath, and on a cold context the sound went nowhere.
+   */
+  if ((ctx.state as string) === 'running') play()
+  else void ctx.resume().then(play, play)
 }
