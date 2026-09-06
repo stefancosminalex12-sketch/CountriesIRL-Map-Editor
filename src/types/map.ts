@@ -93,6 +93,16 @@ export interface LegendConfig {
   visible: boolean
   title: string
   /**
+   * Whether the title is drawn at all.
+   *
+   * Separate from the title text, and deliberately so. Clearing the text does not mean
+   * "no title" — an empty title means "describe yourself", and the legend falls back to
+   * naming whatever it is explaining. There was therefore no way to ask for a legend
+   * with no heading at all; this is that switch, and it leaves the author's words where
+   * they are so turning it back on restores them.
+   */
+  showTitle: boolean
+  /**
    * Optional second line, for a unit or a qualifier: "USD, 2024", "per 1,000".
    *
    * Deliberately its own field rather than something the author appends to the title.
@@ -108,6 +118,28 @@ export interface LegendConfig {
   entries: LegendEntry[]
   /** Which look the legend takes. See `state/legendStyles.ts`. */
   style: LegendStyleId
+  /** The face the whole panel is set in, shared with the country labels. */
+  font: LabelFontId
+  /**
+   * The author's own paint, or `null` to keep whatever the chosen style decided.
+   *
+   * Nullable rather than resolved so that a style remains a style: picking Historical
+   * still repaints the panel, and only the colours an author has actually reached for
+   * survive the change. "Match style" clears all three.
+   */
+  surface: string | null
+  ink: string | null
+  border: string | null
+  /** Multiplier over the style's border width; 0 removes the border. */
+  borderWidth: number
+  /**
+   * Multiplier over the style's padding and the gaps between blocks.
+   *
+   * The compactness control. Everything about the legend's size is derived from those
+   * two measurements, so one number takes the panel from airy to dense without any
+   * layout code knowing it exists.
+   */
+  spacing: number
   /**
    * The panel's size, or `null` while it sizes itself to its content.
    *
@@ -180,6 +212,11 @@ export interface LegendSize {
   width: number
   height: number
 }
+
+
+/** The ranges the legend’s two new proportion controls cover. */
+export const LEGEND_SPACING = { min: 0.4, max: 2, step: 0.05, default: 1 }
+export const LEGEND_BORDER = { min: 0, max: 3, step: 0.1, default: 1 }
 
 /** The range a legend may be resized within. */
 export const LEGEND_MIN_SIZE = { width: 120, height: 52 }
@@ -533,6 +570,16 @@ export interface MapStyle {
   showLakes: boolean
   lake: string
   lakeOutline: string
+  /**
+   * Rivers. Like lakes, a geographic layer of its own rather than part of any country.
+   *
+   * Drawn as lines rather than shapes, so it carries a width instead of a fill: a river
+   * on a world map is a stroke whose weight is a cartographic choice, not a measurement
+   * of how wide the water is.
+   */
+  showRivers: boolean
+  river: string
+  riverWidth: number
   graticule: string
   showSphere: boolean
 }
@@ -577,6 +624,47 @@ export interface CountryLabels {
   outlineWidth: number
 }
 
+
+/* ----------------------------------------------------------------- caption */
+
+/** The weights the caption may be set in. */
+export const CAPTION_WEIGHTS: ReadonlyArray<{ value: number; name: string }> = [
+  { value: 400, name: 'Regular' },
+  { value: 600, name: 'Medium' },
+  { value: 700, name: 'Bold' },
+]
+
+/** The ranges the two numeric caption controls cover. */
+export const CAPTION_SIZE = { min: 12, max: 72, step: 1, default: 28 }
+export const CAPTION_OUTLINE = { min: 0, max: 0.2, step: 0.01, default: 0.1 }
+
+/**
+ * A line of the author's own across the top of the composition.
+ *
+ * Presentation rather than geography: it says what the picture is, the way a headline
+ * does, and it is not attached to any place on the map. So it lives in the same screen
+ * space as the legend rather than in the projected space the countries are drawn in —
+ * which is what keeps it still while the map is zoomed, panned, reprojected or reframed.
+ *
+ * It is anchored to the *composition* rather than to the canvas: with a Screen frame set
+ * the caption sits at the top of that frame, and without one the frame is the whole
+ * canvas, so the two cases are the same rule. That is what makes it reliably part of what
+ * gets exported instead of something that happens to fall outside the crop.
+ */
+export interface MapCaption {
+  enabled: boolean
+  text: string
+  /** The face, shared with the country labels so the map has one type palette. */
+  font: LabelFontId
+  /** Size in canvas pixels — screen space, so it does not scale with the camera. */
+  size: number
+  color: string
+  weight: number
+  outlineColor: string
+  /** Outline width as a fraction of the size; 0 for none. */
+  outlineWidth: number
+}
+
 /* ----------------------------------------------------------------- document */
 
 export interface MapDocument {
@@ -606,6 +694,8 @@ export interface MapDocument {
   merges: MergedEntity[]
   /** Names drawn on the map. See {@link CountryLabels}. */
   labels: CountryLabels
+  /** A headline across the top of the composition. See {@link MapCaption}. */
+  caption: MapCaption
   geoEdits: GeoEdit[]
   style: MapStyle
 }

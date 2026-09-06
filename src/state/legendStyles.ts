@@ -12,13 +12,24 @@
  * document's own legend colour", which is how Classic stays exactly what it was under
  * every theme.
  */
-import type { MapStyle } from '../types/map'
+import { LABEL_FONTS } from '../types/map'
+import type { LegendConfig, MapStyle } from '../types/map'
 
 export type LegendStyleId = 'classic' | 'modern' | 'minimal' | 'historical'
 
 export interface LegendStyleTokens {
   id: LegendStyleId
   name: string
+
+  /**
+   * The face the panel is set in.
+   *
+   * On the tokens rather than as a constant in the renderer because the *measurement*
+   * needs it too: the layout wraps and ellipsises against a real text metric, and a
+   * legend measured in one face and drawn in another wraps in the wrong places. The two
+   * used to be separate constants that did not even agree with each other.
+   */
+  font: string
 
   /** The panel itself. `null` on a colour defers to the document's legend palette. */
   surface: {
@@ -123,12 +134,16 @@ function serpent({ width, height, ink }: { width: number; height: number; ink: s
   }
 }
 
+const DEFAULT_FONT =
+  "system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif"
+
 export const LEGEND_STYLES: Record<LegendStyleId, LegendStyleTokens> = {
   /**
    * What the legend has always been. Its numbers are the ones the previous layout used,
    * so choosing Classic reproduces the old legend rather than approximating it.
    */
   classic: {
+    font: DEFAULT_FONT,
     id: 'classic',
     name: 'Classic',
     surface: {
@@ -151,6 +166,7 @@ export const LEGEND_STYLES: Record<LegendStyleId, LegendStyleTokens> = {
   },
 
   modern: {
+    font: DEFAULT_FONT,
     id: 'modern',
     name: 'Modern',
     surface: {
@@ -173,6 +189,7 @@ export const LEGEND_STYLES: Record<LegendStyleId, LegendStyleTokens> = {
   },
 
   minimal: {
+    font: DEFAULT_FONT,
     id: 'minimal',
     name: 'Minimal',
     surface: {
@@ -196,6 +213,7 @@ export const LEGEND_STYLES: Record<LegendStyleId, LegendStyleTokens> = {
   },
 
   historical: {
+    font: DEFAULT_FONT,
     id: 'historical',
     name: 'Historical',
     surface: {
@@ -221,6 +239,36 @@ export const LEGEND_STYLES: Record<LegendStyleId, LegendStyleTokens> = {
 }
 
 export const LEGEND_STYLE_IDS = Object.keys(LEGEND_STYLES) as LegendStyleId[]
+
+/**
+ * The chosen style, with the author’s own settings folded into it.
+ *
+ * Everything the legend can be customised about is expressed here as a change to the
+ * style tokens, and that is the whole of the integration: the layout, the fitting, the
+ * cache and the renderer already read tokens, so spacing, colour, border weight and the
+ * face all reach them without a single one of those needing to learn a new concept.
+ *
+ * The result must be memoised by the caller. The layout cache compares tokens by
+ * identity, so a fresh object every render would quietly turn the cache off.
+ */
+export function legendTokens(legend: LegendConfig): LegendStyleTokens {
+  const base = LEGEND_STYLES[legend.style] ?? LEGEND_STYLES.classic
+  const spacing = legend.spacing > 0 ? legend.spacing : 1
+  const stack = (LABEL_FONTS.find((f) => f.id === legend.font) ?? LABEL_FONTS[0]).stack
+  return {
+    ...base,
+    font: stack,
+    pad: base.pad * spacing,
+    gap: base.gap * spacing,
+    ink: legend.ink ?? base.ink,
+    surface: {
+      ...base.surface,
+      fill: legend.surface ?? base.surface.fill,
+      stroke: legend.border ?? base.surface.stroke,
+      strokeWidth: base.surface.strokeWidth * legend.borderWidth,
+    },
+  }
+}
 
 /** Resolves a style's `null` colours against the document's own legend palette. */
 export function resolveLegendPaint(tokens: LegendStyleTokens, style: MapStyle) {

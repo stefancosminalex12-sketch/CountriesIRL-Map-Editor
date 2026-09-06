@@ -98,6 +98,61 @@ export const LABEL_WEIGHT = 600
 
 /** Smallest and largest a name may be drawn, in projected units, before the scale. */
 export const LABEL_MIN_SIZE = 2.6
+
+/**
+ * How far a name may outgrow its territory before it is set beside it instead.
+ *
+ * Measured as the width of the block, at the smallest size worth setting, against the
+ * territory's longest dimension. Under the limit the name is centred on its country and
+ * allowed to overhang — which is what an atlas does and what a reader expects, since a
+ * word lying across a small country is unmistakably that country’s name. Over it, the
+ * word would be a smear across three neighbours and a caption beside the territory is
+ * the clearer answer.
+ *
+ * The rule exists because the previous one had no middle. Anything that could not fit
+ * *within* its borders was captioned from outside, and on a world map that is most of
+ * the world: fifty-one countries — Uzbekistan, Cuba, Malaysia, the United Kingdom — had
+ * their names floating off them at 1x, which reads as the labels being attached to the
+ * wrong thing.
+ */
+const OVERFLOW_LIMIT = 5
+
+/**
+ * How much of the size a territory has earned it keeps when its name will not fit inside.
+ *
+ * The fix for the worst thing this module did. A size taken only from what fits *within*
+ * the borders is a fact about the polygon, and for a small island the polygon is almost
+ * nothing: Barbados could hold its name at 0.11 units, Saint Kitts at 0.06. Multiplied by
+ * the camera those stay under the readability floor until roughly fifty times zoom, so
+ * the label sat at exactly six pixels at 1x, at 8x and at 32x — dead flat — while France
+ * went from 6 px to 195 and Brazil to 325. Zooming in made every Caribbean name smaller
+ * relative to the map, which is precisely backwards.
+ *
+ * So the inside fit is a floor to beat, not a ceiling to obey. A territory also gets the
+ * size its *projected* size warrants — the same area law that limits everyone, which is a
+ * measure of how large the thing is on the map and therefore grows with the zoom exactly
+ * as the land does. A shade under the full allowance, because this size is spent on type
+ * that will overhang its borders, and overhang should be modest.
+ *
+ * A country that can hold its own name is untouched: its inside fit already beats this.
+ */
+const SPACE_FLOOR_SHARE = 0.75
+
+/**
+ * How wide a block may run, against the territory it labels, before wrapping is worth it.
+ *
+ * The test for "does this name reasonably fit on one line". Under the limit a single line
+ * is used even where breaking it would technically allow larger type; over it, the name is
+ * wrapped and the block pulled back towards the shape of the country.
+ *
+ * A rule of this kind is needed because the obvious one — take whichever arrangement sets
+ * the largest type — is systematically wrong. Wrapping narrows a block, and a narrower
+ * block always fits a shape better, so the largest type is very nearly always the most
+ * wrapped: New Zealand, South Africa, South Korea, North Korea, Sri Lanka and Papua New
+ * Guinea were all stacked vertically on two lines with room to spare beside them. Size is
+ * the wrong thing to optimise here; how the block sits on the country is the right one.
+ */
+const WRAP_WIDTH_LIMIT = 1.8
 export const LABEL_MAX_SIZE = 26
 
 /**
@@ -117,7 +172,25 @@ export const LABEL_MAX_SIZE = 26
  * Keeping the floor lower means inside always wins while inside is legible at all, and
  * outside is reached only by territories that genuinely cannot hold their name.
  */
-export const LABEL_MIN_RENDERED_PX = 6
+export const LABEL_MIN_RENDERED_PX = 5.5
+
+/**
+ * Largest a name may be *rendered*, in screen pixels.
+ *
+ * The ceiling that matches the floor, and the reason a great many countries had no label
+ * at all. A size fixed in the map’s coordinates grows without limit as the camera comes
+ * in: France reached 195 px at 32x and Brazil 325. Blocks that large overlap their
+ * neighbours’ blocks at every zoom, and since overlap is what suppresses a label, the
+ * smaller neighbour could never appear — Cameroon was shut out by the Central African
+ * Republic, Ireland by the United Kingdom, Switzerland by France, at 1x and still at 32x.
+ *
+ * Capping the rendered size stops the biggest names swelling past the point where they
+ * are simply large, and in doing so hands back the space their neighbours need. It also
+ * preserves the two properties that matter: rendered size still never decreases as the
+ * reader zooms in, and the block a label occupies in the map’s coordinates only ever
+ * shrinks, so a name once shown is never taken away.
+ */
+export const LABEL_MAX_RENDERED_PX = 36
 
 /**
  * The size range an outside label is set in, in projected units.
@@ -128,17 +201,10 @@ export const LABEL_MIN_RENDERED_PX = 6
  * size at every doubling of the zoom, so it shrank by a factor of two at every step and
  * drifted by up to 1.4x between them. Sixty to seventy labels did that on every zoom.
  *
- * Within the range the size follows the territory, so a caption stays in proportion to
- * the thing it names: Luxembourg's is smaller than Slovenia's, and both are far smaller
- * than any name set inside its own borders.
+ * The size follows the territory, so a caption stays in proportion to the thing it names
+ * and grows with the camera exactly as the land does.
  */
-const EXTERNAL_MIN_SIZE = 2.6
 const EXTERNAL_MAX_SIZE = 7
-const EXTERNAL_OF_TERRITORY = 0.75
-
-function clampSize(value: number, min: number, max: number): number {
-  return value < min ? min : value > max ? max : value
-}
 
 /**
  * How large a territory must be on screen before it is named from outside.
@@ -743,6 +809,10 @@ export interface PlacedLabel {
   clipId: string | null
   /** True when the name is set beside its territory rather than inside it. */
   external: boolean
+  /** Width of the widest line, in ems, so the zoom pass can size the block. */
+  blockWidth: number
+  /** Projected extent of the territory, for the one gate an outside caption needs. */
+  extent: number
   /**
    * The smallest zoom at which this label is worth drawing.
    *
@@ -752,8 +822,10 @@ export interface PlacedLabel {
    * at every zoom. Zooming in can reveal a name; it can never move one, resize one, or
    * take one away.
    *
-   * Derived from the two reasons a label is not worth drawing yet: type too small to read,
-   * and — for a name set beside its territory — a territory too small to be looking at.
+   * A caption set *beside* a territory is the only label that has one, and it has it for
+   * a reason no amount of type can fix: a caption pointing at something smaller than a few
+   * pixels is pointing at nothing the reader can see. A name written *inside* its own
+   * borders has no such threshold and is never withheld — see `visibleLabels`.
    */
   minZoom: number
 }
@@ -935,6 +1007,8 @@ interface Option {
   external: boolean
   /** How far from the territory's most central position, for tie-breaking. */
   offCentre: number
+  /** Whether the block runs wider than its territory. See `WRAP_WIDTH_LIMIT`. */
+  overWide: boolean
 }
 
 interface Rect {
@@ -978,6 +1052,14 @@ function interiorOptions(
   if (words.length === 0 || shape.spots.length === 0) return []
 
   const ceiling = Math.min(sizeCeilingForArea(shape.area), LABEL_MAX_SIZE)
+  /*
+   * The size the territory is entitled to from how large it is drawn. Applied *here*, so
+   * that the arrangement is chosen against the size the label will really be set at.
+   * Deciding the line breaks from the inside fit and then overriding the size afterwards
+   * meant every wrap was chosen for a size that was never used.
+   */
+  const spaceFloor = Math.min(sizeCeilingForArea(shape.area) * SPACE_FLOOR_SHARE, ceiling)
+  const extent = Math.max(shape.maxX - shape.minX, shape.maxY - shape.minY)
   const options: Option[] = []
   const centre = shape.spots[0]
 
@@ -986,15 +1068,29 @@ function interiorOptions(
       const lines = wrapInto(words, count, width)
       if (!lines) continue
       const blockWidth = widestLine(lines, width)
+      /*
+       * An arrangement that does not fit inside the shape at all is still an arrangement.
+       * Discarding it here quietly removed the sensible options for small countries: with
+       * no two-line setting of "United Arab Emirates" fitting within the borders, the only
+       * survivor was the three-line one, so the name was stacked a word at a time. Since a
+       * name may now overhang, not fitting is no longer disqualifying — it means the space
+       * floor decides the size and the width test decides whether to wrap.
+       */
       const raw = sizeAtSpot(spot, lines, blockWidth)
-      if (raw.size <= 0) continue
       /*
        * The room the shape has, and the size the territory has earned, whichever is the
        * smaller. Room can only ever take size away here — a country is never given type
        * larger than it has somewhere to put.
        */
-      const fontSize = Math.min(raw.size, ceiling)
-      if (fontSize < LABEL_MIN_SIZE) continue
+      /*
+       * No minimum is applied here, and that is deliberate. This is the size the shape
+       * can *hold*; whether it is large enough to read is a question about the camera,
+       * answered once per zoom in `visibleLabels`, which lifts anything below the floor
+       * rather than discarding it. Rejecting small fits here is what used to leave two
+       * hundred territories with no label at all.
+       */
+      const fontSize = Math.min(Math.max(raw.size, spaceFloor), ceiling)
+      if (fontSize <= 0 || blockWidth <= 0) continue
       options.push({
         x: spot.x + raw.dx,
         y: spot.y,
@@ -1003,21 +1099,38 @@ function interiorOptions(
         blockWidth,
         external: false,
         offCentre: spotIndex === 0 ? 0 : Math.hypot(spot.x - centre.x, spot.y - centre.y),
+        /*
+         * Whether this arrangement runs wider across the map than the country it names.
+         * The single thing that decides whether a name is wrapped.
+         *
+         * Judged at the territory's baseline size rather than at each arrangement's own,
+         * so that the arrangements are compared on equal terms. Measured at their own
+         * sizes the test punished the good ones: a setting that found more room earned a
+         * larger size, which made its block wider, which made it look like the one that
+         * did not fit — so "United Arab Emirates" and "Isle of Man" were each broken onto
+         * three lines, one word apiece, while the two-line setting was rejected for being
+         * too successful.
+         */
+        overWide: blockWidth * spaceFloor > extent * WRAP_WIDTH_LIMIT,
       })
     }
   })
 
   /*
-   * Best first: the biggest type wins, and between settings within a tenth of each other
-   * the more central one does — so a label does not wander off centre to buy a two
-   * percent gain in size.
+   * Best first, and the order of these clauses is the whole wrapping policy.
+   *
+   * An arrangement that sits within the country's own width comes before one that spills
+   * across it; among those, the one on fewest lines, because a name read straight across
+   * is what a reader expects and a stack of words is a concession. Only then does size
+   * decide, and last of all how central the position is.
    */
   options.sort((a, b) => {
+    if (a.overWide !== b.overWide) return a.overWide ? 1 : -1
+    if (a.lines.length !== b.lines.length) return a.lines.length - b.lines.length
     if (Math.abs(a.fontSize - b.fontSize) > Math.max(a.fontSize, b.fontSize) * 0.1) {
       return b.fontSize - a.fontSize
     }
-    if (a.offCentre !== b.offCentre) return a.offCentre - b.offCentre
-    return a.lines.length - b.lines.length
+    return a.offCentre - b.offCentre
   })
 
   if (options.length === 0) return []
@@ -1029,8 +1142,7 @@ function interiorOptions(
   const best = options[0]
   const smaller: Option[] = []
   for (const factor of [0.78, 0.6]) {
-    const fontSize = best.fontSize * factor
-    if (fontSize >= LABEL_MIN_SIZE) smaller.push({ ...best, fontSize })
+    smaller.push({ ...best, fontSize: best.fontSize * factor })
   }
 
   return [best, ...smaller, ...options.slice(1)].slice(0, 10)
@@ -1089,6 +1201,8 @@ function externalOptions(
     blockWidth,
     external: true,
     offCentre: index,
+    // A caption is beside its territory by definition; width against it means nothing.
+    overWide: false,
   }))
 }
 
@@ -1149,13 +1263,27 @@ export function layoutLabels(
     const options = interiorOptions(shape, name, width)
 
     /*
-     * Outside only when inside genuinely will not do. `interiorOptions` has already
-     * refused every setting below `LABEL_MIN_SIZE`, so an empty list *is* the finding
-     * that this territory cannot hold its own name at a legible size — a fact about the
-     * geometry, settled once, rather than something a zoom can change its mind about. A
-     * country that can reasonably contain its name never reaches this branch.
+     * Inside, overhanging, or beside — decided from the geometry alone, so it is settled
+     * once and no zoom revisits it.
+     *
+     * A territory with no interior at all has nowhere to be centred on. Otherwise the
+     * question is whether the name, set at the smallest size worth reading, would still
+     * look like a label *on* this country: under `OVERFLOW_LIMIT` it is centred there and
+     * allowed to overhang, and only past that does it become a caption alongside.
      */
-    if (options.length === 0) {
+    const best = options.length > 0 ? options[0] : null
+    const spaceFloorHere = sizeCeilingForArea(shape.area) * SPACE_FLOOR_SHARE
+    /*
+     * Measured at the size the name will actually be set at, not at some notional minimum.
+     * The name is centred on its territory and allowed to overhang — that is the normal
+     * treatment for a small island and it keeps the label unmistakably attached to it.
+     * Only when the block would run several times the width of the territory does centring
+     * stop reading as a label *on* it, and a caption alongside become the clearer answer.
+     */
+    const swamped =
+      best !== null &&
+      best.blockWidth * Math.max(best.fontSize, spaceFloorHere) > extent * OVERFLOW_LIMIT
+    if (options.length === 0 || swamped) {
       /*
        * A caption is held under the same area law as every name set inside a border, and
        * that is what stops it outranking them. Without it the outside sizes answered to
@@ -1164,22 +1292,52 @@ export function layoutLabels(
        * tell a reader which places are large; a rule that exempts the smallest territories
        * from it tells them the opposite.
        */
-      const size = clampSize(
-        Math.min(extent * EXTERNAL_OF_TERRITORY, sizeCeilingForArea(shape.area)),
-        EXTERNAL_MIN_SIZE,
+      /*
+       * A caption is sized by the same space law as a name on its own land, and by
+       * nothing else. It used to carry a floor of its own, expressed in the map's
+       * coordinates — which meant it grew with the camera without limit: Monaco's caption
+       * reached eighty-three pixels at 32x, and blocks that large collided with everything
+       * around them, so Antigua, Saint Kitts and Saint Vincent were resolved away at every
+       * zoom and never appeared at all. Legibility is not this function's job; the render
+       * floor in `visibleLabels` lifts anything too small on screen, and it does so in
+       * screen pixels, where the question actually lives.
+       */
+      const size = Math.min(
+        sizeCeilingForArea(shape.area) * SPACE_FLOOR_SHARE,
         EXTERNAL_MAX_SIZE,
       )
-      options.push(...externalOptions(shape, name, width, size))
+      /*
+       * Ahead of the interior settings, not behind them. Appended, they were never reached:
+       * the chooser takes the first option that clears its neighbours, so a swamped
+       * territory went on using the cramped inside placement and the whole branch was dead
+       * code. The inside settings stay on the list as fallbacks for a caption that collides.
+       */
+      options.unshift(...externalOptions(shape, name, width, size))
     }
 
+    /*
+     * The first option that clears its neighbours, or the best one regardless.
+     *
+     * **Every territory gets a placement.** Choosing among the options is what the
+     * neighbours influence — a country takes a smaller setting, an extra line, or another
+     * corner of its own land to stay clear of one — but running out of options is not a
+     * reason to have no label at all. It used to be, and that alone cost twenty countries
+     * their names at every zoom: Bosnia, Slovakia, Kosovo, Montenegro, Luxembourg and the
+     * Caribbean states were resolved away here and could never come back, however far in
+     * the reader zoomed. Whether there is room for a name is a question about a particular
+     * zoom, and it is asked at that zoom, in `visibleLabels`.
+     */
+    /*
+     * The size this territory is entitled to from how large it is drawn, whatever its
+     * outline happens to allow. See `SPACE_FLOOR_SHARE`.
+     */
+    const spaceFloor = sizeCeilingForArea(shape.area) * SPACE_FLOOR_SHARE
+    const sizeOf = (option: Option) => Math.max(option.fontSize, spaceFloor) * scale
+
+    let chosen = options[0]
+    let chosenRect = blockRect(chosen, sizeOf(chosen))
     for (const option of options) {
-      /*
-       * The author's scale is applied here, to the fitted size and to the block measured
-       * for collisions together — so turning the type up enlarges the names *and* keeps
-       * them clear of each other at their new size, rather than only changing how many
-       * are shown.
-       */
-      const fontSize = option.fontSize * scale
+      const fontSize = sizeOf(option)
       const rect = blockRect(option, fontSize)
       let clear = true
       for (const other of taken) {
@@ -1188,32 +1346,158 @@ export function layoutLabels(
           break
         }
       }
-      if (!clear) continue
-      taken.push(rect)
+      if (clear) {
+        chosen = option
+        chosenRect = rect
+        break
+      }
+    }
+
+    {
+      const option = chosen
+      /*
+       * The author's scale is applied here, to the fitted size and to the block measured
+       * for collisions together — so turning the type up enlarges the names *and* keeps
+       * them clear of each other at their new size.
+       */
+      const fontSize = sizeOf(option)
+      taken.push(chosenRect)
 
       /*
        * Two reasons to wait, and a label waits for the later of them: until its type is
        * large enough on screen to read, and — for a name set beside its territory — until
        * that territory is large enough to be worth pointing at.
        */
-      const legible = LABEL_MIN_RENDERED_PX / fontSize
-      const visible = option.external && extent > 0 ? EXTERNAL_MIN_TERRITORY_PX / extent : 0
-
       placed.push({
         id: shape.id,
         x: option.x,
         y: option.y,
         fontSize,
         lines: option.lines,
+        blockWidth: option.blockWidth,
+        extent,
         clipId: shape.clipId,
         external: option.external,
-        minZoom: Math.max(legible, visible),
+        /*
+         * Only a caption waits, and only for its territory to be worth pointing at. A
+         * name inside its own borders is never held back: it is drawn at every zoom, at
+         * whatever size keeps it readable.
+         */
+        minZoom: option.external && extent > 0 ? EXTERNAL_MIN_TERRITORY_PX / extent : 0,
       })
-      break
     }
   }
 
   return placed
+}
+
+
+/**
+ * What to draw at this zoom, and how large — the whole of the camera's involvement.
+ *
+ * Two rules, and the first is why this exists. **A name is never withheld for being
+ * small; it is enlarged until it is readable.** Held at its fitted size a label shrinks
+ * with the map, and on a world map that put two hundred correctly placed names below the
+ * threshold at which type means anything — so they were hidden, and a reader zooming out
+ * watched the map go blank. Giving every label a floor in *screen* pixels instead means
+ * it stops shrinking at the point it stops being legible and holds there, which is what
+ * every atlas does with its smallest type.
+ *
+ * Above that floor a name scales with the territory, exactly as before. The transition is
+ * where the two curves meet, so it is smooth by construction, and it runs one way: zooming
+ * in only ever moves a label from the floor toward its fitted size, never back.
+ *
+ * The second rule is overlap, and it is the *only* reason a label is ever left out. That
+ * is a cartographic limit rather than a technical one — two names cannot occupy the same
+ * paper — and it is resolved the same way every time: largest territory first, so the
+ * result is deterministic at a given zoom and the big names never lose to small ones.
+ *
+ * **Nothing here moves anything.** Positions and line breaks were settled once, in the
+ * map's own coordinates, and are passed through untouched. The camera may change how large
+ * a name is set and whether a crowded neighbour fits beside it. It can never move one.
+ */
+export interface VisibleLabel extends PlacedLabel {
+  /** The size to actually set this label at, after the readability floor. */
+  size: number
+}
+
+/**
+ * The size a label is set at, held between the floor and the ceiling for a given zoom.
+ *
+ * Both bounds are stated in screen pixels and converted here, which is what makes them
+ * mean what they say: never smaller than legible, never larger than useful, and scaling
+ * with the land in between.
+ */
+function sizeAt(label: PlacedLabel, zoom: number): number {
+  const floor = LABEL_MIN_RENDERED_PX / zoom
+  const ceiling = LABEL_MAX_RENDERED_PX / zoom
+  return Math.min(Math.max(label.fontSize, floor), Math.max(ceiling, floor))
+}
+
+function rectAt(label: PlacedLabel, size: number): Rect {
+  const hw = (label.blockWidth * size) / 2
+  const hh = (blockEms(label.lines.length) * size) / 2
+  return { x0: label.x - hw, y0: label.y - hh, x1: label.x + hw, y1: label.y + hh }
+}
+
+/** The quarter-octave rungs from the fitted view up to this zoom, inclusive. */
+function laddderTo(zoom: number): number[] {
+  const rungs = [1]
+  for (let step = 1; ; step++) {
+    const rung = Math.pow(2, step / 4)
+    if (rung > zoom + 1e-9) break
+    rungs.push(rung)
+  }
+  if (rungs[rungs.length - 1] < zoom - 1e-9) rungs.push(zoom)
+  return rungs
+}
+
+export function visibleLabels(placed: PlacedLabel[], zoom: number): VisibleLabel[] {
+  const target = zoom > 1 ? zoom : 1
+  const ordered = [...placed].sort((a, b) => b.extent - a.extent || (a.id < b.id ? -1 : 1))
+
+  /*
+   * Climbed from the fitted view rather than solved at the target zoom, and that is what
+   * makes appearing and disappearing predictable.
+   *
+   * Solved directly, the greedy pass is not monotone: a large country that lost its place
+   * at one zoom can win it back at the next as the type shrinks, and in doing so evict a
+   * smaller neighbour that had been readable all along. Sierra Leone and Cyprus each
+   * vanished that way *while the reader was zooming in*, which is precisely the behaviour
+   * that reads as the labels being unreliable.
+   *
+   * Climbing fixes it by construction. Whatever was readable at a lower zoom keeps its
+   * place at every higher one, and each rung can only add. So zooming in only ever reveals
+   * names, zooming out only ever withdraws the last ones added, and the same zoom always
+   * gives the same answer however the reader arrived at it.
+   */
+  const accepted = new Set<string>()
+  for (const rung of laddderTo(target)) {
+    const taken: Rect[] = []
+    for (const label of ordered) {
+      if (accepted.has(label.id)) taken.push(rectAt(label, sizeAt(label, rung)))
+    }
+    for (const label of ordered) {
+      if (accepted.has(label.id)) continue
+      // A caption still waits for its territory to be worth pointing at.
+      if (rung < label.minZoom) continue
+      const rect = rectAt(label, sizeAt(label, rung))
+      let clear = true
+      for (const other of taken) {
+        if (overlaps(rect, other)) {
+          clear = false
+          break
+        }
+      }
+      if (!clear) continue
+      accepted.add(label.id)
+      taken.push(rect)
+    }
+  }
+
+  return ordered
+    .filter((label) => accepted.has(label.id))
+    .map((label) => ({ ...label, size: sizeAt(label, target) }))
 }
 
 /** Baseline-to-baseline distance for a rendered block, in projected units. */

@@ -28,12 +28,10 @@ import {
   buildComparisonContext,
   computeCategories,
   computeDomain,
-  contrastInk,
   resolveBorderInk,
   deriveLandTints,
   reanchorTone,
   resolveCountryFill,
-  resolveDataFill,
   type FillContext,
 } from '../state/colors'
 import { MapLegend, LEGEND_MARKER } from './MapLegend'
@@ -60,12 +58,18 @@ import {
   patternGeometry,
 } from './MapFlags'
 import { flagFootprints, flagTerritories } from './flagPlacement'
-import { buildLabelShape, layoutLabels, type LabelShape } from './labelPlacement'
+import {
+  buildLabelShape,
+  layoutLabels,
+  visibleLabels,
+  type LabelShape,
+} from './labelPlacement'
 import { MapLabels } from './MapLabels'
 import { flagCodeFor, hasFlag, useFlagStore } from '../flags/flagStore'
 import { resolveScreen } from './screenFrame'
 import { mergeCountries } from '../geo/merge'
 import { MapScreen } from './MapScreen'
+import { MapCaption } from './MapCaption'
 import { getPreset } from '../state/presets'
 import { useMapStore } from '../state/mapStore'
 import { useSettingsStore } from '../state/settingsStore'
@@ -105,6 +109,7 @@ export function MapCanvas() {
   const doc = useMapStore((s) => s.doc)
   const geo = useMapStore((s) => s.geo)
   const lakes = useMapStore((s) => s.lakes)
+  const rivers = useMapStore((s) => s.rivers)
   const maritime = useMapStore((s) => s.maritime)
   const geoStatus = useMapStore((s) => s.geoStatus)
   const geoError = useMapStore((s) => s.geoError)
@@ -436,6 +441,21 @@ export function MapCanvas() {
   )
 
   /**
+   * The labels as this zoom sets them: sized against the readability floor, and thinned
+   * only where two of them would occupy the same paper.
+   *
+   * Separate from the layout above because the two change on completely different
+   * occasions. The layout is a statement about the map and is recomputed only when the
+   * geometry or the names do; this is recomputed when the camera crosses a step, and all
+   * it does is arithmetic and rectangle tests over placements that already exist. Nothing
+   * here can move a label — it has no position of its own to give one.
+   */
+  const labelsToDraw = useMemo(
+    () => (labelsOn ? visibleLabels(labelPlacements, labelZoomStep) : []),
+    [labelsOn, labelPlacements, labelZoomStep],
+  )
+
+  /**
    * Every lake as one path.
    *
    * They share a single style and are never individually addressable, so one element
@@ -448,6 +468,26 @@ export function MapCanvas() {
     const path = geoPath(projection)
     return path({ type: 'FeatureCollection', features: lakes.features } as Parameters<typeof path>[0]) ?? ''
   }, [projection, lakes])
+
+  /**
+   * Every river as one path.
+   *
+   * The same arrangement the lakes get, for the same reasons: one element rather than
+   * five hundred, and memoised on the projection and the layer so it survives every pan,
+   * zoom and theme change untouched. Panning and zooming move the group this sits in,
+   * which is why interacting with the map never rebuilds this string.
+   *
+   * Relevance is the projection's job. `geoPath` clips to the projection's own extent,
+   * so a river outside the current map — the Amazon on a map framed to Europe, or
+   * anything on the far side of an orthographic globe — produces no path data at all.
+   * That keeps the layer honest without a second opinion about what is on screen, and
+   * without recomputing anything as the camera moves.
+   */
+  const riverPath = useMemo(() => {
+    if (!projection || !rivers) return ''
+    const path = geoPath(projection)
+    return path({ type: 'FeatureCollection', features: rivers.features } as Parameters<typeof path>[0]) ?? ''
+  }, [projection, rivers])
 
   const backdrop = useMemo(() => {
     if (!projection) return { sphere: '', graticule: '', borders: '' }
@@ -1555,60 +1595,43 @@ export function MapCanvas() {
           )}
 
           {/*
-            Selection, drawn as an outline rather than as a fill.
+            Rivers, over the land and the lakes they run through.
 
-            The fill belongs to the data — a selected country keeps whatever colour its
-            value earned it, so assigning to one batch never blanks the batch before it.
-            That leaves the outline to carry the whole signal, and one colour cannot do
-            it: a palette runs from near-black to near-white, and a line chosen to read
-            against one end disappears against the other. So the casing is picked from
-            the fill it lands on and the theme's own outline colour rides on top of it.
+            After the lakes deliberately: Natural Earth's centrelines carry the course a
+            river takes *through* a lake, and drawing them under the water would cut each
+            one in half at every lake on its way to the sea.
+
+            Stroked and never filled — a river is a line — with a non-scaling stroke so
+            it stays a hairline at every zoom instead of swelling into a ribbon. Pointer
+            events are off so a river never intercepts a click meant for the country it
+            crosses.
           */}
-          {selectedCountryIds.map((id) => {
-            const d = shapeById.get(id)
-            if (!d) return null
-            const entry = doc.countries[id]
-            if (entry?.hidden) return null
+          {style.showRivers && riverPath && (
+            <path
+              d={riverPath}
+              fill="none"
+              stroke={style.river}
+              strokeWidth={style.riverWidth}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              vectorEffect="non-scaling-stroke"
+              pointerEvents="none"
+            />
+          )}
 
-            const under =
-              resolveDataFill(
-                entry,
-                {
-                  ...fillContext,
-                  inScope: scopeCountryIds.has(id),
-                  hovered: false,
-                  selected: true,
-                  landTint: landTintById?.get(id) ?? null,
-                },
-                id,
-              ) ??
-              landTintById?.get(id) ??
-              style.land
+          {/*
+            Selection is a fill, and only a fill.
 
-            return (
-              <g key={`outline-${id}`} pointerEvents="none">
-                <path
-                  d={d}
-                  fill="none"
-                  stroke={contrastInk(under)}
-                  strokeWidth={3.4}
-                  strokeOpacity={0.85}
-                  strokeLinejoin="round"
-                  vectorEffect="non-scaling-stroke"
-                  transform={minimumSizeById.get(id)}
-                />
-                <path
-                  d={d}
-                  fill="none"
-                  stroke={style.selectedOutline}
-                  strokeWidth={1.4}
-                  strokeLinejoin="round"
-                  vectorEffect="non-scaling-stroke"
-                  transform={minimumSizeById.get(id)}
-                />
-              </g>
-            )
-          })}
+            There used to be a two-layer outline here — a contrasting casing with the
+            theme's selection colour over it — drawn round every selected country. It has
+            been removed: a selected country now reads by its colour alone, which
+            `resolveCountryFill` gives it ahead of any data colour. The outline was a
+            second signal for one state, it sat on top of the country's real borders and
+            thickened them, and it survived into every export.
+
+            Nothing replaces it. The small-entity lens below is a different thing — a
+            callout for territories too small to see, not a border round one.
+          */}
 
           {/*
             The names, over everything the map draws.
@@ -1617,13 +1640,7 @@ export function MapCanvas() {
             border, a lake or a selection outline — and still inside it, so the camera
             moves the names with the land they belong to.
           */}
-          {labelsOn && (
-            <MapLabels
-              placements={labelPlacements}
-              labels={labels}
-              zoomStep={labelZoomStep}
-            />
-          )}
+          {labelsOn && <MapLabels placements={labelsToDraw} labels={labels} />}
         </g>
 
         {/*
@@ -1707,6 +1724,13 @@ export function MapCanvas() {
           as an HTML overlay would be absent from every PNG, JPG and SVG.
         */}
         <MapLegend doc={doc} width={width} height={height} />
+
+        {/*
+          The caption, last of all and in screen space. Drawn after the legend so nothing
+          can cover it, and positioned against the resolved composition frame — which is
+          the whole canvas until an author sets a Screen, so one rule covers both.
+        */}
+        <MapCaption caption={doc.caption} frame={screen} />
       </svg>
 
       {/*

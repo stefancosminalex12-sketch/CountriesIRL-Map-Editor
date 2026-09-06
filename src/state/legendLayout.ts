@@ -45,10 +45,16 @@ function measurer(): CanvasRenderingContext2D | null {
   return ctx
 }
 
-export function textWidth(text: string, size: number, weight = 400, letterSpacing = 0): number {
+export function textWidth(
+  text: string,
+  size: number,
+  weight = 400,
+  letterSpacing = 0,
+  font = FONT_STACK,
+): number {
   const c = measurer()
   if (!c) return text.length * size * 0.55
-  c.font = `${weight} ${size}px ${FONT_STACK}`
+  c.font = `${weight} ${size}px ${font}`
   return c.measureText(text).width + letterSpacing * size * Math.max(0, text.length - 1)
 }
 
@@ -65,9 +71,10 @@ export function wrapText(
   size: number,
   weight = 400,
   letterSpacing = 0,
+  font = FONT_STACK,
 ): string[] {
   if (!text) return []
-  const width = (s: string) => textWidth(s, size, weight, letterSpacing)
+  const width = (s: string) => textWidth(s, size, weight, letterSpacing, font)
   const lines: string[] = []
   let line = ''
 
@@ -99,10 +106,16 @@ export function wrapText(
 }
 
 /** Shortens to fit a width, with an ellipsis. Only used where wrapping is not possible. */
-export function fitOneLine(text: string, maxWidth: number, size: number, weight = 400): string {
-  if (!text || textWidth(text, size, weight) <= maxWidth) return text
+export function fitOneLine(
+  text: string,
+  maxWidth: number,
+  size: number,
+  weight = 400,
+  font = FONT_STACK,
+): string {
+  if (!text || textWidth(text, size, weight, 0, font) <= maxWidth) return text
   let out = text
-  while (out.length > 1 && textWidth(`${out}…`, size, weight) > maxWidth) {
+  while (out.length > 1 && textWidth(`${out}…`, size, weight, 0, font) > maxWidth) {
     out = out.slice(0, -1)
   }
   return `${out}…`
@@ -276,11 +289,14 @@ function measure(
     titleSize,
     tokens.title.weight,
     tokens.title.letterSpacing,
+    tokens.font,
   )
 
   const subtitleSize = tokens.subtitle.size * scale * sizes.subtitle
   const subtitleLineHeight = subtitleSize * (tokens.subtitle.lineHeight / tokens.subtitle.size)
-  const subtitleLines = model.subtitle ? wrapText(model.subtitle, headerWidth, subtitleSize) : []
+  const subtitleLines = model.subtitle
+    ? wrapText(model.subtitle, headerWidth, subtitleSize, 400, 0, tokens.font)
+    : []
 
   const textHeight =
     titleLines.length * titleLineHeight + subtitleLines.length * subtitleLineHeight
@@ -309,7 +325,7 @@ function measure(
 
   const noteSize = tokens.note.size * scale * sizes.text
   const noteLineHeight = noteSize * (tokens.note.lineHeight / tokens.note.size)
-  const noteLines = model.text ? wrapText(model.text, inner, noteSize) : []
+  const noteLines = model.text ? wrapText(model.text, inner, noteSize, 400, 0, tokens.font) : []
   const noteHeight = noteLines.length ? noteLines.length * noteLineHeight + gap : 0
 
   return {
@@ -336,7 +352,12 @@ function measure(
     noteSize,
     noteLineHeight,
     noteHeight,
-    total: pad * 2 + headerHeight + gap + bodyHeight + noteHeight,
+    /*
+     * The gap belongs to the header, so it goes when the header does. Kept
+     * unconditionally it left a band of empty panel where the title had been, which is
+     * the one thing hiding a title must not do.
+     */
+    total: pad * 2 + headerHeight + (headerHeight > 0 ? gap : 0) + bodyHeight + noteHeight,
   }
 }
 
@@ -545,6 +566,7 @@ function solveLayout(
         m.headerWidth,
         m.titleSize,
         tokens.title.weight,
+        tokens.font,
       )
     }
   }
@@ -552,7 +574,9 @@ function solveLayout(
   const textHeight =
     titleLines.length * m.titleLineHeight + subtitleLines.length * m.subtitleLineHeight
   const headerHeight = Math.max(textHeight, m.iconSize)
-  const contentHeight = pad * 2 + headerHeight + m.gap + m.bodyHeight + noteHeight
+  /* No header, no gap under it — see `measure`. An icon alone still counts as one. */
+  const headerGap = headerHeight > 0 ? m.gap : 0
+  const contentHeight = pad * 2 + headerHeight + headerGap + m.bodyHeight + noteHeight
 
   /*
    * Whatever the ceiling on the scale left over.
@@ -578,7 +602,7 @@ function solveLayout(
   const neutralBodyHeight = m.bodyHeight / items
   const slack = Math.max(
     0,
-    height - (pad * 2 + headerHeight + m.gap + neutralBodyHeight + noteHeight),
+    height - (pad * 2 + headerHeight + headerGap + neutralBodyHeight + noteHeight),
   )
 
   let rampHeight = m.rampHeight / items
@@ -607,7 +631,12 @@ function solveLayout(
    * turning the control up closes the air between the blocks before it runs out of
    * room, rather than stopping at whatever the baseline happened to leave.
    */
-  const gapCount = noteLines.length ? 2 : 1
+  /*
+   * How many gaps the panel has to distribute its slack over: one under the header when
+   * there is a header, one above the note when there is a note. With neither, the body
+   * simply fills the panel.
+   */
+  const gapCount = (headerHeight > 0 ? 1 : 0) + (noteLines.length ? 1 : 0)
   // The note carries its own leading inside `noteHeight`; the lines alone are fixed.
   const noteLinesHeight = noteHeight > 0 ? noteHeight - m.gap : 0
   const fixedHeight = pad * 2 + headerHeight + noteLinesHeight
@@ -646,10 +675,10 @@ function solveLayout(
    * every item size: small entries open the spacing out, large ones close it up.
    */
   const leftover = Math.max(0, height - fixedHeight - finalBodyHeight - m.gap * gapCount)
-  const gap = m.gap + leftover / gapCount
+  const gap = gapCount > 0 ? m.gap + leftover / gapCount : m.gap
 
   const headerTop = pad
-  const bodyY = headerTop + headerHeight + gap
+  const bodyY = headerTop + headerHeight + (headerHeight > 0 ? gap : 0)
 
   const title: TextBlock = {
     lines: titleLines,
@@ -711,10 +740,12 @@ function solveLayout(
     const labelSize = m.rowLabelSize
     const labelX = pad + swatch + m.rowLabelGap
     const labels = model.rows.map((row) => {
-      const detailWidth = row.detail ? textWidth(row.detail, labelSize) + m.rowLabelGap : 0
+      const detailWidth = row.detail
+        ? textWidth(row.detail, labelSize, 400, 0, tokens.font) + m.rowLabelGap
+        : 0
       const room = pad + inner - labelX - detailWidth
       return {
-        label: fitOneLine(row.label, Math.max(12, room), labelSize),
+        label: fitOneLine(row.label, Math.max(12, room), labelSize, 400, tokens.font),
         detail: row.detail ?? '',
       }
     })

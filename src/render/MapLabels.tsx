@@ -17,28 +17,26 @@
  * the Screen frame crops it by being a view box over the same scene.
  */
 import { memo } from 'react'
-import { lineAdvance, LABEL_WEIGHT, type PlacedLabel } from './labelPlacement'
+import { lineAdvance, LABEL_WEIGHT, type VisibleLabel } from './labelPlacement'
 import { LABEL_FONTS, type CountryLabels } from '../types/map'
 
 interface Props {
-  placements: PlacedLabel[]
-  labels: CountryLabels
   /**
-   * The zoom, rounded to the nearest doubling.
+   * The labels this zoom draws, already sized and de-conflicted.
    *
-   * The only thing the camera is allowed to say about a label, and it can only say
-   * whether to draw it. Position, size and line breaks were settled in the map's own
-   * coordinates and are carried here unchanged, so zooming reveals names and never
-   * rearranges them.
+   * The camera's whole influence arrives baked into this list — see `visibleLabels`.
+   * Nothing in here re-decides anything: a name's position and line breaks were settled
+   * in the map's own coordinates, so this component draws what it is given.
    */
-  zoomStep: number
+  placements: VisibleLabel[]
+  labels: CountryLabels
 }
 
 function fontStack(id: CountryLabels['font']): string {
   return (LABEL_FONTS.find((font) => font.id === id) ?? LABEL_FONTS[0]).stack
 }
 
-export const MapLabels = memo(function MapLabels({ placements, labels, zoomStep }: Props) {
+export const MapLabels = memo(function MapLabels({ placements, labels }: Props) {
   const family = fontStack(labels.font)
 
   return (
@@ -51,14 +49,7 @@ export const MapLabels = memo(function MapLabels({ placements, labels, zoomStep 
      */
     <g pointerEvents="none" aria-hidden="true">
       {placements.map((label) => {
-        /*
-         * Too small to read yet. Not shrunk, not moved, not re-fitted — simply not drawn,
-         * and drawn at exactly this size and position the moment the reader is close
-         * enough for it to be legible.
-         */
-        if (zoomStep < label.minZoom) return null
-
-        const advance = lineAdvance(label.fontSize)
+        const advance = lineAdvance(label.size)
         /*
          * The block is centred on the anchor, so the first baseline sits half a block
          * above it. With `dominant-baseline` centring each line on its own baseline, a
@@ -76,7 +67,7 @@ export const MapLabels = memo(function MapLabels({ placements, labels, zoomStep 
             textAnchor="middle"
             dominantBaseline="central"
             fontFamily={family}
-            fontSize={label.fontSize}
+            fontSize={label.size}
             /*
              * The same weight the fitting measured the text at. A block measured semibold
              * and drawn regular would be measured for text that is never set.
@@ -96,7 +87,7 @@ export const MapLabels = memo(function MapLabels({ placements, labels, zoomStep 
              * holds the same proportion on a name of any size and at any zoom.
              */
             stroke={labels.outlineWidth > 0 ? labels.outlineColor : undefined}
-            strokeWidth={labels.outlineWidth > 0 ? label.fontSize * labels.outlineWidth : undefined}
+            strokeWidth={labels.outlineWidth > 0 ? label.size * labels.outlineWidth : undefined}
             strokeLinejoin="round"
             paintOrder="stroke"
             clipPath={label.clipId ? `url(#map-inset-${label.clipId})` : undefined}

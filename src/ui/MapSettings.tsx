@@ -6,11 +6,15 @@ import { playSfx } from '../audio/sfx'
 import { MapToggle } from './MapToggle'
 import { SelectField } from './Select'
 import {
+  CAPTION_OUTLINE,
+  CAPTION_SIZE,
+  CAPTION_WEIGHTS,
   LABEL_FONTS,
   LABEL_OUTLINE,
   LABEL_SIZE,
   type CountryLabels,
   type LabelFontId,
+  type MapCaption,
   type MapStyle,
   type ProjectionId,
 } from '../types/map'
@@ -101,6 +105,7 @@ export function MapDisplayToggles() {
   const style = useMapStore((s) => s.doc.style)
   const legendVisible = useMapStore((s) => s.doc.legend.visible)
   const labels = useMapStore((s) => s.doc.labels)
+  const caption = useMapStore((s) => s.doc.caption)
   const dispatch = useMapStore((s) => s.dispatch)
   const setStyle = (patch: Partial<MapStyle>) => dispatch({ op: 'set_style', patch })
 
@@ -131,6 +136,17 @@ export function MapDisplayToggles() {
           label="Lakes"
           checked={style.showLakes}
           onChange={(showLakes) => setStyle({ showLakes })}
+        />
+        {/*
+          Rivers, beside the lakes because they are the same kind of thing: a geographic
+          water layer that belongs to no country. Its own switch rather than sharing the
+          lakes' one, so either can be drawn without the other.
+        */}
+        <MapToggle
+          icon="rivers"
+          label="Rivers"
+          checked={style.showRivers}
+          onChange={(showRivers) => setStyle({ showRivers })}
         />
         <MapToggle
           icon="graticule"
@@ -166,6 +182,17 @@ export function MapDisplayToggles() {
           checked={labels.enabled}
           onChange={(enabled) => dispatch({ op: 'set_labels', patch: { enabled } })}
         />
+        {/*
+          A headline for the picture. In this grid with the other layers because that is
+          what it is — something the map draws or does not draw — even though what it
+          says comes from the author rather than from the geography.
+        */}
+        <MapToggle
+          icon="caption"
+          label="Top Caption"
+          checked={caption.enabled}
+          onChange={(enabled) => dispatch({ op: 'set_caption', patch: { enabled } })}
+        />
       </div>
 
       {/*
@@ -176,7 +203,134 @@ export function MapDisplayToggles() {
         appear when a switch is turned on ask nothing of anyone who leaves it alone.
       */}
       {labels.enabled && <CountryNameStyle labels={labels} />}
+      {caption.enabled && <TopCaptionStyle caption={caption} />}
     </div>
+  )
+}
+
+/**
+ * The caption's own text and how it is set.
+ *
+ * Appears with the switch, like the country names' controls above it, and for the same
+ * reason: five fields that mean nothing while the feature is off are five fields an
+ * author who leaves it off never has to read past.
+ */
+function TopCaptionStyle({ caption }: { caption: MapCaption }) {
+  const dispatch = useMapStore((s) => s.dispatch)
+  const set = (patch: Partial<MapCaption>) => dispatch({ op: 'set_caption', patch })
+
+  return (
+    <div className="stack">
+      <label className="field">
+        <span className="field__label">Caption</span>
+        <input
+          className="input"
+          type="text"
+          value={caption.text}
+          placeholder="Type a caption…"
+          aria-label="Caption text"
+          onChange={(event) => set({ text: event.target.value })}
+        />
+      </label>
+
+      <div className="swatches">
+        <label className="swatch">
+          <input
+            type="color"
+            value={caption.color}
+            onChange={(e) => set({ color: e.target.value })}
+          />
+          <span>Text</span>
+        </label>
+        <label className="swatch">
+          <input
+            type="color"
+            value={caption.outlineColor}
+            onChange={(e) => set({ outlineColor: e.target.value })}
+          />
+          <span>Outline</span>
+        </label>
+      </div>
+
+      <SelectField
+        label="Font"
+        value={caption.font}
+        onChange={(value) => {
+          set({ font: value as LabelFontId })
+          playSfx('click')
+        }}
+      >
+        {LABEL_FONTS.map((font) => (
+          <option key={font.id} value={font.id}>
+            {font.name}
+          </option>
+        ))}
+      </SelectField>
+
+      <SelectField
+        label="Weight"
+        value={String(caption.weight)}
+        onChange={(value) => {
+          set({ weight: Number(value) })
+          playSfx('click')
+        }}
+      >
+        {CAPTION_WEIGHTS.map((weight) => (
+          <option key={weight.value} value={String(weight.value)}>
+            {weight.name}
+          </option>
+        ))}
+      </SelectField>
+
+      {/*
+        A size in canvas pixels rather than a multiplier: the caption is not fitted to
+        any shape, so there is nothing for a multiplier to be relative to.
+      */}
+      <PixelField
+        label="Size"
+        value={caption.size}
+        range={CAPTION_SIZE}
+        onChange={(size) => set({ size })}
+      />
+      <ScaleField
+        label="Outline width"
+        value={caption.outlineWidth}
+        range={CAPTION_OUTLINE}
+        onChange={(outlineWidth) => set({ outlineWidth })}
+      />
+    </div>
+  )
+}
+
+/** A slider over an absolute size, shown in the pixels it is. */
+function PixelField({
+  label,
+  value,
+  range,
+  onChange,
+}: {
+  label: string
+  value: number
+  range: { min: number; max: number; step: number }
+  onChange: (next: number) => void
+}) {
+  return (
+    <label className="field">
+      <span className="field__row">
+        <span className="field__label">{label}</span>
+        <span className="field__value">{Math.round(value)}px</span>
+      </span>
+      <input
+        className="slider"
+        type="range"
+        min={range.min}
+        max={range.max}
+        step={range.step}
+        value={value}
+        aria-label={label}
+        onChange={(event) => onChange(Number(event.target.value))}
+      />
+    </label>
   )
 }
 

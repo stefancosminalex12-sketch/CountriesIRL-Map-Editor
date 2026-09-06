@@ -88,7 +88,7 @@ export type LegendModel = LegendHeader &
 
 /** Height of the title block, which the subtitle extends only when there is one. */
 export function headerHeight(model: LegendHeader): number {
-  return TITLE_H + (model.subtitle ? SUBTITLE_H : 0)
+  return (model.title ? TITLE_H : 0) + (model.subtitle ? SUBTITLE_H : 0)
 }
 
 export function legendSize(model: LegendModel): LegendSize {
@@ -167,7 +167,13 @@ function deriveLegendModel(doc: MapDocument): LegendModel | null {
    * author has typed anything — and the moment they do, their words win outright and
    * nothing here ever writes back over them.
    */
-  const title = doc.legend.title || defaultLegendTitle(doc)
+  /*
+   * Switched off, the model simply has no title — the one change this feature makes to
+   * the pipeline. Everything downstream already copes with a legend that has nothing to
+   * head it, because an empty string was always possible here; what was not possible was
+   * *asking* for one, since an empty field means "describe yourself" and fills itself in.
+   */
+  const title = doc.legend.showTitle ? doc.legend.title || defaultLegendTitle(doc) : ''
   const subtitle = doc.legend.subtitle
   /*
    * Authored outright, unlike the title's fallback: an empty free line means the author

@@ -16,6 +16,7 @@ import {
 } from './operations'
 import { loadGeoDataset, type LoadedDataset } from '../geo/datasets'
 import { lakeLayerForDetail, loadLakes, type LoadedLakes } from '../geo/lakes'
+import { riverLayerForDetail, loadRivers, type LoadedRivers } from '../geo/rivers'
 import { loadMaritime, type LoadedMaritime } from '../geo/maritime'
 import { countriesInRegions, resolveFraming } from '../geo/regions'
 import { getAtlas } from '../maps/atlas'
@@ -116,6 +117,7 @@ interface MapStore {
   geoError: string | null
   /** Inland water, loaded as its own layer once the countries are up. */
   lakes: LoadedLakes | null
+  rivers: LoadedRivers | null
   /** Maritime territory, loaded the same way. Independent of the country dataset. */
   maritime: LoadedMaritime | null
 
@@ -186,6 +188,7 @@ export const useMapStore = create<MapStore>((set, get) => ({
   geoStatus: 'idle',
   geoError: null,
   lakes: null,
+  rivers: null,
   maritime: null,
 
   transform: IDENTITY_TRANSFORM,
@@ -221,6 +224,16 @@ export const useMapStore = create<MapStore>((set, get) => ({
             if (get().doc.scope.datasetId === datasetId) set({ lakes })
           })
           .catch((error) => console.warn('[geo] lakes unavailable', error))
+      }
+
+      // Rivers alongside the lakes, on the same terms and for the same reason.
+      const riverLayer = riverLayerForDetail(geo.dataset.detail)
+      if (get().rivers?.layer.id !== riverLayer.id) {
+        void loadRivers(riverLayer)
+          .then((rivers) => {
+            if (get().doc.scope.datasetId === datasetId) set({ rivers })
+          })
+          .catch((error) => console.warn('[geo] rivers unavailable', error))
       }
 
       // Maritime territory the same way, and only once: it is a single global file

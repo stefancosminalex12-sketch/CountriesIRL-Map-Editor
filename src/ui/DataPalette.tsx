@@ -201,6 +201,19 @@ export function DataPalette() {
                 dispatch({ op: 'set_flags', patch: { islandWater } })
               }
             />
+            {/*
+              The same switch as Display -> Borders, not a second one: it reads and writes
+              `style.showBorders` through the same `set_style` operation, so the two are
+              one control shown in two places and cannot disagree. Here because a map made
+              of flags is one of the places where wanting the borders gone is most common,
+              and leaving the panel to do it breaks the thought.
+            */}
+            <MapToggle
+              icon="borders"
+              label="Borders"
+              checked={doc.style.showBorders}
+              onChange={(showBorders) => dispatch({ op: 'set_style', patch: { showBorders } })}
+            />
             <MapToggle
               icon="borders"
               label="International Borders"

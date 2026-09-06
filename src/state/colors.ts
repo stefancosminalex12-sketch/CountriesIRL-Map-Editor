@@ -260,9 +260,9 @@ export function buildComparisonContext(comparison: ComparisonMode): ComparisonCo
 /**
  * The colour the active mode gives a country, or null when it has nothing to say.
  *
- * Split out from {@link resolveCountryFill} because the renderer needs the answer on
- * its own: a selected country keeps this colour and is marked by an outline, and the
- * outline has to know what it is being drawn over.
+ * Split out from {@link resolveCountryFill} because two callers need this answer on its
+ * own: the border ink measures against the colour the data gave a country, and the legend
+ * mirrors this precedence exactly.
  */
 export function resolveDataFill(
   entry: CountryEntry | undefined,
@@ -306,10 +306,19 @@ export function resolveCountryFill(
   countryId?: CountryId,
 ): string {
   /*
-   * What the data says, first and unconditionally. Selection and hover are states of
-   * the pointer rather than of the map, so they colour only what the active mode left
-   * uncoloured — see the note at the top of this file.
+   * Selection first, because on this map selection *is* a fill and nothing else.
+   *
+   * It used to be the other way round — the data colour won and a heavy outline was
+   * drawn round the country to mark it — which meant a selected country carried two
+   * signals at once and the outline sat on top of the borders, thickening them wherever
+   * the pointer had been. The outline is gone, so this colour is the whole of what
+   * "selected" looks like and it has to win over the data underneath.
+   *
+   * Hover is unchanged: it still colours only what the active mode left uncoloured, so
+   * moving the pointer across a finished map never repaints the work.
    */
+  if (ctx.selected) return ctx.style.selected
+
   const authored = resolveDataFill(entry, ctx, countryId)
   if (authored) return authored
 

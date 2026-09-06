@@ -63,6 +63,7 @@ export interface Theme {
     | 'hover'
     | 'selected'
     | 'selectedOutline'
+    | 'river'
     | 'outsideScopeColor'
     | 'graticule'
     | 'lake'
@@ -139,6 +140,7 @@ const dark: Theme = {
     graticule: '#2a313a',
     lake: '#23303d',
     lakeOutline: '#1b2530',
+    river: '#3c6d8e',
   },
 }
 
@@ -185,6 +187,7 @@ const light: Theme = {
     graticule: '#b4c6d2',
     lake: '#bcd3e2',
     lakeOutline: '#94b3c8',
+    river: '#6f9fbb',
   },
 }
 
@@ -234,6 +237,7 @@ const geographic: Theme = {
     // with a deeper rim so each lake keeps a defined edge against the land.
     lake: '#8fb3c9',
     lakeOutline: '#63899f',
+    river: '#4a7f9c',
   },
   graticuleByDefault: true,
   // Closely spaced natural tones — enough to separate neighbours, not enough to

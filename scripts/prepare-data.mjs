@@ -38,6 +38,17 @@ for (const detail of ['10m', '50m']) {
   else console.warn(`[prepare-data] missing lakes-${detail}.geojson - run: node scripts/fetch-lakes.mjs`)
 }
 
+/**
+ * Rivers, on the same terms as the lakes above: a separate geographic layer, vendored
+ * under data/natural-earth/ by scripts/fetch-rivers.mjs, copied rather than fetched so
+ * the build stays offline.
+ */
+for (const detail of ['10m', '50m']) {
+  const src = resolve(root, `data/natural-earth/rivers-${detail}.geojson`)
+  if (existsSync(src)) copyFileSync(src, resolve(outDir, `rivers-${detail}.geojson`))
+  else console.warn(`[prepare-data] missing rivers-${detail}.geojson - run: node scripts/fetch-rivers.mjs`)
+}
+
 /* --------------------------------------------------------------- US states */
 
 /**

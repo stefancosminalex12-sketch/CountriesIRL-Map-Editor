@@ -15,7 +15,7 @@
  * `LegendAnchor`), never as pixels — so a resize keeps a corner in the corner and the
  * centre in the centre.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { buildLegendModel, LEGEND_WIDTH, type LegendModel } from '../state/legend'
 import { useMapStore } from '../state/mapStore'
 import type {
@@ -27,7 +27,7 @@ import type {
 } from '../types/map'
 import { LEGEND_MAX_SIZE, LEGEND_MIN_SIZE } from '../types/map'
 import { layoutLegend, naturalLegendSize } from '../state/legendLayout'
-import { LEGEND_STYLES, resolveLegendPaint } from '../state/legendStyles'
+import { legendTokens, resolveLegendPaint } from '../state/legendStyles'
 import type { LegendStyleTokens } from '../state/legendStyles'
 import type { LegendLayout, TextBlock } from '../state/legendLayout'
 import { ICON_STROKE, ICON_VIEWBOX, LEGEND_ICONS } from '../state/legendIcons'
@@ -37,9 +37,6 @@ const MARGIN = 12
 
 /** How close a drag has to get before an alignment claims it, in pixels. */
 const SNAP = 14
-
-const FONT =
-  "system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif"
 
 /** Attribute the canvas checks to keep legend clicks away from country picking. */
 export const LEGEND_MARKER = 'data-legend'
@@ -143,6 +140,24 @@ export function MapLegend({ doc, width, height }: MapLegendProps) {
     origin: { x: number; y: number }
   } | null>(null)
 
+  /*
+   * The style with the author's settings folded in — memoised, because the layout cache
+   * compares tokens by identity and a fresh object each render would turn it off.
+   */
+  const legend = doc.legend
+  const tokens = useMemo(
+    () => legendTokens(legend),
+    [
+      legend.style,
+      legend.font,
+      legend.spacing,
+      legend.surface,
+      legend.ink,
+      legend.border,
+      legend.borderWidth,
+    ],
+  )
+
   const model = buildLegendModel(doc)
   const clipId = 'map-legend-clip'
 
@@ -157,7 +172,6 @@ export function MapLegend({ doc, width, height }: MapLegendProps) {
 
   if (!model || width < 2 || height < 2) return null
 
-  const tokens = LEGEND_STYLES[doc.legend.style] ?? LEGEND_STYLES.classic
   const paint = resolveLegendPaint(tokens, doc.style)
 
   /*
@@ -478,6 +492,7 @@ function LegendBody({
       )}
 
       <Lines
+        font={tokens.font}
         block={layout.title}
         ink={ink}
         weight={tokens.title.weight}
@@ -485,6 +500,7 @@ function LegendBody({
         keyPrefix="t"
       />
       <Lines
+        font={tokens.font}
         block={layout.subtitle}
         ink={ink}
         opacity={tokens.subtitle.opacity}
@@ -492,18 +508,19 @@ function LegendBody({
       />
 
       {layout.body.kind === 'ramp' && model.kind === 'ramp' ? (
-        <RampBodyView body={layout.body} model={model} ink={ink} />
+        <RampBodyView body={layout.body} model={model} ink={ink} font={tokens.font} />
       ) : layout.body.kind === 'rows' && model.kind === 'rows' ? (
-        <RowsBodyView body={layout.body} model={model} ink={ink} />
+        <RowsBodyView body={layout.body} model={model} ink={ink} font={tokens.font} />
       ) : null}
 
-      <Lines block={layout.note} ink={ink} opacity={tokens.note.opacity} keyPrefix="n" />
+      <Lines font={tokens.font} block={layout.note} ink={ink} opacity={tokens.note.opacity} keyPrefix="n" />
     </g>
   )
 }
 
 /** A positioned run of wrapped lines. The layout has already decided all of this. */
 function Lines({
+  font,
   block,
   ink,
   opacity = 1,
@@ -517,6 +534,7 @@ function Lines({
   weight?: number
   letterSpacing?: number
   keyPrefix: string
+  font: string
 }) {
   if (block.lines.length === 0) return null
   return (
@@ -528,7 +546,7 @@ function Lines({
           y={block.baseline + block.lineHeight * i}
           fill={ink}
           fillOpacity={opacity}
-          fontFamily={FONT}
+          fontFamily={font}
           fontSize={block.size}
           fontWeight={weight}
           letterSpacing={letterSpacing === undefined ? undefined : `${letterSpacing}em`}
@@ -590,10 +608,12 @@ function RampBodyView({
   body,
   model,
   ink,
+  font,
 }: {
   body: Extract<LegendLayout['body'], { kind: 'ramp' }>
   model: Extract<LegendModel, { kind: 'ramp' }>
   ink: string
+  font: string
 }) {
   return (
     <>
@@ -628,7 +648,7 @@ function RampBodyView({
         x={body.x}
         y={body.labelBaseline}
         fill={ink}
-        fontFamily={FONT}
+        fontFamily={font}
         fontSize={body.labelSize}
         fillOpacity={0.72}
         pointerEvents="none"
@@ -641,7 +661,7 @@ function RampBodyView({
           y={body.labelBaseline}
           textAnchor="middle"
           fill={ink}
-          fontFamily={FONT}
+          fontFamily={font}
           fontSize={body.labelSize}
           fillOpacity={0.72}
           pointerEvents="none"
@@ -654,7 +674,7 @@ function RampBodyView({
         y={body.labelBaseline}
         textAnchor="end"
         fill={ink}
-        fontFamily={FONT}
+        fontFamily={font}
         fontSize={body.labelSize}
         fillOpacity={0.72}
         pointerEvents="none"
@@ -676,10 +696,12 @@ function RowsBodyView({
   body,
   model,
   ink,
+  font,
 }: {
   body: Extract<LegendLayout['body'], { kind: 'rows' }>
   model: Extract<LegendModel, { kind: 'rows' }>
   ink: string
+  font: string
 }) {
   return (
     <>
@@ -700,7 +722,7 @@ function RowsBodyView({
               x={body.labelX}
               y={cy + body.labelSize * 0.35}
               fill={ink}
-              fontFamily={FONT}
+              fontFamily={font}
               fontSize={body.labelSize}
             >
               {fitted?.label ?? row.label}
@@ -711,7 +733,7 @@ function RowsBodyView({
                 y={cy + body.labelSize * 0.35}
                 textAnchor="end"
                 fill={ink}
-                fontFamily={FONT}
+                fontFamily={font}
                 fontSize={body.labelSize}
                 fillOpacity={0.62}
               >

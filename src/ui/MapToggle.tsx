@@ -20,21 +20,25 @@ export type MapToggleIcon =
   | 'borders'
   | 'coastline'
   | 'lakes'
+  | 'rivers'
   | 'graticule'
   | 'globe'
   | 'legend'
   | 'names'
+  | 'caption'
 
 /**
  * One glyph per control, each a closed idea at 14 px:
  *
  *   borders   — a territory divided by an emphasised edge
  *   lakes     — water, as two ripples
+ *   rivers    — one winding course with a tributary joining it
  *   graticule — a ruled grid, deliberately square so it cannot be confused with…
  *   globe     — …the sphere's outline, deliberately round for the same reason
  *   coastline — a shore: land above the line, water below it
  *   legend    — a panel with two keyed rows, which is what the thing itself looks like
  *   names     — a letter on a rule: type sitting on the land, which is the feature
+ *   caption   — a line of type above a frame: a headline over the picture
  *
  * Water started as a lake outline, which at 14 px is a blob and reads as neither a
  * lake nor anything else; ripples survive the size, which is the only test that
@@ -64,6 +68,17 @@ const ICON_PATHS: Record<MapToggleIcon, JSX.Element> = {
       <path d="M2.6 9.9c1.1-1 2.2-1 3.3 0s2.2 1 3.3 0 2.2-1 3.3 0" />
     </>
   ),
+  rivers: (
+    <>
+      {/*
+        A single meandering line with one tributary running into it. Deliberately not the
+        lakes glyph: ripples are two parallel strokes and read as a body of water, where a
+        river has to read as one continuous course that goes somewhere.
+      */}
+      <path d="M3.2 2.8c0 2.4 2.2 3 2.2 5.2s-2.2 2.8-2.2 5.2" />
+      <path d="M5.4 8c1.9 0 2.6-1.4 4.2-1.4 1.4 0 2 .9 3.2.9" />
+    </>
+  ),
   graticule: (
     <>
       <rect x="2.4" y="2.4" width="11.2" height="11.2" rx="1.4" />
@@ -74,6 +89,14 @@ const ICON_PATHS: Record<MapToggleIcon, JSX.Element> = {
     <>
       <circle cx="8" cy="8" r="5.6" />
       <path d="M8 2.4c1.7 1.6 2.6 3.5 2.6 5.6S9.7 12.4 8 13.6C6.3 12.4 5.4 10.1 5.4 8s.9-4 2.6-5.6z" />
+    </>
+  ),
+  caption: (
+    <>
+      {/* A line of type, and the frame it heads. */}
+      <path d="M3.4 4.2h9.2" />
+      <path d="M5.6 6.6h4.8" />
+      <rect x="2.6" y="9.2" width="10.8" height="4.4" rx="1" />
     </>
   ),
   names: (

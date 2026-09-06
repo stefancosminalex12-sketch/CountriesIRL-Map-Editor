@@ -24,11 +24,16 @@ import { SelectField } from './Select'
 import { LEGEND_STYLES, LEGEND_STYLE_IDS } from '../state/legendStyles'
 import { LEGEND_ICON_IDS, LEGEND_ICONS } from '../state/legendIcons'
 import { naturalLegendSize } from '../state/legendLayout'
+import { MapToggle } from './MapToggle'
 import { playSfx } from '../audio/sfx'
 import {
+  LABEL_FONTS,
+  LEGEND_BORDER,
   LEGEND_ELEMENT_SIZE,
+  LEGEND_SPACING,
   LEGEND_MAX_SIZE,
   LEGEND_MIN_SIZE,
+  type LabelFontId,
   type LegendElementSizes,
 } from '../types/map'
 
@@ -46,7 +51,8 @@ export function LegendControls() {
   const doc = useMapStore((s) => s.doc)
   const dispatch = useMapStore((s) => s.dispatch)
 
-  const { title, subtitle, text, icon, sizes, style } = doc.legend
+  const { title, showTitle, subtitle, text, icon, sizes, style } = doc.legend
+  const legend = doc.legend
 
   const matched = TITLE_PRESETS.find((preset) => preset === title) ?? CUSTOM
 
@@ -71,6 +77,20 @@ export function LegendControls() {
    */
   return (
     <>
+      {/*
+        The switch sits above the field it governs, so the field reads as belonging to
+        it. Turning it off leaves the text alone — the author's words, and whichever
+        preset they chose, are still there when they turn it back on.
+      */}
+      <div className="toggles">
+        <MapToggle
+          icon="legend"
+          label="Show Title"
+          checked={showTitle}
+          onChange={(next) => patch({ showTitle: next })}
+        />
+      </div>
+
       <div className="field">
         <span className="field__label">Legend title</span>
         <input
@@ -181,7 +201,7 @@ export function LegendControls() {
         by the input it sits under.
       */}
       <SizeSlider
-        label="Item size"
+        label="Symbol size"
         value={sizes.items}
         onChange={(value) => setSize('items', value)}
       />
@@ -193,7 +213,87 @@ export function LegendControls() {
         exactly as it did.
       */}
       <SelectField
-        label="Style"
+        label="Font"
+        value={legend.font}
+        onChange={(value) => {
+          patch({ font: value as LabelFontId })
+          playSfx('click')
+        }}
+      >
+        {LABEL_FONTS.map((font) => (
+          <option key={font.id} value={font.id}>
+            {font.name}
+          </option>
+        ))}
+      </SelectField>
+
+      {/*
+        The three colours the panel is made of. Each is an override: unset, the chosen
+        layout paints them, which is what keeps a layout a layout rather than a one-time
+        stamp. "Match layout" puts all three back.
+      */}
+      <div className="swatches">
+        <label className="swatch">
+          <input
+            type="color"
+            value={legend.ink ?? doc.style.legendText}
+            onChange={(e) => patch({ ink: e.target.value })}
+          />
+          <span>Text</span>
+        </label>
+        <label className="swatch">
+          <input
+            type="color"
+            value={legend.surface ?? doc.style.legendSurface}
+            onChange={(e) => patch({ surface: e.target.value })}
+          />
+          <span>Background</span>
+        </label>
+        <label className="swatch">
+          <input
+            type="color"
+            value={legend.border ?? doc.style.border}
+            onChange={(e) => patch({ border: e.target.value })}
+          />
+          <span>Border</span>
+        </label>
+      </div>
+
+      {(legend.ink || legend.surface || legend.border) && (
+        <button
+          type="button"
+          className="btn btn--ghost"
+          onClick={() => {
+            patch({ ink: null, surface: null, border: null })
+            playSfx('click')
+          }}
+        >
+          Match layout
+        </button>
+      )}
+
+      <ProportionSlider
+        label="Border width"
+        value={legend.borderWidth}
+        range={LEGEND_BORDER}
+        onChange={(borderWidth) => patch({ borderWidth })}
+      />
+
+      {/*
+        Everything about the panel's size is derived from its padding and the gaps
+        between its blocks, so this one number takes it from airy to dense — which is
+        what makes a legend that is mostly group swatches able to be mostly group
+        swatches.
+      */}
+      <ProportionSlider
+        label="Spacing"
+        value={legend.spacing}
+        range={LEGEND_SPACING}
+        onChange={(spacing) => patch({ spacing })}
+      />
+
+      <SelectField
+        label="Layout"
         value={style}
         onChange={(next) => {
           patch({ style: next })
@@ -292,6 +392,39 @@ export function LegendSizeControls() {
  * active style asks for, not a point size — "120%" says "a fifth bigger than this style
  * sets it", which survives a change of style where "12px" would not.
  */
+function ProportionSlider({
+  label,
+  value,
+  range,
+  onChange,
+}: {
+  label: string
+  value: number
+  range: { min: number; max: number; step: number }
+  onChange: (next: number) => void
+}) {
+  const percent = Math.round(value * 100)
+  return (
+    <label className="field">
+      <span className="field__row">
+        <span className="field__label">{label}</span>
+        <span className="field__value">{percent}%</span>
+      </span>
+      <input
+        className="slider"
+        type="range"
+        min={range.min}
+        max={range.max}
+        step={range.step}
+        value={value}
+        aria-label={label}
+        aria-valuetext={`${percent} percent`}
+        onChange={(event) => onChange(Number(event.target.value))}
+      />
+    </label>
+  )
+}
+
 function SizeSlider({
   label,
   value,

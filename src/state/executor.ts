@@ -21,6 +21,7 @@ import type {
   CountryEntry,
   CountryId,
   CountryLabels,
+  MapCaption,
   MapDocument,
   MapGroup,
   MapStyle,
@@ -331,6 +332,9 @@ function applyOperation(doc: MapDocument, op: MapOperation): MapDocument {
      * A shallow merge like the style's, so one control writes one field: setting the
      * outline colour leaves the face, the size and the switch exactly as they were.
      */
+    /* A shallow merge like the style's, so one control writes one field. */
+    case 'set_caption':
+      return { ...doc, caption: { ...doc.caption, ...(op.patch as Partial<MapCaption>) } }
     case 'set_labels':
       return { ...doc, labels: { ...doc.labels, ...(op.patch as Partial<CountryLabels>) } }
     case 'set_map_name':

@@ -71,6 +71,11 @@ export type MapOperation =
    */
   | { op: 'set_labels'; patch: Record<string, unknown> }
   /*
+   * The caption across the top. Authored content — what a map is titled is a decision
+   * about the map — so it travels the same pipeline and undo stack as the legend.
+   */
+  | { op: 'set_caption'; patch: Record<string, unknown> }
+  /*
    * The composition frame. Authored content — where the picture is cropped is a
    * decision about the map — so it goes through the pipeline like everything else.
    */
@@ -141,6 +146,7 @@ const IMPLEMENTED: Record<MapOperationType, true> = {
   set_active_preset: true,
   set_legend: true,
   set_labels: true,
+  set_caption: true,
   set_screen: true,
   create_merge: true,
   update_merge: true,
@@ -183,6 +189,7 @@ export const UNDOABLE_OPERATIONS = new Set<MapOperationType>([
   'set_active_preset',
   'set_legend',
   'set_labels',
+  'set_caption',
   'set_screen',
   'create_merge',
   'update_merge',

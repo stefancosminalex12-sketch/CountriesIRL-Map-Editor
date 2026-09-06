@@ -2,7 +2,14 @@
 import { DEFAULT_ATLAS_ID, getAtlas } from '../maps/atlas'
 import { buildPalettes, DEFAULT_PALETTE_ID } from './palettes'
 import { DEFAULT_PRESET_ID } from './presets'
-import { LABEL_OUTLINE, LABEL_SIZE } from '../types/map'
+import {
+  CAPTION_OUTLINE,
+  CAPTION_SIZE,
+  LABEL_OUTLINE,
+  LABEL_SIZE,
+  LEGEND_BORDER,
+  LEGEND_SPACING,
+} from '../types/map'
 import type {
   CountryEntry,
   CountryId,
@@ -167,6 +174,23 @@ export function createMapDocument(
       overrides: {},
     },
     /*
+     * Off, and empty. A caption is something an author decides to add, and a map that
+     * invented a headline for itself would be putting words in their mouth. White with a
+     * hairline of black behind it is the one pairing that stays legible over every theme's
+     * background and over a flag, which is what "clean by default" has to mean when the
+     * thing underneath is not known in advance.
+     */
+    caption: {
+      enabled: false,
+      text: '',
+      font: 'system',
+      size: CAPTION_SIZE.default,
+      color: '#ffffff',
+      weight: 600,
+      outlineColor: '#000000',
+      outlineWidth: CAPTION_OUTLINE.default,
+    },
+    /*
      * Uncomposed: the frame is the whole canvas. A map that has never had a Screen set
      * therefore frames and exports exactly as it did before the frame existed.
      */
@@ -198,12 +222,22 @@ export function createMapDocument(
       // Empty means "take the title from whatever is being explained": the layer's
       // name, the preset's name, or "Comparison".
       title: '',
+      // Shown, so a legend looks exactly as it always has until someone turns it off.
+      showTitle: true,
       subtitle: '',
       // Bottom-left, out of the way of the zoom controls in the top-right.
       anchor: { x: 0, y: 1 },
       source: 'auto',
       entries: [],
       style: 'classic',
+      // The same face the country names use, so the map has one type palette.
+      font: 'system',
+      // Null throughout: the style paints the panel until an author says otherwise.
+      surface: null,
+      ink: null,
+      border: null,
+      borderWidth: LEGEND_BORDER.default,
+      spacing: LEGEND_SPACING.default,
       // Sizes itself to its content until the author drags the corner or sets a size.
       size: null,
       // Both empty: the free line and the icon are additions the author opts into, and
@@ -240,6 +274,19 @@ export function createMapDocument(
       showLakes: true,
       lake: '#22303d',
       lakeOutline: '#1a252f',
+      /*
+       * Off. Unlike the lakes, a full river network is a lot of line for a map that is
+       * usually about the countries — so it is there for the asking rather than by
+       * default, and switching it on is one click in Display.
+       */
+      showRivers: false,
+      river: '#3c6d8e',
+      /*
+       * A hair under a pixel. Rivers are drawn with a non-scaling stroke, so this is a
+       * screen width that holds at every zoom rather than a ground width that would
+       * thicken into a ribbon as the map comes closer.
+       */
+      riverWidth: 0.7,
       graticule: '#1e242c',
       showSphere: true,
     },
