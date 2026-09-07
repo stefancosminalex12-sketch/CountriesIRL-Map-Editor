@@ -123,6 +123,49 @@ export interface LoadedDataset {
   topoById: Map<EntityId, GeometryObject[]>
 }
 
+/**
+ * The boundary network again, with some countries taken out of it.
+ *
+ * Hiding a territory has to remove its borders too, and the border network is one path
+ * built from the whole topology — so the only honest way to drop part of it is to build
+ * it again while excluding what is hidden.
+ *
+ * An arc is kept when it separates two countries that are *both* still shown. That is
+ * the rule that makes "the world without France" look right rather than nearly right:
+ * France's border with Germany is also Germany's border, and Germany still has an edge
+ * there, so the arc stays; but a border between two hidden neighbours would be a line
+ * drawn across empty space, and it goes.
+ *
+ * Returns the original network when nothing is hidden, so the common case costs one
+ * comparison and no work at all.
+ */
+export function bordersWithout(
+  loaded: LoadedDataset,
+  hidden: ReadonlySet<EntityId>,
+): MultiLineString | null {
+  if (hidden.size === 0 || !loaded.topology) return loaded.borders
+
+  const object = loaded.topology.objects[loaded.dataset.objectName] as GeometryCollection
+  if (!object) return loaded.borders
+
+  /* The same resolution the network was built with, so the two cannot disagree. */
+  const idOf = new Map<unknown, EntityId>()
+  for (const [id, geometries] of loaded.topoById) for (const g of geometries) idOf.set(g, id)
+
+  try {
+    const network = mesh(loaded.topology, object, (a, b) => {
+      if (a === b) return false
+      const left = idOf.get(a)
+      const right = idOf.get(b)
+      if (!left || !right || left === right) return false
+      return !hidden.has(left) && !hidden.has(right)
+    })
+    return network && network.coordinates.length > 0 ? network : null
+  } catch {
+    return loaded.borders
+  }
+}
+
 const cache = new Map<string, Promise<LoadedDataset>>()
 
 /** Fetches, decodes and normalises a dataset. Cached per dataset id. */

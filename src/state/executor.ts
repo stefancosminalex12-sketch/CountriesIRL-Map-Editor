@@ -130,6 +130,9 @@ export function validateOperation(op: MapOperation, ctx: ExecutionContext = {}):
         return `index must be an integer from 0 to ${MAX_COMPARISON_GROUPS - 1}`
       }
       return null
+    case 'set_countries_hidden':
+      if (!Array.isArray(op.countryIds)) return 'countryIds must be a list'
+      return null
     case 'set_country_property':
       if (!op.key) return 'key is required'
       return null
@@ -269,6 +272,14 @@ function applyOperation(doc: MapDocument, op: MapOperation): MapDocument {
       const properties = { ...entry.properties }
       delete properties[key]
       return { ...doc, countries: { ...doc.countries, [op.countryId]: { ...entry, properties } } }
+    }
+    case 'set_countries_hidden': {
+      if (op.countryIds.length === 0) return doc
+      let countries = doc.countries
+      for (const id of op.countryIds) {
+        countries = upsert(countries, id, (e) => ({ ...e, hidden: op.hidden }))
+      }
+      return { ...doc, countries }
     }
     case 'set_country_property':
       return {

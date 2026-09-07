@@ -68,6 +68,7 @@ import { MapLabels } from './MapLabels'
 import { flagCodeFor, hasFlag, useFlagStore } from '../flags/flagStore'
 import { resolveScreen } from './screenFrame'
 import { mergeCountries } from '../geo/merge'
+import { bordersWithout } from '../geo/datasets'
 import { MapScreen } from './MapScreen'
 import { MapCaption } from './MapCaption'
 import { getPreset } from '../state/presets'
@@ -97,7 +98,21 @@ const ZOOM_RANGE: [number, number] = [1, 40]
  * the cutoff costs nothing that could have been seen while removing the SVG parse
  * behind it. See `visibleFlagTiles`.
  */
-const COMPACT_FLAG_MIN_PX = 6
+const COMPACT_FLAG_MIN_PX = 14
+
+/**
+ * The most flag patterns a compact viewport may hold at once.
+ *
+ * The size floor above bounds how *small* a flag can be, which is not the same as
+ * bounding how *many* there are: zooming in raises the floor's effect until nearly every
+ * country qualifies again, and each one that does is fetched, parsed and rasterised and
+ * then held for the rest of the session. Serbia's flag alone is 180 KB of paths.
+ *
+ * On a phone that climbs until the renderer is killed — the tab freezes, reloads itself
+ * and then fails outright. So there is a ceiling as well as a floor, and the flags kept
+ * are the largest ones on screen, which are the ones actually readable as flags.
+ */
+const COMPACT_FLAG_MAX_COUNT = 40
 
 export function MapCanvas() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -120,6 +135,13 @@ export function MapCanvas() {
   const setHovered = useMapStore((s) => s.setHovered)
   const selectCountry = useMapStore((s) => s.selectCountry)
   const setTransform = useMapStore((s) => s.setTransform)
+  /**
+   * The zoomed group, so a gesture can move the map without re-rendering it.
+   *
+   * See the zoom behaviour below: during a pan or a pinch the transform is written
+   * straight onto this element, and React is only told once the gesture ends.
+   */
+  const zoomedRef = useRef<SVGGElement>(null)
 
   const { scope } = doc
 
@@ -341,13 +363,32 @@ export function MapCanvas() {
    * or dragging any of the appearance controls, recomputes none of it. And not the
    * camera either: these are user-space coordinates, so pan and zoom carry them.
    */
+  /**
+   * Territories the author has taken off the map.
+   *
+   * Hidden is a property of the document, not of the geometry: the entity is still
+   * loaded, still selectable through the panels, still carries its value and its group,
+   * and still takes part in merges. Only the drawing stops — which is what makes "the
+   * world without France" one click away from the world with it.
+   *
+   * Everything that paints something for an entity has to consult this, not just the
+   * country path. A hidden country that keeps its name, its share of the boundary mesh
+   * or its magnifier lens has not been hidden; it has been made invisible in one layer
+   * out of four, which reads as a bug rather than as a feature.
+   */
+  const hiddenIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const [id, entry] of Object.entries(doc.countries)) if (entry?.hidden) ids.add(id)
+    return ids
+  }, [doc.countries])
+
   const labelShapes = useMemo<LabelShape[]>(() => {
     if (!prepareLabels || !projection || !geo) return []
     const out: LabelShape[] = []
 
     for (const feature of geo.features) {
       const id = feature.properties.countryId
-      if (mergedMemberIds.has(id)) continue
+      if (mergedMemberIds.has(id) || hiddenIds.has(id)) continue
       const inset = insets.find((resolved) => resolved.members.has(id))
       const shape = buildLabelShape(
         id,
@@ -372,7 +413,7 @@ export function MapCanvas() {
     }
 
     return out
-  }, [prepareLabels, projection, geo, mergedMemberIds, mergeGeometry, insets])
+  }, [prepareLabels, projection, geo, mergedMemberIds, mergeGeometry, insets, hiddenIds])
 
   /**
    * What each entity is called, by the document's own naming rule.
@@ -489,6 +530,8 @@ export function MapCanvas() {
     return path({ type: 'FeatureCollection', features: rivers.features } as Parameters<typeof path>[0]) ?? ''
   }, [projection, rivers])
 
+  const network = useMemo(() => (geo ? bordersWithout(geo, hiddenIds) : null), [geo, hiddenIds])
+
   const backdrop = useMemo(() => {
     if (!projection) return { sphere: '', graticule: '', borders: '' }
     const path = geoPath(projection)
@@ -503,9 +546,14 @@ export function MapCanvas() {
        * neighbours, so drawing it once draws it correctly and no seam can appear where
        * two countries' outlines would otherwise have been laid over each other.
        */
-      borders: geo?.borders ? (path(geo.borders) ?? '') : '',
+      /*
+       * Rebuilt without the hidden territories, so taking a country off the map takes
+       * its borders with it. Costs nothing while nothing is hidden — `bordersWithout`
+       * hands back the network it was given.
+       */
+      borders: network ? (path(network) ?? '') : '',
     }
-  }, [projection, geo])
+  }, [projection, network])
 
   /**
    * Editor-only anchors for features too small to click. Recomputed only when the
@@ -843,11 +891,28 @@ export function MapCanvas() {
   )
 
   const visibleFlagTiles = useMemo(() => {
-    if (!compactViewport) return flagTiles
-    return flagTiles.filter(
+    /*
+     * A hidden country flies no flag, anywhere. Filtered here rather than at each of the
+     * places tiles are consumed, because they are several — the country's own fill, its
+     * separately framed territories, the island floor and the maritime layer all read
+     * from this one list. Hiding France left its overseas départements still wearing the
+     * tricolour when only the country path was checked.
+     */
+    const shown = hiddenIds.size === 0 ? flagTiles : flagTiles.filter((t) => !hiddenIds.has(t.id))
+    if (!compactViewport) return shown
+    const big = shown.filter(
       (tile) => Math.max(tile.width, tile.height) * flagZoomStep >= COMPACT_FLAG_MIN_PX,
     )
-  }, [compactViewport, flagTiles, flagZoomStep])
+    if (big.length <= COMPACT_FLAG_MAX_COUNT) return big
+    /*
+     * Over the ceiling: keep the biggest. Sorted on a copy, because `flagTiles` is
+     * memoised and shared — sorting it in place would reorder the array every other
+     * consumer is holding.
+     */
+    return [...big]
+      .sort((a, b) => Math.max(b.width, b.height) - Math.max(a.width, a.height))
+      .slice(0, COMPACT_FLAG_MAX_COUNT)
+  }, [compactViewport, flagTiles, flagZoomStep, hiddenIds])
 
   /** Ids that still have a pattern, so nothing can reference one that was skipped. */
   const flaggedIds = useMemo(() => new Set(visibleFlagTiles.map((t) => t.id)), [visibleFlagTiles])
@@ -881,7 +946,7 @@ export function MapCanvas() {
   const mergedFlagTiles = useMemo(() => {
     if (!flagsOn || !projection || !geo) return []
     const path = geoPath(projection)
-    return mergePaint
+    const tiles = mergePaint
       .map((entity) => {
         if (!entity.flag) return null
         const geometry = mergeCountries(geo, entity.members)
@@ -890,7 +955,19 @@ export function MapCanvas() {
         return fit ? { id: entity.id, iso2: entity.flag, fit } : null
       })
       .filter((t): t is NonNullable<typeof t> => t !== null)
-  }, [flagsOn, projection, geo, mergePaint])
+
+    /*
+     * Merged bodies obey the same size floor as countries on a compact viewport. They
+     * were exempt, which was the wrong way round: a merge is made by zooming in and
+     * tapping, so it is exactly the thing someone is doing when the flags are piling up.
+     * A merge is normally large enough to clear the floor easily; a two-island merge at
+     * world zoom is not, and it should not cost a 180 KB document to draw four pixels.
+     */
+    if (!compactViewport) return tiles
+    return tiles.filter(
+      (tile) => Math.max(tile.fit.width, tile.fit.height) * flagZoomStep >= COMPACT_FLAG_MIN_PX,
+    )
+  }, [flagsOn, projection, geo, mergePaint, compactViewport, flagZoomStep])
 
   const maritimeShapes = useMemo(
     () => buildMaritimeShapes(islandZones, projection, (id) => maritimeCodes.get(id)),
@@ -1081,7 +1158,37 @@ export function MapCanvas() {
         [0, 0],
         [width, height],
       ])
+      /*
+       * A gesture moves the map by hand; React is told when it is over.
+       *
+       * Every `zoom` event used to write the transform into the store, and the store is
+       * what this component reads — so each frame of a pan or a pinch re-rendered the
+       * whole canvas: two hundred and fifty country paths, and in flags mode a pattern
+       * and an image beside each one, rebuilt and diffed to move a group two pixels.
+       *
+       * None of that work depends on where the map has been dragged to. The projected
+       * geometry is memoised on the projection, and the camera is one `transform`
+       * attribute on the group holding it — so during a gesture that attribute is set
+       * directly and nothing else is touched. On `end` the same value goes into the
+       * store, which re-renders once and puts React's idea of the transform back in
+       * agreement with the DOM's.
+       *
+       * What legitimately follows the live camera — the zoom readout, the magnifier on
+       * a selected speck, the flag and label size steps — updates on that final commit
+       * rather than every frame. Those are all quantised or incidental; none of them is
+       * worth a full render at 60Hz.
+       */
       .on('zoom', (event) => {
+        const t = event.transform
+        const group = zoomedRef.current
+        if (group && event.sourceEvent) {
+          group.setAttribute('transform', `translate(${t.x},${t.y}) scale(${t.k})`)
+          return
+        }
+        /* No source event means it was moved programmatically — commit it directly. */
+        setTransform({ k: t.k, x: t.x, y: t.y })
+      })
+      .on('end', (event) => {
         const t = event.transform
         setTransform({ k: t.k, x: t.x, y: t.y })
       })
@@ -1230,7 +1337,7 @@ export function MapCanvas() {
           height={height || 1}
           fill={style.background}
         />
-        <g transform={`translate(${transform.x},${transform.y}) scale(${transform.k})`}>
+        <g ref={zoomedRef} transform={`translate(${transform.x},${transform.y}) scale(${transform.k})`}>
           {/*
             Outline hierarchy, heaviest first.
 
@@ -1655,6 +1762,7 @@ export function MapCanvas() {
         */}
         {smallAnchors.map((anchor) => {
           if (!selected.has(anchor.id)) return null
+          if (hiddenIds.has(anchor.id)) return null
           const d = shapeById.get(anchor.id)
           if (!d) return null
 

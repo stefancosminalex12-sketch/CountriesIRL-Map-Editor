@@ -25,6 +25,18 @@ import type {
 export type MapOperation =
   | { op: 'set_country_value'; countryId: CountryId; value: MapValue; layerId?: string }
   | { op: 'set_country_property'; countryId: CountryId; key: string; value: MapValue }
+  /**
+   * Takes territories off the map without taking them out of the document.
+   *
+   * Hiding rather than deleting, because the interesting maps are the ones you can undo:
+   * a world without France is one click away from a world with it, and while France is
+   * hidden it is still a country the document knows about — it keeps its value, its
+   * group, its flag and its merges, and it comes back with all of them.
+   *
+   * Plural because it is used on a selection, and a selection is usually more than one
+   * thing. Hiding four countries is one act and should be one undo.
+   */
+  | { op: 'set_countries_hidden'; countryIds: CountryId[]; hidden: boolean }
   | { op: 'set_country_label'; countryId: CountryId; label: string | null }
   | { op: 'clear_country_value'; countryId: CountryId; layerId?: string }
   | { op: 'clear_country'; countryId: CountryId }
@@ -125,6 +137,7 @@ export type MapOperationType = MapOperation['op']
 const IMPLEMENTED: Record<MapOperationType, true> = {
   set_country_value: true,
   set_country_property: true,
+  set_countries_hidden: true,
   set_country_label: true,
   clear_country_value: true,
   clear_country: true,
@@ -173,6 +186,7 @@ export const KNOWN_OPERATIONS = new Set<string>(Object.keys(IMPLEMENTED))
 export const UNDOABLE_OPERATIONS = new Set<MapOperationType>([
   'set_country_value',
   'set_country_property',
+  'set_countries_hidden',
   'set_country_label',
   'clear_country_value',
   'clear_country',

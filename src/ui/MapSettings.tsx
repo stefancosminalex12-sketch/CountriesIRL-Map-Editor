@@ -101,6 +101,73 @@ export function MapScopeSettings() {
  * where every other thing about the legend already lives and splitting it across two
  * places would mean two opinions about one component.
  */
+/**
+ * Taking territories off the map without taking them out of the document.
+ *
+ * An action on the current selection rather than a switch, which is why it is a pair of
+ * buttons and not another tile in the grid above: the grid answers "does the map draw
+ * this layer", and this answers "does the map draw *these*".
+ *
+ * Hidden is not deleted, and the difference is the whole point. A hidden country keeps
+ * its geometry, its id, its value, its group, its flag and any merge it belongs to; it
+ * simply is not painted. So "the world without France" is one button, and the world with
+ * France is the other one — and in between, France is still a country every other part
+ * of the editor can work with.
+ */
+function HideTerritories() {
+  const dispatch = useMapStore((s) => s.dispatch)
+  const selected = useMapStore((s) => s.selectedCountryIds)
+  const countries = useMapStore((s) => s.doc.countries)
+
+  const hiddenIds = Object.entries(countries)
+    .filter(([, entry]) => entry?.hidden)
+    .map(([id]) => id)
+
+  /*
+   * What the button does depends on what is selected, because the alternative — one
+   * button that hides and a separate one that shows — makes the reader work out which
+   * applies. If everything selected is already hidden, the obvious next act is to bring
+   * it back.
+   */
+  const allHidden = selected.length > 0 && selected.every((id) => countries[id]?.hidden)
+
+  const apply = (ids: string[], hidden: boolean) => {
+    if (ids.length === 0) return
+    playSfx('click')
+    dispatch({ op: 'set_countries_hidden', countryIds: ids, hidden })
+  }
+
+  return (
+    <div className="sidebar__group">
+      <div className="field__label">Hide territories</div>
+      <p className="hint">
+        Takes the selected territories off the map. They keep their data and come back
+        exactly as they were.
+      </p>
+      <div className="merge-actions">
+        <button
+          type="button"
+          className="btn"
+          disabled={selected.length === 0}
+          onClick={() => apply([...selected], !allHidden)}
+        >
+          {allHidden ? 'Show' : 'Hide'}
+          {selected.length > 1 ? ` ${selected.length}` : ''}
+          {selected.length === 0 ? ' selected' : ''}
+        </button>
+        <button
+          type="button"
+          className="btn btn--ghost"
+          disabled={hiddenIds.length === 0}
+          onClick={() => apply(hiddenIds, false)}
+        >
+          Show all{hiddenIds.length > 0 ? ` (${hiddenIds.length})` : ''}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export function MapDisplayToggles() {
   const style = useMapStore((s) => s.doc.style)
   const legendVisible = useMapStore((s) => s.doc.legend.visible)
@@ -203,6 +270,8 @@ export function MapDisplayToggles() {
         appear when a switch is turned on ask nothing of anyone who leaves it alone.
       */}
       {labels.enabled && <CountryNameStyle labels={labels} />}
+
+      <HideTerritories />
       {caption.enabled && <TopCaptionStyle caption={caption} />}
     </div>
   )
