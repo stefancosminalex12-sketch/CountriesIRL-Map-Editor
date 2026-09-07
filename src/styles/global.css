@@ -2775,28 +2775,115 @@ body {
 }
 
 /*
- * Short viewports — a phone held sideways is about 375px tall.
+ * Short viewports — a phone held sideways is about 390px tall.
  *
- * Every pixel of chrome is a pixel the map does not get, so the header and the status
- * bar give some back. The rail already scrolls when its sections do not fit, so it
- * needs nothing here beyond tighter rows.
+ * A landscape phone is not a wide portrait one. Height is the scarce dimension and
+ * width is suddenly plentiful, which inverts every decision the portrait layout makes:
+ * chrome has to give height back, and anything stacked in one column should spread
+ * sideways instead of scrolling.
+ *
+ * Keyed on height rather than on `pointer: coarse`. The compaction below used to be
+ * nested inside a coarse-pointer query, so a touchscreen laptop, a tablet with a mouse
+ * and a short desktop window all got the tall layout in a short viewport — the problem
+ * is the height, and the height is what should be asked about.
  */
-@media (max-height: 520px) {
+@media (max-height: 560px) {
   .app {
-    grid-template-rows: 34px 1fr 22px;
+    grid-template-rows: 32px 1fr 20px;
   }
 
   .app__header {
     padding: 0 8px;
+    gap: 8px;
   }
 
-  @media (pointer: coarse) {
-    .rail-item {
-      padding: 7px 2px 6px;
-    }
+  .statusbar {
+    font-size: 10px;
+  }
 
-    .rail-item__caption {
-      display: none;
-    }
+  /*
+   * The rail loses its captions and some padding. Six sections at the portrait size
+   * need 264px of a 338px column; without this the rail scrolls, which hides sections
+   * behind a gesture nobody thinks to try on a bar that looks complete.
+   */
+  .rail-item {
+    padding: 7px 2px 6px;
+  }
+
+  .rail-item__caption {
+    display: none;
+  }
+
+  /*
+   * Sections give back the space between them. Four collapsed headers stood between
+   * the top of the Map panel and the first control in it — 136px of a 324px column
+   * spent on labels for things that were not open.
+   */
+  .disclosure__toggle {
+    padding: 3px 0;
+  }
+
+  .disclosure__body {
+    gap: 8px;
+    padding-top: 6px;
+  }
+
+  .sidebar__body {
+    padding: 8px 10px;
+  }
+
+  .sidebar__group {
+    padding-top: 8px;
+  }
+}
+
+/*
+ * Landscape, where the width exists to be used.
+ *
+ * The panel widens and its switch grids take a third column, so the Display section
+ * fits in three rows instead of five and stops being a scroll. The map still keeps the
+ * larger share of the screen: at 844px the panel takes 340 and leaves just over 440,
+ * and it is an overlay, so opening it neither resizes nor re-projects the map.
+ */
+@media (orientation: landscape) and (max-height: 560px) {
+  .sidebar__panel,
+  .sidebar__panel-inner {
+    width: min(340px, 42vw);
+  }
+
+  .toggles {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  /*
+   * A switch may now be a third of the panel rather than a half, so a two-word label
+   * has to be allowed to use two lines rather than being clipped — "Country Names" and
+   * "Globe outline" are both wider than the column they now sit in.
+   */
+  .map-toggle__label {
+    white-space: normal;
+    line-height: 1.15;
+  }
+
+  /* Actions that stack in portrait have the width to sit side by side here. */
+  .merge-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/*
+ * Very narrow phones, 320px.
+ *
+ * The panel would otherwise be wider than the screen minus the rail. Switches drop to
+ * one column rather than being squeezed to a width no label survives.
+ */
+@media (max-width: 360px) {
+  .sidebar__panel,
+  .sidebar__panel-inner {
+    width: calc(100vw - 56px - 4px);
+  }
+
+  .sidebar__body {
+    padding: 10px 8px;
   }
 }
