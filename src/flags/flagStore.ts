@@ -46,6 +46,75 @@ export function flagCodeFor(id: string, iso2: string | null | undefined): string
 /** In-flight and settled requests, so a code is only ever fetched once. */
 const pending = new Map<string, Promise<void>>()
 
+/**
+ * Artwork that has arrived but has not been published to the store yet.
+ *
+ * Two hundred and sixty-five flags arrive as two hundred and sixty-five separate
+ * responses, and each one used to be its own `set`. Every subscriber re-rendered on
+ * each: the canvas rebuilding all 254 country paths, `FlagPatterns` rebuilding all 265
+ * `<pattern>` elements — a quarter of a million element creations to publish a quarter
+ * of a megabyte of URIs, and a fresh clone of a growing record each time, which is
+ * quadratic in the number of flags.
+ *
+ * On a desktop that was ~700 ms of the main thread locked up on first entering the
+ * mode. On a phone it is the freeze-reload-crash the mode was reported for.
+ *
+ * So arrivals are collected here and published together. Nothing about *what* is
+ * published changes — the same codes reach the same record, in the order they loaded —
+ * only how many renders it takes to get there, which goes from one per flag to one per
+ * frame.
+ */
+const arrived = new Map<string, string>()
+const missing = new Set<string>()
+let flushHandle: number | null = null
+
+/**
+ * Publishes whatever has arrived since the last flush.
+ *
+ * Scheduled on the next frame, with a timer as the fallback: `requestAnimationFrame`
+ * does not run in a backgrounded tab, and a flag that loaded while the tab was hidden
+ * must still be on the map when it comes back rather than waiting for a repaint that
+ * has already been skipped.
+ */
+function scheduleFlush(set: (fn: (state: FlagStore) => Partial<FlagStore>) => void) {
+  if (flushHandle !== null) return
+
+  const flush = () => {
+    flushHandle = null
+    if (arrived.size === 0 && missing.size === 0) return
+
+    const loaded = [...arrived]
+    const failures = [...missing]
+    arrived.clear()
+    missing.clear()
+
+    set((state) => {
+      const next: Partial<FlagStore> = {}
+      if (loaded.length > 0) {
+        const flags = { ...state.flags }
+        for (const [code, uri] of loaded) flags[code] = uri
+        next.flags = flags
+      }
+      if (failures.length > 0) {
+        const failed = { ...state.failed }
+        for (const code of failures) failed[code] = true
+        next.failed = failed
+      }
+      return next
+    })
+  }
+
+  const raf = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : null
+  /*
+   * Both are armed, and whichever runs first clears the handle so the other finds
+   * nothing to publish. The timer is not a delay anyone waits on — a frame normally
+   * beats it — it is the guarantee that a hidden tab still settles.
+   */
+  const timer = setTimeout(flush, 100)
+  if (raf) raf(() => { clearTimeout(timer); flush() })
+  flushHandle = timer as unknown as number
+}
+
 interface FlagStore {
   /** iso2 (lower case) -> `data:` URI. */
   flags: Record<string, string>
@@ -63,7 +132,14 @@ export const useFlagStore = create<FlagStore>((set, get) => ({
     for (const raw of codes) {
       const code = raw.toLowerCase()
       if (!FLAG_CODES.has(code)) continue
+      /*
+       * `arrived` and `missing` are consulted alongside the store because publication
+       * is now deferred by up to a frame: the fetch has settled and `pending` has
+       * already released the code, but the record it will land in has not been written
+       * yet. Without them that window is a second request for artwork already in hand.
+       */
       if (get().flags[code] || get().failed[code] || pending.has(code)) continue
+      if (arrived.has(code) || missing.has(code)) continue
 
       const task = fetch(`${import.meta.env.BASE_URL}flags/${code}.svg`)
         .then((response) => {
@@ -76,13 +152,15 @@ export const useFlagStore = create<FlagStore>((set, get) => ({
            * exported file, and avoids a base64 round trip on every flag.
            */
           const uri = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}`
-          set((state) => ({ flags: { ...state.flags, [code]: uri } }))
+          arrived.set(code, uri)
+          scheduleFlush(set)
         })
         .catch((error) => {
           // Loud in development, silent and harmless in production: the country simply
           // keeps its land colour.
           if (import.meta.env.DEV) console.warn(`[flags] ${code} failed to load`, error)
-          set((state) => ({ failed: { ...state.failed, [code]: true } }))
+          missing.add(code)
+          scheduleFlush(set)
         })
         .finally(() => {
           pending.delete(code)

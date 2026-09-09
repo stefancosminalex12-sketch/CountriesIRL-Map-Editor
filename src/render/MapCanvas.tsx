@@ -17,7 +17,7 @@ import {
 import { geoPath, geoGraticule10 } from 'd3-geo'
 import { select } from 'd3-selection'
 import { zoom, zoomIdentity, type ZoomBehavior } from 'd3-zoom'
-import { useElementSize } from './useElementSize'
+import { useElementSize, type Size } from './useElementSize'
 import { useKeyed } from './useKeyed'
 import { getAtlas } from '../maps/atlas'
 import { buildInsets, insetForGroup } from '../maps/insets'
@@ -65,6 +65,7 @@ import {
   type LabelShape,
 } from './labelPlacement'
 import { MapLabels } from './MapLabels'
+import { CountryPath } from './CountryPath'
 import { flagCodeFor, hasFlag, useFlagStore } from '../flags/flagStore'
 import { resolveScreen } from './screenFrame'
 import { mergeCountries } from '../geo/merge'
@@ -92,6 +93,15 @@ export const MAP_SVG_ID = 'map-canvas-svg'
 const ZOOM_RANGE: [number, number] = [1, 40]
 
 /**
+ * How long the viewport must hold still before the map is refitted to it.
+ *
+ * Short enough that a deliberate resize feels committed rather than laggy, and long
+ * enough to swallow a whole gesture: a window drag, a phone rotating, a URL bar
+ * collapsing. See {@link useSettledSize}.
+ */
+const RESIZE_SETTLE_MS = 140
+
+/**
  * Smallest an entity may be drawn, on a compact viewport, and still be given a flag.
  *
  * Six pixels is below the size at which a flag reads as anything but a coloured dot, so
@@ -114,12 +124,98 @@ const COMPACT_FLAG_MIN_PX = 14
  */
 const COMPACT_FLAG_MAX_COUNT = 40
 
+/**
+ * Whether a layer's geometry is worth keeping ready.
+ *
+ * A latch, not a mirror of the switch. Gating an expensive memo on the switch itself is
+ * what makes a toggle cost the same in both directions: turning the layer off replaces
+ * its inputs with nothing, so turning it back on presents React with changed
+ * dependencies and the whole projection is paid for again. Latched, the first use is
+ * the only one that costs anything and every toggle after it merely renders
+ * differently — and an author who never turns the layer on never pays for it once.
+ *
+ * The same reasoning the labels and the flags below have always used, extracted so the
+ * layers that are *off* by default can have it too. Rivers, the graticule and the
+ * boundary mesh were projected on every projection change whether or not anything drew
+ * them: on the world map at 10m that is 60ms of work and 3MB of path string built for
+ * a layer the default document does not show.
+ */
+function useLayerLatch(needed: boolean): boolean {
+  const [latched, setLatched] = useState(false)
+  useEffect(() => {
+    if (needed) setLatched(true)
+  }, [needed])
+  return needed || latched
+}
+
+/**
+ * The viewport size the projection is fitted to, which lags the live one while a resize
+ * is in progress.
+ *
+ * Refitting is the most expensive thing this canvas does. It rebuilds the projection and
+ * reprojects everything through it: 254 country outlines, the lakes, the boundary mesh,
+ * the flag framings, the label geometry, the assist catchments — measured at ~440ms on a
+ * desktop and several times that on a phone, for roughly ten megabytes of path data.
+ *
+ * A `ResizeObserver` offers that bill once per frame. Dragging a window edge, opening a
+ * panel, rotating a phone, or merely scrolling a phone far enough to collapse the URL bar
+ * therefore asked for a full reprojection per frame of the gesture, and the browser spent
+ * the whole gesture behind on it.
+ *
+ * So the size the *geometry* is fitted to settles, while the size the *element* is drawn
+ * at stays live. Nothing waits for anything: the `<svg>` takes the new box immediately and
+ * the map inside it is scaled to match — see `fitTransform` — so the resize looks
+ * continuous, and exactly one reprojection happens, once the size has stopped moving.
+ *
+ * The first measurement commits at once. There is no map on screen yet to keep steady,
+ * and delaying it would only delay first paint.
+ */
+function useSettledSize(live: Size): Size {
+  const [settled, setSettled] = useState(live)
+
+  useEffect(() => {
+    if (live.width === settled.width && live.height === settled.height) return
+    if (settled.width < 2 || settled.height < 2) {
+      setSettled(live)
+      return
+    }
+    const handle = window.setTimeout(() => setSettled(live), RESIZE_SETTLE_MS)
+    return () => window.clearTimeout(handle)
+  }, [live, settled])
+
+  return settled
+}
+
 export function MapCanvas() {
   const containerRef = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
   const zoomRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null)
 
-  const { width, height } = useElementSize(containerRef)
+  const live = useElementSize(containerRef)
+  const { width, height } = live
+
+  /**
+   * The size the geometry is fitted to, and the correction that hides the gap.
+   *
+   * `fit` lags `live` only while a resize is in flight; the rest of the time they are the
+   * same object's values and `fitTransform` is `undefined`, so a settled map renders
+   * byte-for-byte what it always did — no wrapper transform, no extra attribute.
+   *
+   * While they differ, the map is drawn at the fit it already has, scaled uniformly to
+   * cover the new box and re-centred. That is the same shape of answer `buildProjection`
+   * will give when it runs — a single uniform scale and a placement, never a stretch — so
+   * the correction is close to the real refit and the map settles into it rather than
+   * jumping to it.
+   */
+  const fit = useSettledSize(live)
+  const fitTransform = useMemo(() => {
+    if (fit.width < 2 || fit.height < 2) return undefined
+    if (width === fit.width && height === fit.height) return undefined
+    const scale = Math.min(width / fit.width, height / fit.height)
+    const dx = (width - fit.width * scale) / 2
+    const dy = (height - fit.height * scale) / 2
+    return `translate(${dx},${dy}) scale(${scale})`
+  }, [width, height, fit])
 
   const doc = useMapStore((s) => s.doc)
   const geo = useMapStore((s) => s.geo)
@@ -135,6 +231,8 @@ export function MapCanvas() {
   const setHovered = useMapStore((s) => s.setHovered)
   const selectCountry = useMapStore((s) => s.selectCountry)
   const setTransform = useMapStore((s) => s.setTransform)
+  const ensureRivers = useMapStore((s) => s.ensureRivers)
+  const ensureMaritime = useMapStore((s) => s.ensureMaritime)
   /**
    * The zoomed group, so a gesture can move the map without re-rendering it.
    *
@@ -142,6 +240,19 @@ export function MapCanvas() {
    * straight onto this element, and React is only told once the gesture ends.
    */
   const zoomedRef = useRef<SVGGElement>(null)
+  /**
+   * Whether a pan or a pinch is in flight.
+   *
+   * A drag is made of `mousemove`s, and every one of them was resolving which country is
+   * under the pointer and, whenever the answer changed, publishing it — a React render
+   * per frame of the gesture, to repaint a hover the user is not looking for and cannot
+   * see under their own finger. Hovering is a statement about where the pointer is
+   * resting; while the map is being dragged it is resting nowhere.
+   *
+   * A ref rather than state on purpose: setting it must not itself cause a render, which
+   * is the entire point.
+   */
+  const gesturingRef = useRef(false)
 
   const { scope } = doc
 
@@ -196,12 +307,12 @@ export function MapCanvas() {
   )
 
   const projection = useMemo(() => {
-    if (width < 2 || height < 2) return null
+    if (fit.width < 2 || fit.height < 2) return null
     const next = buildProjection({
       framing,
       projectionId: scope.projectionId,
-      width,
-      height,
+      width: fit.width,
+      height: fit.height,
       padding: scope.padding,
     })
     // Lets `__mapEditor.project(lon, lat)` report true screen positions in dev.
@@ -209,7 +320,7 @@ export function MapCanvas() {
       ;(window as unknown as Record<string, unknown>).__mapProjection = next
     }
     return next
-  }, [framing, scope.projectionId, scope.padding, width, height])
+  }, [framing, scope.projectionId, scope.padding, fit.width, fit.height])
 
   /**
    * The atlas's insets, resolved against this viewport and this projection.
@@ -220,9 +331,10 @@ export function MapCanvas() {
    * exactly the path it always did.
    */
   const atlas = useMemo(() => getAtlas(scope.atlasId), [scope.atlasId])
+  /* In the projection's own space, so it follows the fitted size rather than the live one. */
   const insets = useMemo(
-    () => buildInsets(atlas, projection, width, height),
-    [atlas, projection, width, height],
+    () => buildInsets(atlas, projection, fit.width, fit.height),
+    [atlas, projection, fit.width, fit.height],
   )
   /** Which countries belong to the active scope — drives the outside-scope treatment. */
   const scopeCountryIds = useMemo(() => {
@@ -504,11 +616,12 @@ export function MapCanvas() {
    * and the layer, exactly like the country paths, so it is rebuilt when the camera's
    * projection changes and never on a theme change, a pan or a zoom.
    */
+  const prepareLakes = useLayerLatch(style.showLakes)
   const lakePath = useMemo(() => {
-    if (!projection || !lakes) return ''
+    if (!prepareLakes || !projection || !lakes) return ''
     const path = geoPath(projection)
     return path({ type: 'FeatureCollection', features: lakes.features } as Parameters<typeof path>[0]) ?? ''
-  }, [projection, lakes])
+  }, [prepareLakes, projection, lakes])
 
   /**
    * Every river as one path.
@@ -524,20 +637,49 @@ export function MapCanvas() {
    * That keeps the layer honest without a second opinion about what is on screen, and
    * without recomputing anything as the camera moves.
    */
+  const prepareRivers = useLayerLatch(style.showRivers)
+  /*
+   * The layer is fetched the first time it is switched on rather than on every page
+   * load. Latched, so it is asked for once and then stays loaded through every toggle,
+   * projection and region change after it — the switch never waits on the network twice.
+   */
+  useEffect(() => {
+    if (prepareRivers) ensureRivers()
+  }, [prepareRivers, ensureRivers])
+
   const riverPath = useMemo(() => {
-    if (!projection || !rivers) return ''
+    if (!prepareRivers || !projection || !rivers) return ''
     const path = geoPath(projection)
     return path({ type: 'FeatureCollection', features: rivers.features } as Parameters<typeof path>[0]) ?? ''
-  }, [projection, rivers])
+  }, [prepareRivers, projection, rivers])
 
-  const network = useMemo(() => (geo ? bordersWithout(geo, hiddenIds) : null), [geo, hiddenIds])
+  /**
+   * Whether anything on this map actually draws the boundary mesh.
+   *
+   * Two callers, and both are off in the default document: the borders-without-
+   * coastlines layer, and the flag mode's international boundaries. The mesh is
+   * otherwise carried by the country paths' own outlines, so building it — and, when a
+   * territory is hidden, rebuilding it arc by arc — was a megabyte of path string
+   * nothing referenced.
+   */
+  const bordersNeeded =
+    style.showBorders &&
+    (!style.showCoastlines || (doc.flags.enabled && doc.flags.internationalBorders))
+  const prepareBorders = useLayerLatch(bordersNeeded)
 
+  const network = useMemo(
+    () => (prepareBorders && geo ? bordersWithout(geo, hiddenIds) : null),
+    [prepareBorders, geo, hiddenIds],
+  )
+
+  const prepareGraticule = useLayerLatch(style.showGraticule)
+  const prepareSphere = useLayerLatch(style.showSphere)
   const backdrop = useMemo(() => {
     if (!projection) return { sphere: '', graticule: '', borders: '' }
     const path = geoPath(projection)
     return {
-      sphere: path({ type: 'Sphere' }) ?? '',
-      graticule: path(geoGraticule10()) ?? '',
+      sphere: prepareSphere ? (path({ type: 'Sphere' }) ?? '') : '',
+      graticule: prepareGraticule ? (path(geoGraticule10()) ?? '') : '',
       /*
        * The international boundary network, projected with everything else.
        *
@@ -553,7 +695,7 @@ export function MapCanvas() {
        */
       borders: network ? (path(network) ?? '') : '',
     }
-  }, [projection, network])
+  }, [projection, network, prepareGraticule, prepareSphere])
 
   /**
    * Editor-only anchors for features too small to click. Recomputed only when the
@@ -927,14 +1069,25 @@ export function MapCanvas() {
    * Which territories get water, decided in geographic space and independent of the
    * camera — so zooming and panning never revisit it.
    */
+  /*
+   * Island water is a flag-mode option, and it is off by default — so its dataset is not
+   * fetched and its geometry is not selected or projected until somebody turns it on.
+   * Latched like every other layer here, so the second toggle and all the ones after it
+   * cost nothing.
+   */
+  const prepareIslandWater = useLayerLatch(prepareFlags && doc.flags.islandWater)
+  useEffect(() => {
+    if (prepareIslandWater) ensureMaritime()
+  }, [prepareIslandWater, ensureMaritime])
+
   const islandZones = useMemo(() => {
-    if (!prepareFlags || !maritime || !geo) return new Map<string, MultiPolygon>()
+    if (!prepareIslandWater || !maritime || !geo) return new Map<string, MultiPolygon>()
     return selectIslandZones(
       maritime.zones,
       (id) => geo.byId.get(id),
       (id) => maritimeCodes.has(id),
     )
-  }, [prepareFlags, maritime, geo, maritimeCodes])
+  }, [prepareIslandWater, maritime, geo, maritimeCodes])
 
   /**
    * A flag placement per merged body, fitted by the same rules a country's flag is.
@@ -1088,6 +1241,7 @@ export function MapCanvas() {
     else if (visibleFlagTiles.length) requestFlags(visibleFlagTiles.map((tile) => tile.iso2))
   }, [dominationCode, visibleFlagTiles, requestFlags])
 
+
   /** Which merged bodies have artwork ready, and the pattern each one points at. */
   const mergedFlagFillById = useMemo(() => {
     const map = new Map<string, string>()
@@ -1178,6 +1332,11 @@ export function MapCanvas() {
        * rather than every frame. Those are all quantised or incidental; none of them is
        * worth a full render at 60Hz.
        */
+      .on('start', (event) => {
+        // Only a real gesture. A programmatic transform has no source event and moves
+        // the camera without anyone's pointer being involved.
+        if (event.sourceEvent) gesturingRef.current = true
+      })
       .on('zoom', (event) => {
         const t = event.transform
         const group = zoomedRef.current
@@ -1189,6 +1348,7 @@ export function MapCanvas() {
         setTransform({ k: t.k, x: t.x, y: t.y })
       })
       .on('end', (event) => {
+        gesturingRef.current = false
         const t = event.transform
         setTransform({ k: t.k, x: t.x, y: t.y })
       })
@@ -1246,7 +1406,15 @@ export function MapCanvas() {
         data-screen-width={screen.width}
         data-screen-height={screen.height}
         onMouseLeave={() => setHovered(null)}
-        onMouseMove={(event) => setHovered(pickCountryAt(event))}
+        /*
+         * Not while the map is being dragged — see `gesturingRef`. The pointer is
+         * carrying the map rather than pointing at anything on it, so resolving a
+         * country for it is work whose result nobody asked for.
+         */
+        onMouseMove={(event) => {
+          if (gesturingRef.current) return
+          setHovered(pickCountryAt(event))
+        }}
         onClick={(event) => {
           // Dragging the legend is not a statement about the selection, so a click
           // that starts and ends on it leaves the selection exactly as it was.
@@ -1337,6 +1505,21 @@ export function MapCanvas() {
           height={height || 1}
           fill={style.background}
         />
+        {/*
+          The resize correction, and nothing else.
+
+          A plain group with no transform at all while the viewport is settled, which is
+          every moment except the few frames of an actual resize — so the steady-state
+          scene is exactly the scene it has always been. During a resize it carries the
+          uniform scale that makes the not-yet-refitted map fill the new box; see
+          `useSettledSize`.
+
+          Outside the zoomed group rather than inside it because the two are different
+          questions: this is "what size is the paper", the one below is "where is the
+          camera". Keeping them separate is also what lets a gesture keep writing
+          straight to the zoomed group without ever having to know a resize happened.
+        */}
+        <g transform={fitTransform}>
         <g ref={zoomedRef} transform={`translate(${transform.x},${transform.y}) scale(${transform.k})`}>
           {/*
             Outline hierarchy, heaviest first.
@@ -1434,73 +1617,32 @@ export function MapCanvas() {
              * it, because a selected country has to read as selected.
              */
             const flagFill = ctx.selected ? undefined : flagFillById.get(shape.id)
-            const paint = flagFill ?? fill
+            const strokeOff = !style.showBorders || !style.showCoastlines
 
+            /*
+             * Resolved here and handed over as finished attribute values, so the path
+             * itself can bail out of a render it has nothing to do with. See
+             * `CountryPath` — the arithmetic is unchanged, only where its result goes.
+             */
             return (
-              <path
+              <CountryPath
                 key={shape.id}
+                countryId={shape.id}
                 d={shape.d}
-                fill={paint}
-                /*
-                 * Out-of-scope land is drawn muted, and that distinction has to
-                 * survive here — but by dimming the flag rather than withholding it.
-                 * Withholding was the old behaviour and it meant a map of Europe drew
-                 * Algeria's geography with no flag at all, which reads as the mode
-                 * being broken rather than as the country being outside the subject.
-                 */
+                fill={flagFill ?? fill}
                 fillOpacity={
                   flagFill && !inScope && style.outsideScope === 'muted' ? 0.4 : undefined
                 }
-                /*
-                 * The border tone is chosen against the land, not against `paint`: a
-                 * pattern reference is not a colour, and a flag is many colours at
-                 * once, so there is nothing to measure. The land is what the boundary
-                 * has to separate the country from at its coast.
-                 */
-                /*
-                 * This one stroke is the coastline *and* the shared borders — where two
-                 * countries meet, each path draws its half of the same line. So hiding
-                 * coastlines means not stroking the paths at all, and the boundaries
-                 * that were riding along with them are drawn from their own network
-                 * further down instead.
-                 */
-                stroke={
-                  !style.showBorders || !style.showCoastlines
-                    ? 'none'
-                    : flagFill
-                      ? FLAG_BORDER_COLOR
-                      : borderInk
-                }
-                /*
-                 * In flags mode the stroke is painted *under* the fill.
-                 *
-                 * A border is centred on the outline, so half of it lies inside the
-                 * country — and for anything close to the border's own width that is
-                 * the whole country. Hong Kong is 1.3 px across at world zoom against a
-                 * 0.8 px border: every pixel of it came out border-coloured, and the
-                 * flag underneath was invisible. That reads as "this country has no
-                 * flag", and it is why so many island states appeared to be missing
-                 * one. Painting the stroke first lets the fill cover its inner half, so
-                 * the flag always survives and the boundary keeps its outer edge.
-                 */
-                paintOrder={flagFill ? 'stroke' : undefined}
+                stroke={strokeOff ? 'none' : flagFill ? FLAG_BORDER_COLOR : borderInk}
                 strokeWidth={
-                  !style.showBorders || !style.showCoastlines
+                  strokeOff
                     ? 0
                     : flagFill
                       ? flagBorderWidth(flagTileById.get(shape.id), style.borderWidth, zoomK)
                       : style.borderWidth
                 }
-                strokeLinejoin="round"
-                vectorEffect="non-scaling-stroke"
-                className="map-canvas__country"
-                data-country-id={shape.id}
+                paintOrder={flagFill ? 'stroke' : undefined}
                 transform={minimumSizeById.get(shape.id)}
-                /*
-                 * Set only for an entity an inset draws. `undefined` renders no
-                 * attribute at all, so every path on a map without insets — which is
-                 * every world map — is byte-for-byte what it always was.
-                 */
                 clipPath={shape.clipId ? `url(#map-inset-${shape.clipId})` : undefined}
               />
             )
@@ -1536,30 +1678,19 @@ export function MapCanvas() {
             const fill = resolveCountryFill(entry, ctx, shape.id)
             const flagFill = ctx.selected ? undefined : mergedFlagFillById.get(shape.id)
             const borderInk = resolveBorderInk(entry, ctx, shape.id)
+            const strokeOff = !style.showBorders || !style.showCoastlines
             return (
-              <path
+              <CountryPath
                 key={shape.id}
+                countryId={shape.id}
+                mergeId={shape.id}
                 d={shape.d}
                 fill={flagFill ?? fill}
-                stroke={
-                  !style.showBorders || !style.showCoastlines
-                    ? 'none'
-                    : flagFill
-                      ? FLAG_BORDER_COLOR
-                      : borderInk
-                }
-                strokeWidth={!style.showBorders || !style.showCoastlines ? 0 : style.borderWidth}
+                fillOpacity={undefined}
+                stroke={strokeOff ? 'none' : flagFill ? FLAG_BORDER_COLOR : borderInk}
+                strokeWidth={strokeOff ? 0 : style.borderWidth}
                 paintOrder={flagFill ? 'stroke' : undefined}
-                strokeLinejoin="round"
-                vectorEffect="non-scaling-stroke"
-                className="map-canvas__country"
-                /*
-                 * The same attribute a country carries, because the picker resolves an
-                 * entity id from the DOM and a merge is an entity. `data-merge-id` stays
-                 * alongside it for anything that needs to tell the two apart.
-                 */
-                data-country-id={shape.id}
-                data-merge-id={shape.id}
+                transform={undefined}
                 clipPath={shape.clipId ? `url(#map-inset-${shape.clipId})` : undefined}
               />
             )
@@ -1748,6 +1879,7 @@ export function MapCanvas() {
             moves the names with the land they belong to.
           */}
           {labelsOn && <MapLabels placements={labelsToDraw} labels={labels} />}
+        </g>
         </g>
 
         {/*

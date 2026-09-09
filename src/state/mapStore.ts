@@ -120,6 +120,21 @@ interface MapStore {
   rivers: LoadedRivers | null
   /** Maritime territory, loaded the same way. Independent of the country dataset. */
   maritime: LoadedMaritime | null
+  /**
+   * Whether the layers that are off by default have ever been asked for.
+   *
+   * Rivers are 2.3MB and maritime territory 1.3MB, and the default document draws
+   * neither — rivers are switched off, and island water is a flag-mode option that is
+   * also off. Both were nonetheless fetched and JSON-parsed on every page load, which on
+   * a phone is 3.6MB of download and parse spent before the map is usable, for geometry
+   * nothing was going to draw.
+   *
+   * So they are fetched the first time something wants them, and the wanting is
+   * remembered: switching atlas afterwards reloads them at the new dataset's resolution
+   * exactly as before, because the layer that was on stays on.
+   */
+  riversWanted: boolean
+  maritimeWanted: boolean
 
   /* view */
   transform: Transform
@@ -172,12 +187,48 @@ interface MapStore {
   /** Turns a draft into a real merged entity through the ordinary operation. */
   commitMergeDraft: (id: string) => void
 
+  /**
+   * Asks for a deferred layer, and remembers that it was asked for.
+   *
+   * Idempotent and safe to call on every render: the underlying loaders are cached per
+   * layer, and the flag is only written when it changes.
+   */
+  ensureRivers: () => void
+  ensureMaritime: () => void
+
   setHovered: (id: CountryId | null) => void
   selectCountry: (id: CountryId | null, additive?: boolean) => void
   clearSelection: () => void
 
   setTransform: (t: Transform) => void
   resetTransform: () => void
+}
+
+type SetState = (partial: Partial<MapStore>) => void
+type GetState = () => MapStore
+
+/** Fetches the river layer matching a dataset's resolution, if it is not already the one held. */
+function loadRiversFor(
+  detail: '110m' | '50m' | '10m',
+  datasetId: string,
+  set: SetState,
+  get: GetState,
+) {
+  const layer = riverLayerForDetail(detail)
+  if (get().rivers?.layer.id === layer.id) return
+  void loadRivers(layer)
+    .then((rivers) => {
+      if (get().doc.scope.datasetId === datasetId) set({ rivers })
+    })
+    .catch((error) => console.warn('[geo] rivers unavailable', error))
+}
+
+/** Fetches maritime territory once per session; it does not vary with the dataset. */
+function loadMaritimeOnce(set: SetState, get: GetState) {
+  if (get().maritime) return
+  void loadMaritime()
+    .then((maritime) => set({ maritime }))
+    .catch((error) => console.warn('[geo] maritime territory unavailable', error))
 }
 
 export const useMapStore = create<MapStore>((set, get) => ({
@@ -190,6 +241,8 @@ export const useMapStore = create<MapStore>((set, get) => ({
   lakes: null,
   rivers: null,
   maritime: null,
+  riversWanted: false,
+  maritimeWanted: false,
 
   transform: IDENTITY_TRANSFORM,
   framingEpoch: 0,
@@ -226,23 +279,18 @@ export const useMapStore = create<MapStore>((set, get) => ({
           .catch((error) => console.warn('[geo] lakes unavailable', error))
       }
 
-      // Rivers alongside the lakes, on the same terms and for the same reason.
-      const riverLayer = riverLayerForDetail(geo.dataset.detail)
-      if (get().rivers?.layer.id !== riverLayer.id) {
-        void loadRivers(riverLayer)
-          .then((rivers) => {
-            if (get().doc.scope.datasetId === datasetId) set({ rivers })
-          })
-          .catch((error) => console.warn('[geo] rivers unavailable', error))
-      }
+      /*
+       * Rivers alongside the lakes, on the same terms and for the same reason — but only
+       * for a map that is showing them. The layer is off in the default document, so on
+       * a first load there is nothing here to fetch; `ensureRivers` starts it the moment
+       * the switch is turned on, and from then on this keeps it in step with the
+       * dataset's resolution exactly as it always did.
+       */
+      if (get().riversWanted) loadRiversFor(geo.dataset.detail, datasetId, set, get)
 
       // Maritime territory the same way, and only once: it is a single global file
       // that does not vary with the country dataset's resolution.
-      if (!get().maritime) {
-        void loadMaritime()
-          .then((maritime) => set({ maritime }))
-          .catch((error) => console.warn('[geo] maritime territory unavailable', error))
-      }
+      if (get().maritimeWanted) loadMaritimeOnce(set, get)
     } catch (error) {
       set({
         geoStatus: 'error',
@@ -506,6 +554,19 @@ export const useMapStore = create<MapStore>((set, get) => ({
     })
     get().deleteMergeDraft(id)
     set({ selectedCountryIds: [], activeMergeDraftId: null })
+  },
+
+  ensureRivers() {
+    if (get().riversWanted) return
+    set({ riversWanted: true })
+    const geo = get().geo
+    if (geo) loadRiversFor(geo.dataset.detail, get().doc.scope.datasetId, set, get)
+  },
+
+  ensureMaritime() {
+    if (get().maritimeWanted) return
+    set({ maritimeWanted: true })
+    loadMaritimeOnce(set, get)
   },
 
   setHovered(id) {

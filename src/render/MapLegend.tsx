@@ -15,7 +15,7 @@
  * `LegendAnchor`), never as pixels — so a resize keeps a corner in the corner and the
  * centre in the centre.
  */
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { buildLegendModel, LEGEND_WIDTH, type LegendModel } from '../state/legend'
 import { useMapStore } from '../state/mapStore'
 import type {
@@ -100,7 +100,16 @@ export interface MapLegendProps {
   height: number
 }
 
-export function MapLegend({ doc, width, height }: MapLegendProps) {
+/*
+ * Memoised on the three things it reads.
+ *
+ * The legend sits inside the canvas, so it re-rendered every time the canvas did — on a
+ * hover, a selection, the commit at the end of a pan — and none of those is a change to
+ * the legend. Its own inputs are the document and the viewport, and while those hold
+ * still there is nothing for it to say differently. The drag and resize it runs on local
+ * state are unaffected: memo compares props, and those never were props.
+ */
+export const MapLegend = memo(function MapLegend({ doc, width, height }: MapLegendProps) {
   const dispatch = useMapStore((s) => s.dispatch)
   const groupRef = useRef<SVGGElement>(null)
 
@@ -447,7 +456,7 @@ export function MapLegend({ doc, width, height }: MapLegendProps) {
       </g>
     </>
   )
-}
+})
 
 /**
  * The panel's contents.
