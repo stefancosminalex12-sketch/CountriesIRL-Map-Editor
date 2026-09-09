@@ -1032,15 +1032,27 @@ export function MapCanvas() {
     [zoomK],
   )
 
+  /**
+   * Every entity the map draws a flag for, hidden ones removed.
+   *
+   * A hidden country flies no flag, anywhere. Filtered here rather than at each of the
+   * places tiles are consumed, because they are several — the country's own fill, its
+   * separately framed territories, the island floor and the maritime layer all read from
+   * this one list. Hiding France left its overseas départements still wearing the
+   * tricolour when only the country path was checked.
+   *
+   * This is the *membership* question — which entities have a flag on this map — and it
+   * is deliberately separate from `visibleFlagTiles` below, which answers the quite
+   * different question of how many flag documents a small screen can afford to hold.
+   * Splitting them is what fixes island water on a phone: see `maritimeCodes`.
+   */
+  const drawnFlagTiles = useMemo(
+    () => (hiddenIds.size === 0 ? flagTiles : flagTiles.filter((t) => !hiddenIds.has(t.id))),
+    [flagTiles, hiddenIds],
+  )
+
   const visibleFlagTiles = useMemo(() => {
-    /*
-     * A hidden country flies no flag, anywhere. Filtered here rather than at each of the
-     * places tiles are consumed, because they are several — the country's own fill, its
-     * separately framed territories, the island floor and the maritime layer all read
-     * from this one list. Hiding France left its overseas départements still wearing the
-     * tricolour when only the country path was checked.
-     */
-    const shown = hiddenIds.size === 0 ? flagTiles : flagTiles.filter((t) => !hiddenIds.has(t.id))
+    const shown = drawnFlagTiles
     if (!compactViewport) return shown
     const big = shown.filter(
       (tile) => Math.max(tile.width, tile.height) * flagZoomStep >= COMPACT_FLAG_MIN_PX,
@@ -1054,15 +1066,32 @@ export function MapCanvas() {
     return [...big]
       .sort((a, b) => Math.max(b.width, b.height) - Math.max(a.width, a.height))
       .slice(0, COMPACT_FLAG_MAX_COUNT)
-  }, [compactViewport, flagTiles, flagZoomStep, hiddenIds])
+  }, [compactViewport, drawnFlagTiles, flagZoomStep])
 
   /** Ids that still have a pattern, so nothing can reference one that was skipped. */
   const flaggedIds = useMemo(() => new Set(visibleFlagTiles.map((t) => t.id)), [visibleFlagTiles])
 
+  /**
+   * Which entities the maritime layer may paint, and with whose artwork.
+   *
+   * Read from `drawnFlagTiles` — every entity that has a flag — and *not* from
+   * `visibleFlagTiles`, which is the compact-screen budget for how many flag documents
+   * may be held at once. Those are different questions, and conflating them broke this
+   * feature on exactly the devices the budget was added for.
+   *
+   * The budget keeps the largest tiles on screen, because a flag smaller than a smudge
+   * is not worth 180kB of parsed SVG. But an island nation is small land by definition:
+   * Tuvalu, Kiribati, the Maldives and French Polynesia are the first entities the
+   * budget drops, and they are precisely the entities whose *water* is the point. On a
+   * phone the layer collapsed from 68 territories to 9 — and the 9 that survived were
+   * the continental countries that keep almost no sea at all.
+   *
+   * So water membership follows the geography, and the budget goes on governing only
+   * what it was written to govern: how many flags the land layer paints.
+   */
   const maritimeCodes = useMemo(
-    // A tile exists exactly when the map draws the entity and has a pattern for it.
-    () => new Map(visibleFlagTiles.map((tile) => [tile.id, tile.iso2])),
-    [visibleFlagTiles],
+    () => new Map(drawnFlagTiles.map((tile) => [tile.id, tile.iso2])),
+    [drawnFlagTiles],
   )
 
   /**
@@ -1241,6 +1270,26 @@ export function MapCanvas() {
     else if (visibleFlagTiles.length) requestFlags(visibleFlagTiles.map((tile) => tile.iso2))
   }, [dominationCode, visibleFlagTiles, requestFlags])
 
+  /**
+   * Artwork for the water, which the land layer's budget does not cover.
+   *
+   * On a compact screen the request above asks only for the flags the land is painting,
+   * and an island nation's flag is the first thing that budget drops — so its sea had a
+   * pattern with no image in it and drew as nothing. The territories that actually hold
+   * water are few (68 on the world map), they are only computed once the author turns
+   * the layer on, and each one is a flag the map is genuinely about to paint. Under
+   * domination there is nothing to fetch: the whole layer is painted with the one world
+   * pattern, which the effect above has already asked for.
+   */
+  useEffect(() => {
+    if (dominationCode || islandZones.size === 0) return
+    const codes: string[] = []
+    for (const id of islandZones.keys()) {
+      const code = maritimeCodes.get(id)
+      if (code) codes.push(code)
+    }
+    if (codes.length) requestFlags(codes)
+  }, [dominationCode, islandZones, maritimeCodes, requestFlags])
 
   /** Which merged bodies have artwork ready, and the pattern each one points at. */
   const mergedFlagFillById = useMemo(() => {

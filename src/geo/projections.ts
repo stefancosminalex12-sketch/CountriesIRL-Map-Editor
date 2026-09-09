@@ -42,11 +42,20 @@ export interface ProjectionDef {
  * parallels and the extent it fits to are untouched — this only decides which projection
  * the *author's* "Auto" setting means when it is turned into a concrete one.
  *
- * Robinson is not conic, so the `parallels` a region carries simply go unused under Auto,
- * exactly as they do under any other non-conic choice. Robinson remains selectable by
- * hand as well; nothing about the list of projections changes.
+ * Equal Earth is not conic, so the `parallels` a region carries go unused under Auto,
+ * exactly as they do under any other non-conic choice.
+ *
+ * Equal Earth rather than Robinson because it is the projection the world region already
+ * names as its own (see `regions.ts`), so this is the base the map was framed against —
+ * and because it is equal-area, which is the honest default for a map whose whole subject
+ * is comparing countries to one another. Robinson is a compromise projection: it distorts
+ * area to flatter the shapes, and a reader colouring countries by a value should not be
+ * handed a Greenland that is quietly too big.
+ *
+ * Every projection, Robinson included, remains selectable by hand; nothing about the list
+ * changes, and a map that names a projection explicitly never reaches this at all.
  */
-export const AUTO_PROJECTION_ID: ProjectionId = 'robinson'
+export const AUTO_PROJECTION_ID: ProjectionId = 'equalEarth'
 
 /** Turns the author's choice into the projection to build, resolving "Auto". */
 export function resolveProjectionId(chosen: ProjectionId | 'auto'): ProjectionId {
