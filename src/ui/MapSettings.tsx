@@ -187,10 +187,8 @@ export function MapDisplayToggles() {
           onChange={(showBorders) => setStyle({ showBorders })}
         />
         {/*
-          The country outline, which is also the coast. Its own switch rather than part
-          of Borders, because the single stroke the paths draw is both things at once —
-          see `showCoastlines`, and the boundary network that replaces it when this is
-          off.
+          The coast, and only the coast. Borders and Coastlines are independent layers:
+          each is drawn from its own network when the other is off — see `showCoastlines`.
         */}
         <MapToggle
           icon="coastline"

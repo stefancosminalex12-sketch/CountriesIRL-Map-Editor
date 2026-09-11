@@ -551,18 +551,21 @@ export interface MapStyle {
   /** How countries outside the active region are drawn. */
   outsideScope: 'muted' | 'hidden' | 'normal'
   outsideScopeColor: string
+  /**
+   * Whether the political borders — the lines two entities share — are drawn. Independent
+   * of `showCoastlines`: turning it off leaves every coast in place.
+   */
   showBorders: boolean
   /**
-   * Whether a country's own outline — its coast, and the edge of the map's land — is
-   * drawn.
+   * Whether the coastline — every edge with land on one side only — is drawn. Independent
+   * of `showBorders`: turning it off leaves every border in place.
    *
-   * A country path is stroked once, and that single stroke is both the coastline and
-   * the boundaries it shares with its neighbours: where two countries meet, each draws
-   * its half of the same line. So switching coastlines off cannot simply drop the
-   * stroke, or the internal borders would go with it. The renderer stops stroking the
-   * paths and draws the shared-boundary network on its own instead — the same mesh the
-   * flags mode's boundary treatment uses, which `mesh` built by keeping only the arcs
-   * whose two sides are different countries.
+   * A country path is stroked once, and that single stroke is both the coast and the
+   * boundaries it shares with its neighbours, so it is only used when both layers are on.
+   * With either one off the renderer stops stroking the paths and draws the other layer
+   * from its own network: the border network (arcs whose two sides are different
+   * countries) or the coastline network (arcs belonging to a single geometry). Both come
+   * from the dataset's topology, and neither contains any of the other.
    */
   showCoastlines: boolean
   showGraticule: boolean

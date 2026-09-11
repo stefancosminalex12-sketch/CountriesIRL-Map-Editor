@@ -164,7 +164,20 @@ function describe(polygon: Position[][], centerLon: number): Landmass {
  * dominant cluster; run repeatedly over what is left it yields all of them, which is
  * what tells Alaska apart from Kansas and French Guiana apart from Corsica.
  */
+/**
+ * Clusters per geometry object, shared by every consumer.
+ *
+ * Keyed on the geometry rather than the dataset so that anything holding the same
+ * geometry — the flag framing, the country names, a merged entity's dissolve — asks once
+ * and every later ask is free. The dataset's features are stable objects for the life of
+ * the dataset, so the idle warm-up that frames the flags also warms the names.
+ */
+const clusterByGeometry = new WeakMap<Polygon | MultiPolygon, Landmass[][]>()
+
 function clustersOf(feature: Feature<Polygon | MultiPolygon>): Landmass[][] {
+  const known = clusterByGeometry.get(feature.geometry)
+  if (known) return known
+
   const polygons = polygonsOf(feature)
   if (polygons.length === 0) return []
 
@@ -221,7 +234,9 @@ function clustersOf(feature: Feature<Polygon | MultiPolygon>): Landmass[][] {
 
   // Sorted by the land they hold, not by their largest single piece, so a cluster of
   // many medium islands is ranked above one big island where that is the truth.
-  return clusters.sort((a, b) => total(b) - total(a))
+  const sorted = clusters.sort((a, b) => total(b) - total(a))
+  clusterByGeometry.set(feature.geometry, sorted)
+  return sorted
 }
 
 function total(cluster: Landmass[]): number {
@@ -230,6 +245,22 @@ function total(cluster: Landmass[]): number {
 
 function asGeometry(cluster: Landmass[]): MultiPolygon {
   return { type: 'MultiPolygon', coordinates: cluster.map((m) => m.polygon) }
+}
+
+/**
+ * The dominant landmass cluster of any geometry — the same grouping the flags are framed to.
+ *
+ * Exported for the country names, which need exactly this unit and must not invent a
+ * second definition of it: Cape Verde's nine islands are one place carrying one name,
+ * while Réunion is not part of France's name and Bouvet Island is not part of Norway's.
+ * Accepts any geometry, so a merged entity is grouped by the same rule as a country.
+ */
+export function mainLandCluster(geometry: Polygon | MultiPolygon): MultiPolygon {
+  const clusters = clustersOf({ type: 'Feature', properties: {}, geometry })
+  if (clusters.length > 0) return asGeometry(clusters[0])
+  return geometry.type === 'MultiPolygon'
+    ? geometry
+    : { type: 'MultiPolygon', coordinates: [geometry.coordinates] }
 }
 
 /**

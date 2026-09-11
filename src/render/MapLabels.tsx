@@ -22,11 +22,11 @@ import { LABEL_FONTS, type CountryLabels } from '../types/map'
 
 interface Props {
   /**
-   * The labels this zoom draws, already sized and de-conflicted.
+   * The labels this zoom draws, each at the size the layout gave it.
    *
-   * The camera's whole influence arrives baked into this list — see `visibleLabels`.
-   * Nothing in here re-decides anything: a name's position and line breaks were settled
-   * in the map's own coordinates, so this component draws what it is given.
+   * The camera decides only which names are in this list — see `visibleLabels`. Nothing in
+   * here re-decides anything: a name's position, size and line breaks were settled in the
+   * map's own coordinates, and the camera transform on the group scales them with the land.
    */
   placements: VisibleLabel[]
   labels: CountryLabels
@@ -49,7 +49,7 @@ export const MapLabels = memo(function MapLabels({ placements, labels }: Props) 
      */
     <g pointerEvents="none" aria-hidden="true">
       {placements.map((label) => {
-        const advance = lineAdvance(label.size)
+        const advance = lineAdvance(label.fontSize)
         /*
          * The block is centred on the anchor, so the first baseline sits half a block
          * above it. With `dominant-baseline` centring each line on its own baseline, a
@@ -67,7 +67,7 @@ export const MapLabels = memo(function MapLabels({ placements, labels }: Props) 
             textAnchor="middle"
             dominantBaseline="central"
             fontFamily={family}
-            fontSize={label.size}
+            fontSize={label.fontSize}
             /*
              * The same weight the fitting measured the text at. A block measured semibold
              * and drawn regular would be measured for text that is never set.
@@ -87,7 +87,7 @@ export const MapLabels = memo(function MapLabels({ placements, labels }: Props) 
              * holds the same proportion on a name of any size and at any zoom.
              */
             stroke={labels.outlineWidth > 0 ? labels.outlineColor : undefined}
-            strokeWidth={labels.outlineWidth > 0 ? label.size * labels.outlineWidth : undefined}
+            strokeWidth={labels.outlineWidth > 0 ? label.fontSize * labels.outlineWidth : undefined}
             strokeLinejoin="round"
             paintOrder="stroke"
             clipPath={label.clipId ? `url(#map-inset-${label.clipId})` : undefined}

@@ -1063,7 +1063,11 @@ export interface FlagIslandsProps {
   floorPx: number
   borderColor: string
   borderWidth: number
-  showBorders: boolean
+  /**
+   * Whether the island is outlined. An island's outline is its coast, so this follows the
+   * Coastlines switch rather than Borders.
+   */
+  showOutline: boolean
   /**
    * One paint server for every island, replacing each country's own.
    *
@@ -1089,7 +1093,7 @@ export const FlagIslands = memo(function FlagIslands({
   floorPx,
   borderColor,
   borderWidth,
-  showBorders,
+  showOutline,
   patternOverride,
 }: FlagIslandsProps) {
   const flags = useFlagStore((s) => s.flags)
@@ -1123,8 +1127,8 @@ export const FlagIslands = memo(function FlagIslands({
             d={island.d}
             transform={`translate(${island.centreX},${island.centreY}) scale(${scale}) translate(${-island.centreX},${-island.centreY})`}
             fill={patternOverride ?? `url(#${flagPatternId(island.countryId)})`}
-            stroke={showBorders ? borderColor : 'none'}
-            strokeWidth={showBorders ? borderWidth : 0}
+            stroke={showOutline ? borderColor : 'none'}
+            strokeWidth={showOutline ? borderWidth : 0}
             strokeLinejoin="round"
             vectorEffect="non-scaling-stroke"
             paintOrder="stroke"
@@ -1235,7 +1239,12 @@ export interface FlagTerritoriesProps {
   borderColor: string
   /** Same width the country path uses, so the coast keeps one consistent line. */
   borderWidth: (tile: FlagTile) => number
-  showBorders: boolean
+  /**
+   * Whether the territory is outlined, exactly when the country path under it is. Its
+   * outline is coast and land border in one stroke — Alaska's meets Canada — so it is
+   * drawn only when both switches are on, and otherwise the two networks draw each layer.
+   */
+  showOutline: boolean
 }
 
 /**
@@ -1256,7 +1265,7 @@ export const FlagTerritories = memo(function FlagTerritories({
   shapeById,
   borderColor,
   borderWidth,
-  showBorders,
+  showOutline,
 }: FlagTerritoriesProps) {
   const flags = useFlagStore((s) => s.flags)
   const placements = tiles.flatMap((tile) =>
@@ -1273,8 +1282,8 @@ export const FlagTerritories = memo(function FlagTerritories({
           key={territory.key}
           d={territory.d}
           fill={`url(#${flagTerritoryPatternId(territory.key)})`}
-          stroke={showBorders ? borderColor : 'none'}
-          strokeWidth={showBorders ? borderWidth(tile) : 0}
+          stroke={showOutline ? borderColor : 'none'}
+          strokeWidth={showOutline ? borderWidth(tile) : 0}
           strokeLinejoin="round"
           vectorEffect="non-scaling-stroke"
           paintOrder="stroke"

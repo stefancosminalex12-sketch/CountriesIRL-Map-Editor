@@ -10,8 +10,16 @@
  * carry their own identifier or have to be matched to an ISO table — it says so in its
  * own spec and this loader follows it.
  */
+import { geoContains } from 'd3-geo'
 import { feature, mesh } from 'topojson-client'
-import type { Feature, FeatureCollection, MultiLineString, MultiPolygon, Polygon } from 'geojson'
+import type {
+  Feature,
+  FeatureCollection,
+  MultiLineString,
+  MultiPolygon,
+  Polygon,
+  Position,
+} from 'geojson'
 import type { Topology, GeometryCollection, GeometryObject } from 'topojson-specification'
 import { loadEntityMeta, type EntityMeta } from './countryMeta'
 import { SUPPLEMENTAL_COUNTRIES } from './supplemental'
@@ -106,6 +114,28 @@ export interface LoadedDataset {
    */
   borders: MultiLineString | null
   /**
+   * The coastline, and nothing else: every edge that has land on one side only.
+   *
+   * The counterpart of `borders`, built from the same topology by the opposite rule. An
+   * arc that belongs to a single geometry has the sea — or the edge of the map's land —
+   * on its other side, so it is coast; an arc two countries share is a border and is not
+   * in here. Together the two networks are every line a country outline draws, and neither
+   * contains any of the other, which is what lets the Borders and Coastlines switches be
+   * two independent layers.
+   *
+   * Geometry supplied from `supplemental.ts` is not in the topology, so its coast is added
+   * from its own rings — see `supplementalCoast`.
+   */
+  coastlines: MultiLineString | null
+  /**
+   * The coast of each supplemented entity, as line strings.
+   *
+   * A supplemented polygon has no arcs to ask, so its rings are classified directly: a
+   * stretch of outline is coast unless it lies on another entity's land. Kept per entity
+   * so that hiding a territory, or drawing an inset, can include or leave it out.
+   */
+  supplementalCoast: Map<EntityId, Position[][]>
+  /**
    * The source topology, kept so geometries can be *dissolved* rather than overlaid.
    *
    * Merging countries has to remove the borders between them, and in TopoJSON that is
@@ -138,12 +168,16 @@ export interface LoadedDataset {
  *
  * Returns the original network when nothing is hidden, so the common case costs one
  * comparison and no work at all.
+ *
+ * `include`, when given, keeps only the arcs whose countries it accepts — which is how an
+ * atlas with insets draws each inset's borders through that inset's own projection.
  */
 export function bordersWithout(
   loaded: LoadedDataset,
   hidden: ReadonlySet<EntityId>,
+  include?: (id: EntityId) => boolean,
 ): MultiLineString | null {
-  if (hidden.size === 0 || !loaded.topology) return loaded.borders
+  if ((hidden.size === 0 && !include) || !loaded.topology) return loaded.borders
 
   const object = loaded.topology.objects[loaded.dataset.objectName] as GeometryCollection
   if (!object) return loaded.borders
@@ -158,12 +192,127 @@ export function bordersWithout(
       const left = idOf.get(a)
       const right = idOf.get(b)
       if (!left || !right || left === right) return false
+      if (include && !(include(left) && include(right))) return false
       return !hidden.has(left) && !hidden.has(right)
     })
     return network && network.coordinates.length > 0 ? network : null
   } catch {
     return loaded.borders
   }
+}
+
+/**
+ * The coastline network, with some countries taken out of it — the counterpart of
+ * {@link bordersWithout}.
+ *
+ * A hidden territory takes its coast with it. `include`, when given, keeps only the coast
+ * of the countries it accepts, for drawing an inset through its own projection. Returns
+ * the network built at load when there is nothing to leave out.
+ */
+export function coastlinesWithout(
+  loaded: LoadedDataset,
+  hidden: ReadonlySet<EntityId>,
+  include?: (id: EntityId) => boolean,
+): MultiLineString | null {
+  if (hidden.size === 0 && !include) return loaded.coastlines
+  const keep = (id: EntityId) => !hidden.has(id) && (!include || include(id))
+
+  const idOf = new Map<unknown, EntityId>()
+  for (const [id, geometries] of loaded.topoById) for (const g of geometries) idOf.set(g, id)
+
+  let coordinates: Position[][] = []
+  const object = loaded.topology?.objects[loaded.dataset.objectName] as
+    | GeometryCollection
+    | undefined
+  if (loaded.topology && object) {
+    const supplemented = new Set(loaded.supplemented)
+    try {
+      const network = mesh(loaded.topology, object, (a, b) => {
+        if (a !== b) return false
+        const id = idOf.get(a)
+        return id !== undefined && !supplemented.has(id) && keep(id)
+      })
+      if (network) coordinates = network.coordinates
+    } catch {
+      coordinates = []
+    }
+  }
+  for (const [id, lines] of loaded.supplementalCoast) {
+    if (keep(id)) coordinates = coordinates.concat(lines)
+  }
+  return coordinates.length > 0 ? { type: 'MultiLineString', coordinates } : null
+}
+
+/** Longitude/latitude extent of a feature's outer rings, for a cheap containment prefilter. */
+function extentOf(geometry: MultiPolygon): [number, number, number, number] {
+  let west = Infinity
+  let south = Infinity
+  let east = -Infinity
+  let north = -Infinity
+  for (const polygon of geometry.coordinates) {
+    for (const [lon, lat] of polygon[0] ?? []) {
+      if (lon < west) west = lon
+      if (lon > east) east = lon
+      if (lat < south) south = lat
+      if (lat > north) north = lat
+    }
+  }
+  return [west, south, east, north]
+}
+
+/**
+ * The coast of each supplemented entity, read from its own rings.
+ *
+ * Walked segment by segment: a segment whose midpoint lies on another entity's land is a
+ * border there — the Vatican's whole outline is Italy — and everything else is coast, so a
+ * run of coast becomes one line. Only supplemented entities are walked, because everything
+ * else already has an exact answer in the topology.
+ */
+function coastOfSupplements(
+  ids: EntityId[],
+  features: EntityFeature[],
+  byId: Map<EntityId, EntityFeature>,
+): Map<EntityId, Position[][]> {
+  const coasts = new Map<EntityId, Position[][]>()
+  if (ids.length === 0) return coasts
+  const others = features.map((f) => ({ f, box: extentOf(f.geometry as MultiPolygon) }))
+
+  const onOtherLand = (own: EntityFeature, point: [number, number]) =>
+    others.some(
+      ({ f, box }) =>
+        f !== own &&
+        point[0] >= box[0] &&
+        point[0] <= box[2] &&
+        point[1] >= box[1] &&
+        point[1] <= box[3] &&
+        geoContains(f, point),
+    )
+
+  for (const id of ids) {
+    const own = byId.get(id)
+    if (!own) continue
+    const lines: Position[][] = []
+    for (const polygon of (own.geometry as MultiPolygon).coordinates) {
+      for (const ring of polygon) {
+        let run: Position[] = []
+        for (let i = 1; i < ring.length; i++) {
+          const a = ring[i - 1]
+          const b = ring[i]
+          const middle: [number, number] = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
+          if (onOtherLand(own, middle)) {
+            if (run.length > 1) lines.push(run)
+            run = []
+          } else {
+            if (run.length === 0) run.push(a)
+            run.push(b)
+          }
+        }
+        if (run.length > 1) lines.push(run)
+      }
+    }
+    if (lines.length > 0) coasts.set(id, lines)
+  }
+  return coasts
 }
 
 const cache = new Map<string, Promise<LoadedDataset>>()
@@ -354,6 +503,34 @@ export function loadGeoDataset(id: string): Promise<LoadedDataset> {
 
     const metrics = computeDatasetMetrics(features)
 
+    /*
+     * The coastline network: every arc that belongs to one geometry only, which is the
+     * rule that keeps `borders` free of coast turned the other way round. Supplemented
+     * entities are left out of the topology's answer — their drawn outline is not the one
+     * the topology holds — and contribute their own rings instead.
+     */
+    const supplementalCoast = coastOfSupplements(supplemented, features, byId)
+    let coastlines: MultiLineString | null = null
+    try {
+      const supplementedIds = new Set(supplemented)
+      const network = mesh(
+        topology,
+        topology.objects[dataset.objectName] as GeometryCollection,
+        (a, b) => {
+          if (a !== b) return false
+          const id = idOfGeometry(a)
+          return id !== null && byId.has(id) && !supplementedIds.has(id)
+        },
+      )
+      let coordinates: Position[][] = network ? network.coordinates : []
+      for (const lines of supplementalCoast.values()) coordinates = coordinates.concat(lines)
+      coastlines = coordinates.length > 0 ? { type: 'MultiLineString', coordinates } : null
+    } catch {
+      // Without usable topology the coast is whatever the supplements supply.
+      const coordinates = [...supplementalCoast.values()].flat()
+      coastlines = coordinates.length > 0 ? { type: 'MultiLineString', coordinates } : null
+    }
+
     /**
      * Paint order: hosts first, the things inside them last.
      *
@@ -397,6 +574,8 @@ export function loadGeoDataset(id: string): Promise<LoadedDataset> {
       supplemented,
       metrics,
       borders,
+      coastlines,
+      supplementalCoast,
       topology,
       topoById,
     }

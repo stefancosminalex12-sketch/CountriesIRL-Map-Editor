@@ -35,7 +35,7 @@ import {
   type FillContext,
 } from '../state/colors'
 import { MapLegend, LEGEND_MARKER } from './MapLegend'
-import type { MultiPolygon } from 'geojson'
+import type { MultiLineString, MultiPolygon } from 'geojson'
 import { buildMaritimeShapes, MapMaritime, selectIslandZones } from './MapMaritime'
 import {
   buildFlagIslands,
@@ -61,6 +61,7 @@ import { flagFootprints, flagTerritories } from './flagPlacement'
 import {
   buildLabelShape,
   layoutLabels,
+  MAX_MAP_ZOOM,
   visibleLabels,
   type LabelShape,
 } from './labelPlacement'
@@ -69,7 +70,7 @@ import { CountryPath } from './CountryPath'
 import { flagCodeFor, hasFlag, useFlagStore } from '../flags/flagStore'
 import { resolveScreen } from './screenFrame'
 import { mergeCountries } from '../geo/merge'
-import { bordersWithout } from '../geo/datasets'
+import { bordersWithout, coastlinesWithout } from '../geo/datasets'
 import { MapScreen } from './MapScreen'
 import { MapCaption } from './MapCaption'
 import { getPreset } from '../state/presets'
@@ -78,19 +79,17 @@ import { useSettingsStore } from '../state/settingsStore'
 import { getTheme } from '../theme/themes'
 import { playSfx } from '../audio/sfx'
 import {
-  anchorScreenPosition,
   buildAssistIndex,
   computeSmallEntityAnchors,
   MIN_RENDERED_SIZE_PX,
   minimumSizeTransform,
   pickAssistedCountryAt,
-  SMALL_ENTITY_LENS_OFFSET_PX,
-  SMALL_ENTITY_LENS_RADIUS_PX,
 } from './smallEntities'
+import { MapLenses, type FitCorrection, type Lens, type MapLensesHandle } from './MapLenses'
 
 export const MAP_SVG_ID = 'map-canvas-svg'
 
-const ZOOM_RANGE: [number, number] = [1, 40]
+const ZOOM_RANGE: [number, number] = [1, MAX_MAP_ZOOM]
 
 /**
  * How long the viewport must hold still before the map is refitted to it.
@@ -208,14 +207,17 @@ export function MapCanvas() {
    * jumping to it.
    */
   const fit = useSettledSize(live)
-  const fitTransform = useMemo(() => {
-    if (fit.width < 2 || fit.height < 2) return undefined
-    if (width === fit.width && height === fit.height) return undefined
+  const fitCorrection = useMemo((): FitCorrection | null => {
+    if (fit.width < 2 || fit.height < 2) return null
+    if (width === fit.width && height === fit.height) return null
     const scale = Math.min(width / fit.width, height / fit.height)
     const dx = (width - fit.width * scale) / 2
     const dy = (height - fit.height * scale) / 2
-    return `translate(${dx},${dy}) scale(${scale})`
+    return { scale, dx, dy }
   }, [width, height, fit])
+  const fitTransform = fitCorrection
+    ? `translate(${fitCorrection.dx},${fitCorrection.dy}) scale(${fitCorrection.scale})`
+    : undefined
 
   const doc = useMapStore((s) => s.doc)
   const geo = useMapStore((s) => s.geo)
@@ -240,6 +242,11 @@ export function MapCanvas() {
    * straight onto this element, and React is only told once the gesture ends.
    */
   const zoomedRef = useRef<SVGGElement>(null)
+  /**
+   * The magnifiers, which live in screen space outside the zoomed group — so a gesture
+   * that moves the group directly has to move them directly too. See `MapLenses`.
+   */
+  const lensesRef = useRef<MapLensesHandle>(null)
   /**
    * Whether a pan or a pinch is in flight.
    *
@@ -555,10 +562,9 @@ export function MapCanvas() {
    * zoom — so a rename, a font change or a drag of the size slider redoes arithmetic
    * over numbers that were measured once, and never touches a projection.
    *
-   * The stepped zoom is here because two things depend on the camera: which names clear
-   * the legibility floor, and therefore which of them are competing for the same space.
-   * Stepping it means that set is reconsidered at doublings rather than on every frame
-   * of a pinch.
+   * The stepped zoom is here for one thing only: which names are large enough on screen to
+   * be worth drawing. It never sets a size — a name's size is fixed in the map's units, and
+   * the camera transform scales it with the land.
    */
   /*
    * The zoom, quantised — the one thing the labels ask the camera, and only so they can
@@ -594,14 +600,13 @@ export function MapCanvas() {
   )
 
   /**
-   * The labels as this zoom sets them: sized against the readability floor, and thinned
-   * only where two of them would occupy the same paper.
+   * The labels this zoom draws: every placed name large enough on screen to read, each at
+   * the size the layout gave it.
    *
    * Separate from the layout above because the two change on completely different
    * occasions. The layout is a statement about the map and is recomputed only when the
    * geometry or the names do; this is recomputed when the camera crosses a step, and all
-   * it does is arithmetic and rectangle tests over placements that already exist. Nothing
-   * here can move a label — it has no position of its own to give one.
+   * it does is one comparison per name. Nothing here can move or resize a label.
    */
   const labelsToDraw = useMemo(
     () => (labelsOn ? visibleLabels(labelPlacements, labelZoomStep) : []),
@@ -667,35 +672,70 @@ export function MapCanvas() {
     (!style.showCoastlines || (doc.flags.enabled && doc.flags.internationalBorders))
   const prepareBorders = useLayerLatch(bordersNeeded)
 
-  const network = useMemo(
-    () => (prepareBorders && geo ? bordersWithout(geo, hiddenIds) : null),
-    [prepareBorders, geo, hiddenIds],
-  )
+  /**
+   * Whether anything draws the coastline network: the coastlines-without-borders layer.
+   *
+   * With both switches on, the country paths' own outline draws the coast and the borders
+   * in one stroke, as it always has. With only one of them on, that stroke is off and the
+   * network for that one layer is drawn instead — borders from the border network, coast
+   * from this one. That is what makes the two switches independent: neither layer is ever
+   * a side effect of the other's stroke.
+   */
+  const coastlinesNeeded = style.showCoastlines && !style.showBorders
+  const prepareCoastlines = useLayerLatch(coastlinesNeeded)
+
+  /**
+   * The two line networks, projected — each split by inset.
+   *
+   * One path per projection: the main map's, and one per inset through that inset's own
+   * projection and clip, so Alaska's coast is drawn in Alaska's box and not at its real
+   * position off the edge of the map. Without insets this is exactly one path per layer,
+   * from the networks built at load. Rebuilt without the hidden territories, so taking a
+   * country off the map takes its borders and its coast with it.
+   */
+  const lineNetworks = useMemo(() => {
+    const layers: {
+      borders: Array<{ d: string; clipId: string | null }>
+      coastlines: Array<{ d: string; clipId: string | null }>
+    } = { borders: [], coastlines: [] }
+    if (!projection || !geo) return layers
+
+    const insetMembers = new Set<string>()
+    for (const resolved of insets) for (const id of resolved.members) insetMembers.add(id)
+    const onMain = insets.length > 0 ? (id: string) => !insetMembers.has(id) : undefined
+
+    const split = (
+      build: (include?: (id: string) => boolean) => MultiLineString | null,
+    ): Array<{ d: string; clipId: string | null }> => {
+      const out: Array<{ d: string; clipId: string | null }> = []
+      const main = build(onMain)
+      const mainPath = main ? (geoPath(projection)(main) ?? '') : ''
+      if (mainPath) out.push({ d: mainPath, clipId: null })
+      for (const resolved of insets) {
+        const own = build((id) => resolved.members.has(id))
+        const d = own ? (geoPath(resolved.projection)(own) ?? '') : ''
+        if (d) out.push({ d, clipId: resolved.inset.id })
+      }
+      return out
+    }
+
+    if (prepareBorders) layers.borders = split((include) => bordersWithout(geo, hiddenIds, include))
+    if (prepareCoastlines) {
+      layers.coastlines = split((include) => coastlinesWithout(geo, hiddenIds, include))
+    }
+    return layers
+  }, [projection, geo, hiddenIds, insets, prepareBorders, prepareCoastlines])
 
   const prepareGraticule = useLayerLatch(style.showGraticule)
   const prepareSphere = useLayerLatch(style.showSphere)
   const backdrop = useMemo(() => {
-    if (!projection) return { sphere: '', graticule: '', borders: '' }
+    if (!projection) return { sphere: '', graticule: '' }
     const path = geoPath(projection)
     return {
       sphere: prepareSphere ? (path({ type: 'Sphere' }) ?? '') : '',
       graticule: prepareGraticule ? (path(geoGraticule10()) ?? '') : '',
-      /*
-       * The international boundary network, projected with everything else.
-       *
-       * One path for the whole world rather than one per country, because that is what
-       * the topology gives: each shared border is a single arc belonging to both
-       * neighbours, so drawing it once draws it correctly and no seam can appear where
-       * two countries' outlines would otherwise have been laid over each other.
-       */
-      /*
-       * Rebuilt without the hidden territories, so taking a country off the map takes
-       * its borders with it. Costs nothing while nothing is hidden — `bordersWithout`
-       * hands back the network it was given.
-       */
-      borders: network ? (path(network) ?? '') : '',
     }
-  }, [projection, network, prepareGraticule, prepareSphere])
+  }, [projection, prepareGraticule, prepareSphere])
 
   /**
    * Editor-only anchors for features too small to click. Recomputed only when the
@@ -1376,10 +1416,13 @@ export function MapCanvas() {
        * store, which re-renders once and puts React's idea of the transform back in
        * agreement with the DOM's.
        *
-       * What legitimately follows the live camera — the zoom readout, the magnifier on
-       * a selected speck, the flag and label size steps — updates on that final commit
-       * rather than every frame. Those are all quantised or incidental; none of them is
-       * worth a full render at 60Hz.
+       * The one thing outside that group that has to stay on the land — the magnifier on
+       * a selected speck — is handed the same camera in the same call, and places itself
+       * directly too. It used to be placed from the store, so it stood still for the whole
+       * gesture and caught up only at the commit. What else follows the camera — the zoom
+       * readout, the flag and label size steps — updates on that final commit rather than
+       * every frame. Those are all quantised or incidental; none of them is worth a full
+       * render at 60Hz.
        */
       .on('start', (event) => {
         // Only a real gesture. A programmatic transform has no source event and moves
@@ -1391,6 +1434,7 @@ export function MapCanvas() {
         const group = zoomedRef.current
         if (group && event.sourceEvent) {
           group.setAttribute('transform', `translate(${t.x},${t.y}) scale(${t.k})`)
+          lensesRef.current?.follow(t)
           return
         }
         /* No source event means it was moved programmatically — commit it directly. */
@@ -1435,6 +1479,21 @@ export function MapCanvas() {
   /* ---------------------------------------------------------------- render */
 
   const selected = useMemo(() => new Set(selectedCountryIds), [selectedCountryIds])
+
+  /**
+   * The magnifiers to draw: every selected small entity that is shown and has a shape.
+   * Nothing here depends on the camera, so panning and zooming never rebuild a lens.
+   */
+  const lenses = useMemo(() => {
+    const list: Lens[] = []
+    for (const anchor of smallAnchors) {
+      if (!selected.has(anchor.id) || hiddenIds.has(anchor.id)) continue
+      const d = shapeById.get(anchor.id)
+      if (!d) continue
+      list.push({ anchor, d, fill: flagFillById.get(anchor.id) ?? style.selected })
+    }
+    return list
+  }, [smallAnchors, selected, hiddenIds, shapeById, flagFillById, style.selected])
   const hoveredName = hoveredCountryId ? geo?.byId.get(hoveredCountryId)?.properties.name : null
 
   return (
@@ -1666,6 +1725,12 @@ export function MapCanvas() {
              * it, because a selected country has to read as selected.
              */
             const flagFill = ctx.selected ? undefined : flagFillById.get(shape.id)
+            /*
+             * The outline is coast and borders in one stroke, so it is drawn only when both
+             * layers are on. With one of them off it stays off, and the network for the
+             * other layer is drawn on its own below — so turning Borders off leaves every
+             * coast in place, and turning Coastlines off leaves every border.
+             */
             const strokeOff = !style.showBorders || !style.showCoastlines
 
             /*
@@ -1746,6 +1811,38 @@ export function MapCanvas() {
           })}
 
           {/*
+            Coastlines without borders.
+
+            Only drawn when the border switch is off and the coastline switch is on: with
+            both on, the country paths have already drawn the coast as part of their own
+            outline. The network is the arcs with land on one side only — `mesh` kept the
+            arcs that belong to a single geometry — so what appears here is the coast and
+            nothing else; no border between two countries is in it.
+
+            Where the country outline stroke sits in the paint order, just after the land it
+            outlines, so a floored flag island and a territory's own flag are drawn over it
+            exactly as they are drawn over the outline stroke.
+          */}
+          {!style.showBorders &&
+            style.showCoastlines &&
+            lineNetworks.coastlines.map((layer) => (
+              <path
+                key={`coast-${layer.clipId ?? 'main'}`}
+                d={layer.d}
+                fill="none"
+                stroke={flagsOn ? FLAG_BORDER_COLOR : style.border}
+                strokeWidth={
+                  flagsOn ? boundaryInkWidth(style.borderWidth, zoomK) : style.borderWidth
+                }
+                strokeLinejoin="round"
+                strokeLinecap="butt"
+                vectorEffect="non-scaling-stroke"
+                pointerEvents="none"
+                clipPath={layer.clipId ? `url(#map-inset-${layer.clipId})` : undefined}
+              />
+            ))}
+
+          {/*
             Islands of scattered countries, held at a minimum drawn size.
 
             Before the territories and the lakes, and after the country paths, so a
@@ -1758,7 +1855,7 @@ export function MapCanvas() {
               floorPx={MIN_RENDERED_SIZE_PX}
               borderColor={FLAG_BORDER_COLOR}
               borderWidth={Math.min(style.borderWidth, 0.6)}
-              showBorders={style.showBorders}
+              showOutline={style.showCoastlines}
               patternOverride={worldFlagFill ?? undefined}
             />
           )}
@@ -1783,7 +1880,7 @@ export function MapCanvas() {
               shapeById={shapeById}
               borderColor={FLAG_BORDER_COLOR}
               borderWidth={(tile) => flagBorderWidth(tile, style.borderWidth, zoomK)}
-              showBorders={style.showBorders}
+              showOutline={style.showBorders && style.showCoastlines}
             />
           )}
 
@@ -1825,43 +1922,55 @@ export function MapCanvas() {
             also why it needs no per-country colour: a shared boundary belongs to both
             of its countries equally.
           */}
-          {style.showBorders && !style.showCoastlines && backdrop.borders && (
-            <path
-              d={backdrop.borders}
-              fill="none"
-              stroke={flagsOn ? FLAG_BORDER_COLOR : style.border}
-              strokeWidth={flagsOn ? boundaryInkWidth(style.borderWidth, zoomK) : style.borderWidth}
-              strokeLinejoin="round"
-              strokeLinecap="butt"
-              vectorEffect="non-scaling-stroke"
-              pointerEvents="none"
-            />
-          )}
+          {style.showBorders &&
+            !style.showCoastlines &&
+            lineNetworks.borders.map((layer) => (
+              <path
+                key={`borders-${layer.clipId ?? 'main'}`}
+                d={layer.d}
+                fill="none"
+                stroke={flagsOn ? FLAG_BORDER_COLOR : style.border}
+                strokeWidth={
+                  flagsOn ? boundaryInkWidth(style.borderWidth, zoomK) : style.borderWidth
+                }
+                strokeLinejoin="round"
+                strokeLinecap="butt"
+                vectorEffect="non-scaling-stroke"
+                pointerEvents="none"
+                clipPath={layer.clipId ? `url(#map-inset-${layer.clipId})` : undefined}
+              />
+            ))}
 
-          {flagsOn && doc.flags.internationalBorders && style.showBorders && backdrop.borders && (
-            <>
-              <path
-                d={backdrop.borders}
-                fill="none"
-                stroke={FLAG_BOUNDARY_EDGE}
-                strokeWidth={boundaryEdgeWidth(style.borderWidth, zoomK)}
-                strokeLinejoin="round"
-                strokeLinecap="butt"
-                vectorEffect="non-scaling-stroke"
-                pointerEvents="none"
-              />
-              <path
-                d={backdrop.borders}
-                fill="none"
-                stroke={FLAG_BOUNDARY_INK}
-                strokeWidth={boundaryInkWidth(style.borderWidth, zoomK)}
-                strokeLinejoin="round"
-                strokeLinecap="butt"
-                vectorEffect="non-scaling-stroke"
-                pointerEvents="none"
-              />
-            </>
-          )}
+          {flagsOn &&
+            doc.flags.internationalBorders &&
+            style.showBorders &&
+            lineNetworks.borders.map((layer) => (
+              <g
+                key={`boundary-${layer.clipId ?? 'main'}`}
+                clipPath={layer.clipId ? `url(#map-inset-${layer.clipId})` : undefined}
+              >
+                <path
+                  d={layer.d}
+                  fill="none"
+                  stroke={FLAG_BOUNDARY_EDGE}
+                  strokeWidth={boundaryEdgeWidth(style.borderWidth, zoomK)}
+                  strokeLinejoin="round"
+                  strokeLinecap="butt"
+                  vectorEffect="non-scaling-stroke"
+                  pointerEvents="none"
+                />
+                <path
+                  d={layer.d}
+                  fill="none"
+                  stroke={FLAG_BOUNDARY_INK}
+                  strokeWidth={boundaryInkWidth(style.borderWidth, zoomK)}
+                  strokeLinejoin="round"
+                  strokeLinecap="butt"
+                  vectorEffect="non-scaling-stroke"
+                  pointerEvents="none"
+                />
+              </g>
+            ))}
 
           {/*
             Inland water, over the land it sits in.
@@ -1932,81 +2041,20 @@ export function MapCanvas() {
         </g>
 
         {/*
-          Magnifiers for selected small entities.
-          
-          Drawn outside the zoomed group, in screen space, but anchored to the
-          feature's projected representative point — so it tracks pan, zoom,
-          projection and region changes while keeping a constant, legible size.
-          The lens shows the feature's OWN projected outline scaled up: the same
-          path data the map draws, never a stand-in symbol, and never a change to
-          the geometry itself.
+          Magnifiers for selected small entities, in screen space. Placed from the
+          committed camera here, and from the live one by the zoom behaviour while a
+          gesture is moving the map — see `MapLenses`.
         */}
-        {smallAnchors.map((anchor) => {
-          if (!selected.has(anchor.id)) return null
-          if (hiddenIds.has(anchor.id)) return null
-          const d = shapeById.get(anchor.id)
-          if (!d) return null
-
-          const [sx, sy] = anchorScreenPosition(anchor, transform)
-          const radius = SMALL_ENTITY_LENS_RADIUS_PX
-          const lensX = Math.min(
-            Math.max(sx + SMALL_ENTITY_LENS_OFFSET_PX.x, radius + 2),
-            Math.max(radius + 2, (width || 1) - radius - 2),
-          )
-          const lensY = Math.min(
-            Math.max(sy + SMALL_ENTITY_LENS_OFFSET_PX.y, radius + 2),
-            Math.max(radius + 2, (height || 1) - radius - 2),
-          )
-          const clipId = `map-lens-${anchor.id}`
-
-          return (
-            <g key={`lens-${anchor.id}`} pointerEvents="none">
-              <defs>
-                <clipPath id={clipId}>
-                  <circle cx={lensX} cy={lensY} r={radius - 2} />
-                </clipPath>
-              </defs>
-              {/* tether back to where the country actually is */}
-              <line
-                x1={sx}
-                y1={sy}
-                x2={lensX}
-                y2={lensY}
-                stroke={style.selectedOutline}
-                strokeWidth={1.2}
-                opacity={0.8}
-              />
-              <circle cx={sx} cy={sy} r={2.5} fill={style.selectedOutline} />
-              <circle
-                cx={lensX}
-                cy={lensY}
-                r={radius}
-                fill={style.background}
-                stroke={style.selectedOutline}
-                strokeWidth={2}
-              />
-              <g clipPath={`url(#${clipId})`}>
-                <g
-                  transform={`translate(${lensX},${lensY}) scale(${anchor.magnification}) translate(${-anchor.lensCenterX},${-anchor.lensCenterY})`}
-                >
-                  {/*
-                    The lens paints the same path with the same fill, so in flags mode
-                    it shows the country's flag clipped to its outline, magnified —
-                    no second placement pass and no special case, because the pattern
-                    is defined in the projected space this group is magnifying.
-                  */}
-                  <path
-                    d={d}
-                    fill={flagFillById.get(anchor.id) ?? style.selected}
-                    stroke={style.selectedOutline}
-                    strokeWidth={1.2}
-                    vectorEffect="non-scaling-stroke"
-                  />
-                </g>
-              </g>
-            </g>
-          )
-        })}
+        <MapLenses
+          ref={lensesRef}
+          lenses={lenses}
+          transform={transform}
+          fit={fitCorrection}
+          width={width}
+          height={height}
+          outline={style.selectedOutline}
+          background={style.background}
+        />
         {/*
           The legend, in screen space and drawn last so nothing covers it. Inside the
           `<svg>` deliberately: the exporter copies this element, so a legend rendered
