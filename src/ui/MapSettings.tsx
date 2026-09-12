@@ -187,8 +187,9 @@ export function MapDisplayToggles() {
           onChange={(showBorders) => setStyle({ showBorders })}
         />
         {/*
-          The coast, and only the coast. Borders and Coastlines are independent layers:
-          each is drawn from its own network when the other is off — see `showCoastlines`.
+          The coast, and only the coast. Borders and Coastlines are independent layers,
+          and the coast is stroked the same way whichever of them is on — see
+          `showCoastlines`.
         */}
         <MapToggle
           icon="coastline"

@@ -14,14 +14,15 @@
  * touching the renderer, the store, the operation vocabulary or any panel.
  *
  * **Entity identifiers are namespaced by construction.** Countries are ISO 3166-1
- * alpha-3 (`USA`), states are ISO 3166-2 (`US-CA`), so no two atlases can ever mint the
- * same id. That is what makes per-atlas documents safe to hold side by side: a value
+ * alpha-3 (`USA`), states are ISO 3166-2 (`US-CA`), and the administrative world's
+ * subdivisions are Natural Earth's `adm1_code` (`FRA-2000`), so no two atlases can ever
+ * mint the same id. That is what makes per-atlas documents safe to hold side by side: a value
  * written against `US-CA` can never be mistaken for one written against a country.
  */
 import type { GeoDataset } from '../geo/datasets'
 import type { RegionId } from '../types/map'
 
-export type AtlasId = 'world' | 'usa-states'
+export type AtlasId = 'world' | 'admin-world' | 'usa-states'
 
 /**
  * Geography drawn away from where it actually is.
@@ -154,6 +155,31 @@ const WORLD_DATASETS: GeoDataset[] = [
   },
 ]
 
+/**
+ * The modern world by first-level subdivision: states, provinces, regions, territories.
+ *
+ * Natural Earth's 10m admin-1 layer, built by `scripts/fetch-admin1.mjs` into one topology
+ * on the country map's own quantisation grid, so a subdivision is drawn at exactly the
+ * country map's detail and every boundary two subdivisions share is one arc. Its entity
+ * table (see `prepare-data.mjs`) names each subdivision's parent country, which is what
+ * the national-border layer and the regions read.
+ */
+const ADMIN_DATASETS: GeoDataset[] = [
+  {
+    id: 'admin1-10m',
+    atlasId: 'admin-world',
+    name: 'Modern administrative world',
+    era: 'modern',
+    year: null,
+    detail: '10m',
+    url: 'geo/admin1-10m.json',
+    objectName: 'provinces',
+    metaUrl: 'geo/admin1-meta.json',
+    // Natural Earth's `adm1_code` is on every feature, unique, and is the entity id.
+    identify: 'feature-id',
+  },
+]
+
 const USA_DATASETS: GeoDataset[] = [
   {
     id: 'usa-states-10m',
@@ -182,6 +208,27 @@ export const ATLASES: Atlas[] = [
     defaultRegionIds: ['world'],
     insets: [],
     ownFlags: true,
+  },
+  {
+    id: 'admin-world',
+    name: 'Modern Administrative World',
+    noun: { one: 'subdivision', many: 'subdivisions' },
+    datasets: ADMIN_DATASETS,
+    defaultDatasetId: 'admin1-10m',
+    /*
+     * The world's regions, unchanged. A subdivision takes its country's region and
+     * subregion, so "Europe" means the subdivisions of European countries without a
+     * second definition of Europe.
+     */
+    regionIds: ['world', 'europe', 'asia', 'africa', 'north-america', 'south-america', 'oceania'],
+    defaultRegionIds: ['world'],
+    insets: [],
+    /*
+     * Subdivisions have no artwork of their own: the flag library is keyed on ISO 3166-1
+     * country codes. Flags mode works here as it does on the states map — any subdivision
+     * can be assigned a flag, and a merged body can fly one.
+     */
+    ownFlags: false,
   },
   {
     id: 'usa-states',

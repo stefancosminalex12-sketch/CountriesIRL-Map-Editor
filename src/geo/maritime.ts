@@ -17,7 +17,8 @@
  * two countries' water can never cover the same sea. Nothing here arbitrates between
  * claimants and nothing here invents a boundary.
  */
-import type { Feature, MultiPolygon, Polygon } from 'geojson'
+import { geoArea } from 'd3-geo'
+import type { Feature, MultiPolygon, Polygon, Position } from 'geojson'
 
 export interface MaritimeProperties {
   /** Entity id of the country or territory the zone belongs to. */
@@ -54,6 +55,22 @@ export interface MaritimeZone {
 
 const URL_PATH = 'geo/eez-territories.geojson'
 
+/**
+ * A polygon the right way round for a spherical renderer.
+ *
+ * d3 reads a polygon's outline by its winding, and an outline walked the wrong way is
+ * the whole globe *except* that polygon. No exclusive economic zone is larger than a
+ * hemisphere, so one that measures larger is reversed, and is turned back here — before
+ * it can reach the island test, where it would pass as a territory that is almost all
+ * sea, or the screen, where it would cover the map. The fetch script checks the same
+ * thing when it writes the file; this is what keeps a bad file from ever showing.
+ */
+function oriented(polygon: Position[][]): Position[][] {
+  return geoArea({ type: 'Polygon', coordinates: polygon }) > 2 * Math.PI
+    ? polygon.map((ring) => [...ring].reverse())
+    : polygon
+}
+
 let cached: Promise<LoadedMaritime> | null = null
 
 /** Fetches and indexes the maritime layer. Cached for the session. */
@@ -82,7 +99,7 @@ export function loadMaritime(): Promise<LoadedMaritime> {
       zones.push({
         id: feature.properties.id,
         sovereign: feature.properties.sovereign ?? null,
-        geometry: { type: 'MultiPolygon', coordinates: polygons },
+        geometry: { type: 'MultiPolygon', coordinates: polygons.map(oriented) },
       })
     }
 

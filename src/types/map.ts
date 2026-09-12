@@ -562,10 +562,11 @@ export interface MapStyle {
    *
    * A country path is stroked once, and that single stroke is both the coast and the
    * boundaries it shares with its neighbours, so it is only used when both layers are on.
-   * With either one off the renderer stops stroking the paths and draws the other layer
-   * from its own network: the border network (arcs whose two sides are different
-   * countries) or the coastline network (arcs belonging to a single geometry). Both come
-   * from the dataset's topology, and neither contains any of the other.
+   * With Borders off, each country's coast — the arcs of its outline that belong to it
+   * alone — is drawn by itself with that same outline stroke, so the coast looks exactly
+   * the same either way. With Coastlines off, the border network (arcs whose two sides are
+   * different countries) is drawn instead. Both come from the dataset's topology, and
+   * neither contains any of the other.
    */
   showCoastlines: boolean
   showGraticule: boolean

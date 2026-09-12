@@ -11,10 +11,11 @@
  * own spec and this loader follows it.
  */
 import { geoContains } from 'd3-geo'
-import { feature, mesh } from 'topojson-client'
+import { feature, mesh, meshArcs } from 'topojson-client'
 import type {
   Feature,
   FeatureCollection,
+  LineString,
   MultiLineString,
   MultiPolygon,
   Polygon,
@@ -114,19 +115,16 @@ export interface LoadedDataset {
    */
   borders: MultiLineString | null
   /**
-   * The coastline, and nothing else: every edge that has land on one side only.
+   * Where two different *countries* touch, on a map whose entities are parts of countries.
    *
-   * The counterpart of `borders`, built from the same topology by the opposite rule. An
-   * arc that belongs to a single geometry has the sea — or the edge of the map's land —
-   * on its other side, so it is coast; an arc two countries share is a border and is not
-   * in here. Together the two networks are every line a country outline draws, and neither
-   * contains any of the other, which is what lets the Borders and Coastlines switches be
-   * two independent layers.
-   *
-   * Geometry supplied from `supplemental.ts` is not in the topology, so its coast is added
-   * from its own rings — see `supplementalCoast`.
+   * On the administrative world map every line between two subdivisions is a border, and
+   * `borders` holds them all; only some are between countries. Those are this network: the
+   * arcs whose two sides belong to subdivisions of different parents (`EntityMeta.parent`).
+   * It is drawn as its own layer over the internal ones, so a map of provinces still reads
+   * as a map of countries. `null` wherever entities have no parent — on the country map
+   * `borders` already is the national network.
    */
-  coastlines: MultiLineString | null
+  nationalBorders: MultiLineString | null
   /**
    * The coast of each supplemented entity, as line strings.
    *
@@ -171,16 +169,22 @@ export interface LoadedDataset {
  *
  * `include`, when given, keeps only the arcs whose countries it accepts — which is how an
  * atlas with insets draws each inset's borders through that inset's own projection.
+ *
+ * `nationalOnly` asks the same of {@link LoadedDataset.nationalBorders}: only the arcs
+ * between subdivisions of two different countries.
  */
 export function bordersWithout(
   loaded: LoadedDataset,
   hidden: ReadonlySet<EntityId>,
   include?: (id: EntityId) => boolean,
+  nationalOnly = false,
 ): MultiLineString | null {
-  if ((hidden.size === 0 && !include) || !loaded.topology) return loaded.borders
+  const whole = nationalOnly ? loaded.nationalBorders : loaded.borders
+  if (nationalOnly && !whole) return null
+  if ((hidden.size === 0 && !include) || !loaded.topology) return whole
 
   const object = loaded.topology.objects[loaded.dataset.objectName] as GeometryCollection
-  if (!object) return loaded.borders
+  if (!object) return whole
 
   /* The same resolution the network was built with, so the two cannot disagree. */
   const idOf = new Map<unknown, EntityId>()
@@ -192,55 +196,170 @@ export function bordersWithout(
       const left = idOf.get(a)
       const right = idOf.get(b)
       if (!left || !right || left === right) return false
+      if (nationalOnly) {
+        const leftCountry = loaded.meta[left]?.parent?.id
+        const rightCountry = loaded.meta[right]?.parent?.id
+        if (!leftCountry || !rightCountry || leftCountry === rightCountry) return false
+      }
       if (include && !(include(left) && include(right))) return false
       return !hidden.has(left) && !hidden.has(right)
     })
     return network && network.coordinates.length > 0 ? network : null
   } catch {
-    return loaded.borders
+    return whole
   }
 }
 
 /**
- * The coastline network, with some countries taken out of it — the counterpart of
- * {@link bordersWithout}.
+ * Each entity's coast on its own: the part of its outline with no neighbour on the other
+ * side.
  *
- * A hidden territory takes its coast with it. `include`, when given, keeps only the coast
- * of the countries it accepts, for drawing an inset through its own projection. Returns
- * the network built at load when there is nothing to leave out.
+ * An entity's outline is its coast and its borders in one line. Its coast is every arc of
+ * the topology that belongs to that entity alone — the sea, or the edge of the map's
+ * land, is on the other side — so these lines are exactly the stretches of the outline
+ * that meet the sea, and nothing of its borders. Drawn with the outline's own stroke they
+ * are the coast the outline draws, which is what lets the Coastlines layer stand without
+ * the Borders layer and look no different (see `paintCountry` in `MapCanvas`).
+ *
+ * Supplemented entities have no arcs of their own in the topology, so their coast is the
+ * one classified from their own rings — see `supplementalCoast`.
+ *
+ * Built once per dataset, the first time the coast is drawn without the borders.
  */
-export function coastlinesWithout(
-  loaded: LoadedDataset,
-  hidden: ReadonlySet<EntityId>,
-  include?: (id: EntityId) => boolean,
-): MultiLineString | null {
-  if (hidden.size === 0 && !include) return loaded.coastlines
-  const keep = (id: EntityId) => !hidden.has(id) && (!include || include(id))
+export interface EntityCoast {
+  /** Stretches of shore that end where the entity meets a neighbour. */
+  lines: Position[][]
+  /**
+   * Whole islands, kept as closed rings: an outline is joined all the way round, where a
+   * line would have two square ends meeting at its first point.
+   */
+  rings: Position[][]
+}
 
-  const idOf = new Map<unknown, EntityId>()
-  for (const [id, geometries] of loaded.topoById) for (const g of geometries) idOf.set(g, id)
+/**
+ * A whole island's ring exactly as the land has it.
+ *
+ * Every country polygon is put through `repairPolygon` when the dataset loads: islets that
+ * quantisation collapsed to fewer than three corners are dropped, and a ring wound the
+ * wrong way is turned round. The coast is read from the same topology, so it goes through
+ * the same repair — otherwise it would outline a speck of an islet the land does not
+ * draw, or hand d3 a ring it reads as the rest of the globe.
+ */
+function asLandHasIt(ring: Position[]): Position[] | null {
+  return repairPolygon([ring])?.[0] ?? null
+}
 
-  let coordinates: Position[][] = []
-  const object = loaded.topology?.objects[loaded.dataset.objectName] as
-    | GeometryCollection
-    | undefined
-  if (loaded.topology && object) {
+/** A stretch of shore with somewhere to go: at least two distinct points. */
+const hasLength = (line: Position[]) =>
+  line.some((point) => point[0] !== line[0][0] || point[1] !== line[0][1])
+
+const isClosed = (line: Position[]) =>
+  line.length > 3 &&
+  line[0][0] === line[line.length - 1][0] &&
+  line[0][1] === line[line.length - 1][1]
+
+const coastCache = new WeakMap<LoadedDataset, Map<EntityId, EntityCoast>>()
+
+export function coastByEntity(loaded: LoadedDataset): Map<EntityId, EntityCoast> {
+  const cached = coastCache.get(loaded)
+  if (cached) return cached
+
+  const coasts = new Map<EntityId, EntityCoast>()
+  const topology = loaded.topology
+  const object = topology?.objects[loaded.dataset.objectName] as GeometryCollection | undefined
+
+  if (topology && object) {
+    /*
+     * The one geometry each arc belongs to, or `null` once a second geometry uses it:
+     * "an arc of a single geometry is coast", asked of the whole map in one pass.
+     */
+    const owner = new Map<number, GeometryObject | null>()
+    const visit = (arcs: unknown, geometry: GeometryObject): void => {
+      if (typeof arcs === 'number') {
+        const index = arcs < 0 ? ~arcs : arcs
+        const seen = owner.get(index)
+        if (seen === undefined) owner.set(index, geometry)
+        else if (seen !== geometry) owner.set(index, null)
+        return
+      }
+      if (Array.isArray(arcs)) for (const arc of arcs) visit(arc, geometry)
+    }
+    for (const geometry of object.geometries) {
+      visit((geometry as { arcs?: unknown }).arcs, geometry)
+    }
+
+    const coastal = (arc: number) => owner.get(arc < 0 ? ~arc : arc) != null
+    const decode = (arcs: number[]): Position[] =>
+      (feature(topology, { type: 'LineString', arcs } as never) as unknown as Feature<LineString>)
+        .geometry.coordinates
+
     const supplemented = new Set(loaded.supplemented)
-    try {
-      const network = mesh(loaded.topology, object, (a, b) => {
-        if (a !== b) return false
-        const id = idOf.get(a)
-        return id !== undefined && !supplemented.has(id) && keep(id)
-      })
-      if (network) coordinates = network.coordinates
-    } catch {
-      coordinates = []
+    for (const [id, geometries] of loaded.topoById) {
+      if (supplemented.has(id) || !loaded.byId.has(id)) continue
+
+      // The entity's whole outline as stitched lines, then cut wherever it meets a neighbour.
+      const outline = meshArcs(
+        topology,
+        { type: 'GeometryCollection', geometries } as GeometryCollection,
+        (a, b) => a === b,
+      )
+      const lines: Position[][] = []
+      const rings: Position[][] = []
+      for (const line of outline.arcs as number[][]) {
+        const isCoast = line.map(coastal)
+        if (!isCoast.some(Boolean)) continue
+
+        const runs: number[][] = []
+        let run: number[] = []
+        line.forEach((arc, k) => {
+          if (isCoast[k]) run.push(arc)
+          else {
+            if (run.length) runs.push(run)
+            run = []
+          }
+        })
+        if (run.length) runs.push(run)
+
+        const points = decode(line)
+        const first = points[0]
+        const last = points[points.length - 1]
+        const closed = points.length > 2 && first[0] === last[0] && first[1] === last[1]
+        /*
+         * A ring starts wherever the stitching started it. Cut by a border, its coast
+         * comes out as a run at the start and a run at the end that are really one
+         * stretch of shore, and two line ends meeting at a point leave a notch the
+         * outline does not have — so the two are joined back into one line.
+         */
+        if (closed && runs.length > 1 && isCoast[0] && isCoast[isCoast.length - 1]) {
+          const tail = runs.pop() as number[]
+          runs[0] = [...tail, ...runs[0]]
+        }
+        const island = closed && runs.length === 1 && isCoast.every(Boolean)
+        for (const stretch of runs) {
+          const coordinates = decode(stretch)
+          if (island) {
+            const ring = asLandHasIt(coordinates)
+            if (ring) rings.push(ring)
+          } else if (hasLength(coordinates)) {
+            lines.push(coordinates)
+          }
+        }
+      }
+      if (lines.length > 0 || rings.length > 0) coasts.set(id, { lines, rings })
     }
   }
-  for (const [id, lines] of loaded.supplementalCoast) {
-    if (keep(id)) coordinates = coordinates.concat(lines)
+
+  for (const [id, stretches] of loaded.supplementalCoast) {
+    const lines = stretches.filter((line) => !isClosed(line) && hasLength(line))
+    const rings = stretches
+      .filter(isClosed)
+      .map(asLandHasIt)
+      .filter((ring): ring is Position[] => ring !== null)
+    if (lines.length > 0 || rings.length > 0) coasts.set(id, { lines, rings })
   }
-  return coordinates.length > 0 ? { type: 'MultiLineString', coordinates } : null
+
+  coastCache.set(loaded, coasts)
+  return coasts
 }
 
 /** Longitude/latitude extent of a feature's outer rings, for a cheap containment prefilter. */
@@ -404,6 +523,31 @@ export function loadGeoDataset(id: string): Promise<LoadedDataset> {
       borders = null
     }
 
+    /*
+     * The national network, for a map whose entities have parent countries: the arcs whose
+     * two sides are subdivisions of *different* countries. Resolved through the same ids as
+     * the border mesh above, then up to the parent each one names.
+     */
+    let nationalBorders: MultiLineString | null = null
+    const parentOf = (id: string | null) => (id ? (metaIndex.entities[id]?.parent?.id ?? null) : null)
+    if (Object.values(metaIndex.entities).some((entity) => entity.parent)) {
+      try {
+        const network = mesh(
+          topology,
+          topology.objects[dataset.objectName] as GeometryCollection,
+          (a, b) => {
+            if (a === b) return false
+            const left = parentOf(idOfGeometry(a))
+            const right = parentOf(idOfGeometry(b))
+            return left !== null && right !== null && left !== right
+          },
+        )
+        nationalBorders = network && network.coordinates.length > 0 ? network : null
+      } catch {
+        nationalBorders = null
+      }
+    }
+
     /**
      * A country is exactly one feature, whatever the source shape.
      *
@@ -504,32 +648,10 @@ export function loadGeoDataset(id: string): Promise<LoadedDataset> {
     const metrics = computeDatasetMetrics(features)
 
     /*
-     * The coastline network: every arc that belongs to one geometry only, which is the
-     * rule that keeps `borders` free of coast turned the other way round. Supplemented
-     * entities are left out of the topology's answer — their drawn outline is not the one
-     * the topology holds — and contribute their own rings instead.
+     * The coast of each supplemented entity, classified from its own rings. The coast of
+     * everything else is read off the topology when it is first drawn — `coastByEntity`.
      */
     const supplementalCoast = coastOfSupplements(supplemented, features, byId)
-    let coastlines: MultiLineString | null = null
-    try {
-      const supplementedIds = new Set(supplemented)
-      const network = mesh(
-        topology,
-        topology.objects[dataset.objectName] as GeometryCollection,
-        (a, b) => {
-          if (a !== b) return false
-          const id = idOfGeometry(a)
-          return id !== null && byId.has(id) && !supplementedIds.has(id)
-        },
-      )
-      let coordinates: Position[][] = network ? network.coordinates : []
-      for (const lines of supplementalCoast.values()) coordinates = coordinates.concat(lines)
-      coastlines = coordinates.length > 0 ? { type: 'MultiLineString', coordinates } : null
-    } catch {
-      // Without usable topology the coast is whatever the supplements supply.
-      const coordinates = [...supplementalCoast.values()].flat()
-      coastlines = coordinates.length > 0 ? { type: 'MultiLineString', coordinates } : null
-    }
 
     /**
      * Paint order: hosts first, the things inside them last.
@@ -574,7 +696,7 @@ export function loadGeoDataset(id: string): Promise<LoadedDataset> {
       supplemented,
       metrics,
       borders,
-      coastlines,
+      nationalBorders,
       supplementalCoast,
       topology,
       topoById,

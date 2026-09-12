@@ -20,20 +20,41 @@
  * to the source rather than by drawing one country over another. Overlaps are therefore
  * a property of the data, not something the renderer has to arbitrate.
  *
- * **How much detail survives.** The raw layer is roughly 354 MB — a 200-mile offset is
- * smooth, but the coastal half of each zone carries the coastline at full resolution,
- * and none of that is legible on a world map. Douglas–Peucker at `TOLERANCE` degrees,
- * with coordinates rounded to `PRECISION` decimals, brings it to a few megabytes while
- * leaving the shape of every zone intact. The raw responses are cached, so re-running
- * with a different tolerance costs nothing.
+ * **How much detail survives — without breaking the partition.** The raw layer is
+ * roughly 354 MB — a 200-mile offset is smooth, but the coastal half of each zone carries
+ * the coastline at full resolution, and none of that is legible on a world map. It is
+ * thinned with Douglas–Peucker at `TOLERANCE` degrees, and the thinning is done on the
+ * *shared boundaries*, not on each zone by itself.
+ *
+ * That distinction is the whole of this file. Two neighbours' zones meet along one line —
+ * Fiji's and Tuvalu's water share a median line, vertex for vertex, in the source — and
+ * thinning each zone on its own thinned that line twice, differently: the two copies
+ * drifted apart by up to twenty kilometres, so neighbouring water territories no longer
+ * met. Zoomed in, the ocean showed through between them as white slivers, and elsewhere
+ * they overlapped. So the zones are first built into one topology, where every boundary
+ * two zones share is a single arc, and each arc is simplified once. Both neighbours are
+ * then drawn from the same simplified line and cannot come apart.
+ *
+ * Before the topology is built the raw coordinates are snapped to a `SNAP`-degree grid.
+ * A shared vertex snaps to the same grid point from either side, so nothing that is
+ * shared stops being shared, and the coastline's sub-kilometre wiggle — which the
+ * simplification would discard anyway — collapses into repeated points that are dropped,
+ * so the topology is built over a manageable number of vertices.
  */
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import * as topojsonServer from 'topojson-server'
+import * as topojsonClient from 'topojson-client'
+import { geoArea } from 'd3-geo'
 import { readEntityMeta } from './entity-meta.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const CACHE = join(root, '.cache', 'eez')
+/**
+ * Raw zones, snapped but not simplified. Not the old `.cache/eez`, which held zones that
+ * had already been thinned one at a time — exactly the geometry that cannot be repaired.
+ */
+const CACHE = join(root, '.cache', 'eez-snapped')
 const OUT = join(root, 'public', 'geo', 'eez-territories.geojson')
 const META = join(root, 'public', 'geo', 'country-meta.json')
 
@@ -44,10 +65,18 @@ const LAYER = 'MarineRegions:eez'
 const TOLERANCE = Number(process.env.EEZ_TOLERANCE ?? 0.04)
 const PRECISION = 3
 
-/** Rings smaller than this after simplification carry no information at map scale. */
+/**
+ * The grid raw coordinates are snapped to before the topology is built, in degrees.
+ * About 550 metres: an order of magnitude inside the simplification tolerance, so it
+ * decides nothing the simplification would have kept, and on the grid of `PRECISION`.
+ */
+const SNAP = 0.005
+
+/** Unshared rings smaller than this after simplification carry no information at map scale. */
 const MIN_RING_AREA = 0.004
 
 const round = (n) => Number(n.toFixed(PRECISION))
+const snap = (n) => round(Math.round(n / SNAP) * SNAP)
 
 /** Perpendicular distance from a point to the segment ab. */
 function deviation(p, a, b) {
@@ -58,7 +87,10 @@ function deviation(p, a, b) {
   return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy))
 }
 
-/** Douglas–Peucker, iterative so a long coastline cannot overflow the stack. */
+/**
+ * Douglas–Peucker, iterative so a long coastline cannot overflow the stack. The two
+ * ends are always kept, which for an arc is what keeps every junction between zones.
+ */
 function simplify(points, tolerance) {
   if (points.length <= 2) return points
   const keep = new Uint8Array(points.length)
@@ -93,41 +125,42 @@ function ringArea(ring) {
   return Math.abs(sum / 2)
 }
 
-function simplifyRing(ring) {
-  const out = simplify(ring, TOLERANCE).map(([x, y]) => [round(x), round(y)])
-  // A ring must close, and needs four points to enclose anything.
-  if (out.length < 4) return null
+/** A ring on the snapping grid, with the repeats the snapping made dropped. */
+function snapRing(ring) {
+  const out = []
+  for (const [x, y] of ring) {
+    const point = [snap(x), snap(y)]
+    const last = out[out.length - 1]
+    if (!last || last[0] !== point[0] || last[1] !== point[1]) out.push(point)
+  }
+  if (out.length < 3) return null
   const [fx, fy] = out[0]
   const [lx, ly] = out[out.length - 1]
   if (fx !== lx || fy !== ly) out.push([fx, fy])
   return out.length >= 4 ? out : null
 }
 
-function simplifyGeometry(geometry) {
+function snapGeometry(geometry) {
+  if (!geometry) return null
   const polygons =
     geometry.type === 'Polygon'
       ? [geometry.coordinates]
       : geometry.type === 'MultiPolygon'
         ? geometry.coordinates
         : []
-
   const kept = []
   for (const polygon of polygons) {
-    const outer = simplifyRing(polygon[0])
-    if (!outer || ringArea(outer) < MIN_RING_AREA) continue
+    const outer = snapRing(polygon[0])
+    if (!outer) continue
     const rings = [outer]
-    // Holes are kept only where they still enclose something: a zone with an enclave
-    // cut out of it must keep that enclave, or it would cover a neighbour's water.
     for (const hole of polygon.slice(1)) {
-      const ring = simplifyRing(hole)
-      if (ring && ringArea(ring) >= MIN_RING_AREA) rings.push(ring)
+      const ring = snapRing(hole)
+      if (ring) rings.push(ring)
     }
     kept.push(rings)
   }
   if (kept.length === 0) return null
-  return kept.length === 1
-    ? { type: 'Polygon', coordinates: kept[0] }
-    : { type: 'MultiPolygon', coordinates: kept }
+  return { type: 'MultiPolygon', coordinates: kept }
 }
 
 async function featureCount() {
@@ -152,8 +185,6 @@ async function fetchOne(index) {
       const json = await response.json()
       const feature = json.features?.[0]
       if (!feature) throw new Error('no feature')
-      // Cached already thinned: the raw coastline detail is never needed again, and
-      // keeping it would put hundreds of megabytes on disk for nothing.
       const slim = {
         properties: {
           iso_ter1: feature.properties.iso_ter1,
@@ -163,7 +194,7 @@ async function fetchOne(index) {
           pol_type: feature.properties.pol_type,
           geoname: feature.properties.geoname,
         },
-        geometry: simplifyGeometry(feature.geometry),
+        geometry: snapGeometry(feature.geometry),
       }
       writeFileSync(cached, JSON.stringify(slim), 'utf8')
       return slim
@@ -186,6 +217,7 @@ const skipped = { type: new Map(), unmatched: new Map(), empty: 0 }
 
 for (let i = 0; i < total; i++) {
   const slim = await fetchOne(i)
+  if ((i + 1) % 25 === 0) console.log(`[eez] ${i + 1}/${total}`)
   if (!slim) continue
   const p = slim.properties
 
@@ -217,21 +249,136 @@ for (let i = 0; i < total; i++) {
     properties: { id, sovereign: p.iso_sov1 ?? null, name: p.geoname },
     geometry: slim.geometry,
   })
-
-  if ((i + 1) % 25 === 0) console.log(`[eez] ${i + 1}/${total}`)
 }
 
-// Sorted by id so the file is byte-stable between runs.
-features.sort((a, b) => a.properties.id.localeCompare(b.properties.id))
+// Sorted by id so the topology, and so the file, is byte-stable between runs.
+features.sort(
+  (a, b) =>
+    a.properties.id.localeCompare(b.properties.id) ||
+    a.properties.name.localeCompare(b.properties.name),
+)
 
-writeFileSync(OUT, JSON.stringify({ type: 'FeatureCollection', features }), 'utf8')
+/*
+ * One topology over every kept zone: each stretch of boundary two zones share becomes a
+ * single arc that both refer to. No quantisation — the coordinates are already on the
+ * snapping grid, and a shared vertex is the same number on both sides.
+ */
+const rawPoints = features.reduce(
+  (sum, f) => sum + f.geometry.coordinates.flat(2).length,
+  0,
+)
+const topology = topojsonServer.topology({
+  zones: { type: 'FeatureCollection', features },
+})
+const geometries = topology.objects.zones.geometries
 
-const bytes = readdirSync(join(root, 'public', 'geo'))
-  .filter((f) => f === 'eez-territories.geojson')
-  .map(() => readFileSync(OUT).length)[0]
+/*
+ * Which arcs lie between two *different* zones. Only those are the partition: an arc a
+ * zone shares with itself — an islet's hole and the islet-sized piece of water inside it —
+ * separates nothing from anybody.
+ */
+const arcZone = new Int32Array(topology.arcs.length).fill(-1)
+const arcShared = new Uint8Array(topology.arcs.length)
+geometries.forEach((geometry, zone) => {
+  for (const polygon of geometry.type === 'Polygon' ? [geometry.arcs] : geometry.arcs ?? []) {
+    for (const ring of polygon) {
+      for (const arc of ring) {
+        const index = arc < 0 ? ~arc : arc
+        if (arcZone[index] === -1) arcZone[index] = zone
+        else if (arcZone[index] !== zone) arcShared[index] = 1
+      }
+    }
+  }
+})
+const sharedArcs = arcShared.reduce((n, shared) => n + shared, 0)
 
-console.log(`[eez] ${features.length} zones -> public/geo/eez-territories.geojson (${(bytes / 1e6).toFixed(1)} MB)`)
-console.log(`[eez] tolerance ${TOLERANCE}°, precision ${PRECISION} dp`)
+// Each arc thinned once: a boundary two zones share is the same line for both of them.
+topology.arcs = topology.arcs.map((arc) => simplify(arc, TOLERANCE).map(([x, y]) => [round(x), round(y)]))
+
+/*
+ * Rings too small to see are dropped, but only where nothing else depends on them. A ring
+ * whose every arc belongs to this zone alone is a speck of coast or an islet's hole; a
+ * ring that shares an arc is part of the partition, and removing it would open a hole in
+ * the neighbour on the other side of that arc.
+ */
+function decodeRing(ring) {
+  const points = []
+  for (const index of ring) {
+    const arc = index < 0 ? [...topology.arcs[~index]].reverse() : topology.arcs[index]
+    points.push(...(points.length ? arc.slice(1) : arc))
+  }
+  return points
+}
+const ownRing = (ring) => ring.every((index) => !arcShared[index < 0 ? ~index : index])
+const visible = (ring) => {
+  const points = decodeRing(ring)
+  return points.length >= 4 && ringArea(points) >= MIN_RING_AREA
+}
+let droppedRings = 0
+for (const geometry of geometries) {
+  if (geometry.type !== 'MultiPolygon' && geometry.type !== 'Polygon') continue
+  const polygons = geometry.type === 'Polygon' ? [geometry.arcs] : geometry.arcs
+  const kept = []
+  for (const polygon of polygons) {
+    const [outer, ...holes] = polygon
+    if (ownRing(outer) && !visible(outer)) {
+      droppedRings += polygon.length
+      continue
+    }
+    const rings = [outer]
+    for (const hole of holes) {
+      if (ownRing(hole) && !visible(hole)) droppedRings++
+      else rings.push(hole)
+    }
+    kept.push(rings)
+  }
+  geometry.type = 'MultiPolygon'
+  geometry.arcs = kept
+}
+
+/*
+ * Every polygon checked against the sphere before it is written.
+ *
+ * Thinning each arc on its own can turn a sliver inside out: a polygon of a few square
+ * kilometres whose sides are simplified separately can come back with its outline walked
+ * the other way round, and a spherical renderer reads a reversed outline as everything
+ * *except* the polygon — Sweden's water in the Bay of Bothnia came back as the whole globe
+ * less eighteen square kilometres. No exclusive economic zone is larger than a hemisphere,
+ * so one that measures larger is reversed and is turned back. Rings with no area left, a
+ * line walked out and back, are dropped.
+ */
+let reoriented = 0
+const out = []
+for (const zone of topojsonClient.feature(topology, topology.objects.zones).features) {
+  const polygons = (zone.geometry?.coordinates ?? [])
+    .map((polygon) => polygon.filter((ring) => ring.length >= 4 && ringArea(ring) > 0))
+    .filter((polygon) => polygon.length > 0)
+    .map((polygon) => {
+      if (!(geoArea({ type: 'Polygon', coordinates: polygon }) > 2 * Math.PI)) return polygon
+      reoriented++
+      return polygon.map((ring) => [...ring].reverse())
+    })
+  if (polygons.length === 0) {
+    skipped.empty++
+    continue
+  }
+  out.push({
+    type: 'Feature',
+    properties: zone.properties,
+    geometry:
+      polygons.length === 1
+        ? { type: 'Polygon', coordinates: polygons[0] }
+        : { type: 'MultiPolygon', coordinates: polygons },
+  })
+}
+
+writeFileSync(OUT, JSON.stringify({ type: 'FeatureCollection', features: out }), 'utf8')
+
+const keptPoints = topology.arcs.reduce((sum, arc) => sum + arc.length, 0)
+console.log(`[eez] ${out.length} zones -> public/geo/eez-territories.geojson (${(readFileSync(OUT).length / 1e6).toFixed(1)} MB)`)
+console.log(`[eez] ${topology.arcs.length} arcs, ${sharedArcs} shared between two zones`)
+console.log(`[eez] ${rawPoints} snapped points -> ${keptPoints} arc points; ${droppedRings} unshared specks dropped; ${reoriented} inverted polygons turned back`)
+console.log(`[eez] tolerance ${TOLERANCE}°, snap ${SNAP}°, precision ${PRECISION} dp`)
 for (const [type, n] of skipped.type) console.log(`[eez] skipped ${n} × ${type}`)
 if (skipped.empty) console.log(`[eez] skipped ${skipped.empty} that simplified away`)
 if (skipped.unmatched.size) {

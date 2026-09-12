@@ -36,6 +36,24 @@ export interface EntityMeta {
   independent: boolean
   lat: number
   lng: number
+  /**
+   * The country a subdivision belongs to, by the world map's own id for it.
+   *
+   * Absent on a country, and on a state of the states map, whose atlas is one country.
+   * Present on every entity of the administrative world, where it is what tells a border
+   * between two countries from one inside a country, and what region a subdivision is in.
+   */
+  parent?: { id: string; name: string; iso2: string | null }
+  /** What the source calls this kind of subdivision: State, Province, Region, County. */
+  kind?: string | null
+  /** The source's own identifiers, so an entity can always be traced back to its row. */
+  source?: {
+    adm1Code: string
+    neId: number | null
+    iso31662: string | null
+    hasc: string | null
+    wikidata: string | null
+  }
 }
 
 /** Kept as the old name so the country-shaped call sites read naturally. */

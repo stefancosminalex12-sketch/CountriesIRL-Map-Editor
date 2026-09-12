@@ -235,6 +235,61 @@ storage detail: shared arcs are what `mesh` reads to find the boundary between t
 and nothing else, and what `topojson.merge` dissolves when states are merged. 520 arcs,
 and a CA+NV+AZ dissolve drops from 2,475 vertices to 1,887.
 
+#### Modern Administrative World
+
+A third atlas: the modern world by first-level subdivision — states, provinces, regions,
+departments, territories — rather than by country. It is a separate map with its own
+document, and the World map it sits beside is unchanged and still what the editor opens on.
+
+**The data** is Natural Earth's `ne_10m_admin_1_states_provinces`, the same file the states
+map is cut from, taken whole: 4,596 subdivisions of 251 countries. Natural Earth is public
+domain and commercially usable — GADM, the obvious alternative, forbids commercial use —
+and the credit it asks for is in Settings → Data sources. `scripts/fetch-admin1.mjs` builds
+it into one topology on the country map's own 1e5 quantisation grid and vendors it as
+`data/natural-earth/admin1-10m.json`; nothing is simplified, because even half a grid step
+of thinning removes dozens of islets outright. 858,000 points and 6.8 MB, against the
+country map's 477,000 and 3.7 MB — the same detail, with the internal boundaries added.
+
+**The ids are Natural Earth's `adm1_code`** (`FRA-2000`, `IND-20012`): unique on every
+feature and clear of both other atlases' namespaces. ISO 3166-2 is carried as metadata, not
+used as the key, because 155 features in the source share a code with another.
+
+**Every subdivision knows its country.** `prepare-data.mjs` builds the entity table from
+the source's own fields and resolves each subdivision's parent against the world map's
+country table — including Natural Earth's codes for places ISO spells differently (`KOS`,
+`SDS`, `PSX`) — so every one of them has a parent there. The entity carries the parent's
+id, name and ISO alpha-2, its kind in the source's words (State, Province, County), and its
+identifiers: `adm1_code`, `ne_id`, ISO 3166-2, HASC and Wikidata. It takes its *region*
+from its country, which is what makes Europe, Asia and the other presets work on this map
+without a second definition of any of them; a preset's transcontinental extras (Türkiye on
+a map of Europe) bring their subdivisions with them.
+
+**National borders are their own layer.** Every line between two subdivisions is a border
+and the outlines draw them all at one weight, so a second network — the arcs whose two
+sides have different parents — is drawn over them at twice the width. Both answer to the
+Borders switch and neither to Coastlines, and the coast drawn on its own with Borders off
+is each subdivision's coast, exactly as on the country map. Flags mode's international
+treatment runs along the national network, not along every provincial line.
+
+**Flags** work as they do on the states map: the flag library is keyed on ISO 3166-1 country
+codes and has no artwork for a subdivision, so none is invented. Any subdivision can be
+assigned a flag, and a merged body can fly one.
+
+**Scale is what had to change.** 4,596 names are eighteen times the country map's, and the
+name layout tested each candidate against every name placed so far, and its repair rebuilt
+that list for every pair of neighbours it tried: turning names on froze the page. Collisions
+now go through a grid of the placed names, answering in placement order so every test gives
+exactly the answer the full scan gave, and the repair asks at most a name's six largest
+neighbours within a map-wide budget. The world map's complete layout — all 254 names, under
+two projections — is identical before and after, and its names now appear 6× faster.
+
+Edits no longer cost a layout either. The names, the hidden set and the measured label
+shapes are held steady across edits that do not change them, so typing a value with names
+on is a repaint (about 40 ms here, where it had been seven seconds), and hiding a
+subdivision filters the measured shapes instead of measuring the other 4,594 again. What
+is left is inherent to the size: opening the map is one ~4 s task in a production build,
+and a region or projection change reprojects every path (~2 s).
+
 
 ### How region framing works
 

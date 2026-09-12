@@ -165,6 +165,84 @@ writeFileSync(
   JSON.stringify({ generatedAt: new Date().toISOString(), numericToId, nameToId, entities: byId }),
 )
 
+/* ------------------------------------------------- Modern Administrative World */
+
+/**
+ * The administrative world map: Natural Earth's admin-1 subdivisions, vendored as TopoJSON
+ * by scripts/fetch-admin1.mjs and copied here like every other layer.
+ *
+ * Its entity table is built here rather than vendored, because a subdivision's place in
+ * the world is its country's: Bavaria is in Europe because Germany is. So each one names
+ * its parent by the world map's own id for that country and takes the country's region and
+ * subregion from the table above — the vocabulary the region presets are written in — so
+ * Europe, Asia and the rest work on this map unchanged.
+ */
+{
+  const topo = resolve(root, 'data/natural-earth/admin1-10m.json')
+  const src = resolve(root, 'data/natural-earth/admin1-source.json')
+  if (existsSync(topo) && existsSync(src)) {
+    copyFileSync(topo, resolve(outDir, 'admin1-10m.json'))
+    const source = JSON.parse(readFileSync(src, 'utf8'))
+    const idByIso2 = new Map(Object.values(byId).filter((m) => m.iso2).map((m) => [m.iso2, m.id]))
+    /*
+     * Natural Earth's own adm0 codes where they differ from the table's id for the same
+     * place — its user-assigned codes for the non-ISO entities above, and the handful of
+     * countries it codes differently from ISO.
+     */
+    const NATURAL_EARTH_ADM0 = {
+      KOS: 'XKX', SOL: 'XSO', CYN: 'XNC', CNM: 'XCB', KAB: 'XBK', KAS: 'XSI', WSB: 'XAK',
+      ESB: 'XDH', USG: 'XGB', IOA: 'XIO', CSI: 'XCS', PGA: 'XSP', CLP: 'XCP', BJN: 'XBN',
+      SER: 'XSN', SCR: 'XSR', SDS: 'SSD', PSX: 'PSE', SAH: 'ESH', ALD: 'ALA',
+    }
+    const entities = {}
+    const unplaced = new Set()
+    for (const [id, s] of Object.entries(source)) {
+      const parentId =
+        NATURAL_EARTH_ADM0[s.adm0] ?? (byId[s.adm0] ? s.adm0 : (s.iso2 && idByIso2.get(s.iso2)) || null)
+      const parent = parentId ? byId[parentId] : null
+      if (!parent) unplaced.add(`${s.adm0} ${s.country}`)
+      const iso = s.iso31662
+      entities[id] = {
+        id,
+        // A subdivision is not a country, and this is the field the flag library reads.
+        iso2: null,
+        code: iso && iso.includes('-') ? iso.split('-').slice(1).join('-') : (s.postal ?? id),
+        numeric: null,
+        name: s.name,
+        officialName: s.localName ?? s.name,
+        region: parent?.region ?? 'Unknown',
+        subregion: parent?.subregion ?? parent?.region ?? 'Unknown',
+        independent: false,
+        lat: s.lat,
+        lng: s.lng,
+        parent: {
+          id: parent?.id ?? s.adm0,
+          name: parent?.name ?? s.country,
+          iso2: parent?.iso2 ?? s.iso2 ?? null,
+        },
+        kind: s.kind,
+        source: {
+          adm1Code: s.adm1Code,
+          neId: s.neId,
+          iso31662: iso,
+          hasc: s.hasc,
+          wikidata: s.wikidata,
+        },
+      }
+    }
+    writeFileSync(
+      resolve(outDir, 'admin1-meta.json'),
+      JSON.stringify({ generatedAt: new Date().toISOString(), numericToId: {}, nameToId: {}, entities }),
+    )
+    console.log(
+      `[prepare-data] ${Object.keys(entities).length} subdivisions -> public/geo/admin1-10m.json` +
+        (unplaced.size ? `; parent not in the country table: ${[...unplaced].join(', ')}` : ''),
+    )
+  } else {
+    console.warn('[prepare-data] missing admin1-10m.json - run: node scripts/fetch-admin1.mjs')
+  }
+}
+
 const check = topologies.every((f) => existsSync(resolve(outDir, f)))
 console.log(
   `[prepare-data] ${topologies.length} topologies ${check ? 'copied' : 'MISSING'}, ` +

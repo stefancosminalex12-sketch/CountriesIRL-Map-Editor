@@ -481,7 +481,11 @@ export function countriesInRegions(
   const presets = ids.map(getRegion)
   const out = new Set<string>()
   for (const m of Object.values(meta)) {
-    if (presets.some((p) => p.includes(m))) out.add(m.id)
+    // A subdivision belongs wherever its country does — including a country a preset
+    // names as a transcontinental extra, so Türkiye's provinces are on a map of Europe.
+    if (presets.some((p) => p.includes(m) || (m.parent && p.alsoInclude?.includes(m.parent.id)))) {
+      out.add(m.id)
+    }
   }
   for (const p of presets) {
     for (const id of p.alsoInclude ?? []) out.add(id)

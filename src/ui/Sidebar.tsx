@@ -16,7 +16,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { RegionSelector } from './RegionSelector'
 import { MapPicker } from './MapPicker'
 import { MapColorSwatches, MapDisplayToggles, MapScopeSettings } from './MapSettings'
-import { SelectionHighlight, SoundSettings, ThemePicker } from './SettingsPanel'
+import { DataSources, SelectionHighlight, SoundSettings, ThemePicker } from './SettingsPanel'
 import { DataPalette } from './DataPalette'
 import { LegendControls, LegendSizeControls } from './LegendControls'
 import { ScreenControls } from './ScreenControls'
@@ -132,6 +132,9 @@ const SECTIONS: SidebarSection[] = [
         </Disclosure>
         <Disclosure title="Sound">
           <SoundSettings />
+        </Disclosure>
+        <Disclosure title="Data sources">
+          <DataSources />
         </Disclosure>
       </div>
     ),

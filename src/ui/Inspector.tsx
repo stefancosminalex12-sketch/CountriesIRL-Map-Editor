@@ -14,7 +14,7 @@
  * colouring mode in Data & palette, from the value edited here or from the groups it
  * belongs to — so this panel edits the data and that panel decides how the data reads.
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMapStore } from '../state/mapStore'
 import { playSfx } from '../audio/sfx'
 import type { CountryId, MapValue } from '../types/map'
@@ -41,6 +41,9 @@ function parseValue(raw: string): MapValue {
   return Number.isFinite(numeric) ? numeric : trimmed
 }
 
+/** Marks the inspector's root, so the value field can tell its own panel from the map. */
+const INSPECTOR_MARKER = 'data-inspector'
+
 /**
  * The value field.
  *
@@ -53,10 +56,45 @@ function parseValue(raw: string): MapValue {
  * The draft resyncs whenever the committed value or the selection changes, so the
  * field always shows what the document actually holds — this is a view of the map's
  * state, not a place values live.
+ *
+ * `onApplied` is told when a typed edit has landed — see `Inspector` for what the
+ * Palette workflow does with that. Only a commit that wrote something counts: typing
+ * never does, a blur that changed nothing never does, and an edit the document refused
+ * never does.
  */
-function ValueField({ ids, committed }: { ids: CountryId[]; committed: string }) {
+function ValueField({
+  ids,
+  committed,
+  onApplied,
+}: {
+  ids: CountryId[]
+  committed: string
+  onApplied?: () => void
+}) {
   const dispatch = useMapStore((s) => s.dispatch)
   const [draft, setDraft] = useState(committed)
+
+  /*
+   * Set when the edit is over before the blur that follows it: by Escape, so that blur
+   * does not save what Escape just discarded, and by an applied Enter, so the field
+   * going away with the selection does not commit a second time. A ref rather than
+   * state because the blur handler has to read it in the same tick.
+   */
+  const settled = useRef(false)
+
+  /*
+   * What the last pointer press landed on. A blur says where focus went in
+   * `relatedTarget`, but a button that does not take focus — Safari's, and every
+   * button on iOS — leaves that empty, so the press is the only record of it.
+   */
+  const pressed = useRef<EventTarget | null>(null)
+  useEffect(() => {
+    const onPress = (event: PointerEvent) => {
+      pressed.current = event.target
+    }
+    document.addEventListener('pointerdown', onPress, true)
+    return () => document.removeEventListener('pointerdown', onPress, true)
+  }, [])
 
   const target = ids.join(',')
   useEffect(() => {
@@ -70,15 +108,18 @@ function ValueField({ ids, committed }: { ids: CountryId[]; committed: string })
    * a country with no value has to be indistinguishable from one that never had one,
    * or it stays out of the scale's domain but keeps answering "I have a value" to
    * every other question the editor asks.
+   *
+   * Returns whether the edit landed on every selected country.
    */
-  const commit = () => {
-    if (draft === committed) return
+  const commit = (): boolean => {
+    if (draft === committed) return false
     const value = parseValue(draft)
-    dispatch(
+    const results = dispatch(
       value === null
         ? ids.map((countryId) => ({ op: 'clear_country_value' as const, countryId }))
         : ids.map((countryId) => ({ op: 'set_country_value' as const, countryId, value })),
     )
+    return results.length > 0 && results.every((result) => result.ok)
   }
 
   return (
@@ -89,14 +130,48 @@ function ValueField({ ids, committed }: { ids: CountryId[]; committed: string })
       placeholder={ids.length === 1 ? 'value' : `value for ${ids.length} — Enter`}
       value={draft}
       aria-label={ids.length === 1 ? 'Value' : `Value for ${ids.length} countries`}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={commit}
+      onFocus={() => {
+        settled.current = false
+        pressed.current = null
+      }}
+      onChange={(e) => {
+        settled.current = false
+        setDraft(e.target.value)
+      }}
+      onBlur={(e) => {
+        if (settled.current) {
+          settled.current = false
+          return
+        }
+        const field = e.currentTarget
+        if (!commit() || !onApplied) return
+        /*
+         * Where focus went decides whether the edit is finished. Onto another control of
+         * this same panel — the name field, Clear, Reset — the author is still working on
+         * this selection, and letting it go would take that control away from under the
+         * pointer. Anywhere else — the map, another panel, the keyboard's Done — the
+         * value was the last thing asked of it.
+         */
+        const panel = field.closest(`[${INSPECTOR_MARKER}]`)
+        const staysInPanel = (next: EventTarget | null) => {
+          const control =
+            next instanceof Element ? next.closest('button, input, select, textarea') : null
+          return control !== null && control !== field && panel !== null && panel.contains(control)
+        }
+        if (staysInPanel(e.relatedTarget) || staysInPanel(pressed.current)) return
+        onApplied()
+      }}
       onKeyDown={(e) => {
         if (e.key === 'Enter') {
           e.preventDefault()
-          commit()
+          const applied = commit()
           playSfx('tick')
+          if (applied && onApplied) {
+            settled.current = true
+            onApplied()
+          }
         } else if (e.key === 'Escape') {
+          settled.current = true
           setDraft(committed)
           e.currentTarget.blur()
         }
@@ -130,6 +205,20 @@ export function Inspector() {
   const comparing = doc.comparison.enabled
 
   /*
+   * In the Palette workflow a value finishes the job. The author selects countries,
+   * gives them their number, and the selection has done what it was for — so once the
+   * number has landed it is let go, as Compare lets go of countries once they have
+   * joined a group. Kept, it went on being highlighted over the colour just given to
+   * it, and the next tap added a country to a set that was already finished.
+   *
+   * The value itself is untouched: it is in the document before the selection goes,
+   * and letting go of a selection writes nothing. Only the Palette scale does this —
+   * Predefined, Flags and Compare keep their selection exactly as before.
+   */
+  const palette = !doc.flags.enabled && !comparing && layer?.colorScale.mode === 'numeric'
+  const onApplied = palette ? clearSelection : undefined
+
+  /*
    * What the shared field shows: the value if every selected country already agrees,
    * and blank if they do not. Showing one country's number as if it were all of their
    * numbers would be a lie the field then commits on blur.
@@ -141,7 +230,7 @@ export function Inspector() {
       : ''
 
   return (
-    <div className="stack">
+    <div className="stack" {...{ [INSPECTOR_MARKER]: '' }}>
       <div className="inspector__head">
         <span className="hint">
           {selectedCountryIds.length} selected{comparing ? '' : ` · key “${key}”`}
@@ -168,7 +257,7 @@ export function Inspector() {
           <div className="inspector__title">
             <strong>{selectedCountryIds.length} countries</strong>
           </div>
-          <ValueField ids={selectedCountryIds} committed={sharedValue} />
+          <ValueField ids={selectedCountryIds} committed={sharedValue} onApplied={onApplied} />
           <div className="inspector__actions">
             <button
               type="button"
@@ -210,10 +299,28 @@ export function Inspector() {
             <div className="hint">
               {merge
                 ? `Made from: ${merge.members.join(', ')}`
-                : meta
-                  ? `${meta.subregion} · ${meta.region}`
-                  : 'Not in the country table'}
+                : meta?.parent
+                  ? `${meta.kind ?? 'Subdivision'} of ${meta.parent.name}${
+                      meta.parent.iso2 ? ` (${meta.parent.iso2})` : ''
+                    }`
+                  : meta
+                    ? `${meta.subregion} · ${meta.region}`
+                    : 'Not in the country table'}
             </div>
+            {/*
+              A subdivision's own codes, from the source it came from — the ISO 3166-2 code
+              where it has one, and Natural Earth's identifier, which it always has.
+            */}
+            {!merge && meta?.source && (
+              <div className="hint">
+                {[
+                  meta.source.iso31662 ? `ISO 3166-2 ${meta.source.iso31662}` : null,
+                  `Natural Earth ${meta.source.adm1Code}`,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </div>
+            )}
 
             {/* Only the single-selection view offers per-country editing; with many
                 selected the shared row above does the work and these stay read-outs. */}
@@ -233,7 +340,11 @@ export function Inspector() {
                     })
                   }
                 />
-                <ValueField ids={[id]} committed={value === null ? '' : String(value)} />
+                <ValueField
+                  ids={[id]}
+                  committed={value === null ? '' : String(value)}
+                  onApplied={onApplied}
+                />
                 <div className="inspector__actions">
                   <button
                     type="button"

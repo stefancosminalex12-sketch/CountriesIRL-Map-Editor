@@ -335,6 +335,34 @@ const CAPTION_RINGS = 2
  */
 const REPAIR_MOVES = 10
 
+/**
+ * How many of the names in its way a name that could not be placed may ask to move, and
+ * among how many of them it tries pairs.
+ *
+ * The repair asks each neighbour in turn, then every pair of them, and for every pair tries
+ * ten settings of each against every setting of its own — so the work grows with the square
+ * of the neighbours. On the country map a name rarely has more than a handful in its way.
+ * On the administrative world a name inside Slovenia's 193 municipalities or England's
+ * districts can have dozens, and the pairs alone ran to over a thousand per name: turning
+ * names on froze the page. The neighbours are taken largest territory first, which is the
+ * order they were placed in and the order the repair already tried them in, so the ones
+ * cut off are the small names at the end of that list — the least likely to open a place.
+ */
+const REPAIR_NEIGHBOURS = 6
+const REPAIR_PAIRS = 4
+
+/**
+ * The most arrangements the repair tries across the whole map.
+ *
+ * A ceiling rather than a setting: the country map's whole layout takes 25 ms, a few
+ * thousand arrangements at most, so it finishes far inside this and nothing there changes.
+ * It exists so that no map, however dense, can hold the page: each arrangement costs about
+ * 12 µs, so this is about half a second of repair at most. Past it, a name that could not
+ * be placed keeps the setting on its own land that overlaps least — what the repair falls
+ * back to whenever it finds nothing.
+ */
+const REPAIR_BUDGET = 50_000
+
 /* --------------------------------------------------------------- geometry */
 
 function ringArea(ring: Ring): number {
@@ -1518,15 +1546,155 @@ function blockArea(option: Option): number {
   return option.blockWidth * option.fontSize * blockEms(option.lines.length) * option.fontSize
 }
 
-function clearOf(rect: Rect, blocking: Rect[]): boolean {
-  for (const other of blocking) if (overlaps(rect, other)) return false
-  return true
+/**
+ * The blocks already placed, as a collision test sees them.
+ *
+ * `near` answers with every block that could overlap the one asked about — a superset of
+ * the ones that do, in the order they were placed — so a test over it gives exactly the
+ * answer a test over every placed block gives, and in the same order where order decides a
+ * tie.
+ */
+interface Blocking {
+  near(rect: Rect): Rect[]
+  /**
+   * Whether `rect` is clear of every placed block. The same answer as testing `near`, but
+   * asked of the grid directly: a yes or no needs no list built and no order kept, and it
+   * is by far the most frequent question the layout asks.
+   */
+  clear(rect: Rect): boolean
+}
+
+interface GridEntry {
+  rect: Rect
+  /** Placement order, so a query answers in the order the blocks were placed. */
+  order: number
+  owner: unknown
+  /** The last query that returned this entry, so one covering many cells returns it once. */
+  seen: number
+}
+
+/**
+ * A uniform grid over the map's own coordinates, holding each block in the cells it covers.
+ *
+ * Every collision test used to walk every name placed so far, and the repair rebuilt that
+ * list for every pair of neighbours it tried. For the world's 254 countries that was
+ * affordable; for the administrative world's 4,595 subdivisions it was billions of tests,
+ * and turning names on froze the page. A block only ever meets the blocks around it, and
+ * the grid hands a test those and no others.
+ */
+class RectGrid {
+  private readonly cells = new Map<number, GridEntry[]>()
+  private stamp = 0
+
+  constructor(
+    private readonly originX: number,
+    private readonly originY: number,
+    private readonly cell: number,
+  ) {}
+
+  private range(rect: Rect): [number, number, number, number] {
+    const index = (value: number) => Math.max(-30000, Math.min(30000, Math.floor(value / this.cell)))
+    return [
+      index(rect.x0 - this.originX),
+      index(rect.y0 - this.originY),
+      index(rect.x1 - this.originX),
+      index(rect.y1 - this.originY),
+    ]
+  }
+
+  private static key(ix: number, iy: number): number {
+    return (ix + 32768) * 65536 + (iy + 32768)
+  }
+
+  add(entry: GridEntry): void {
+    const [x0, y0, x1, y1] = this.range(entry.rect)
+    for (let ix = x0; ix <= x1; ix++) {
+      for (let iy = y0; iy <= y1; iy++) {
+        const key = RectGrid.key(ix, iy)
+        const list = this.cells.get(key)
+        if (list) list.push(entry)
+        else this.cells.set(key, [entry])
+      }
+    }
+  }
+
+  remove(entry: GridEntry): void {
+    const [x0, y0, x1, y1] = this.range(entry.rect)
+    for (let ix = x0; ix <= x1; ix++) {
+      for (let iy = y0; iy <= y1; iy++) {
+        const list = this.cells.get(RectGrid.key(ix, iy))
+        const at = list ? list.indexOf(entry) : -1
+        if (list && at >= 0) list.splice(at, 1)
+      }
+    }
+  }
+
+  /** Calls `visit` with each entry near `rect`, once, until it returns true. */
+  some(rect: Rect, visit: (entry: GridEntry) => boolean): boolean {
+    const stamp = ++this.stamp
+    const [x0, y0, x1, y1] = this.range(rect)
+    for (let ix = x0; ix <= x1; ix++) {
+      for (let iy = y0; iy <= y1; iy++) {
+        const list = this.cells.get(RectGrid.key(ix, iy))
+        if (!list) continue
+        for (const entry of list) {
+          if (entry.seen === stamp) continue
+          entry.seen = stamp
+          if (visit(entry)) return true
+        }
+      }
+    }
+    return false
+  }
+
+  query(rect: Rect): GridEntry[] {
+    const stamp = ++this.stamp
+    const found: GridEntry[] = []
+    const [x0, y0, x1, y1] = this.range(rect)
+    for (let ix = x0; ix <= x1; ix++) {
+      for (let iy = y0; iy <= y1; iy++) {
+        const list = this.cells.get(RectGrid.key(ix, iy))
+        if (!list) continue
+        for (const entry of list) {
+          if (entry.seen === stamp) continue
+          entry.seen = stamp
+          found.push(entry)
+        }
+      }
+    }
+    return found
+  }
+}
+
+/** Placed blocks from a grid, leaving out `except`, with `extra` blocks after them. */
+function gridBlocking(grid: RectGrid, except?: ReadonlySet<unknown>, extra?: Rect[]): Blocking {
+  return {
+    near(rect) {
+      const found = grid
+        .query(rect)
+        .filter((entry) => !except || !except.has(entry.owner))
+        .sort((a, b) => a.order - b.order)
+        .map((entry) => entry.rect)
+      return extra && extra.length > 0 ? [...found, ...extra] : found
+    },
+    clear(rect) {
+      if (extra) for (const other of extra) if (overlaps(rect, other)) return false
+      return !grid.some(
+        rect,
+        (entry) => !(except && except.has(entry.owner)) && overlaps(rect, entry.rect),
+      )
+    },
+  }
+}
+
+function clearOf(rect: Rect, blocking: Blocking): boolean {
+  return blocking.clear(rect)
 }
 
 /** Total area a block shares with the blocks already placed. */
-function overlapArea(rect: Rect, blocking: Rect[]): number {
+function overlapArea(rect: Rect, blocking: Blocking): number {
   let total = 0
-  for (const other of blocking) {
+  for (const other of blocking.near(rect)) {
     const w = Math.min(rect.x1, other.x1) - Math.max(rect.x0, other.x0)
     const h = Math.min(rect.y1, other.y1) - Math.max(rect.y0, other.y0)
     if (w > 0 && h > 0) total += w * h
@@ -1542,8 +1710,9 @@ function overlapArea(rect: Rect, blocking: Rect[]): number {
  * Skåne. Tested against each entity's largest piece, which is where a neighbour a hull could
  * swallow actually is.
  */
-function onForeignLand(x: number, y: number, own: string, shapes: LabelShape[]): boolean {
-  for (const other of shapes) {
+function onForeignLand(x: number, y: number, own: string, lands: RectGrid): boolean {
+  for (const entry of lands.query({ x0: x, y0: y, x1: x, y1: y })) {
+    const other = entry.owner as LabelShape
     if (other.id === own || !other.mainland) continue
     const [x0, y0, x1, y1] = other.mainland.box
     if (x < x0 || x > x1 || y < y0 || y > y1) continue
@@ -1563,7 +1732,7 @@ function onForeignLand(x: number, y: number, own: string, shapes: LabelShape[]):
 function slide(
   at: { option: Option; rect: Rect },
   size: number,
-  blocking: Rect[],
+  blocking: Blocking,
   frame: LabelShape['frame'],
 ): { option: Option; rect: Rect } | null {
   const { option, rect } = at
@@ -1571,8 +1740,23 @@ function slide(
   const hh = (rect.y1 - rect.y0) / 2
   if (!(hw > 0) || !(hh > 0)) return null
 
+  /*
+   * Everything a slide could run into, asked once: no slide leaves the block's own
+   * `SLIDE_LIMIT` margin, so the blocks near that margin are all a moved block can meet.
+   */
+  const nearby = blocking.near({
+    x0: rect.x0 - SLIDE_LIMIT * hw,
+    y0: rect.y0 - SLIDE_LIMIT * hh,
+    x1: rect.x1 + SLIDE_LIMIT * hw,
+    y1: rect.y1 + SLIDE_LIMIT * hh,
+  })
+  const local: Blocking = {
+    near: () => nearby,
+    clear: (moved) => !nearby.some((other) => overlaps(moved, other)),
+  }
+
   const shifts: Array<[number, number]> = []
-  for (const other of blocking) {
+  for (const other of nearby) {
     if (!overlaps(rect, other)) continue
     shifts.push(
       [other.x1 - rect.x0, 0],
@@ -1591,7 +1775,7 @@ function slide(
     const moved = settle({ ...option, x: option.x + dx, y: option.y + dy }, size, frame)
     if (Math.abs(moved.option.x - option.x) > SLIDE_LIMIT * hw) continue
     if (Math.abs(moved.option.y - option.y) > SLIDE_LIMIT * hh) continue
-    if (clearOf(moved.rect, blocking)) return moved
+    if (clearOf(moved.rect, local)) return moved
   }
   return null
 }
@@ -1734,13 +1918,51 @@ export function layoutLabels(
     chosen: { option: Option; rect: Rect }
     /** Whether the chosen setting is clear of every other name. */
     clear: boolean
+    /** Its place in the order names were placed, which every query answers in. */
+    order: number
   }
   const placements: Placement[] = []
+
+  /*
+   * The placed names, and each shape's main island, on grids over the map — see `RectGrid`.
+   * A cell is a 256th of the map's longer side: small enough that a subdivision's name
+   * meets only its neighbours, large enough that a continent's name covers a few hundred.
+   */
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  for (const shape of shapes) {
+    if (shape.minX < minX) minX = shape.minX
+    if (shape.minY < minY) minY = shape.minY
+    if (shape.maxX > maxX) maxX = shape.maxX
+    if (shape.maxY > maxY) maxY = shape.maxY
+  }
+  const known = Number.isFinite(minX) && Number.isFinite(minY)
+  const cell = known ? Math.max(maxX - minX, maxY - minY, 1) / 256 : 1
+  const grid = new RectGrid(known ? minX : 0, known ? minY : 0, cell)
+  const lands = new RectGrid(known ? minX : 0, known ? minY : 0, cell)
+  shapes.forEach((shape, order) => {
+    if (!shape.mainland) return
+    const [x0, y0, x1, y1] = shape.mainland.box
+    lands.add({ rect: { x0, y0, x1, y1 }, order, owner: shape, seen: 0 })
+  })
+  const entries = new Map<Placement, GridEntry>()
+  /** Moves a placed name, keeping the grid in step with it. */
+  const move = (placement: Placement, chosen: { option: Option; rect: Rect }) => {
+    const entry = entries.get(placement)
+    if (entry) grid.remove(entry)
+    placement.chosen = chosen
+    if (entry) {
+      entry.rect = chosen.rect
+      grid.add(entry)
+    }
+  }
 
   /** The first setting clear of `blocking`, as offered or after a short slide. */
   const firstClear = (
     candidates: Option[],
-    blocking: Rect[],
+    blocking: Blocking,
     frame: LabelShape['frame'],
   ): { option: Option; rect: Rect } | null => {
     for (const candidate of candidates) {
@@ -1775,7 +1997,7 @@ export function layoutLabels(
     const group =
       shape.groupSpots.length > 0 && (bestLand === null || dwarfed)
         ? interiorOptions(shape.groupSpots, words, width, sizing, span, 'group').filter(
-            (option) => !onForeignLand(option.x, option.y, shape.id, shapes),
+            (option) => !onForeignLand(option.x, option.y, shape.id, lands),
           )
         : []
     const useGroup = group.length > 0
@@ -1812,7 +2034,7 @@ export function layoutLabels(
      */
     const home = captionFirst ? candidates : candidates.filter((c) => c.mode !== 'external')
     const spare = captionFirst ? [] : candidates.filter((c) => c.mode === 'external')
-    const taken = placements.map((placement) => placement.chosen.rect)
+    const taken = gridBlocking(grid)
     let chosen = firstClear(home, taken, shape.frame)
     const clear = chosen !== null
     if (!chosen) {
@@ -1833,11 +2055,23 @@ export function layoutLabels(
       }
     }
     if (!chosen) continue
-    placements.push({ shape, extent, candidates: home, captions: spare, chosen, clear })
+    const placement: Placement = {
+      shape,
+      extent,
+      candidates: home,
+      captions: spare,
+      chosen,
+      clear,
+      order: placements.length,
+    }
+    placements.push(placement)
+    const entry: GridEntry = { rect: chosen.rect, order: placement.order, owner: placement, seen: 0 }
+    entries.set(placement, entry)
+    grid.add(entry)
   }
 
   /** Where a placement could move to, clear of `fixed`: its own settings, or a short slide. */
-  const movesOf = (target: Placement, fixed: Rect[]): Array<{ option: Option; rect: Rect }> => {
+  const movesOf = (target: Placement, fixed: Blocking): Array<{ option: Option; rect: Rect }> => {
     const moves: Array<{ option: Option; rect: Rect }> = []
     for (const candidate of target.candidates.slice(0, REPAIR_MOVES)) {
       const size = candidate.fontSize * scale
@@ -1859,35 +2093,43 @@ export function layoutLabels(
    * caption — so both had to be asked. Nobody is resized: every setting any of these names
    * can take carries the size its own shape gave it.
    */
+  let budget = REPAIR_BUDGET
   for (const placement of placements) {
     if (placement.clear) continue
+    if (budget <= 0) break
     const reach = placement.candidates.map((candidate) => {
       const rect = settle(candidate, candidate.fontSize * scale, placement.shape.frame).rect
       const padX = ((rect.x1 - rect.x0) * SLIDE_LIMIT) / 2
       const padY = ((rect.y1 - rect.y0) * SLIDE_LIMIT) / 2
       return { x0: rect.x0 - padX, y0: rect.y0 - padY, x1: rect.x1 + padX, y1: rect.y1 + padY }
     })
-    const blockers = placements.filter(
-      (other) => other !== placement && reach.some((rect) => overlaps(rect, other.chosen.rect)),
-    )
+    const found = new Set<Placement>()
+    for (const rect of reach) {
+      for (const entry of grid.query(rect)) {
+        const other = entry.owner as Placement
+        if (other !== placement && overlaps(rect, other.chosen.rect)) found.add(other)
+      }
+    }
+    const blockers = [...found].sort((a, b) => a.order - b.order).slice(0, REPAIR_NEIGHBOURS)
     const movers: Placement[][] = blockers.map((blocker) => [blocker])
-    for (let i = 0; i < blockers.length; i++) {
-      for (let j = i + 1; j < blockers.length; j++) movers.push([blockers[i], blockers[j]])
+    const paired = Math.min(blockers.length, REPAIR_PAIRS)
+    for (let i = 0; i < paired; i++) {
+      for (let j = i + 1; j < paired; j++) movers.push([blockers[i], blockers[j]])
     }
 
     repair: for (const [first, second] of movers) {
-      const fixed = placements
-        .filter((other) => other !== placement && other !== first && other !== second)
-        .map((other) => other.chosen.rect)
+      const except = new Set<unknown>([placement, first, second])
+      const fixed = gridBlocking(grid, except)
       for (const a of movesOf(first, fixed)) {
-        const seconds = second ? movesOf(second, [...fixed, a.rect]) : [null]
+        const seconds = second ? movesOf(second, gridBlocking(grid, except, [a.rect])) : [null]
         for (const b of seconds) {
-          const pool = b ? [...fixed, a.rect, b.rect] : [...fixed, a.rect]
+          if (--budget < 0) break repair
+          const pool = gridBlocking(grid, except, b ? [a.rect, b.rect] : [a.rect])
           const mine = firstClear(placement.candidates, pool, placement.shape.frame)
           if (!mine) continue
-          first.chosen = a
-          if (second && b) second.chosen = b
-          placement.chosen = mine
+          move(first, a)
+          if (second && b) move(second, b)
+          move(placement, mine)
           placement.clear = true
           break repair
         }
@@ -1902,12 +2144,10 @@ export function layoutLabels(
    */
   for (const placement of placements) {
     if (placement.clear || placement.captions.length === 0) continue
-    const others = placements
-      .filter((other) => other !== placement)
-      .map((other) => other.chosen.rect)
+    const others = gridBlocking(grid, new Set<unknown>([placement]))
     const caption = firstClear(placement.captions, others, placement.shape.frame)
     if (caption) {
-      placement.chosen = caption
+      move(placement, caption)
       placement.clear = true
     }
   }

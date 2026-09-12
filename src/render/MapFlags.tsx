@@ -590,16 +590,71 @@ export function fitFlag(
     const measured = measurePolygon(polygon, path, project)
     if (measured) pieces.push(measured)
   }
+  return frameFlag(pieces, () => anchorOf(cluster, path, project), FRAME_AREA_TAIL)
+}
+
+/**
+ * Frame a flag over shapes that are already in the plane of the map.
+ *
+ * For the maritime layer, whose water is projected before it gets here so that it can be
+ * split where the map's edge cuts it. Measured in the plane directly rather than through
+ * `measurePolygon`, whose cache belongs to the land and is keyed on the projection.
+ *
+ * The whole of the shape is framed: no area is trimmed from either end of an axis. That
+ * trim exists so an islet a thousand kilometres out cannot drag a country's frame into
+ * the ocean; water is one continuous surface, and any of it left outside the frame would
+ * show a second, partial flag where the pattern repeats.
+ */
+export function fitFlagToPlanar(polygons: Position[][][]): FlagFit | null {
+  const plane = geoPath()
+  const pieces: Piece[] = []
+  let largest: Position[][] | null = null
+  let largestArea = -Infinity
+  for (const polygon of polygons) {
+    const shape = { type: 'Polygon' as const, coordinates: polygon }
+    const [[x0, y0], [x1, y1]] = plane.bounds(shape)
+    if (![x0, y0, x1, y1].every(Number.isFinite)) continue
+    const area = Math.abs(plane.area(shape))
+    pieces.push({ x0, x1, y0, y1, area })
+    if (area > largestArea) {
+      largestArea = area
+      largest = polygon
+    }
+  }
+  const anchor = (): [number, number] => {
+    if (largest && largest[0]) {
+      const source = largest[0]
+      const stride = Math.max(1, Math.round(source.length / ANCHOR_POINTS))
+      const ring: [number, number][] = []
+      for (let i = 0; i < source.length; i += stride) ring.push([source[i][0], source[i][1]])
+      const deep = deepestPoint(ring)
+      if (deep) return deep
+    }
+    const [cx, cy] = plane.centroid({ type: 'MultiPolygon', coordinates: polygons })
+    return [cx, cy]
+  }
+  return frameFlag(pieces, anchor, 0)
+}
+
+/**
+ * The fitting both of the above share: a box from the pieces, with `tail` of the area
+ * allowed outside it at each end of an axis, and the artwork fitted to that box.
+ */
+function frameFlag(
+  pieces: Piece[],
+  anchor: () => [number, number],
+  tail: number,
+): FlagFit | null {
   if (pieces.length === 0) return null
 
   const totalArea = pieces.reduce((sum, p) => sum + p.area, 0)
   const [x0, x1] =
     totalArea > 0
-      ? coreInterval(pieces, (p) => p.x0, (p) => p.x1, totalArea, FRAME_AREA_TAIL)
+      ? coreInterval(pieces, (p) => p.x0, (p) => p.x1, totalArea, tail)
       : [Math.min(...pieces.map((p) => p.x0)), Math.max(...pieces.map((p) => p.x1))]
   const [y0, y1] =
     totalArea > 0
-      ? coreInterval(pieces, (p) => p.y0, (p) => p.y1, totalArea, FRAME_AREA_TAIL)
+      ? coreInterval(pieces, (p) => p.y0, (p) => p.y1, totalArea, tail)
       : [Math.min(...pieces.map((p) => p.y0)), Math.max(...pieces.map((p) => p.y1))]
   if (![x0, y0, x1, y1].every(Number.isFinite)) return null
 
@@ -667,7 +722,7 @@ export function fitFlag(
    * on. Skipping it where it cannot matter changes no placement at all.
    */
   const cropped = imageWidth > width + 1e-9 || imageHeight > height + 1e-9
-  const [ax, ay] = cropped ? anchorOf(cluster, path, project) : [NaN, NaN]
+  const [ax, ay] = cropped ? anchor() : [NaN, NaN]
   const centreX = Number.isFinite(ax) ? ax - x : width / 2
   const centreY = Number.isFinite(ay) ? ay - y : height / 2
   const imageX = Math.min(0, Math.max(width - imageWidth, centreX - imageWidth / 2))

@@ -107,3 +107,47 @@ export const CountryPath = memo(function CountryPath({
     />
   )
 })
+
+export interface CountryCoastProps {
+  /** The entity whose coast this is, published to the DOM beside `data-country-id`. */
+  entityId: string
+  d: string
+  stroke: string
+  strokeWidth: number
+  transform: string | undefined
+  clipPath: string | undefined
+}
+
+/**
+ * One entity's coast, drawn on its own — the Coastlines layer while Borders is off.
+ *
+ * The stroke is the entity's own outline stroke, resolved once and handed to both (see
+ * `paintCountry` in `MapCanvas`): same colour, same width, same minimum-size transform,
+ * same clip. So the coast is the same line whether the outline draws it or this does, and
+ * turning Borders off or on cannot change how it looks. Memoised for the same reason
+ * `CountryPath` is, and inert to the pointer so hit testing still reaches the country.
+ */
+export const CountryCoast = memo(function CountryCoast({
+  entityId,
+  d,
+  stroke,
+  strokeWidth,
+  transform,
+  clipPath,
+}: CountryCoastProps) {
+  return (
+    <path
+      data-coast-of={entityId}
+      d={d}
+      fill="none"
+      stroke={stroke}
+      strokeWidth={strokeWidth}
+      strokeLinejoin="round"
+      strokeLinecap="butt"
+      vectorEffect="non-scaling-stroke"
+      transform={transform}
+      clipPath={clipPath}
+      pointerEvents="none"
+    />
+  )
+})

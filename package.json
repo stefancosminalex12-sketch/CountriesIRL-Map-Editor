@@ -16,7 +16,8 @@
     "fetch-lakes": "node scripts/fetch-lakes.mjs",
     "fetch-country-fixes": "node scripts/fetch-country-fixes.mjs",
     "prepare-flags": "node scripts/prepare-flags.mjs",
-    "fetch-eez": "node scripts/fetch-eez.mjs"
+    "fetch-eez": "node scripts/fetch-eez.mjs",
+    "fetch-admin1": "node scripts/fetch-admin1.mjs"
   },
   "dependencies": {
     "d3-geo": "^3.1.1",

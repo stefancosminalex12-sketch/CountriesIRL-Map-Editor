@@ -173,3 +173,35 @@ export function SoundSettings() {
         </div>
   )
 }
+
+/**
+ * Where the map's data comes from, and the terms it comes under.
+ *
+ * In the app rather than only in the README, so the credit travels with the tool and with
+ * every map made in it. Natural Earth is public domain and asks for a credit rather than
+ * requiring one; Marine Regions' licence (CC BY 4.0) and the country table's (ODbL)
+ * require attribution, and the flag artwork's MIT licence asks for its notice to be kept.
+ */
+export function DataSources() {
+  return (
+    <div className="stack">
+      <p className="hint">
+        <strong>Natural Earth</strong> — country outlines, first-level administrative
+        subdivisions (admin-1 states and provinces), lakes and rivers. Public domain. Made
+        with Natural Earth: naturalearthdata.com
+      </p>
+      <p className="hint">
+        <strong>Marine Regions</strong> — exclusive economic zones, for Island Water
+        Coverage. Flanders Marine Institute (2019), Maritime Boundaries Geodatabase v11,
+        marineregions.org. CC BY 4.0.
+      </p>
+      <p className="hint">
+        <strong>world-countries</strong> — country names, codes and regions, by Mohammed Le
+        Doze. Open Database License (ODbL) 1.0.
+      </p>
+      <p className="hint">
+        <strong>flag-icons</strong> — flag artwork, by Panayiotis Lipiridis. MIT licence.
+      </p>
+    </div>
+  )
+}

@@ -7,6 +7,7 @@
  * real DOM node so per-country styling and interaction stay trivial.
  */
 import {
+  Fragment,
   useCallback,
   useEffect,
   useMemo,
@@ -35,7 +36,7 @@ import {
   type FillContext,
 } from '../state/colors'
 import { MapLegend, LEGEND_MARKER } from './MapLegend'
-import type { MultiLineString, MultiPolygon } from 'geojson'
+import type { GeometryCollection, MultiLineString, MultiPolygon, Position } from 'geojson'
 import { buildMaritimeShapes, MapMaritime, selectIslandZones } from './MapMaritime'
 import {
   buildFlagIslands,
@@ -66,11 +67,11 @@ import {
   type LabelShape,
 } from './labelPlacement'
 import { MapLabels } from './MapLabels'
-import { CountryPath } from './CountryPath'
+import { CountryCoast, CountryPath } from './CountryPath'
 import { flagCodeFor, hasFlag, useFlagStore } from '../flags/flagStore'
 import { resolveScreen } from './screenFrame'
 import { mergeCountries } from '../geo/merge'
-import { bordersWithout, coastlinesWithout } from '../geo/datasets'
+import { bordersWithout, coastByEntity } from '../geo/datasets'
 import { MapScreen } from './MapScreen'
 import { MapCaption } from './MapCaption'
 import { getPreset } from '../state/presets'
@@ -90,6 +91,16 @@ import { MapLenses, type FitCorrection, type Lens, type MapLensesHandle } from '
 export const MAP_SVG_ID = 'map-canvas-svg'
 
 const ZOOM_RANGE: [number, number] = [1, MAX_MAP_ZOOM]
+
+/**
+ * How much heavier a national border is drawn than an internal one, on a map whose
+ * entities are subdivisions of countries.
+ *
+ * Twice the width: enough for the countries to read through four and a half thousand
+ * provincial lines at world zoom, without the national line swallowing the small
+ * subdivisions strung along it.
+ */
+const NATIONAL_BORDER_SCALE = 2
 
 /**
  * How long the viewport must hold still before the map is refitted to it.
@@ -495,19 +506,30 @@ export function MapCanvas() {
    * or its magnifier lens has not been hidden; it has been made invisible in one layer
    * out of four, which reads as a bug rather than as a feature.
    */
-  const hiddenIds = useMemo(() => {
+  const rawHiddenIds = useMemo(() => {
     const ids = new Set<string>()
     for (const [id, entry] of Object.entries(doc.countries)) if (entry?.hidden) ids.add(id)
     return ids
   }, [doc.countries])
+  /*
+   * Held steady while the same territories stay hidden. `doc.countries` is replaced by every
+   * edit — a value typed into the inspector included — and the label shapes, the border and
+   * coast networks and the flag tiles all key on this set, so without this every edit
+   * rebuilt them: unnoticed on the country map, seconds on the administrative world.
+   */
+  const hiddenIds = useKeyed(rawHiddenIds, Array.from(rawHiddenIds).sort().join('\u0001'))
 
-  const labelShapes = useMemo<LabelShape[]>(() => {
+  /*
+   * Every territory's shape, hidden or not: measuring one is the costly part, so hiding a
+   * territory filters the list below rather than measuring every other territory again.
+   */
+  const allLabelShapes = useMemo<LabelShape[]>(() => {
     if (!prepareLabels || !projection || !geo) return []
     const out: LabelShape[] = []
 
     for (const feature of geo.features) {
       const id = feature.properties.countryId
-      if (mergedMemberIds.has(id) || hiddenIds.has(id)) continue
+      if (mergedMemberIds.has(id)) continue
       const inset = insets.find((resolved) => resolved.members.has(id))
       const shape = buildLabelShape(
         id,
@@ -532,7 +554,12 @@ export function MapCanvas() {
     }
 
     return out
-  }, [prepareLabels, projection, geo, mergedMemberIds, mergeGeometry, insets, hiddenIds])
+  }, [prepareLabels, projection, geo, mergedMemberIds, mergeGeometry, insets])
+  const labelShapes = useMemo(
+    () =>
+      hiddenIds.size === 0 ? allLabelShapes : allLabelShapes.filter((shape) => !hiddenIds.has(shape.id)),
+    [allLabelShapes, hiddenIds],
+  )
 
   /**
    * What each entity is called, by the document's own naming rule.
@@ -542,7 +569,7 @@ export function MapCanvas() {
    * label is not a new opinion about what a place is called; it is the existing one,
    * drawn on the map.
    */
-  const labelNames = useMemo(() => {
+  const rawLabelNames = useMemo(() => {
     const names = new Map<string, string>()
     if (!prepareLabels || !geo) return names
     for (const shape of labelShapes) {
@@ -553,6 +580,16 @@ export function MapCanvas() {
     }
     return names
   }, [prepareLabels, geo, labelShapes, doc.countries, doc.merges])
+  /*
+   * Held steady while the names themselves are unchanged. `doc.countries` is replaced by
+   * every edit — a value typed into the inspector included — and the layout below keys on
+   * this map, so without this every edit made with names on re-ran the whole layout: a few
+   * milliseconds on the country map, seconds on the administrative world.
+   */
+  const labelNames = useKeyed(
+    rawLabelNames,
+    Array.from(rawLabelNames, ([id, name]) => `${id}\u0001${name}`).join('\u0002'),
+  )
 
   /**
    * The names as they will actually be set: wrapped, sized, placed, de-conflicted.
@@ -594,10 +631,27 @@ export function MapCanvas() {
    * zoom below is passed to the renderer instead, where it decides only which of these
    * are large enough to be worth drawing.
    */
-  const labelPlacements = useMemo(
-    () => (labelsOn ? layoutLabels(labelShapes, labelNames, labelStyle) : []),
-    [labelsOn, labelShapes, labelNames, labelStyle],
-  )
+  /*
+   * Remembered across a toggle, too: turning names off and on again with nothing else
+   * changed reuses the last layout instead of repeating it. Nothing is laid out while names
+   * are off.
+   */
+  const lastLayout = useRef<{
+    shapes: LabelShape[]
+    names: Map<string, string>
+    style: typeof labelStyle
+    placements: ReturnType<typeof layoutLabels>
+  } | null>(null)
+  const labelPlacements = useMemo(() => {
+    if (!labelsOn) return []
+    const last = lastLayout.current
+    if (last && last.shapes === labelShapes && last.names === labelNames && last.style === labelStyle) {
+      return last.placements
+    }
+    const placements = layoutLabels(labelShapes, labelNames, labelStyle)
+    lastLayout.current = { shapes: labelShapes, names: labelNames, style: labelStyle, placements }
+    return placements
+  }, [labelsOn, labelShapes, labelNames, labelStyle])
 
   /**
    * The labels this zoom draws: every placed name large enough on screen to read, each at
@@ -673,31 +727,41 @@ export function MapCanvas() {
   const prepareBorders = useLayerLatch(bordersNeeded)
 
   /**
-   * Whether anything draws the coastline network: the coastlines-without-borders layer.
+   * Whether the coast is drawn on its own: Coastlines on, Borders off.
    *
-   * With both switches on, the country paths' own outline draws the coast and the borders
-   * in one stroke, as it always has. With only one of them on, that stroke is off and the
-   * network for that one layer is drawn instead — borders from the border network, coast
-   * from this one. That is what makes the two switches independent: neither layer is ever
-   * a side effect of the other's stroke.
+   * With both switches on, each country's outline draws its coast and its borders in one
+   * stroke, as it always has. With Borders off, each country's coast is drawn by itself,
+   * with that same stroke (see `paintCountry`); with Coastlines off, the border network is
+   * drawn instead. That is what makes the two switches independent: neither layer is ever
+   * a side effect of the other's stroke, and neither changes how the other looks.
    */
   const coastlinesNeeded = style.showCoastlines && !style.showBorders
   const prepareCoastlines = useLayerLatch(coastlinesNeeded)
 
   /**
-   * The two line networks, projected — each split by inset.
+   * Whether this map has a national-border layer of its own, and whether it is drawn.
+   *
+   * Only a map whose entities are parts of countries has one — the administrative world —
+   * and there it is the Borders switch's to show, like every other political line. Latched
+   * like the other networks, so turning Borders off and on again reprojects nothing.
+   */
+  const hasNational = !!geo?.nationalBorders
+  const prepareNational = useLayerLatch(hasNational && style.showBorders)
+
+  /**
+   * The border network, projected — split by inset.
    *
    * One path per projection: the main map's, and one per inset through that inset's own
-   * projection and clip, so Alaska's coast is drawn in Alaska's box and not at its real
-   * position off the edge of the map. Without insets this is exactly one path per layer,
-   * from the networks built at load. Rebuilt without the hidden territories, so taking a
-   * country off the map takes its borders and its coast with it.
+   * projection and clip, so Alaska's borders are drawn in Alaska's box and not at its real
+   * position off the edge of the map. Without insets this is exactly one path, from the
+   * network built at load. Rebuilt without the hidden territories, so taking a country off
+   * the map takes its borders with it.
    */
   const lineNetworks = useMemo(() => {
     const layers: {
       borders: Array<{ d: string; clipId: string | null }>
-      coastlines: Array<{ d: string; clipId: string | null }>
-    } = { borders: [], coastlines: [] }
+      national: Array<{ d: string; clipId: string | null }>
+    } = { borders: [], national: [] }
     if (!projection || !geo) return layers
 
     const insetMembers = new Set<string>()
@@ -720,11 +784,54 @@ export function MapCanvas() {
     }
 
     if (prepareBorders) layers.borders = split((include) => bordersWithout(geo, hiddenIds, include))
-    if (prepareCoastlines) {
-      layers.coastlines = split((include) => coastlinesWithout(geo, hiddenIds, include))
+    if (prepareNational) {
+      layers.national = split((include) => bordersWithout(geo, hiddenIds, include, true))
     }
     return layers
-  }, [projection, geo, hiddenIds, insets, prepareBorders, prepareCoastlines])
+  }, [projection, geo, hiddenIds, insets, prepareBorders, prepareNational])
+
+  /**
+   * Each entity's coast on its own, through the projection that draws the entity.
+   *
+   * Only for the coast-without-borders state, and latched with it. The lines are the
+   * stretches of the entity's own outline that meet the sea (`coastByEntity`), projected
+   * exactly as its path is — the main projection or its inset's — so they lie on that
+   * outline, point for point. A merged body's coast is its members' coasts together: the
+   * arcs between members are borders, so they are not in it, just as they are not in the
+   * dissolved outline.
+   */
+  const coastPaths = useMemo(() => {
+    const paths = new Map<string, string>()
+    if (!prepareCoastlines || !projection || !geo) return paths
+    const coasts = coastByEntity(geo)
+    /* Open stretches as lines, whole islands as closed rings with no fill — see `EntityCoast`. */
+    const shoreOf = (lines: Position[][], rings: Position[][]): GeometryCollection => ({
+      type: 'GeometryCollection',
+      geometries: [
+        { type: 'MultiLineString', coordinates: lines },
+        { type: 'MultiPolygon', coordinates: rings.map((ring) => [ring]) },
+      ],
+    })
+    const mainPath = geoPath(projection)
+    const insetPaths = insets.map((resolved) => ({ resolved, path: geoPath(resolved.projection) }))
+
+    for (const shape of shapes) {
+      const coast = coasts.get(shape.id)
+      if (!coast) continue
+      const inset = insetPaths.find((entry) => entry.resolved.members.has(shape.id))
+      const d = (inset ? inset.path : mainPath)(shoreOf(coast.lines, coast.rings))
+      if (d) paths.set(shape.id, d)
+    }
+    for (const merge of mergeGeometry) {
+      const lines = merge.members.flatMap((id) => coasts.get(id)?.lines ?? [])
+      const rings = merge.members.flatMap((id) => coasts.get(id)?.rings ?? [])
+      if (lines.length === 0 && rings.length === 0) continue
+      const inset = insetForGroup(insets, merge.members)
+      const d = geoPath(inset ? inset.projection : projection)(shoreOf(lines, rings))
+      if (d) paths.set(merge.id, d)
+    }
+    return paths
+  }, [prepareCoastlines, projection, geo, insets, shapes, mergeGeometry])
 
   const prepareGraticule = useLayerLatch(style.showGraticule)
   const prepareSphere = useLayerLatch(style.showSphere)
@@ -1155,6 +1262,8 @@ export function MapCanvas() {
       maritime.zones,
       (id) => geo.byId.get(id),
       (id) => maritimeCodes.has(id),
+      // On the map, shown or hidden — a hidden territory's water is hidden with it.
+      (id) => geo.byId.has(id),
     )
   }, [prepareIslandWater, maritime, geo, maritimeCodes])
 
@@ -1494,7 +1603,151 @@ export function MapCanvas() {
     }
     return list
   }, [smallAnchors, selected, hiddenIds, shapeById, flagFillById, style.selected])
-  const hoveredName = hoveredCountryId ? geo?.byId.get(hoveredCountryId)?.properties.name : null
+  /* A subdivision is named with its country — "Bavaria, Germany" — and a country by itself. */
+  const hoveredName = hoveredCountryId
+    ? [
+        geo?.byId.get(hoveredCountryId)?.properties.name,
+        geo?.meta[hoveredCountryId]?.parent?.name,
+      ]
+        .filter(Boolean)
+        .join(', ') || null
+    : null
+
+  /**
+   * How a country is painted: its fill, and its outline.
+   *
+   * The outline is one decision — its colour, its width, and whether it sits under the
+   * fill — made here once per country and used wherever that country's outline is drawn:
+   * on the country's own path while Borders and Coastlines are both on, and as the
+   * country's coast alone while Borders is off.
+   *
+   * It used to be made twice. With Borders off the coast came from a separate network
+   * with a style of its own — the international-boundary width, which grows with the
+   * zoom, painted over the land at full width, where the outline paints its stroke under a
+   * flag and shows only the outer half — so turning Borders off made every coast thicker,
+   * and in the data modes it lost the tone chosen against the country's fill. One decision
+   * leaves nothing to disagree about.
+   */
+  const paintCountry = (shape: (typeof shapes)[number]) => {
+    const inScope = scopeCountryIds.has(shape.id)
+    if (!inScope && style.outsideScope === 'hidden') return null
+    const entry = doc.countries[shape.id]
+    if (entry?.hidden) return null
+
+    const ctx: FillContext = {
+      ...fillContext,
+      inScope,
+      hovered: hoveredCountryId === shape.id,
+      selected: selected.has(shape.id),
+      landTint: landTintById?.get(shape.id) ?? null,
+    }
+
+    /*
+     * The border is chosen from the fill it is drawn over, so a country at the dark end
+     * of a ramp gets the pale tone and one at the light end gets the ink. One stroke,
+     * never two: a casing pass would mean a second copy of every country's path data,
+     * doubling the scene and the exported SVG to buy contrast this already has.
+     *
+     * The author's chosen border wins outright; the two-tone fallback is scoped to
+     * countries coloured by a data *scale*, which is the case it exists for. See
+     * `resolveBorderInk`.
+     */
+    const fill = resolveCountryFill(entry, ctx, shape.id)
+    const borderInk = resolveBorderInk(entry, ctx, shape.id)
+    /*
+     * In flags mode the country is painted with its own flag, as the fill of its very
+     * path — so the artwork is clipped to the real geometry, covers every island, and
+     * costs no extra element. Selection still paints over it, because a selected country
+     * has to read as selected.
+     */
+    const flagFill = ctx.selected ? undefined : flagFillById.get(shape.id)
+
+    return {
+      fill: flagFill ?? fill,
+      fillOpacity: flagFill && !inScope && style.outsideScope === 'muted' ? 0.4 : undefined,
+      outline: {
+        stroke: flagFill ? FLAG_BORDER_COLOR : borderInk,
+        strokeWidth: flagFill
+          ? flagBorderWidth(flagTileById.get(shape.id), style.borderWidth, zoomK)
+          : style.borderWidth,
+        paintOrder: flagFill ? 'stroke' : undefined,
+      },
+      transform: minimumSizeById.get(shape.id),
+      clipPath: shape.clipId ? `url(#map-inset-${shape.clipId})` : undefined,
+    }
+  }
+
+  /**
+   * How a merged body is painted, through exactly the same functions a country is.
+   *
+   * That is the whole of the integration: the palette, the threshold bands, the hover and
+   * the selection highlight are not re-implemented here, they simply apply — because what
+   * they take is an entity id and a value, and a merge has both. Anything added to that
+   * pipeline later reaches merges without knowing they exist.
+   */
+  const paintMerge = (shape: (typeof mergedShapes)[number]) => {
+    const ctx: FillContext = {
+      ...fillContext,
+      inScope: true,
+      hovered: hoveredCountryId === shape.id,
+      selected: selected.has(shape.id),
+      landTint: null,
+    }
+    const entry = doc.countries[shape.id]
+    const fill = resolveCountryFill(entry, ctx, shape.id)
+    const flagFill = ctx.selected ? undefined : mergedFlagFillById.get(shape.id)
+    const borderInk = resolveBorderInk(entry, ctx, shape.id)
+    return {
+      fill: flagFill ?? fill,
+      outline: {
+        stroke: flagFill ? FLAG_BORDER_COLOR : borderInk,
+        strokeWidth: style.borderWidth,
+        paintOrder: flagFill ? 'stroke' : undefined,
+      },
+      clipPath: shape.clipId ? `url(#map-inset-${shape.clipId})` : undefined,
+    }
+  }
+
+  const countryPaints = shapes.map((shape) => ({ shape, paint: paintCountry(shape) }))
+  const mergedPaints = mergedShapes.map((shape) => ({ shape, paint: paintMerge(shape) }))
+
+  /** The outline — coast and borders in one stroke — only while both layers are on. */
+  const outlineOn = style.showBorders && style.showCoastlines
+  /** The coast by itself, with each entity's own outline stroke, while Borders is off. */
+  const coastAlone = style.showCoastlines && !style.showBorders
+
+  /**
+   * An entity's coast drawn alone, placed exactly where its outline stroke is painted.
+   *
+   * The outline stroke is painted in the same sequence as the land: under its own fill
+   * when it carries a flag (`paint-order: stroke`), over it otherwise, and in either case
+   * before every country drawn after it — so where another country's land comes within a
+   * stroke's width of this coast, that country covers it. The coast is therefore drawn
+   * right beside its own path, before it or after it, which reproduces that sequence
+   * exactly rather than approximately: the only thing Borders changes is whether the
+   * border half of the outline is there at all.
+   */
+  const coastBeside = (
+    id: string,
+    outline: { stroke: string; strokeWidth: number; paintOrder: string | undefined },
+    transform: string | undefined,
+    clipPath: string | undefined,
+    under: boolean,
+  ) => {
+    if (!coastAlone || (outline.paintOrder === 'stroke') !== under) return null
+    const d = coastPaths.get(id)
+    if (!d) return null
+    return (
+      <CountryCoast
+        entityId={id}
+        d={d}
+        stroke={outline.stroke}
+        strokeWidth={outline.strokeWidth}
+        transform={transform}
+        clipPath={clipPath}
+      />
+    )
+  }
 
   return (
     <div className="map-canvas" ref={containerRef}>
@@ -1691,74 +1944,31 @@ export function MapCanvas() {
             being drawn later.
           */}
 
-          {shapes.map((shape) => {
-            const inScope = scopeCountryIds.has(shape.id)
-            if (!inScope && style.outsideScope === 'hidden') return null
-            const entry = doc.countries[shape.id]
-            if (entry?.hidden) return null
-
-            const ctx: FillContext = {
-              ...fillContext,
-              inScope,
-              hovered: hoveredCountryId === shape.id,
-              selected: selected.has(shape.id),
-              landTint: landTintById?.get(shape.id) ?? null,
-            }
-
-            /*
-             * The border is chosen from the fill it is drawn over, so a country at
-             * the dark end of a ramp gets the pale tone and one at the light end gets
-             * the ink. One stroke, never two: a casing pass would mean a second copy
-             * of every country's path data, doubling the scene and the exported SVG
-             * to buy contrast this already has.
-             *
-             * The author's chosen border wins outright; the two-tone fallback is scoped
-             * to countries coloured by a data *scale*, which is the case it exists for.
-             * See `resolveBorderInk`.
-             */
-            const fill = resolveCountryFill(entry, ctx, shape.id)
-            const borderInk = resolveBorderInk(entry, ctx, shape.id)
-            /*
-             * In flags mode the country is painted with its own flag, as the fill of
-             * this very path — so the artwork is clipped to the real geometry, covers
-             * every island, and costs no extra element. Selection still paints over
-             * it, because a selected country has to read as selected.
-             */
-            const flagFill = ctx.selected ? undefined : flagFillById.get(shape.id)
+          {countryPaints.map(({ shape, paint }) => {
+            if (!paint) return null
             /*
              * The outline is coast and borders in one stroke, so it is drawn only when both
-             * layers are on. With one of them off it stays off, and the network for the
-             * other layer is drawn on its own below — so turning Borders off leaves every
-             * coast in place, and turning Coastlines off leaves every border.
-             */
-            const strokeOff = !style.showBorders || !style.showCoastlines
-
-            /*
-             * Resolved here and handed over as finished attribute values, so the path
-             * itself can bail out of a render it has nothing to do with. See
-             * `CountryPath` — the arithmetic is unchanged, only where its result goes.
+             * layers are on. With Borders off the coast is drawn on its own, from the same
+             * paint; with Coastlines off the border network is drawn below. Resolved in
+             * `paintCountry` and handed over as finished attribute values, so the path
+             * itself can bail out of a render it has nothing to do with — see `CountryPath`.
              */
             return (
-              <CountryPath
-                key={shape.id}
-                countryId={shape.id}
-                d={shape.d}
-                fill={flagFill ?? fill}
-                fillOpacity={
-                  flagFill && !inScope && style.outsideScope === 'muted' ? 0.4 : undefined
-                }
-                stroke={strokeOff ? 'none' : flagFill ? FLAG_BORDER_COLOR : borderInk}
-                strokeWidth={
-                  strokeOff
-                    ? 0
-                    : flagFill
-                      ? flagBorderWidth(flagTileById.get(shape.id), style.borderWidth, zoomK)
-                      : style.borderWidth
-                }
-                paintOrder={flagFill ? 'stroke' : undefined}
-                transform={minimumSizeById.get(shape.id)}
-                clipPath={shape.clipId ? `url(#map-inset-${shape.clipId})` : undefined}
-              />
+              <Fragment key={shape.id}>
+                {coastBeside(shape.id, paint.outline, paint.transform, paint.clipPath, true)}
+                <CountryPath
+                  countryId={shape.id}
+                  d={shape.d}
+                  fill={paint.fill}
+                  fillOpacity={paint.fillOpacity}
+                  stroke={outlineOn ? paint.outline.stroke : 'none'}
+                  strokeWidth={outlineOn ? paint.outline.strokeWidth : 0}
+                  paintOrder={paint.outline.paintOrder}
+                  transform={paint.transform}
+                  clipPath={paint.clipPath}
+                />
+                {coastBeside(shape.id, paint.outline, paint.transform, paint.clipPath, false)}
+              </Fragment>
             )
           })}
 
@@ -1770,77 +1980,24 @@ export function MapCanvas() {
             geometry. Everything else about it is an ordinary country path: same border
             treatment, same paint order, same clickability.
           */}
-          {mergedShapes.map((shape) => {
-            /*
-             * A merged body resolves its paint through exactly the same functions a
-             * country does, with its own id and its own entry in `doc.countries`.
-             *
-             * That is the whole of the integration: the palette, the threshold bands,
-             * the hover and the selection highlight are not re-implemented here, they
-             * simply apply — because what they take is an entity id and a value, and a
-             * merge has both. Anything added to that pipeline later reaches merges
-             * without knowing they exist.
-             */
-            const ctx: FillContext = {
-              ...fillContext,
-              inScope: true,
-              hovered: hoveredCountryId === shape.id,
-              selected: selected.has(shape.id),
-              landTint: null,
-            }
-            const entry = doc.countries[shape.id]
-            const fill = resolveCountryFill(entry, ctx, shape.id)
-            const flagFill = ctx.selected ? undefined : mergedFlagFillById.get(shape.id)
-            const borderInk = resolveBorderInk(entry, ctx, shape.id)
-            const strokeOff = !style.showBorders || !style.showCoastlines
-            return (
+          {mergedPaints.map(({ shape, paint }) => (
+            <Fragment key={shape.id}>
+              {coastBeside(shape.id, paint.outline, undefined, paint.clipPath, true)}
               <CountryPath
-                key={shape.id}
                 countryId={shape.id}
                 mergeId={shape.id}
                 d={shape.d}
-                fill={flagFill ?? fill}
+                fill={paint.fill}
                 fillOpacity={undefined}
-                stroke={strokeOff ? 'none' : flagFill ? FLAG_BORDER_COLOR : borderInk}
-                strokeWidth={strokeOff ? 0 : style.borderWidth}
-                paintOrder={flagFill ? 'stroke' : undefined}
+                stroke={outlineOn ? paint.outline.stroke : 'none'}
+                strokeWidth={outlineOn ? paint.outline.strokeWidth : 0}
+                paintOrder={paint.outline.paintOrder}
                 transform={undefined}
-                clipPath={shape.clipId ? `url(#map-inset-${shape.clipId})` : undefined}
+                clipPath={paint.clipPath}
               />
-            )
-          })}
-
-          {/*
-            Coastlines without borders.
-
-            Only drawn when the border switch is off and the coastline switch is on: with
-            both on, the country paths have already drawn the coast as part of their own
-            outline. The network is the arcs with land on one side only — `mesh` kept the
-            arcs that belong to a single geometry — so what appears here is the coast and
-            nothing else; no border between two countries is in it.
-
-            Where the country outline stroke sits in the paint order, just after the land it
-            outlines, so a floored flag island and a territory's own flag are drawn over it
-            exactly as they are drawn over the outline stroke.
-          */}
-          {!style.showBorders &&
-            style.showCoastlines &&
-            lineNetworks.coastlines.map((layer) => (
-              <path
-                key={`coast-${layer.clipId ?? 'main'}`}
-                d={layer.d}
-                fill="none"
-                stroke={flagsOn ? FLAG_BORDER_COLOR : style.border}
-                strokeWidth={
-                  flagsOn ? boundaryInkWidth(style.borderWidth, zoomK) : style.borderWidth
-                }
-                strokeLinejoin="round"
-                strokeLinecap="butt"
-                vectorEffect="non-scaling-stroke"
-                pointerEvents="none"
-                clipPath={layer.clipId ? `url(#map-inset-${layer.clipId})` : undefined}
-              />
-            ))}
+              {coastBeside(shape.id, paint.outline, undefined, paint.clipPath, false)}
+            </Fragment>
+          ))}
 
           {/*
             Islands of scattered countries, held at a minimum drawn size.
@@ -1941,10 +2098,42 @@ export function MapCanvas() {
               />
             ))}
 
+          {/*
+            National borders, over the internal ones, on a map of subdivisions.
+
+            Every line between two subdivisions is a border, and the outlines above draw them
+            all at one weight. This is the subset between two different countries, drawn
+            heavier on top, so a map of provinces still reads as a map of countries. It
+            answers to the Borders switch like every other political line and never to
+            Coastlines — no coast is in it. Under the flags' international treatment it is
+            left to that treatment, which is drawn on this same network just below.
+          */}
+          {style.showBorders &&
+            hasNational &&
+            !(flagsOn && doc.flags.internationalBorders) &&
+            lineNetworks.national.map((layer) => (
+              <path
+                key={`national-${layer.clipId ?? 'main'}`}
+                d={layer.d}
+                fill="none"
+                stroke={flagsOn ? FLAG_BORDER_COLOR : style.border}
+                strokeWidth={style.borderWidth * NATIONAL_BORDER_SCALE}
+                strokeLinejoin="round"
+                strokeLinecap="butt"
+                vectorEffect="non-scaling-stroke"
+                pointerEvents="none"
+                clipPath={layer.clipId ? `url(#map-inset-${layer.clipId})` : undefined}
+              />
+            ))}
+
+          {/*
+            The international treatment runs along the borders between countries — on a map
+            of subdivisions that is the national network, not every provincial line.
+          */}
           {flagsOn &&
             doc.flags.internationalBorders &&
             style.showBorders &&
-            lineNetworks.borders.map((layer) => (
+            (hasNational ? lineNetworks.national : lineNetworks.borders).map((layer) => (
               <g
                 key={`boundary-${layer.clipId ?? 'main'}`}
                 clipPath={layer.clipId ? `url(#map-inset-${layer.clipId})` : undefined}
@@ -2091,7 +2280,10 @@ export function MapCanvas() {
 
       {hoveredName && (
         <div className="map-canvas__hover-label">
-          <span className="map-canvas__hover-code">{hoveredCountryId}</span>
+          {/* A subdivision's ISO 3166-2 code where it has one — DE-BY rather than DEU-1591. */}
+          <span className="map-canvas__hover-code">
+            {(hoveredCountryId && geo?.meta[hoveredCountryId]?.source?.iso31662) || hoveredCountryId}
+          </span>
           {hoveredName}
         </div>
       )}
