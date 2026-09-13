@@ -205,6 +205,13 @@ const SEAM_SHARE = 0.25
 const SEAM_STEP = (2 * Math.PI) / 180
 
 /**
+ * A piece of a territory with less area on the map than this share of the map's span
+ * squared — about a square pixel on a map a thousand pixels across — is a sliver: what
+ * cutting a zone at the edge of the map leaves on the other side. See `sidesOf`.
+ */
+const SLIVER_SHARE = 1e-6
+
+/**
  * The bodies of water a projected territory is drawn as: its pieces, grouped by which
  * side of the map's edge they lie on.
  *
@@ -226,7 +233,7 @@ function sidesOf(polygons: Position[][][], projection: GeoProjection, span: numb
   // A territory cut by the edge of the map reaches across a large part of it.
   if (!(Math.max(x1 - x0, y1 - y0) > span * SEAM_SHARE)) return [polygons]
 
-  const pieces = polygons.map((polygon) => {
+  const all = polygons.map((polygon) => {
     const shape: Polygon = { type: 'Polygon', coordinates: polygon }
     const centroid = plane.centroid(shape)
     const inverted = projection.invert?.(centroid as [number, number])
@@ -234,8 +241,24 @@ function sidesOf(polygons: Position[][][], projection: GeoProjection, span: numb
       inverted && Number.isFinite(inverted[0]) && Number.isFinite(inverted[1])
         ? (inverted as [number, number])
         : null
-    return { polygon, area: Math.abs(plane.area(shape)), geo }
+    return { polygon, area: Math.abs(plane.area(shape)), geo, box: plane.bounds(shape) }
   })
+
+  /*
+   * Slivers are placed by where they lie on the map, not where they lie on the globe.
+   *
+   * Cutting a zone at the edge of the map can leave a piece with no area on one side — a
+   * line along the edge. Its centroid sits on the edge, and turning that point back into a
+   * longitude is a coin toss between the two sides: Fiji's zone left one on the right-hand
+   * edge that came back as -180°, joined the body on the left-hand edge, and that body's
+   * one flag was framed from one edge of the map to the other, a thin slice of it showing
+   * over Fiji's water. So only pieces with water to show are grouped across the globe; each
+   * sliver joins the group it lies against on the map, and one with no group near it — no
+   * water, only an outline to draw — is left out.
+   */
+  const sliver = span * span * SLIVER_SHARE
+  const pieces = all.filter((piece) => piece.area >= sliver)
+  if (pieces.length === 0) return [polygons]
 
   const sameSide = (a: (typeof pieces)[number], b: (typeof pieces)[number]): boolean => {
     // A piece that cannot be placed on the globe is kept with the rest.
@@ -260,14 +283,39 @@ function sidesOf(polygons: Position[][][], projection: GeoProjection, span: numb
     }
   }
 
-  const groups = new Map<number, { polygons: Position[][][]; area: number }>()
+  const groups = new Map<number, { polygons: Position[][][]; area: number; box: [[number, number], [number, number]] }>()
   pieces.forEach((piece, i) => {
     const root = find(i)
-    const group = groups.get(root) ?? { polygons: [], area: 0 }
+    const group = groups.get(root) ?? { polygons: [], area: 0, box: piece.box }
     group.polygons.push(piece.polygon)
     group.area += piece.area
+    group.box = [
+      [Math.min(group.box[0][0], piece.box[0][0]), Math.min(group.box[0][1], piece.box[0][1])],
+      [Math.max(group.box[1][0], piece.box[1][0]), Math.max(group.box[1][1], piece.box[1][1])],
+    ]
     groups.set(root, group)
   })
+
+  // Each sliver to the group it lies against on the map — see above.
+  const gap = (a: [[number, number], [number, number]], b: [[number, number], [number, number]]) =>
+    Math.hypot(
+      Math.max(0, a[0][0] - b[1][0], b[0][0] - a[1][0]),
+      Math.max(0, a[0][1] - b[1][1], b[0][1] - a[1][1]),
+    )
+  for (const piece of all) {
+    if (piece.area >= sliver) continue
+    let nearest: { polygons: Position[][][] } | null = null
+    let nearestGap = Infinity
+    for (const group of groups.values()) {
+      const distance = gap(piece.box, group.box)
+      if (distance < nearestGap) {
+        nearestGap = distance
+        nearest = group
+      }
+    }
+    if (nearest && nearestGap <= span * SEAM_SHARE) nearest.polygons.push(piece.polygon)
+  }
+
   // The largest side first, so the entity's own id names its main body of water.
   return [...groups.values()].sort((a, b) => b.area - a.area).map((group) => group.polygons)
 }
