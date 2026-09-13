@@ -24,7 +24,7 @@ export function App() {
   return (
     <div className="app">
       <header className="app__header">
-        <span className="app__brand">Map Editor</span>
+        <h1 className="app__brand">Map Editor</h1>
         <input
           className="app__title"
           value={mapName}

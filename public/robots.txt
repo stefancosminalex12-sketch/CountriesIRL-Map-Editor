@@ -1,0 +1,10 @@
+# https://maps.countriesirl.com/robots.txt
+#
+# The Map Editor is one public page. The scripts, styles, map geometry (/geo/), flag
+# artwork (/flags/) and sounds (/sfx/) it loads are all needed to render it, so nothing
+# is disallowed.
+
+User-agent: *
+Allow: /
+
+Sitemap: https://maps.countriesirl.com/sitemap.xml

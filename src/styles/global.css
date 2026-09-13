@@ -130,7 +130,9 @@ body {
   border-bottom: 1px solid var(--line);
 }
 
+/* The page's one heading; drawn exactly as the plain label it was, so an h1's margin is taken off. */
 .app__brand {
+  margin: 0;
   font-weight: 600;
   font-size: 13px;
   letter-spacing: 0.01em;
