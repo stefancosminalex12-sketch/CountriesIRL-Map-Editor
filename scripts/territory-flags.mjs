@@ -37,6 +37,8 @@ export const TERRITORY_FLAGS = {
 export const TERRITORY_NO_FLAG = {
   XCB: 'Cyprus U.N. Buffer Zone — administered by a peacekeeping force, not a territory',
   XSI: 'Siachen Glacier — contested by India and Pakistan, neither in control throughout',
+  XBT: 'Bir Tawil — claimed by neither Egypt nor Sudan',
+  XPI: 'Southern Patagonian Ice Field — boundary between Argentina and Chile not demarcated',
   XSP: 'Spratly Islands — claimed in part by six governments, occupied piecemeal',
   XSR: 'Scarborough Reef — contested, no settled administration',
   XBN: 'Bajo Nuevo Bank — uninhabited, competing claims',

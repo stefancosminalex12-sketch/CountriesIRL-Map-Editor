@@ -1,10 +1,12 @@
 /** Dataset, projection and rendering controls. Every change goes through an operation. */
 import { datasetsForAtlas } from '../geo/datasets'
+import { getAtlas } from '../maps/atlas'
 import { AUTO_PROJECTION_ID, PROJECTIONS } from '../geo/projections'
 import { useMapStore } from '../state/mapStore'
 import { playSfx } from '../audio/sfx'
 import { MapToggle } from './MapToggle'
 import { SelectField } from './Select'
+import { Disclosure } from './Panels'
 import {
   CAPTION_OUTLINE,
   CAPTION_SIZE,
@@ -20,6 +22,23 @@ import {
 } from '../types/map'
 
 /**
+ * The section the scope settings sit in, titled for the map that is open.
+ *
+ * "World" on the country and states maps, as it has always read. On a map whose datasets are
+ * levels of detail — the administrative world — the first thing in it is the Detail selector,
+ * and a section called "World" is not where anyone would look for it.
+ */
+export function MapScopeSection() {
+  const atlasId = useMapStore((s) => s.doc.scope.atlasId)
+  const atlas = getAtlas(atlasId)
+  return (
+    <Disclosure title={atlas.datasetLabel ? `${atlas.datasetLabel} and projection` : 'World'}>
+      <MapScopeSettings />
+    </Disclosure>
+  )
+}
+
+/**
  * What the map is *of*: which data, drawn how, and what to do with everything outside
  * the chosen region.
  *
@@ -32,6 +51,8 @@ export function MapScopeSettings() {
   // Only the datasets belonging to the map that is open: offering the world's 110m
   // countries while a states map is on screen would be offering to break it.
   const datasets = datasetsForAtlas(scope.atlasId)
+  const atlas = getAtlas(scope.atlasId)
+  const current = datasets.find((d) => d.id === scope.datasetId)
   const style = useMapStore((s) => s.doc.style)
   const dispatch = useMapStore((s) => s.dispatch)
   const setStyle = (patch: Partial<MapStyle>) => dispatch({ op: 'set_style', patch })
@@ -42,7 +63,7 @@ export function MapScopeSettings() {
   return (
     <div className="stack">
       <SelectField
-        label="Dataset"
+        label={atlas.datasetLabel ?? 'Dataset'}
         value={scope.datasetId}
         onChange={(datasetId) => {
           dispatch({ op: 'set_scope_dataset', datasetId })
@@ -51,10 +72,11 @@ export function MapScopeSettings() {
       >
         {datasets.map((d) => (
           <option key={d.id} value={d.id}>
-            {d.name} · {d.detail}
+            {d.label ?? `${d.name} · ${d.detail}`}
           </option>
         ))}
       </SelectField>
+      {current?.description && <p className="hint">{current.description}</p>}
 
       <SelectField
         label="Projection"
@@ -173,6 +195,8 @@ export function MapDisplayToggles() {
   const legendVisible = useMapStore((s) => s.doc.legend.visible)
   const labels = useMapStore((s) => s.doc.labels)
   const caption = useMapStore((s) => s.doc.caption)
+  const magnifier = useMapStore((s) => s.magnifier)
+  const setMagnifier = useMapStore((s) => s.setMagnifier)
   const dispatch = useMapStore((s) => s.dispatch)
   const setStyle = (patch: Partial<MapStyle>) => dispatch({ op: 'set_style', patch })
 
@@ -258,6 +282,17 @@ export function MapDisplayToggles() {
           label="Top Caption"
           checked={caption.enabled}
           onChange={(enabled) => dispatch({ op: 'set_caption', patch: { enabled } })}
+        />
+        {/*
+          The magnifying glass: an enlarged copy of each selected speck, beside it. An editor
+          aid rather than a layer of the map — it is never exported — but it is something the
+          map shows or does not show, so it is switched here with the rest. Off by default.
+        */}
+        <MapToggle
+          icon="magnifier"
+          label="Magnifying Glass"
+          checked={magnifier}
+          onChange={setMagnifier}
         />
       </div>
 

@@ -1,45 +1,95 @@
 /**
  * Undo and redo.
  *
- * Both act on the document history in the store — the stack of `MapDocument`s the
- * dispatcher records before each edit — not on anything the UI is holding. A control
- * that undid its own React state would drift from the document the moment an edit
- * arrived from anywhere else, which the assistant is going to do shortly.
+ * Both act on the history in the store — the document and the selection as they stood before
+ * each edit — not on anything the UI is holding. A control that undid its own React state
+ * would drift from the document the moment an edit arrived from anywhere else, which the
+ * assistant is going to do shortly.
  *
- * The shortcuts are bound on the window rather than on these buttons, and they are
- * bound unconditionally: in a map editor Ctrl+Z means "take back that edit", and
- * having it mean something else while a text field happens to hold focus is the kind
- * of exception that costs people work. Every text field here writes through an
- * operation anyway, so undo reverses what was typed too.
+ * The buttons and the shortcuts call the same two functions, {@link undoMapEdit} and
+ * {@link redoMapEdit}, so there is one behaviour to reason about. The shortcuts are the
+ * standard ones — Ctrl+Z undoes, Ctrl+Y redoes, and Ctrl+Shift+Z redoes too — and they are the
+ * map's only while nothing is being typed: inside a text field Ctrl+Z belongs to the field,
+ * which undoes the typing the author is looking at, and taking it for the map there would
+ * undo something they are not.
  */
 import { useEffect } from 'react'
 import { useMapStore } from '../state/mapStore'
 import { playSfx } from '../audio/sfx'
 
+/** Takes back the last edit. Returns whether there was one to take back. */
+export function undoMapEdit(): boolean {
+  const store = useMapStore.getState()
+  if (store.past.length === 0) return false
+  store.undo()
+  playSfx('tick')
+  return true
+}
+
+/** Re-applies the last edit undone. Returns whether there was one. */
+export function redoMapEdit(): boolean {
+  const store = useMapStore.getState()
+  if (store.future.length === 0) return false
+  store.redo()
+  playSfx('tick')
+  return true
+}
+
+/** Input types that hold text a person types — where Ctrl+Z means the field's own undo. */
+const TEXT_INPUT_TYPES = new Set([
+  'text',
+  'search',
+  'email',
+  'url',
+  'tel',
+  'password',
+  'number',
+  'date',
+  'datetime-local',
+  'month',
+  'time',
+  'week',
+])
+
+/** Whether a keystroke is going to something that edits text, which keeps its own shortcuts. */
+function isTextEditing(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false
+  if (target instanceof HTMLTextAreaElement) return true
+  if (target instanceof HTMLInputElement) return TEXT_INPUT_TYPES.has(target.type)
+  if (target instanceof HTMLElement && target.isContentEditable) return true
+  return target.closest('[contenteditable=""], [contenteditable="true"], [role="textbox"]') !== null
+}
+
+/**
+ * The letter a shortcut names, whatever the keyboard layout. `key` is the character the key
+ * types, which is right on every Latin layout — Ctrl+Z is wherever Z is — and says nothing on
+ * a Cyrillic or Greek one, where the physical key's `code` is what the shortcut means.
+ */
+function shortcutLetter(event: KeyboardEvent): string {
+  if (/^[a-z]$/i.test(event.key)) return event.key.toLowerCase()
+  if (event.code === 'KeyZ') return 'z'
+  if (event.code === 'KeyY') return 'y'
+  return ''
+}
+
 export function HistoryControls() {
-  const undo = useMapStore((s) => s.undo)
-  const redo = useMapStore((s) => s.redo)
   const canUndo = useMapStore((s) => s.past.length > 0)
   const canRedo = useMapStore((s) => s.future.length > 0)
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!(event.ctrlKey || event.metaKey) || event.altKey) return
-      const key = event.key.toLowerCase()
-      const isRedo = key === 'y' || (key === 'z' && event.shiftKey)
-      const isUndo = key === 'z' && !event.shiftKey
-      if (!isRedo && !isUndo) return
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.isComposing) return
+      const letter = shortcutLetter(event)
+      const isUndo = letter === 'z' && !event.shiftKey
+      const isRedo = letter === 'y' || (letter === 'z' && event.shiftKey)
+      if (!isUndo && !isRedo) return
+      if (isTextEditing(event.target)) return
 
+      // Ours from here on, whether or not there is anything to undo: nothing else on the page
+      // should act on it instead.
       event.preventDefault()
-      const store = useMapStore.getState()
-      if (isRedo) {
-        if (store.future.length === 0) return
-        store.redo()
-      } else {
-        if (store.past.length === 0) return
-        store.undo()
-      }
-      playSfx('tick')
+      if (isUndo) undoMapEdit()
+      else redoMapEdit()
     }
 
     window.addEventListener('keydown', onKeyDown)
@@ -54,10 +104,7 @@ export function HistoryControls() {
         disabled={!canUndo}
         title="Undo (Ctrl+Z)"
         aria-label="Undo"
-        onClick={() => {
-          undo()
-          playSfx('tick')
-        }}
+        onClick={undoMapEdit}
       >
         <HistoryArrow direction="undo" />
       </button>
@@ -65,12 +112,9 @@ export function HistoryControls() {
         type="button"
         className="btn btn--icon"
         disabled={!canRedo}
-        title="Redo (Ctrl+Shift+Z or Ctrl+Y)"
+        title="Redo (Ctrl+Y or Ctrl+Shift+Z)"
         aria-label="Redo"
-        onClick={() => {
-          redo()
-          playSfx('tick')
-        }}
+        onClick={redoMapEdit}
       >
         <HistoryArrow direction="redo" />
       </button>

@@ -20,7 +20,7 @@
  * whichever dataset is loaded (110m / 50m / 10m, and later historical ones).
  */
 import { geoArea } from 'd3-geo'
-import type { MultiPoint } from 'geojson'
+import type { MultiPoint, Position } from 'geojson'
 import type { LoadedDataset } from './datasets'
 import {
   countriesInRegions,
@@ -39,10 +39,19 @@ interface PolygonExtent {
   north: number
   /** Approximate area of the part inside the domain, in steradians. */
   weight: number
-  /** Vertices inside the domain, already normalised into the domain's longitude frame. */
-  points: [number, number][]
   /**
-   * The four real vertices reaching this polygon's edges. Sampling may thin `points`,
+   * The polygon itself, and how many of its vertices lie inside the domain.
+   *
+   * The in-domain vertices used to be copied out here as `[lon, lat]` pairs — one small
+   * array per vertex of every member, 858,000 of them on the administrative world — only
+   * for all but 6,000 to be thrown away by the sampling in `buildFitTarget`. The count is
+   * what the weighting needs; the few vertices the fit keeps are read back from the
+   * polygon there, by the same test and in the same order.
+   */
+  polygon: Position[][]
+  inside: number
+  /**
+   * The four real vertices reaching this polygon's edges. Sampling may thin the vertices,
    * but these must always survive or the fit would quietly clip the extremes.
    */
   extremes: [number, number][]
@@ -136,8 +145,15 @@ function collectExtents(
       feature.geometry.type === 'Polygon'
         ? [feature.geometry.coordinates]
         : feature.geometry.coordinates
+    /*
+     * Each polygon's area was measured when the dataset loaded — `IslandMetrics.area` is
+     * `geoArea` of this very polygon — so it is read rather than measured again.
+     */
+    const islands = dataset.metrics.get(id)?.islands
+    const measured = islands && islands.length === polygons.length ? islands : null
 
-    for (const polygon of polygons) {
+    for (let k = 0; k < polygons.length; k++) {
+      const polygon = polygons[k]
       // Full extent, used for the exclusion test.
       let fullWest = Infinity
       let fullSouth = Infinity
@@ -151,7 +167,6 @@ function collectExtents(
       let north = -Infinity
       let inside = 0
       let total = 0
-      const points: [number, number][] = []
       let atWest: [number, number] | null = null
       let atEast: [number, number] | null = null
       let atSouth: [number, number] | null = null
@@ -184,7 +199,6 @@ function collectExtents(
             north = lat
             atNorth = [x, lat]
           }
-          points.push([x, lat])
         }
       }
 
@@ -194,11 +208,14 @@ function collectExtents(
       // Scale the polygon's area by the share of it that lies inside the domain, so
       // a country straddling the edge (Russia across Europe/Asia) contributes only
       // its in-domain mass to the outlier budget.
-      const area = geoArea({ type: 'Polygon', coordinates: polygon }) * (inside / total)
+      const polygonArea = measured
+        ? measured[k].area
+        : geoArea({ type: 'Polygon', coordinates: polygon })
+      const area = polygonArea * (inside / total)
       const extremes = [atWest, atEast, atSouth, atNorth].filter(
         (p): p is [number, number] => p !== null,
       )
-      out.push({ west, south, east, north, weight: area, points, extremes })
+      out.push({ west, south, east, north, weight: area, polygon, inside, extremes })
     }
   }
 
@@ -266,29 +283,81 @@ function selectFramedPolygons(
   if (accepted.length === 0) return extents
 
   let pending = extents.filter((e) => e.weight < threshold)
+  const index = nearIndex(maxDetachmentDegrees)
+  for (const extent of accepted) index.add(extent)
 
   for (let pass = 0; pass < MAX_ADMISSION_PASSES && pending.length > 0; pass++) {
     const admitted: PolygonExtent[] = []
     const remaining: PolygonExtent[] = []
 
     for (const extent of pending) {
-      let near = false
-      for (const anchor of accepted) {
-        if (separation(extent, anchor) <= maxDetachmentDegrees) {
-          near = true
-          break
-        }
-      }
-      if (near) admitted.push(extent)
+      if (index.near(extent)) admitted.push(extent)
       else remaining.push(extent)
     }
 
     if (admitted.length === 0) break
     accepted = accepted.concat(admitted)
+    // After the pass, as before: a pass tests only what was accepted before it began.
+    for (const extent of admitted) index.add(extent)
     pending = remaining
   }
 
   return accepted
+}
+
+/** A query covering more cells than this scans every extent instead. */
+const MAX_QUERY_CELLS = 4096
+/** An extent covering more cells than this is kept in a list every query checks. */
+const MAX_EXTENT_CELLS = 64
+
+/**
+ * The accepted extents, bucketed by a grid of cells at least `reach` wide, for one question:
+ * is this extent within `reach` of any of them?
+ *
+ * The answer is exactly the linear scan's — `separation` decides every candidate — but it
+ * looks only at the extents near the one asked about. On a map of countries that changes
+ * nothing; on 32,000 county subdivisions it is the difference between a moment and seconds,
+ * because every Pacific atoll was being compared with every township in Ohio, on every pass.
+ */
+function nearIndex(reach: number) {
+  const size = Math.max(reach, 0.25)
+  const cells = new Map<string, PolygonExtent[]>()
+  const wide: PolygonExtent[] = []
+  const all: PolygonExtent[] = []
+  const span = (lo: number, hi: number): [number, number] => [Math.floor(lo / size), Math.floor(hi / size)]
+  return {
+    add(extent: PolygonExtent) {
+      all.push(extent)
+      const [x0, x1] = span(extent.west, extent.east)
+      const [y0, y1] = span(extent.south, extent.north)
+      if ((x1 - x0 + 1) * (y1 - y0 + 1) > MAX_EXTENT_CELLS) {
+        wide.push(extent)
+        return
+      }
+      for (let x = x0; x <= x1; x++) {
+        for (let y = y0; y <= y1; y++) {
+          const key = `${x},${y}`
+          const list = cells.get(key)
+          if (list) list.push(extent)
+          else cells.set(key, [extent])
+        }
+      }
+    },
+    near(extent: PolygonExtent): boolean {
+      const [x0, x1] = span(extent.west - reach, extent.east + reach)
+      const [y0, y1] = span(extent.south - reach, extent.north + reach)
+      if ((x1 - x0 + 1) * (y1 - y0 + 1) > MAX_QUERY_CELLS) {
+        return all.some((other) => separation(extent, other) <= reach)
+      }
+      for (const other of wide) if (separation(extent, other) <= reach) return true
+      for (let x = x0; x <= x1; x++) {
+        for (let y = y0; y <= y1; y++) {
+          for (const other of cells.get(`${x},${y}`) ?? []) if (separation(extent, other) <= reach) return true
+        }
+      }
+      return false
+    },
+  }
 }
 
 /** Caps how many points reach `fitExtent`; the projection pass is linear in this. */
@@ -300,27 +369,11 @@ interface FitTarget {
   anchors: [number, number][]
 }
 
-function buildFitTarget(framed: PolygonExtent[], bbox: BBox): FitTarget {
-  const kept: [number, number][] = []
-  const keptWeights: number[] = []
-  const extremes: [number, number][] = []
-  const extremeWeights: number[] = []
+function buildFitTarget(framed: PolygonExtent[], bbox: BBox, domain: BBox): FitTarget {
+  let keptCount = 0
+  for (const extent of framed) keptCount += extent.inside
 
-  for (const extent of framed) {
-    // The polygon's area, shared equally across the vertices that represent it, so a
-    // large landmass outweighs a reef no matter how finely either is drawn.
-    const perPoint = extent.points.length > 0 ? extent.weight / extent.points.length : 0
-    for (const point of extent.points) {
-      kept.push(point)
-      keptWeights.push(perPoint)
-    }
-    for (const point of extent.extremes) {
-      extremes.push(point)
-      extremeWeights.push(perPoint)
-    }
-  }
-
-  if (kept.length === 0) {
+  if (keptCount === 0) {
     const [w, s, e, n] = bbox
     return {
       target: {
@@ -337,14 +390,41 @@ function buildFitTarget(framed: PolygonExtent[], bbox: BBox): FitTarget {
     }
   }
 
-  const stride = Math.ceil(kept.length / MAX_FIT_POINTS)
+  /*
+   * Every `stride`-th in-domain vertex, counted across the framed polygons in order — read
+   * back from the polygons by the same test `collectExtents` counted them with, so these are
+   * exactly the vertices a list of all of them would have been sampled down to.
+   */
+  const stride = Math.ceil(keptCount / MAX_FIT_POINTS)
+  const [dw, ds, de, dn] = domain
+  const centerLon = (dw + de) / 2
   const sampled: [number, number][] = []
   const sampledWeights: number[] = []
-  for (let i = 0; i < kept.length; i += stride) {
-    sampled.push(kept[i])
-    // Sampling thins the cloud; scaling by the stride keeps each polygon's total
-    // area intact, so the weights still say what they said before it was thinned.
-    sampledWeights.push(keptWeights[i] * stride)
+  const extremes: [number, number][] = []
+  const extremeWeights: number[] = []
+  let index = 0
+
+  for (const extent of framed) {
+    // The polygon's area, shared equally across the vertices that represent it, so a
+    // large landmass outweighs a reef no matter how finely either is drawn.
+    const perPoint = extent.inside > 0 ? extent.weight / extent.inside : 0
+    for (const ring of extent.polygon) {
+      for (const [lon, lat] of ring) {
+        const x = normaliseLon(lon, centerLon)
+        if (x < dw || x > de || lat < ds || lat > dn) continue
+        if (index % stride === 0) {
+          sampled.push([x, lat])
+          // Sampling thins the cloud; scaling by the stride keeps each polygon's total
+          // area intact, so the weights still say what they said before it was thinned.
+          sampledWeights.push(perPoint * stride)
+        }
+        index++
+      }
+    }
+    for (const point of extent.extremes) {
+      extremes.push(point)
+      extremeWeights.push(perPoint)
+    }
   }
 
   /**
@@ -441,7 +521,7 @@ export function computeFraming(
     )
     const fitBBox = unionExtents(framed)
 
-    const fit = buildFitTarget(framed, fitBBox)
+    const fit = buildFitTarget(framed, fitBBox, scope.framing.domain)
 
     resolved = {
       ...scope,

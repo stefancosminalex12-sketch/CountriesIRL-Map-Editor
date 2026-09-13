@@ -17,7 +17,7 @@ geographic datasets into `public/geo/` and derives the ISO country table.
 | Concern | Choice | Why |
 | --- | --- | --- |
 | App | Vite + React + TypeScript | fast dev loop, no framework ceremony |
-| Geography | `world-atlas` (Natural Earth TopoJSON, 110m/50m/10m) | real vector polygons, no API key, no usage cost |
+| Geography | Natural Earth, current edition, curated by `scripts/build-geography.mjs` into one TopoJSON foundation for every map | real vector polygons, public domain, no API key, no usage cost |
 | Country identity | `world-countries` → ISO 3166-1 | stable alpha-3 ids, region/subregion grouping |
 | Projection / paths | `d3-geo` | projection registry, `fitExtent`, path generation |
 | Extended projections | `d3-geo-projection` | Robinson, Winkel Tripel, Nell–Hammer |
@@ -34,7 +34,6 @@ src/
     datasets.ts       dataset registry + loader (modern world = one dataset)
     countryMeta.ts    ISO code / name / region table
     supplemental.ts   geometry for entities a dataset cannot describe
-    supplementalGeometry.ts  generated Natural Earth admin-0 shapes
     lowDetailGeometry.ts     generated shapes for entities a coarse layer omits
     lakes.ts          inland water — an independent geographic layer
     repair.ts         ring hygiene shared by every geographic layer
@@ -106,19 +105,14 @@ src/
    no geometry for it, and would leave again if a future dataset supplied one. See
    *Entities a coarse dataset omits* below.
 
-   `replace` overrides geometry that exists but is incomplete. `world-atlas` derives
-   its country layer from Natural Earth but simplifies and merges it, and Bahrain
-   loses its archipelago on the way — one polygon of 587 km² against the
-   authoritative seven totalling 689 km². The missing 15% is Muharraq, Umm an Nasan
-   and the whole Hawar group, and since Hawar sits against Qatar's west coast, losing
-   it is what leaves that stretch of the Gulf looking empty. The replacement is
-   Natural Earth's own 10m admin-0 geometry, generated into
-   `supplementalGeometry.ts` by `scripts/fetch-country-fixes.mjs` and unmodified
-   apart from coordinate rounding.
+   `replace` overrides geometry that exists but is incomplete. It was used for Bahrain,
+   whose archipelago the older `world-atlas` country layer merged down to its main
+   island; the curated foundation (see *The geographic foundation* below) is built
+   from Natural Earth's current admin-0, which draws all seven of its polygons, so no
+   replacement is needed any more.
 
    A supplement declares which resolutions it applies to, so 10m coastlines never
-   leak into the 110m map — Bahrain's `replace` fix is scoped to 10m and leaves 50m
-   and 110m exactly as they were, and every low-detail fallback is scoped to the
+   leak into the 110m map — every low-detail fallback is scoped to the
    resolutions that actually lack the entity. Source geometry always wins where it
    exists: Hong Kong, Macau, Singapore and Malta are supplemented at 110m and come
    from the dataset at 50m and 10m, untouched.
@@ -139,7 +133,7 @@ src/
 ### Maps, and the atlas abstraction
 
 The editor opens more than one map. **World** draws the world's countries; **USA States**
-draws the fifty states. Choosing between them is a subsection of Map, and it is meant to
+draws the fifty states, DC, the territories and the Minor Outlying Islands. Choosing between them is a subsection of Map, and it is meant to
 feel like changing the dataset inside one editor rather than opening a second application
 — because that is what it is.
 
@@ -151,7 +145,8 @@ same way whether the entity is France or Nevada. Adding Canadian provinces later
 a dataset, an entity table and an entry in that file.
 
 **Identifiers are namespaced by construction**, which is what makes the whole thing safe.
-Countries are ISO 3166-1 alpha-3 (`USA`), states are ISO 3166-2 (`US-CA`). No two atlases
+Countries are ISO 3166-1 alpha-3 (`USA`), states and territories are ISO 3166-2 (`US-CA`,
+`US-PR`), and the Minor Outlying Islands ISO 3166-2:UM (`UM-79`). No two atlases
 can mint the same id, so two documents can be held side by side with no risk that a value
 written against California is read as one written against a country.
 
@@ -174,6 +169,41 @@ set of things that belong to the *editor* rather than to a map — the theme col
 display switches, the composition frame — because those are how the author likes to work.
 Measured: values set on France and Germany survived a detour through the states map, the
 states' own values survived the return trip, and neither map ever saw the other's.
+
+#### Territories and outlying islands
+
+USA States draws the territories the way it draws a state: one entity each, selected,
+coloured, named, merged and exported like Nevada. The fifty states and DC are Natural
+Earth's, as before.
+
+- **Puerto Rico, the U.S. Virgin Islands, Guam, the Northern Mariana Islands and American
+  Samoa** (`US-PR`, `US-VI`, `US-GU`, `US-MP`, `US-AS`) are the Census Bureau's polygons from
+  `cb_2024_us_state_500k` — the file, and the polygons, the Official USA Administrative Map's
+  States level draws. That map divides them into municipios, districts and islands; this one
+  keeps each whole. Each carries its GEOID, FIPS codes and land and water area, which the
+  inspector shows.
+- **The Minor Outlying Islands** — `UM-81` Baker, `UM-84` Howland, `UM-86` Jarvis, `UM-67`
+  Johnston, `UM-71` Midway, `UM-95` Palmyra, `UM-79` Wake and `UM-76` Navassa — are in no
+  Census file. Their shorelines are the USGS Global Islands database, version 3 (Sayre 2023,
+  doi:10.5066/P91ZCSGM), traced from 30 m Landsat imagery, every islet of an atoll included.
+  The build asks its feature service for each island by a box around it, and stops if a
+  polygon reaches outside the box. An islet smaller than the topology's grid (about 335 m² at
+  Midway, where most of the source's 303 sand and rubble islets are) cannot be drawn by it —
+  quantised, its ring collapses to a point that d3 would read as a ring round the rest of the
+  globe — so it is left out, and the report counts how many per island. **Kingman Reef is not
+  drawn**: it is a reef awash, the source has no dry land there, and any shape for it would be
+  invented. The build report lists it as omitted.
+- **Insets** put the territories where the Official USA Administrative Map puts them
+  (American Samoa a little lower, clear of Texas), plus Navassa between Florida and Puerto
+  Rico, and the Pacific's remote islands, in their true relation to one another, below the
+  Gulf coast — the one open stretch that stays open on a phone's narrow canvas, where the
+  Pacific coast has no room beside California. None of the outlying islands is ten
+  kilometres across, so each is drawn at the legibility floor — its own outline scaled about
+  its own centre, never a marker. The floor, the magnifier and the click catchments are
+  measured through the inset that draws the entity, so they sit on it.
+
+Rebuilding: `npm run build-geography` (fetches the Census file and the island polygons into
+`.cache/` once).
 
 #### Alaska and Hawaii
 
@@ -227,32 +257,95 @@ the data palette, 265 flag patterns, merge-and-restore, and an export with 256 p
 inset clips and no sidebar. An atlas with no insets computes nothing for them and takes
 exactly the path it always did.
 
-**The data** is Natural Earth's 10m admin-1 layer, filtered to the 51 US entities by
-`scripts/fetch-us-states.mjs` and vendored, exactly as the lakes are — the whole-world file
-is 40 MB and the app should not download Bavaria to draw Nevada. It is built into TopoJSON
-at prepare time rather than shipped as GeoJSON, and that is a capability rather than a
+**The data** is the 51 US entities of the curated admin-1 set, cut out by
+`scripts/build-geography.mjs` — so the states map inherits every correction the
+administrative world gets, islands included — and vendored as their own topology: the
+whole-world file is 40 MB and the app should not download Bavaria to draw Nevada. It is
+TopoJSON rather than GeoJSON, and that is a capability rather than a
 storage detail: shared arcs are what `mesh` reads to find the boundary between two states
 and nothing else, and what `topojson.merge` dissolves when states are merged. 520 arcs,
 and a CA+NV+AZ dissolve drops from 2,475 vertices to 1,887.
 
 #### Modern Administrative World
 
-A third atlas: the modern world by first-level subdivision — states, provinces, regions,
-departments, territories — rather than by country. It is a separate map with its own
-document, and the World map it sits beside is unchanged and still what the editor opens on.
+A third atlas: the modern world by region — each country drawn at the level of subdivision
+that suits it — rather than by country. It is a separate map with its own document, and the
+World map it sits beside is unchanged and still what the editor opens on.
 
-**The data** is Natural Earth's `ne_10m_admin_1_states_provinces`, the same file the states
-map is cut from, taken whole: 4,596 subdivisions of 251 countries. Natural Earth is public
-domain and commercially usable — GADM, the obvious alternative, forbids commercial use —
-and the credit it asks for is in Settings → Data sources. `scripts/fetch-admin1.mjs` builds
-it into one topology on the country map's own 1e5 quantisation grid and vendors it as
-`data/natural-earth/admin1-10m.json`; nothing is simplified, because even half a grid step
-of thinning removes dozens of islets outright. 858,000 points and 6.8 MB, against the
-country map's 477,000 and 3.7 MB — the same detail, with the internal boundaries added.
+**Not one administrative level everywhere.** "First-level subdivision" means Germany's 16
+Länder and Slovenia's 193 municipalities alike, so a map drawn at that level is coarse in one
+place and fragmented in the next. Which level each country uses is decided country by country
+in one editable table, `scripts/admin/countries.mjs`, with the reason written beside it:
 
-**The ids are Natural Earth's `adm1_code`** (`FRA-2000`, `IND-20012`): unique on every
-feature and clear of both other atlases' namespaces. ISO 3166-2 is carried as metadata, not
-used as the key, because 155 features in the source share a code with another.
+| | Curated Default | More Detailed | Maximum |
+|---|---|---|---|
+| Germany | 38 Regierungsbezirke (NUTS 2) | 401 Kreise | 401 Kreise |
+| France | 101 departments | 325 arrondissements | same |
+| United Kingdom | 12: England's regions + Wales, Scotland, N. Ireland | 170 counties and unitary authorities | 232 local authorities |
+| Slovenia · Latvia | 12 · 6 statistical regions | 12 · 43 municipalities (2021) | 193 · 43 |
+| N. Macedonia · Kosovo · Azerbaijan | 8 · 7 · 14 regions | same | 84 · 30 · 78 |
+| Andorra, Liechtenstein, Malta… | one unit (Malta: Malta and Gozo) | same | parishes, councils |
+| Romania, Bulgaria, Greece, Spain, Italy, Poland | counties, provinces, regions — Natural Earth's own | same | same |
+| Kenya · Nepal · Vietnam | 47 counties · 7 provinces · 34 provinces (2025) | same | · · 63 before 2025 |
+
+Curated Default has 3,152 units, More Detailed 4,029, Maximum 5,256 (Natural Earth alone
+has 4,596). Countries smaller than 3,000 km² are one unit unless the table keeps their island
+groups apart.
+
+**Real boundaries only.** Every unit is either Natural Earth's own, a dissolve of Natural
+Earth units into an official coarser division (Slovenia's statistical regions, England's ITL 1
+regions, Azerbaijan's economic regions of the 2021 decree), or an official finer division from
+geoBoundaries' gbOpen release cut into Natural Earth's outline (Germany's BKG districts,
+France's IGN arrondissements, Kenya's counties). A dissolved unit lists the units it was made
+from. Only geoBoundaries layers under attribution-only licences are used as geometry; the
+credit for each — agency, year, licence — is built into the data and shown in Settings → Data
+sources.
+
+**Natural Earth stays the outline.** A cut keeps the unit's coast and borders exactly as
+Natural Earth draws them, so the administrative map has the World map's coastline, islands,
+lakes and international borders, vertex for vertex. Where the finer source's outline strays
+from Natural Earth's, the strip between them goes to the finer unit it borders. The engine
+(`scripts/admin/build-admin.mjs`) clips on Clipper at 2 cm, records every point a cut
+creates, and puts each on every ring that runs along the same line, so a border two units
+share is one arc again.
+
+**Regions a user can select whole.** Every unit carries the regions it lies in — its
+autonomous community, its region, the coarser levels of its own country, and a few historical
+regions the table records (Romania's, county-based and marked approximate). The Selection
+panel's region search and the inspector's "Select the whole region" add them to the
+selection: Catalonia is its four provinces on the curated map, Transylvania its ten counties.
+
+**Three levels, loaded as needed.** The build writes the curated map as one topology
+(`public/geo/admin/base.json`) and each country another level changes as a fragment of its
+own, carrying only the arcs the base lacks. Map → Detail loads the base once and the fragments
+that level needs (`src/geo/composition.ts`); the result is an ordinary topology to everything
+downstream. A unit whose land is the same at two levels keeps its id at both, so values
+survive switching; one that exists only at another level waits in the document.
+
+**Checked on every build** (`data/admin/report.json`): each Natural Earth polygon, islands
+included, lies in exactly one unit at every level; ids are unique; and every level composes to
+Natural Earth's own coastline and national borders, with any arc that does not reported by
+kind, length and place. As built: no gaps, no overlaps, no national border lost at any level,
+and 3–7 short coastal arcs (under 7 km in all, in Kenya, France and Germany) left over.
+
+**The ids** are Natural Earth's `adm1_code` wherever a unit is Natural Earth's unit unchanged
+(`FRA-2000`), made safe for any attribute (`VAT+00?` → `VAT_00_`); a unit made of several is
+`ISO3-LEVEL-code` (`SVN-SR-SI041`, `DEU-RB-oberbayern`). All are clear of both other atlases'
+namespaces.
+
+Rebuilding: `npm run build-geography` builds everything; `node --max-old-space-size=8192
+scripts/admin/build-admin.mjs` rebuilds only the administrative levels from the cached units.
+
+**Vatican City is there.** It is one subdivision in the source (`VAT+00?`, `VAT_00_` on the
+map, where the few Natural Earth ids with punctuation are made safe for any attribute), and its ring
+collapses to two corners under the same quantisation that loses it from the country map —
+so it used to be the one subdivision the map dropped. It is supplied exactly as the World
+map supplies it: the country's supplemental outline (`geo/supplemental.ts`) becomes its
+only subdivision's, a rule that applies to any country that is a single entity on this map
+and never to one divided into several. From there it is an ordinary small entity — its real
+shape at its real position, painted after Rome, drawn at the minimum rendered size and given
+an assisted catchment, so it can be seen and hit at any zoom without anything around it
+changing.
 
 **Every subdivision knows its country.** `prepare-data.mjs` builds the entity table from
 the source's own fields and resolves each subdivision's parent against the world map's
@@ -286,10 +379,92 @@ two projections — is identical before and after, and its names now appear 6× 
 Edits no longer cost a layout either. The names, the hidden set and the measured label
 shapes are held steady across edits that do not change them, so typing a value with names
 on is a repaint (about 40 ms here, where it had been seven seconds), and hiding a
-subdivision filters the measured shapes instead of measuring the other 4,594 again. What
-is left is inherent to the size: opening the map is one ~4 s task in a production build,
-and a region or projection change reprojects every path (~2 s).
+subdivision filters the measured shapes instead of measuring the other 4,594 again.
 
+**Opening it without holding the page.** Opening the map used to be one uninterrupted block
+of several seconds — up to seventeen in the editor's test browser — in which nothing could be
+clicked. Three things changed, none of them in what is drawn:
+
+- *Measured once.* The metrics measured every polygon's area three times over; they now
+  measure it once and sum the total through d3's own exact accumulator (`geo/adder.ts`), so
+  every area is the number `geoArea` returned before, bit for bit. The tint colouring finds
+  neighbours by a west-to-east sweep rather than testing ten million pairs, and the camera's
+  framing reads those areas instead of measuring them again and no longer copies out every
+  vertex to keep 6,000 of them. Metrics, border networks and all twenty region framings were
+  checked identical before and after on every dataset.
+- *Done in slices.* Decoding, repairing and measuring run a few milliseconds at a time
+  (`geo/slices.ts`), handing the thread back in between — the same work in the same order.
+- *Projected off the render path.* A dataset marked `progressive` has its outlines projected
+  in slices after the render asks for them (`render/projectedLand.ts`), together with the
+  magnifier anchors and click catchments; the map keeps showing the view it has until the new
+  one is complete, and everything drawn over the land takes its projection from the land on
+  screen, so nothing runs ahead of it. The lakes, rivers, border networks, coasts and names
+  follow one render later (`useDeferredValue`), so the land paints first. The last three
+  views are remembered on every map, so going back to a region, a projection or a map just
+  left is instant, and merging no longer reprojects the whole map.
+
+Measured on the production build, the old and new builds alternately in the same tab:
+opening the map went from one 17 s freeze to drawn in 2.0 s with no block over 150 ms; a
+region change from a 3.7 s freeze to 1.1 s with no block over 133 ms; returning to a view
+already drawn from a 2.9 s freeze to 25 ms. Under phone emulation the old build froze for
+9.3 s; the new one takes about as long in total but never blocks for more than about two
+seconds. The world and states maps render byte-for-byte what they did.
+
+Selecting many subdivisions at once is the Selection panel's job — see
+[Selecting many territories at once](#selecting-many-territories-at-once), which works on this
+map as on every other.
+
+
+#### Official USA Administrative Map
+
+A fourth atlas, separate from USA States (whose fifty states are still Natural Earth's): the
+United States from official U.S. government data, for analysis and data visualisation.
+
+**Sources**, all public domain as works of the U.S. Government (17 U.S.C. §105), credited in
+Settings → Data sources:
+
+- U.S. Census Bureau cartographic boundary files, 2024, 1:500,000 — `cb_2024_us_state_500k`,
+  `cb_2024_us_county_500k`, `cb_2024_us_cousub_500k` — the Census Bureau's own generalisation
+  of TIGER/Line for display, clipped to the shoreline.
+- USGS Small-scale Dataset, 1:1,000,000-scale hydrography — waterbodies and streams — for the
+  lakes and rivers. The Census files are clipped at the ocean, the bays and the Great Lakes but
+  keep inland water as county land (Great Salt Lake, Okeechobee, Pontchartrain), so lakes of 3
+  square miles and more, and rivers of Strahler order 6 and up, are drawn over the land the
+  way every map here draws water.
+
+**Three levels**, chosen under Map → Detail and projection → Detail, each its own file loaded
+only when chosen:
+
+| Level | Units | What |
+|---|---|---|
+| States | 56 | 50 states, the District of Columbia, Puerto Rico, Guam, the Northern Mariana Islands, American Samoa, the U.S. Virgin Islands |
+| Counties (default) | 3,235 | counties and county-equivalents: 64 parishes, 40 independent cities, Alaska's boroughs and 11 census areas, 78 municipios, Connecticut's 9 planning regions, DC |
+| More Detailed | 32,159 | county subdivisions that are legal units — towns, townships, boroughs, villages, barrios — and the county itself wherever a state's subdivisions are only statistical |
+
+Statistical areas are never drawn as if they were administrative: census county divisions,
+unorganized territory and census subareas are joined back into their county (from the
+subdivision file's own lines, so it meets its neighbours exactly), and a county-equivalent that
+is statistical says so in its type (Alaska's census areas).
+
+**Every unit** carries its Census GEOID as its id (`county-06037`, the same at every level it
+appears in), its official name and type from the Census LSAD code, and its state as its
+parent — so state lines are the heavier border network — with the Census region and division
+as selectable groups. Its codes (GEOID, FIPS, LSAD), land and water area and source file are
+kept in a separate file, split by state at the subdivision level, and fetched when the
+inspector shows the unit.
+
+**Insets**: Alaska and Hawaii where USA States puts them; Guam with the Northern Mariana
+Islands and American Samoa beside Hawaii; Puerto Rico with the U.S. Virgin Islands east of
+Florida. Named by state, so each inset holds that state's units at whichever level is loaded,
+drawn from their real coordinates.
+
+**Checked on every build** (`data/usa-official/report.json`): ids unique; every county's state
+present; the counts of California (58), Texas (254), Alaska (30), Louisiana (64), Virginia
+(133), Maryland, Delaware, Hawaii (5), Puerto Rico (78) and DC; each state's counties and
+subdivisions add up to its area within 1%; and any edge no neighbour shares inside the land is
+reported, separated into shores of inland water and gaps.
+
+Rebuilding: `npm run build-usa` (downloads the Census and USGS files into `.cache/` once).
 
 ### How region framing works
 
@@ -386,9 +561,59 @@ Nothing here is a hardcoded camera position: change the dataset and the bounds a
 recomputed from that dataset's geometry. `__mapEditor.framing()` prints what the
 camera resolved to.
 
+### The geographic foundation
+
+Every map draws from one curated foundation, prepared by `scripts/build-geography.mjs`
+(`npm run build-geography`, a maintenance script: it reads Natural Earth from `.cache/ne/`,
+downloading what is missing, and writes `data/natural-earth/`, which is committed — ordinary
+builds only copy it). A new map built on these files inherits all of it; one built on raw
+Natural Earth again would not, which is the reason the script is the only way in.
+
+It exists because an audit of the land and water the maps drew found the gaps were in the
+data pipeline, not the renderer — and not, mostly, in Natural Earth:
+
+- **2,771 minor islands were on no map** — 15,357 km², 678 of them in Europe and 580 in
+  Southeast Asia. Natural Earth keeps them in `minor_islands`, a layer of their own, and no
+  map read it. Each is now given to its owner — the World-map entity whose maritime zone it
+  lies in (Marine Regions), its own territory where the claimant's dependency is right
+  beside it (Hong Kong's islets in China's zone), the coast it sits on when within 1 km, or
+  the nearest land when no zone claims it — and joins that entity's geometry, and the
+  nearest subdivision of it on the administrative and USA maps. All 2,769 that are not
+  already land found an owner; the four where zone and nearest coast disagree, all at
+  maritime borders, are listed in the report.
+- **Most inland water was cut away.** 1,018 of Natural Earth's 1,355 lakes fell below a
+  prominence cut, and none of its 1,929 supplementary European and North American lakes was
+  read — the Dniester liman, Yalpuh and Kuhurlui in the Danube delta, the Molochnyi liman,
+  the Étangs de Thau and de Vaccarès, the Lac de Grand-Lieu, Lake Alajuela on the Panama
+  Canal, Laguna de Bay. All are now in the one water layer every map draws, with a
+  supplement's lake dropped where the main layer already has it.
+- **The grid was coarser than the source.** The 10m topologies were quantised to about
+  400 m; a sand spit between a liman and the sea, or a lagoon's opening, narrower than that
+  merged or closed, and specks of islands collapsed (Vatican City among them). The 10m
+  topologies are now quantised to about 40 m, below the source's own vertex spacing.
+- **Three maps, three pipelines.** The World map came from an older edition of Natural
+  Earth via `world-atlas`, the administrative and USA maps from the current one, each
+  prepared separately. All three now come from the current edition through the same steps,
+  and the USA map is cut from the curated administrative set rather than from raw data.
+- **Rivers** are every 10m river and branch, the whole Europe supplement and the North
+  America supplement's major rank (its lower ranks are creeks at this scale).
+
+Many famous lagoons and estuaries were never the problem: Razim and Sinoe, Sasyk, the
+Dnieper–Bug estuary, the Oosterschelde, the Wadden Sea, the Venice and Curonian lagoons,
+the Nile delta lakes, Chesapeake Bay and Lake Maracaibo are open water in Natural Earth's
+coastline and were drawn as water throughout.
+
+What Natural Earth does not draw at all, this cannot add without a finer source, and it
+does not guess: the Westerschelde, the Haringvliet and Hollands Diep, the Khadzhibey,
+Kuyalnyk and Tylihul limans, Lake Kahul and Songkhla lake are land in every Natural Earth
+layer. `data/natural-earth/geography-report.json` records every assignment, every source
+count and where each of the audit's named places stands, so those gaps are known rather
+than papered over. Closing them means adding a finer public source — HydroLAKES or GSHHG
+for inland and coastal water — as another input to the same script.
+
 ### Entities a coarse dataset omits
 
-The three world-atlas resolutions are not the same map at three levels of detail —
+Natural Earth's three resolutions are not the same map at three levels of detail —
 they are three editorial selections. Counting the entities each one names against the
 254 this app knows:
 
@@ -451,7 +676,9 @@ the user to zoom, and they are deliberately independent of one another:
 - **assisted selection** — an invisible catchment that follows a country's actual
   islands, so a speck or a scattered archipelago can be hit;
 - **the magnifier** — an enlarged copy of a selected feature's own outline, so a
-  selected speck is visible;
+  selected speck is visible. Optional, and off until turned on: *Magnifying Glass* in
+  Map → Display, one switch for every map, session state rather than document content.
+  It used to have no switch at all, so selecting any small entity summoned a lens;
 - **the minimum rendered size** — a legibility floor, so a sub-pixel polygon is drawn
   as something rather than as nothing.
 
@@ -550,6 +777,49 @@ once per dataset load and `buildAssistIndex` projects them once per projection c
 pointer movement does one pass of arithmetic over the index (3,944 boxes at 10m,
 14 µs) and no geographic maths at all. **No country polygon is ever enlarged or
 modified** — the geometry that renders is the geometry that exports.
+
+### Selecting many territories at once
+
+**The Selection panel** is on every map, in the same place on the rail and with the same
+controls: it selects countries and territories on the World map, states, provinces and
+regions on the administrative world, states on the USA map — whatever the open map's entities
+are, in its own words (`Atlas.noun`), and whatever a future atlas brings, with nothing to add
+for it. Both tools add to the ordinary selection through `addToSelection`, so the inspector,
+the palette, merge groups and everything else that reads a selection work on theirs; neither
+ever takes anything out.
+
+- *Rectangle selection* (on by default): hold the middle mouse button and drag. The box is
+  anchored to the map, so zooming with the wheel mid-drag keeps its corner on the place it
+  started; releasing selects every territory whose drawn outline meets it — an edge inside or
+  across it, or the outline all around it. It never moves the camera. The browser's
+  middle-button autoscroll is refused only while the tool is on, and Escape cancels.
+- *Brush mode* (off by default): hold the left button, or a finger, and drag; every territory
+  passed over is added as the stroke goes, once. The stroke is tested segment by segment, so a
+  fast one cannot step over a narrow territory, with a footprint of a pixel for a mouse and a
+  fingertip for touch; it also asks the click resolver at the pointer, so the catchments that
+  make a speck of an island clickable make it brushable. While it is on, a drag paints rather
+  than pans — the wheel, the zoom buttons and a two-finger pinch still move the camera — and
+  the click that follows a stroke is not taken as a toggle.
+
+**One implementation, whatever the map.** The tests are made against the outlines as rendered,
+which is why nothing about them depends on the dataset: the path strings every entity is drawn
+from are read back into vertices once (`render/selectionGeometry.ts`, read ahead in slices when a
+tool is on) and tested exactly. The differences between maps are differences in how outlines
+are drawn, and the tests follow the drawing: an entity drawn at the minimum rendered size is
+tested where it is drawn, and one drawn in an inset — Alaska and Hawaii — is tested only inside
+the inset's frame, because the outline runs on past it (Hawaii's north-western atolls) and the
+part beyond is clipped away. The tools are live on any map that has drawn something to test.
+
+While a stroke or a box is being drawn the page is a canvas: the press's own default is
+refused where it starts, so the browser begins no text selection under the stroke and shows no
+selection menu, and text selection, context menus, touch callouts and image drags are refused
+for exactly as long as the gesture lasts. The box and the brush ring are HTML over the map,
+outside the `<svg>`, so no export can contain them. A rectangle is one undo step, and so is a
+whole brush stroke.
+
+On every map, a click or tap on water — anywhere that is not a territory — does nothing. It
+used to clear the selection, and water is most of the map; the Clear buttons are the way to
+start over.
 
 ### The shell
 
@@ -765,17 +1035,15 @@ setter, and the one that got missed would quietly wipe it on the next unrelated 
 ### Geographic layers
 
 Countries are one layer, lakes are another. `geo/lakes.ts` loads its own data, has its
-own registry and its own style tokens, and never touches the country geometry — the
-country TopoJSON files in `public/geo/` are byte-identical to the Natural Earth
-originals. A future layer (rivers, glaciers, urban areas) is another module of the
-same shape rather than a change to the country data.
+own registry and its own style tokens, and never touches the country geometry: water is
+drawn over the land, so a border never decides whether a place is land or water. A future
+layer (glaciers, urban areas) is another module of the same shape rather than a change to
+the country data.
 
-The lake data is Natural Earth's lakes filtered to `scalerank <= 5`, which is the
-cartographers' own judgement of what belongs on a general-purpose map: 336 of the
-1,355 lakes at 10m, covering every major lake in the world plus small-but-notable
-ones like Geneva and Bodensee, without the ponds. `scripts/fetch-lakes.mjs` rebuilds
-the vendored files from source; it is a maintenance script and is NOT part of the
-build, so ordinary builds stay offline.
+The lake data is the curated inland-water layer every map shares — all 1,355 of Natural
+Earth's 10m lakes and its Europe and North America supplements, 3,283 bodies of water — see
+*The geographic foundation* below. It used to be cut to the most prominent 336, which drew
+the Dniester liman, the Danube delta's lakes and a thousand more as land.
 
 Two lakes on most people's list are deliberately absent from the layer: Natural Earth
 treats the **Caspian Sea** and **Lake Maracaibo** as marine, and both are already
@@ -2190,31 +2458,45 @@ them at half weight in a 2× export. Those widths are scaled with the viewport s
 picture matches the one being captured.
 
 Verified by sampling the exported pixels against the live DOM across every region,
-projection, palette mode, theme and toggle: 100% match, with the only apparent
-mismatch turning out to be a magnifier lens that `elementFromPoint` cannot see
-because its group is `pointer-events: none`. The magnifier *is* exported — it is
-visibly part of the map — while the interaction infrastructure underneath it is not.
+projection, palette mode, theme and toggle: 100% match. The magnifier is not exported:
+it is an editor aid for seeing a selected speck, not part of the map, so its lenses are
+marked `data-export="none"` and come out of every PNG, JPG and SVG with the legend's
+resize corner.
 
 ### Undo
 
-Undo is a stack of `MapDocument` snapshots, not inverse operations. The executor
-already returns a new document and never mutates the old one, so the previous state is
-simply the value that was there a moment ago — and because every unchanged branch is
-shared by reference, keeping it costs the few objects the edit actually replaced.
-Inverses would mean writing and maintaining an undo for every operation in the
-vocabulary, and getting one of them subtly wrong is how undo stacks start lying.
+Undo is a stack of snapshots, not inverse operations: the document and the selection as
+they stood before each edit. The executor already returns a new document and never
+mutates the old one, so the previous state is simply the value that was there a moment
+ago — and because every unchanged branch is shared by reference, keeping it costs the few
+objects the edit actually replaced. Inverses would mean writing and maintaining an undo
+for every operation in the vocabulary, and getting one of them subtly wrong is how undo
+stacks start lying.
 
-Only content operations make a step (`UNDOABLE_OPERATIONS` in `state/operations.ts`).
-Changing the region, the projection or the style recomposes the view rather than
-editing the map, and putting those on the same stack would mean Ctrl+Z sometimes moves
-the camera and sometimes changes the data — the fastest way to make an undo button
-untrustworthy. A rejected operation changes nothing and costs no step.
+Two kinds of edit make a step. Content operations (`UNDOABLE_OPERATIONS` in
+`state/operations.ts`) — values, groups, merges, the legend, the names. And selection
+changes: a click, a Clear, a rectangle, a brush stroke, and the merge groups that collect
+a selection. A selection on the administrative world can be a hundred subdivisions built
+stroke by stroke, and getting the last stroke back is exactly what undo is for. The two
+are restored together, so undoing a Palette value brings back the value *and* the
+selection it was typed into — the Palette letting go of a selection once its value lands
+is part of the same step (`clearSelectionWithLastEdit`), as is Compare's "Add selected".
+
+Changing the region, the projection, the dataset or the style recomposes the view rather
+than editing the map, so it makes no step — and an undo or redo leaves those as they are
+now rather than rolling them back with the snapshot, so Ctrl+Z never moves the camera. A
+rejected operation, an edit that changes nothing, and a click or stroke that selects
+nothing new all cost no step.
 
 Edits sharing a `coalesceKey` and arriving within 700 ms extend the step already on the
 stack rather than adding to it, so typing "1200" into a value field is one undo, not
-four. Shortcuts are Ctrl+Z, and Ctrl+Shift+Z or Ctrl+Y to redo; they are bound on the
-window and fire even inside a text field, because every field here writes through an
-operation and undo reverses what was typed anyway.
+four. A pointer gesture has a key of its own for as long as it lasts, so a brush stroke
+that adds to the selection on every frame, however slowly, is one step, and so is a
+rectangle. A new edit after an undo discards the redo stack.
+
+Shortcuts are the standard ones: Ctrl+Z undoes, Ctrl+Y and Ctrl+Shift+Z redo (Cmd on a
+Mac). They are the map's only while nothing is being typed — in a text field Ctrl+Z is the
+field's own undo of the typing — and the buttons call exactly the same functions.
 
 ### Trying the operation pipeline
 

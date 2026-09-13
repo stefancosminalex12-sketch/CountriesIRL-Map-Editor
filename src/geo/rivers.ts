@@ -6,14 +6,13 @@
  * the same shape of module, so the renderer treats water the same way whichever kind it
  * is drawing.
  *
- * The data is Natural Earth's `rivers_lake_centerlines`, filtered to `scalerank <= 6`
- * and vendored under `data/natural-earth/` by `scripts/fetch-rivers.mjs`. That is the
- * real surveyed course of each river, including the line it takes through the lakes it
- * runs through; nothing here is drawn approximately or by hand. The filter is the
- * cartographers' own prominence rank, and it keeps the rivers a world map is expected to
- * have — the Nile, Amazon, Mississippi, Danube, Yangtze, Ganges, Indus, Mekong, Congo,
- * Volga and Rhine among them — without the tributary network that would turn every
- * continent into a grey mesh.
+ * The data is the curated river layer `scripts/build-geography.mjs` prepares for every
+ * map: every one of Natural Earth's 10m `rivers_lake_centerlines`, its whole Europe
+ * supplement, and the major rank of its North America supplement — the real surveyed
+ * course of each river and its branches, including the line it takes through the lakes it
+ * runs through; nothing here is drawn approximately or by hand. The North America
+ * supplement's two lowest ranks are left out because they are creeks at this scale, and
+ * would draw that one continent many times denser than the rest of the world.
  *
  * Two differences from lakes, both of which follow from a river being a *line*:
  *
@@ -47,9 +46,13 @@ export interface RiverLayer {
   url: string
 }
 
+/** USGS major rivers (Strahler order 6 and up), 1:1,000,000, for the Official USA Administrative Map. */
+export const USGS_RIVERS: RiverLayer = { id: 'usgs-rivers-1m', detail: '10m', url: 'geo/usa-official/rivers.geojson' }
+
 export const RIVER_LAYERS: RiverLayer[] = [
   { id: 'rivers-10m', detail: '10m', url: 'geo/rivers-10m.geojson' },
   { id: 'rivers-50m', detail: '50m', url: 'geo/rivers-50m.geojson' },
+  USGS_RIVERS,
 ]
 
 /**

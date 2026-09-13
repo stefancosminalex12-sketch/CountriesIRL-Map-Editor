@@ -9,6 +9,7 @@
 import {
   Fragment,
   useCallback,
+  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -80,15 +81,41 @@ import { useSettingsStore } from '../state/settingsStore'
 import { getTheme } from '../theme/themes'
 import { playSfx } from '../audio/sfx'
 import {
-  buildAssistIndex,
-  computeSmallEntityAnchors,
+  EMPTY_ASSIST_INDEX,
   MIN_RENDERED_SIZE_PX,
+  minimumSizeFrame,
   minimumSizeTransform,
   pickAssistedCountryAt,
 } from './smallEntities'
+import { anchorsOf, assistOf, useProjectedLand } from './projectedLand'
+import { useGatedMemo } from './useGatedMemo'
+import { useSelectionGestures } from './selectionGestures'
+import {
+  outlinesAlongSegment,
+  outlinesInRect,
+  outlinesOf,
+  prepareOutlines,
+  type OutlineClip,
+  type OutlineFrame,
+} from './selectionGeometry'
+import type { ResolvedInset } from '../maps/insets'
 import { MapLenses, type FitCorrection, type Lens, type MapLensesHandle } from './MapLenses'
 
 export const MAP_SVG_ID = 'map-canvas-svg'
+
+interface LineNetworks {
+  borders: Array<{ d: string; clipId: string | null }>
+  national: Array<{ d: string; clipId: string | null }>
+}
+
+/** Above this many units the flag geometry is not warmed ahead of the flag mode. See `warm`. */
+const WARM_MAX_FEATURES = 10000
+
+/* What a layer is while it waits — see `layersReady`. Constants, so waiting changes nothing. */
+const NO_INSETS: ResolvedInset[] = []
+const NO_LINE_NETWORKS: LineNetworks = { borders: [], national: [] }
+const NO_COAST_PATHS: Map<string, string> = new Map()
+const NO_LABEL_SHAPES: LabelShape[] = []
 
 const ZOOM_RANGE: [number, number] = [1, MAX_MAP_ZOOM]
 
@@ -151,11 +178,15 @@ const COMPACT_FLAG_MAX_COUNT = 40
  * a layer the default document does not show.
  */
 function useLayerLatch(needed: boolean): boolean {
-  const [latched, setLatched] = useState(false)
-  useEffect(() => {
-    if (needed) setLatched(true)
-  }, [needed])
-  return needed || latched
+  /*
+   * A ref, not state. As state the latch was closed from an effect, so the render that
+   * first needed a layer was followed by a second, identical one whose only news was that
+   * the latch had closed: a full re-render of the map for nothing, on every load that turned
+   * a layer on. What a render reads is the same either way.
+   */
+  const latched = useRef(false)
+  if (needed) latched.current = true
+  return latched.current
 }
 
 /**
@@ -218,17 +249,6 @@ export function MapCanvas() {
    * jumping to it.
    */
   const fit = useSettledSize(live)
-  const fitCorrection = useMemo((): FitCorrection | null => {
-    if (fit.width < 2 || fit.height < 2) return null
-    if (width === fit.width && height === fit.height) return null
-    const scale = Math.min(width / fit.width, height / fit.height)
-    const dx = (width - fit.width * scale) / 2
-    const dy = (height - fit.height * scale) / 2
-    return { scale, dx, dy }
-  }, [width, height, fit])
-  const fitTransform = fitCorrection
-    ? `translate(${fitCorrection.dx},${fitCorrection.dy}) scale(${fitCorrection.scale})`
-    : undefined
 
   const doc = useMapStore((s) => s.doc)
   const geo = useMapStore((s) => s.geo)
@@ -246,6 +266,9 @@ export function MapCanvas() {
   const setTransform = useMapStore((s) => s.setTransform)
   const ensureRivers = useMapStore((s) => s.ensureRivers)
   const ensureMaritime = useMapStore((s) => s.ensureMaritime)
+  const selectionTools = useMapStore((s) => s.selectionTools)
+  const magnifierOn = useMapStore((s) => s.magnifier)
+  const addToSelection = useMapStore((s) => s.addToSelection)
   /**
    * The zoomed group, so a gesture can move the map without re-rendering it.
    *
@@ -271,6 +294,14 @@ export function MapCanvas() {
    * is the entire point.
    */
   const gesturingRef = useRef(false)
+  /** Held true by a Selection-panel gesture, for the same reason — see `useSelectionGestures`. */
+  const selectingRef = useRef(false)
+  /** Set when a brush press has already dealt with the click that follows it. */
+  const suppressClickRef = useRef(false)
+  /** Whether the brush is live, read by the zoom filter without rebinding the behaviour. */
+  const brushArmedRef = useRef(false)
+  /** The rectangle and the brush ring: over the map, outside the exported `<svg>`. */
+  const selectionOverlayRef = useRef<HTMLDivElement>(null)
 
   const { scope } = doc
 
@@ -324,20 +355,16 @@ export function MapCanvas() {
     [screenOn, doc.screen.rect, width, height],
   )
 
-  const projection = useMemo(() => {
+  /** The projection this view asks for. What is drawn through is `projection`, below. */
+  const targetProjection = useMemo(() => {
     if (fit.width < 2 || fit.height < 2) return null
-    const next = buildProjection({
+    return buildProjection({
       framing,
       projectionId: scope.projectionId,
       width: fit.width,
       height: fit.height,
       padding: scope.padding,
     })
-    // Lets `__mapEditor.project(lon, lat)` report true screen positions in dev.
-    if (import.meta.env.DEV) {
-      ;(window as unknown as Record<string, unknown>).__mapProjection = next
-    }
-    return next
   }, [framing, scope.projectionId, scope.padding, fit.width, fit.height])
 
   /**
@@ -350,10 +377,75 @@ export function MapCanvas() {
    */
   const atlas = useMemo(() => getAtlas(scope.atlasId), [scope.atlasId])
   /* In the projection's own space, so it follows the fitted size rather than the live one. */
-  const insets = useMemo(
-    () => buildInsets(atlas, projection, fit.width, fit.height),
-    [atlas, projection, fit.width, fit.height],
+  const targetInsets = useMemo(
+    () => buildInsets(atlas, targetProjection, fit.width, fit.height, geo?.meta),
+    [atlas, targetProjection, fit.width, fit.height, geo],
   )
+
+  /**
+   * The land as drawn: every entity's projected outline, with the projection and insets it
+   * was drawn through. See `projectedLand.ts`.
+   *
+   * Everything below takes `projection` and `insets` from here rather than from the target
+   * above. On the world and states maps the two are the same view in the same render, as
+   * they always were — only a view already drawn earlier in the session is now recalled
+   * instead of projected again. On a progressive dataset the land for a new view is
+   * prepared off the render path, and until it is ready the map keeps drawing the view it
+   * has, so the borders, the lakes, the names and the click targets all stay on the
+   * outlines actually on screen instead of running ahead of them.
+   */
+  const progressive = !!geo?.dataset.progressive
+  const landKey = `${[...scope.regionIds].sort().join('+')}|${scope.projectionId}|${scope.padding}|${fit.width}x${fit.height}`
+  const land = useProjectedLand(
+    geo,
+    targetProjection,
+    targetInsets,
+    landKey,
+    fit.width,
+    fit.height,
+    progressive,
+  )
+  const projection = land?.projection ?? null
+  const insets = land?.insets ?? NO_INSETS
+
+  useEffect(() => {
+    // Lets `__mapEditor.project(lon, lat)` report true screen positions in dev.
+    if (import.meta.env.DEV && projection) {
+      ;(window as unknown as Record<string, unknown>).__mapProjection = projection
+    }
+  }, [projection])
+
+  /**
+   * Whether the layers drawn over the land are drawn yet.
+   *
+   * Always, on an ordinary map. On a progressive one, new land is committed and painted on
+   * its own first, and the layers over it — lakes, rivers, the border networks, the coasts,
+   * the names — follow in the render after: `useDeferredValue` hands back the previous land
+   * for the urgent render, and they wait until it has caught up. Together they cost as much
+   * again as the land, and none of them is needed to see the map or to click it.
+   */
+  const layerLand = useDeferredValue(land)
+  const layersReady = !progressive || layerLand === land
+
+  /*
+   * The size the drawn land was fitted to, and the correction that makes it cover the live
+   * size — see `useSettledSize`. Usually the settled size; for a progressive map still
+   * preparing a new size, the size of the land on screen, which is scaled to the new box in
+   * the meantime exactly as any map is while a resize settles.
+   */
+  const drawnWidth = land?.width ?? fit.width
+  const drawnHeight = land?.height ?? fit.height
+  const fitCorrection = useMemo((): FitCorrection | null => {
+    if (drawnWidth < 2 || drawnHeight < 2) return null
+    if (width === drawnWidth && height === drawnHeight) return null
+    const scale = Math.min(width / drawnWidth, height / drawnHeight)
+    const dx = (width - drawnWidth * scale) / 2
+    const dy = (height - drawnHeight * scale) / 2
+    return { scale, dx, dy }
+  }, [width, height, drawnWidth, drawnHeight])
+  const fitTransform = fitCorrection
+    ? `translate(${fitCorrection.dx},${fitCorrection.dy}) scale(${fitCorrection.scale})`
+    : undefined
   /** Which countries belong to the active scope — drives the outside-scope treatment. */
   const scopeCountryIds = useMemo(() => {
     if (!geo) return new Set<string>()
@@ -409,27 +501,18 @@ export function MapCanvas() {
    * knowing insets exist.
    */
   const shapes = useMemo(() => {
-    if (!projection || !geo) return []
-    const mainPath = geoPath(projection)
-    const insetPaths = insets.map((resolved) => ({
-      resolved,
-      path: geoPath(resolved.projection),
-    }))
-
-    return geo.features
-      .filter((feature) => !mergedMemberIds.has(feature.properties.countryId))
-      .map((feature) => {
-        const id = feature.properties.countryId
-        const inset = insetPaths.find((entry) => entry.resolved.members.has(id))
-        return {
-          id,
-          name: feature.properties.name,
-          d: (inset ? inset.path : mainPath)(feature) ?? '',
-          clipId: inset ? inset.resolved.inset.id : null,
-        }
-      })
-      .filter((s) => s.d.length > 0)
-  }, [projection, geo, mergedMemberIds, insets])
+    if (!land || !geo || land.geo !== geo) return []
+    const out: Array<{ id: string; name: string; d: string; clipId: string | null }> = []
+    for (const feature of geo.features) {
+      const id = feature.properties.countryId
+      // Left out after projecting, so a merge or an unmerge no longer reprojects the map.
+      if (mergedMemberIds.has(id)) continue
+      const path = land.paths.get(id)
+      if (!path || path.d.length === 0) continue
+      out.push({ id, name: feature.properties.name, d: path.d, clipId: path.clipId })
+    }
+    return out
+  }, [land, geo, mergedMemberIds])
 
   /**
    * The merged bodies, projected through the same pipeline as everything else.
@@ -523,7 +606,7 @@ export function MapCanvas() {
    * Every territory's shape, hidden or not: measuring one is the costly part, so hiding a
    * territory filters the list below rather than measuring every other territory again.
    */
-  const allLabelShapes = useMemo<LabelShape[]>(() => {
+  const allLabelShapes = useGatedMemo<LabelShape[]>(layersReady, NO_LABEL_SHAPES, () => {
     if (!prepareLabels || !projection || !geo) return []
     const out: LabelShape[] = []
 
@@ -676,7 +759,7 @@ export function MapCanvas() {
    * projection changes and never on a theme change, a pan or a zoom.
    */
   const prepareLakes = useLayerLatch(style.showLakes)
-  const lakePath = useMemo(() => {
+  const lakePath = useGatedMemo(layersReady, '', () => {
     if (!prepareLakes || !projection || !lakes) return ''
     const path = geoPath(projection)
     return path({ type: 'FeatureCollection', features: lakes.features } as Parameters<typeof path>[0]) ?? ''
@@ -706,7 +789,7 @@ export function MapCanvas() {
     if (prepareRivers) ensureRivers()
   }, [prepareRivers, ensureRivers])
 
-  const riverPath = useMemo(() => {
+  const riverPath = useGatedMemo(layersReady, '', () => {
     if (!prepareRivers || !projection || !rivers) return ''
     const path = geoPath(projection)
     return path({ type: 'FeatureCollection', features: rivers.features } as Parameters<typeof path>[0]) ?? ''
@@ -757,11 +840,8 @@ export function MapCanvas() {
    * network built at load. Rebuilt without the hidden territories, so taking a country off
    * the map takes its borders with it.
    */
-  const lineNetworks = useMemo(() => {
-    const layers: {
-      borders: Array<{ d: string; clipId: string | null }>
-      national: Array<{ d: string; clipId: string | null }>
-    } = { borders: [], national: [] }
+  const lineNetworks = useGatedMemo(layersReady, NO_LINE_NETWORKS, () => {
+    const layers: LineNetworks = { borders: [], national: [] }
     if (!projection || !geo) return layers
 
     const insetMembers = new Set<string>()
@@ -800,7 +880,7 @@ export function MapCanvas() {
    * arcs between members are borders, so they are not in it, just as they are not in the
    * dissolved outline.
    */
-  const coastPaths = useMemo(() => {
+  const coastPaths = useGatedMemo(layersReady, NO_COAST_PATHS, () => {
     const paths = new Map<string, string>()
     if (!prepareCoastlines || !projection || !geo) return paths
     const coasts = coastByEntity(geo)
@@ -848,10 +928,7 @@ export function MapCanvas() {
    * Editor-only anchors for features too small to click. Recomputed only when the
    * projection or dataset changes — never while the pointer moves.
    */
-  const smallAnchors = useMemo(
-    () => computeSmallEntityAnchors(geo, projection),
-    [geo, projection],
-  )
+  const smallAnchors = useMemo(() => (land ? anchorsOf(land) : []), [land])
 
   const shapeById = useMemo(() => {
     const map = new Map<string, string>()
@@ -867,7 +944,7 @@ export function MapCanvas() {
    * islands and reaches countries no one would call small — the Bahamas' land is
    * scattered over forty-one islands and none of them is easy to click.
    */
-  const assist = useMemo(() => buildAssistIndex(geo, projection), [geo, projection])
+  const assist = useMemo(() => (land ? assistOf(land) : EMPTY_ASSIST_INDEX), [land])
 
   /** Merge ids, so the picker can recognise one as an entity in its own right. */
   const mergeIds = useMemo(() => new Set(mergeGeometry.map((m) => m.id)), [mergeGeometry])
@@ -899,12 +976,11 @@ export function MapCanvas() {
    * the water inside a Maldivian atoll select the Maldives. Only if nothing claims
    * the point does the polygon under the cursor win.
    */
-  const pickCountryAt = useCallback(
-    (event: ReactMouseEvent): string | null => {
+  const pickEntityAt = useCallback(
+    (clientX: number, clientY: number, target: Element | null): string | null => {
       const svg = svgRef.current
       if (!svg) return null
 
-      const target = event.target as Element | null
       /*
        * The legend sits over the map, and the assist catchments below would happily
        * claim a pointer that is on it — clicking the legend would select whichever
@@ -923,8 +999,8 @@ export function MapCanvas() {
       const rect = svg.getBoundingClientRect()
       const claimed = pickAssistedCountryAt(
         assist,
-        event.clientX - rect.left,
-        event.clientY - rect.top,
+        clientX - rect.left,
+        clientY - rect.top,
         transform,
         targetId,
       )
@@ -935,6 +1011,8 @@ export function MapCanvas() {
     },
     [assist, transform, mergeIds, mergeIdByMember],
   )
+  const pickCountryAt = (event: ReactMouseEvent) =>
+    pickEntityAt(event.clientX, event.clientY, event.target as Element | null)
 
   /**
    * Rendering floor for features too small to draw at the current zoom.
@@ -950,6 +1028,114 @@ export function MapCanvas() {
     }
     return transforms
   }, [smallAnchors, zoomK])
+  /* The same floors as numbers, for the selection tools' hit tests. */
+  const minimumSizeFrames = useMemo(() => {
+    const frames = new Map<string, OutlineFrame>()
+    for (const anchor of smallAnchors) {
+      const frame = minimumSizeFrame(anchor, zoomK)
+      if (frame) frames.set(anchor.id, frame)
+    }
+    return frames
+  }, [smallAnchors, zoomK])
+
+  /* ----------------------------------------------------------- selection tools */
+
+  /**
+   * The Selection panel's tools, on every map.
+   *
+   * They test the outlines the map draws — see `selectionGeometry.ts` — so whatever a
+   * dataset's entities are, countries, subdivisions or states, and whatever a future atlas
+   * brings, the tools select exactly those, through one implementation. The only thing
+   * they need is something drawn to test, so they wait for the geography to load.
+   */
+  const hasOutlines = shapes.length > 0 || mergedShapes.length > 0
+  const rectangleOn = hasOutlines && selectionTools.rectangle
+  const brushOn = hasOutlines && selectionTools.brush
+  brushArmedRef.current = brushOn
+
+  /**
+   * What the tools may take: exactly the entities `paintCountry` draws — not a hidden
+   * territory, and not land outside the scope while that is hidden — and every merged body.
+   */
+  const drawnIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const shape of shapes) {
+      if (hiddenIds.has(shape.id)) continue
+      if (style.outsideScope === 'hidden' && !scopeCountryIds.has(shape.id)) continue
+      ids.add(shape.id)
+    }
+    for (const shape of mergedShapes) ids.add(shape.id)
+    return ids
+  }, [shapes, mergedShapes, hiddenIds, scopeCountryIds, style.outsideScope])
+
+  /*
+   * Where an inset-drawn entity can be seen. The one geometric difference between maps: an
+   * entity drawn in an inset is clipped to the inset's frame — Hawaii's north-western atolls
+   * are still in its outline, drawn outside the box and cut away — so the tools test only
+   * the part inside the frame, the part the author can see. Empty on a map without insets.
+   */
+  const clipsById = useMemo(() => {
+    const clips = new Map<string, OutlineClip>()
+    if (insets.length === 0) return clips
+    const frames = new Map(insets.map((resolved) => [resolved.inset.id, resolved.clip]))
+    for (const shape of [...shapes, ...mergedShapes]) {
+      const clip = shape.clipId ? frames.get(shape.clipId) : undefined
+      if (clip) clips.set(shape.id, clip)
+    }
+    return clips
+  }, [insets, shapes, mergedShapes])
+
+  /* Read by the gestures when they run, so they always test the outlines on screen. */
+  const selectable = useRef({ shapes, mergedShapes, drawnIds, frames: minimumSizeFrames, clips: clipsById })
+  selectable.current = { shapes, mergedShapes, drawnIds, frames: minimumSizeFrames, clips: clipsById }
+
+  useSelectionGestures(svgRef, zoomedRef, selectionOverlayRef, {
+    rectangle: rectangleOn,
+    brush: brushOn,
+    inRect: (x0, y0, x1, y1) => {
+      const view = selectable.current
+      const drawn = { frames: view.frames, clips: view.clips, drawn: (id: string) => view.drawnIds.has(id) }
+      return [
+        ...outlinesInRect(outlinesOf(view.shapes), x0, y0, x1, y1, drawn),
+        ...outlinesInRect(outlinesOf(view.mergedShapes), x0, y0, x1, y1, drawn),
+      ]
+    },
+    alongSegment: (ax, ay, bx, by, radius) => {
+      const view = selectable.current
+      const drawn = { frames: view.frames, clips: view.clips, drawn: (id: string) => view.drawnIds.has(id) }
+      return [
+        ...outlinesAlongSegment(outlinesOf(view.shapes), ax, ay, bx, by, radius, drawn),
+        ...outlinesAlongSegment(outlinesOf(view.mergedShapes), ax, ay, bx, by, radius, drawn),
+      ]
+    },
+    pickAt: pickEntityAt,
+    add: addToSelection,
+    finished: (added) => {
+      if (added > 0) playSfx('tick')
+    },
+    selecting: selectingRef,
+    suppressClick: suppressClickRef,
+    ignore: (target) => Boolean(target?.closest?.(`[${LEGEND_MARKER}]`)),
+  })
+
+  /*
+   * The tools test the outlines as geometry, which means reading every path string back into
+   * vertices — twenty megabytes on the administrative world. Done ahead, in slices, once the
+   * map is drawn and a tool is on, so the first rectangle or stroke does not wait for it.
+   */
+  useEffect(() => {
+    if (!rectangleOn && !brushOn) return
+    let cancelled = false
+    const handle = window.setTimeout(() => {
+      void prepareOutlines(shapes, () => cancelled).then(() => {
+        if (!cancelled) void prepareOutlines(mergedShapes, () => cancelled)
+      })
+    }, 300)
+    return () => {
+      cancelled = true
+      window.clearTimeout(handle)
+    }
+  }, [rectangleOn, brushOn, shapes, mergedShapes])
 
   const landTints = useSettingsStore((s) => getTheme(s.themeId).landTints)
   /** The theme's *own* land tone, which the tints above are spaced around. */
@@ -1075,7 +1261,12 @@ export function MapCanvas() {
    * work yields to anything real.
    */
   useEffect(() => {
-    if (!geo) return
+    /*
+     * Not on a dataset of tens of thousands of units: there the warm-up is itself a
+     * second-long block, paid on every load for a mode few open on such a map, and the mode
+     * computes the same thing when it is switched on.
+     */
+    if (!geo || geo.features.length > WARM_MAX_FEATURES) return
     let cancelled = false
     const warm = () => {
       if (cancelled) return
@@ -1498,6 +1689,18 @@ export function MapCanvas() {
        */
       .filter((event) => {
         if (event.ctrlKey || event.button) return false
+        /*
+         * With the brush on, a press on the map paints a selection instead of dragging the
+         * map — see `useSelectionGestures`. The wheel, the zoom buttons and a two-finger
+         * pinch still move the camera.
+         */
+        if (
+          brushArmedRef.current &&
+          (event.type === 'mousedown' ||
+            (event.type === 'touchstart' && (event as TouchEvent).touches.length < 2))
+        ) {
+          return false
+        }
         const target = event.target as Element | null
         return !target?.closest?.(`[${LEGEND_MARKER}]`)
       })
@@ -1595,6 +1798,8 @@ export function MapCanvas() {
    */
   const lenses = useMemo(() => {
     const list: Lens[] = []
+    // Only when the author has asked for it — see `MapStore.magnifier`.
+    if (!magnifierOn) return list
     for (const anchor of smallAnchors) {
       if (!selected.has(anchor.id) || hiddenIds.has(anchor.id)) continue
       const d = shapeById.get(anchor.id)
@@ -1602,7 +1807,7 @@ export function MapCanvas() {
       list.push({ anchor, d, fill: flagFillById.get(anchor.id) ?? style.selected })
     }
     return list
-  }, [smallAnchors, selected, hiddenIds, shapeById, flagFillById, style.selected])
+  }, [magnifierOn, smallAnchors, selected, hiddenIds, shapeById, flagFillById, style.selected])
   /* A subdivision is named with its country — "Bavaria, Germany" — and a country by itself. */
   const hoveredName = hoveredCountryId
     ? [
@@ -1754,7 +1959,7 @@ export function MapCanvas() {
       <svg
         id={MAP_SVG_ID}
         ref={svgRef}
-        className="map-canvas__svg"
+        className={`map-canvas__svg${brushOn ? ' map-canvas__svg--brush' : ''}`}
         width={width || 1}
         height={height || 1}
         viewBox={`0 0 ${width || 1} ${height || 1}`}
@@ -1773,24 +1978,33 @@ export function MapCanvas() {
          * country for it is work whose result nobody asked for.
          */
         onMouseMove={(event) => {
-          if (gesturingRef.current) return
+          if (gesturingRef.current || selectingRef.current) return
           setHovered(pickCountryAt(event))
         }}
         onClick={(event) => {
           // Dragging the legend is not a statement about the selection, so a click
           // that starts and ends on it leaves the selection exactly as it was.
           if ((event.target as Element | null)?.closest?.(`[${LEGEND_MARKER}]`)) return
+          // A brush press has already selected what it touched — see `useSelectionGestures`.
+          if (suppressClickRef.current) {
+            suppressClickRef.current = false
+            return
+          }
           /*
            * Every click toggles. No modifier is consulted, because a phone has none —
            * see `selectCountry`. Shift-clicking still works; it simply is not required,
            * and does the same thing a plain click does.
            *
-           * A click that hits no entity clears the selection, which is the same gesture
-           * on both devices and the only one that needs to exist for "start over".
+           * A click that hits no entity does nothing. It used to clear the selection, and
+           * water is most of the map: a tap that missed a coastline by a pixel, or landed
+           * between two islands, threw away a selection that could be a hundred
+           * subdivisions built stroke by stroke. Starting over is the Clear button's job,
+           * and it says so.
            */
           const id = pickCountryAt(event)
+          if (!id) return
           selectCountry(id)
-          if (id) playSfx('tick')
+          playSfx('tick')
         }}
       >
         {/*
@@ -1944,6 +2158,15 @@ export function MapCanvas() {
             being drawn later.
           */}
 
+          {/*
+            The land in a group of its own, keyed by the dataset of the land drawn — not of
+            the dataset loaded, which arrives before its outlines on a progressive map. When a
+            level's outlines arrive, a new group mounts with every path already in it — one
+            insertion — instead of 32,000 paths placed one at a time among the layers around
+            them, which held the page after the outlines were ready. Within a dataset the
+            group stays and its paths update.
+          */}
+          <g key={land?.geo?.dataset.id ?? 'none'}>
           {countryPaints.map(({ shape, paint }) => {
             if (!paint) return null
             /*
@@ -1971,6 +2194,7 @@ export function MapCanvas() {
               </Fragment>
             )
           })}
+          </g>
 
           {/*
             Merged bodies.
@@ -2260,6 +2484,15 @@ export function MapCanvas() {
       </svg>
 
       {/*
+        The Selection panel's rectangle and brush ring — see `useSelectionGestures`. HTML
+        beside the map, like the composition frame below, so no export can contain them.
+      */}
+      <div ref={selectionOverlayRef} className="map-canvas__selection" aria-hidden="true">
+        <div className="map-canvas__marquee" hidden />
+        <div className="map-canvas__brush" hidden />
+      </div>
+
+      {/*
         The composition frame. HTML rather than SVG, and a sibling of the map rather
         than a child of it, so it cannot reach the export — see `MapScreen`.
       */}
@@ -2288,7 +2521,8 @@ export function MapCanvas() {
         </div>
       )}
 
-      {geoStatus !== 'ready' && (
+      {/* Also while a progressive map's first outlines are still being projected. */}
+      {(geoStatus !== 'ready' || (geo !== null && land?.geo !== geo)) && (
         <div className="map-canvas__status">
           {geoStatus === 'error' ? `Failed to load geography: ${geoError}` : 'Loading geography…'}
         </div>

@@ -32,10 +32,14 @@
  * zoom, hit-test and export exactly like any other country — a supplemented entity
  * enters the same pipeline as a source-data one and needs no special handling
  * anywhere downstream.
+ *
+ * Each entry is a *country's* shape. On a map whose entities are parts of countries —
+ * the administrative world — it becomes the shape of the country's only part when the
+ * country is a single entity there, which is how Vatican City's one subdivision survives
+ * the same quantisation. See the supplement step in `loadGeoDataset`.
  */
 import type { Position } from 'geojson'
 import { LOW_DETAIL_COUNTRIES } from './lowDetailGeometry'
-import { BHR_POLYGONS } from './supplementalGeometry'
 import type { CountryId } from '../types/map'
 
 /**
@@ -95,22 +99,11 @@ const VATICAN_CITY: SupplementalCountry = {
   note: 'Absent at 110m and collapsed to two corners at 10m by TopoJSON quantisation.',
 }
 
-/**
- * Bahrain is an archipelago, but the simplified country layer keeps only its main
- * island: one polygon of 587 km² against Natural Earth's authoritative seven
- * totalling 689 km². The missing 15% is Muharraq, Umm an Nasan and the Hawar group —
- * and Hawar lies against Qatar's west coast, so losing it is what leaves that part of
- * the Gulf looking empty. The replacement is Natural Earth's own 10m geometry,
- * unmodified.
+/*
+ * Bahrain used to be replaced here: the older country layer kept only its main island.
+ * The curated foundation (`scripts/build-geography.mjs`) is built from Natural Earth's
+ * current admin-0, which draws all seven of its polygons, so there is nothing left to fix.
  */
-const BAHRAIN: SupplementalCountry = {
-  id: 'BHR',
-  name: 'Bahrain',
-  mode: 'replace',
-  polygons: BHR_POLYGONS,
-  appliesToDetail: ['10m'],
-  note: 'world-atlas merges the archipelago down to the main island; this is the full admin-0 shape.',
-}
 
 /**
  * Everything the coarser layers omit, as fallbacks scoped to the resolutions that
@@ -132,7 +125,6 @@ const LOW_DETAIL_FALLBACKS: SupplementalCountry[] = LOW_DETAIL_COUNTRIES.map((en
 
 export const SUPPLEMENTAL_COUNTRIES: SupplementalCountry[] = [
   VATICAN_CITY,
-  BAHRAIN,
   ...LOW_DETAIL_FALLBACKS,
 ]
 

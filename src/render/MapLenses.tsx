@@ -172,7 +172,11 @@ export const MapLenses = memo(
           const clipId = `map-lens-${anchor.id}`
 
           return (
-            <g key={`lens-${anchor.id}`} pointerEvents="none">
+            /*
+             * An editor aid inside the `<svg>`, so it is marked for the exporter to leave
+             * out — a lens is not part of the map, and a PNG, JPG or SVG never shows one.
+             */
+            <g key={`lens-${anchor.id}`} pointerEvents="none" data-export="none">
               <defs>
                 {/* In the lens body's own coordinates, so it moves with the body. */}
                 <clipPath id={clipId}>

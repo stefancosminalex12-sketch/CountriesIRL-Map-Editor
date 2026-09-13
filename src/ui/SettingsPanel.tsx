@@ -4,7 +4,9 @@
  * Structured as independent sections so later settings (export defaults, shortcuts,
  * the AI assistant) drop in without rearranging anything.
  */
+import { useEffect, useState } from 'react'
 import { playSfx } from '../audio/sfx'
+import { loadCompositionIndex, type CompositionIndex } from '../geo/composition'
 import { useSettingsStore } from '../state/settingsStore'
 import { getTheme, THEMES, type ThemeId } from '../theme/themes'
 
@@ -202,6 +204,64 @@ export function DataSources() {
       <p className="hint">
         <strong>flag-icons</strong> — flag artwork, by Panayiotis Lipiridis. MIT licence.
       </p>
+      <AdministrativeSources />
+      <p className="hint">
+        <strong>U.S. Census Bureau</strong> — the Official USA Administrative Map, and Puerto
+        Rico, the U.S. Virgin Islands, Guam, the Northern Mariana Islands and American Samoa on
+        USA States: cartographic boundary files, 2024, 1:500,000 — states, counties and county
+        subdivisions
+        (cb_2024_us_state_500k, cb_2024_us_county_500k, cb_2024_us_cousub_500k),
+        www2.census.gov/geo/tiger/GENZ2024. Public domain: works of the U.S. Government are not
+        subject to copyright (17 U.S.C. §105). TIGER/Line® is a registered trademark of the
+        Census Bureau; this map is not endorsed or certified by the Census Bureau.
+      </p>
+      <p className="hint">
+        <strong>U.S. Geological Survey</strong> — lakes and rivers on the Official USA
+        Administrative Map: Small-scale Dataset, 1:1,000,000-scale hydrography (waterbodies,
+        streams), The National Map. The Minor Outlying Islands on USA States: Global Islands,
+        version 3 (Sayre, R., 2023, U.S. Geological Survey data release, doi:10.5066/P91ZCSGM),
+        shorelines from 30 m Landsat imagery, with Esri and UNEP-WCMC. Public domain. Credit:
+        U.S. Geological Survey.
+      </p>
     </div>
+  )
+}
+
+/**
+ * The Modern Administrative World's finer boundaries, each with its own agency and licence.
+ *
+ * Read from the build's index rather than written out here, so the credit is always the one
+ * for the data actually shipped: when a country's level changes source, its line changes
+ * with it. Fetched only when this section is opened; the file is the one the map loads.
+ */
+function AdministrativeSources() {
+  const [sources, setSources] = useState<CompositionIndex['sources'] | null>(null)
+  useEffect(() => {
+    let live = true
+    loadCompositionIndex('geo/admin/index.json')
+      .then((index) => live && setSources(index.sources.filter((s) => s.id !== 'naturalearth')))
+      .catch(() => live && setSources([]))
+    return () => {
+      live = false
+    }
+  }, [])
+  if (!sources || sources.length === 0) return null
+  return (
+    <>
+      <p className="hint">
+        <strong>geoBoundaries</strong> — finer and current official boundaries for the Modern
+        Administrative World, cut into Natural Earth’s outlines or used to group its units.
+        gbOpen release, William &amp; Mary geoLab (Runfola et al. 2020, PLoS ONE 15(4):
+        e0231866), geoboundaries.org. From the national agencies below, under their licences:
+      </p>
+      <ul className="hint sources-list">
+        {sources.map((s) => (
+          <li key={s.id}>
+            {s.countries.join(', ')}: {s.agency}
+            {s.year ? ` (${s.year})` : ''} — {s.licence}
+          </li>
+        ))}
+      </ul>
+    </>
   )
 }

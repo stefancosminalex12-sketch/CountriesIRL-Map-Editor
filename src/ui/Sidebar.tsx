@@ -15,12 +15,13 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { RegionSelector } from './RegionSelector'
 import { MapPicker } from './MapPicker'
-import { MapColorSwatches, MapDisplayToggles, MapScopeSettings } from './MapSettings'
+import { MapColorSwatches, MapDisplayToggles, MapScopeSection } from './MapSettings'
 import { DataSources, SelectionHighlight, SoundSettings, ThemePicker } from './SettingsPanel'
 import { DataPalette } from './DataPalette'
 import { LegendControls, LegendSizeControls } from './LegendControls'
 import { ScreenControls } from './ScreenControls'
 import { MergeControls } from './MergeControls'
+import { SelectionControls } from './SelectionControls'
 import { Disclosure } from './Panels'
 import { playSfx } from '../audio/sfx'
 
@@ -45,6 +46,13 @@ const ICONS: Record<string, ReactNode> = {
       <path d="M3 6.4 10 3.2l7 3.2-7 3.2z" />
       <path d="M3 10.4 10 13.6l7-3.2" />
       <path d="M3 14.1 10 17.3l7-3.2" />
+    </>
+  ),
+  // A dashed marquee and the pointer drawing it: taking many things at once.
+  selection: (
+    <>
+      <rect x="2.8" y="3.4" width="11" height="9" rx="1" strokeDasharray="2.2 1.8" />
+      <path d="M11.2 10.4l5 1.9-2.2.8-.8 2.2z" />
     </>
   ),
   // A crop frame: the part of the canvas that is the picture.
@@ -159,14 +167,23 @@ const SECTIONS: SidebarSection[] = [
         <Disclosure title="Region">
           <RegionSelector />
         </Disclosure>
-        <Disclosure title="World">
-          <MapScopeSettings />
-        </Disclosure>
+        <MapScopeSection />
         <Disclosure title="Display">
           <MapDisplayToggles />
         </Disclosure>
       </div>
     ),
+  },
+  {
+    /*
+     * Right after Map, because it is about working on the map itself: choosing many
+     * territories at once. The same section on every map — the tools test whatever outlines
+     * the map draws, so they need nothing from the atlas.
+     */
+    id: 'selection',
+    name: 'Selection',
+    short: 'Select',
+    body: <SelectionControls />,
   },
   { id: 'screen', name: 'Screen', body: <ScreenControls /> },
   {

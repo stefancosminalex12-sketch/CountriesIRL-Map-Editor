@@ -11,6 +11,8 @@
  */
 import { geoArea, geoCentroid, geoContains } from 'd3-geo'
 import type { Position } from 'geojson'
+import { Adder } from './adder'
+import type { Slicer } from './slices'
 import type { CountryFeature } from './datasets'
 import type { CountryId } from '../types/map'
 
@@ -60,6 +62,13 @@ export type IslandBounds = [number, number, number, number]
 export interface IslandMetrics {
   bounds: IslandBounds
   areaKm2: number
+  /**
+   * The same area in steradians, exactly as `geoArea` returns it for this polygon.
+   *
+   * Kept because the camera's framing weighs every polygon by it, and used to measure
+   * it again — a second pass over every vertex of every member, on every region.
+   */
+  area: number
 }
 
 export interface CountryMetrics {
@@ -148,21 +157,22 @@ function nearestVertex(ring: Position[], target: [number, number]): [number, num
  * lagoon — so the result is checked for containment and falls back to the nearest
  * point on the boundary.
  */
-function representativeOf(feature: CountryFeature): {
+function representativeOf(
+  polygons: Position[][][],
+  areas: number[],
+): {
   point: [number, number]
   polygon: Position[][]
 } {
-  const polygons = toPolygons(feature)
-
   let largest = polygons[0]
   let largestArea = -Infinity
-  for (const polygon of polygons) {
-    const area = geoArea({ type: 'Polygon', coordinates: polygon })
+  polygons.forEach((polygon, i) => {
+    const area = areas[i]
     if (area > largestArea) {
       largestArea = area
       largest = polygon
     }
-  }
+  })
 
   const polygon = { type: 'Polygon' as const, coordinates: largest }
   const centroid = geoCentroid(polygon) as [number, number]
@@ -238,12 +248,22 @@ function needsAssistance(areaKm2: number, polygonAreas: number[]): boolean {
 }
 
 export function computeCountryMetrics(feature: CountryFeature): CountryMetrics {
-  const areaKm2 = geoArea(feature.geometry) * EARTH_RADIUS_KM * EARTH_RADIUS_KM
-  const representative = representativeOf(feature)
   const polygons = toPolygons(feature)
-  const polygonAreas = polygons.map(
-    (polygon) => geoArea({ type: 'Polygon', coordinates: polygon }) * EARTH_RADIUS_KM * EARTH_RADIUS_KM,
-  )
+  /*
+   * Each polygon's area, measured once. The largest polygon, the per-island areas and the
+   * total are all read from these; they used to be three separate passes over every vertex.
+   *
+   * The total is summed the way `geoArea(feature)` sums it — see `Adder` — so it is the
+   * very number that call returned, bit for bit. `geoArea` returns twice its accumulator,
+   * and for a single polygon that accumulator holds one value, so halving the polygon's
+   * area recovers it exactly (a power of two costs no precision).
+   */
+  const areas = polygons.map((polygon) => geoArea({ type: 'Polygon', coordinates: polygon }))
+  const total = new Adder()
+  for (const area of areas) total.add(area / 2)
+  const areaKm2 = +total * 2 * EARTH_RADIUS_KM * EARTH_RADIUS_KM
+  const representative = representativeOf(polygons, areas)
+  const polygonAreas = areas.map((area) => area * EARTH_RADIUS_KM * EARTH_RADIUS_KM)
   const assisted = needsAssistance(areaKm2, polygonAreas)
 
   return {
@@ -255,6 +275,7 @@ export function computeCountryMetrics(feature: CountryFeature): CountryMetrics {
     islands: polygons.map((polygon, i) => ({
       bounds: unwrappedBounds(polygon),
       areaKm2: polygonAreas[i],
+      area: areas[i],
     })),
     // Replaced by `assignTintGroups` once every country is known.
     tintGroup: 0,
@@ -309,20 +330,34 @@ function assignTintGroups(
     (a, b) => (metrics.get(b)?.areaKm2 ?? 0) - (metrics.get(a)?.areaKm2 ?? 0),
   )
 
+  /*
+   * Every pair whose grown boxes overlap, found by sweeping west to east rather than by
+   * testing every pair: 4,595 subdivisions are ten million pairs, and all but a few
+   * thousand of them are nowhere near each other. Sorted by western edge, a box can only
+   * overlap the ones whose western edge comes before its own eastern edge (plus the
+   * margin), so the scan for each stops there. The pairs found are exactly the ones the
+   * pairwise test found, and a neighbour list is only ever read as a set of groups
+   * already taken, so the colouring is unchanged.
+   */
   const neighbours = new Map<CountryId, CountryId[]>()
   for (const a of order) neighbours.set(a, [])
-  for (let i = 0; i < order.length; i++) {
-    const ba = bounds.get(order[i])!
-    for (let j = i + 1; j < order.length; j++) {
-      const bb = bounds.get(order[j])!
+  const byWest = order
+    .map((id) => ({ id, box: bounds.get(id)! }))
+    .sort((a, b) => a.box[0] - b.box[0])
+  for (let i = 0; i < byWest.length; i++) {
+    const { id: a, box: ba } = byWest[i]
+    const reach = ba[2] + ADJACENCY_MARGIN_DEG
+    for (let j = i + 1; j < byWest.length; j++) {
+      const { id: b, box: bb } = byWest[j]
+      if (bb[0] > reach) break
       const touches =
         ba[0] - ADJACENCY_MARGIN_DEG <= bb[2] &&
         bb[0] - ADJACENCY_MARGIN_DEG <= ba[2] &&
         ba[1] - ADJACENCY_MARGIN_DEG <= bb[3] &&
         bb[1] - ADJACENCY_MARGIN_DEG <= ba[3]
       if (touches) {
-        neighbours.get(order[i])!.push(order[j])
-        neighbours.get(order[j])!.push(order[i])
+        neighbours.get(a)!.push(b)
+        neighbours.get(b)!.push(a)
       }
     }
   }
@@ -348,6 +383,27 @@ export function computeDatasetMetrics(
   const metrics = new Map<CountryId, CountryMetrics>()
   for (const feature of features) {
     metrics.set(feature.properties.countryId, computeCountryMetrics(feature))
+  }
+  assignTintGroups(features, metrics)
+  return metrics
+}
+
+/**
+ * The same metrics, measured a slice at a time.
+ *
+ * Between features the slicer is asked whether its time budget is spent, and only then
+ * does the loop hand the thread back — so a dataset of thousands of entities is measured
+ * without holding the page. The work is identical and so is the result; the browser simply
+ * gets to paint and answer input in between. See `createSlicer`.
+ */
+export async function computeDatasetMetricsInSlices(
+  features: CountryFeature[],
+  slicer: Slicer,
+): Promise<Map<CountryId, CountryMetrics>> {
+  const metrics = new Map<CountryId, CountryMetrics>()
+  for (const feature of features) {
+    metrics.set(feature.properties.countryId, computeCountryMetrics(feature))
+    if (slicer.due()) await slicer.pause()
   }
   assignTintGroups(features, metrics)
   return metrics

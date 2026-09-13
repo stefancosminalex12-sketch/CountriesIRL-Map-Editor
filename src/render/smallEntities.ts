@@ -21,9 +21,11 @@
  * Everything here is geographic, projected through the same d3 projection as the
  * map, so it follows pan, zoom, projection changes and region changes for free.
  */
-import { geoPath, type GeoProjection } from 'd3-geo'
+import { geoPath, type GeoPath, type GeoProjection } from 'd3-geo'
 import { ASSIST_ISLAND_AREA_KM2, SMALL_ENTITY_AREA_KM2 } from '../geo/metrics'
-import type { LoadedDataset } from '../geo/datasets'
+import type { EntityFeature, LoadedDataset } from '../geo/datasets'
+import type { Slicer } from '../geo/slices'
+import type { ResolvedInset } from '../maps/insets'
 import type { CountryId } from '../types/map'
 
 /* ----------------------------------------------------------------- magnifier */
@@ -123,74 +125,160 @@ export function magnifiedSizeForArea(areaKm2: number): number {
 export function computeSmallEntityAnchors(
   dataset: LoadedDataset | null,
   projection: GeoProjection | null,
+  insets: readonly ResolvedInset[] = [],
 ): SmallEntityAnchor[] {
   if (!dataset || !projection) return []
 
-  const path = geoPath(projection)
+  const through = projectorFor(projection, insets)
   const anchors: SmallEntityAnchor[] = []
 
   for (const feature of dataset.features) {
-    const id = feature.properties.countryId
-    const metrics = dataset.metrics.get(id)
-    if (!metrics?.small) continue
-
-    const point = projection(metrics.representativePoint)
-    if (!point || !Number.isFinite(point[0]) || !Number.isFinite(point[1])) continue
-
-    // The main landmass, which anchors both the representative point and — for a
-    // scattered archipelago — the lens.
-    const bounds = path.bounds({
-      type: 'Polygon',
-      coordinates: metrics.representativePolygon,
-    })
-    const hasBounds = Number.isFinite(bounds[0][0]) && Number.isFinite(bounds[1][0])
-    const width = hasBounds ? bounds[1][0] - bounds[0][0] : 0
-    const height = hasBounds ? bounds[1][1] - bounds[0][1] : 0
-
-    // A degenerate projected size would blow the magnification up to infinity.
-    const projectedSize = Math.max(width, height, 1e-4)
-
-    // The whole feature, islands included. Cheap here because these are the
-    // smallest features in the dataset.
-    const full = path.bounds(feature)
-    const fullOk = Number.isFinite(full[0][0]) && Number.isFinite(full[1][0])
-    const featureSize = fullOk
-      ? Math.max(full[1][0] - full[0][0], full[1][1] - full[0][1], 1e-4)
-      : projectedSize
-
-    /**
-     * Magnify the whole country when its parts hang together, and only the main
-     * landmass when they do not. Bahrain's Hawar group sits a short way off its main
-     * island and is part of the same place, so the lens should show it; the Maldives
-     * stretch over hundreds of kilometres of ocean, so fitting them all in would
-     * leave every atoll invisible.
-     */
-    const compact = fullOk && featureSize <= projectedSize * SMALL_ENTITY_MAX_LENS_SPREAD
-    const lensSize = compact ? featureSize : projectedSize
-    const lensBounds = compact ? full : bounds
-    const lensCenterX = hasBounds || fullOk ? (lensBounds[0][0] + lensBounds[1][0]) / 2 : point[0]
-    const lensCenterY = hasBounds || fullOk ? (lensBounds[0][1] + lensBounds[1][1]) / 2 : point[1]
-
-    anchors.push({
-      id,
-      name: feature.properties.name,
-      areaKm2: metrics.areaKm2,
-      x: point[0],
-      y: point[1],
-      centerX: hasBounds ? (bounds[0][0] + bounds[1][0]) / 2 : point[0],
-      centerY: hasBounds ? (bounds[0][1] + bounds[1][1]) / 2 : point[1],
-      projectedSize,
-      lensSize,
-      lensCenterX,
-      lensCenterY,
-      featureSize,
-      featureCenterX: fullOk ? (full[0][0] + full[1][0]) / 2 : point[0],
-      featureCenterY: fullOk ? (full[0][1] + full[1][1]) / 2 : point[1],
-      magnification: magnifiedSizeForArea(metrics.areaKm2) / lensSize,
-    })
+    const anchor = drawnAnchor(dataset, feature, through)
+    if (anchor) anchors.push(anchor)
   }
 
   return anchors
+}
+
+/**
+ * How one entity is put on screen: through its inset's projection when it is drawn in an
+ * inset, the main map's otherwise — with a path for it and, for an inset, the frame it is
+ * clipped to.
+ *
+ * An inset member is measured where it is drawn. Guam's legibility floor is a scale about
+ * its own centre, its lens is tethered to it and its click target surrounds it, so all
+ * three belong in Guam's box — not at Guam's real position through a projection fitted to
+ * Kansas, thousands of pixels off the canvas, where they used to be computed.
+ */
+interface Drawn {
+  projection: GeoProjection
+  path: GeoPath
+  clip: ResolvedInset['clip'] | null
+}
+
+function projectorFor(projection: GeoProjection, insets: readonly ResolvedInset[]): (id: CountryId) => Drawn {
+  const main: Drawn = { projection, path: geoPath(projection), clip: null }
+  const own = new Map<ResolvedInset, Drawn>(
+    insets.map((resolved) => [resolved, { projection: resolved.projection, path: geoPath(resolved.projection), clip: resolved.clip }]),
+  )
+  return (id) => {
+    const inset = insets.find((resolved) => resolved.members.has(id))
+    return inset ? (own.get(inset) as Drawn) : main
+  }
+}
+
+/** Whether a projected point lies inside an inset's frame. */
+function withinClip(clip: ResolvedInset['clip'], x: number, y: number): boolean {
+  return x >= clip.x && x <= clip.x + clip.width && y >= clip.y && y <= clip.y + clip.height
+}
+
+/**
+ * One feature's anchor through the projection that draws it — or `null`, as `anchorFor`
+ * gives, and also when an inset's member is anchored outside the inset's frame, where the
+ * inset draws nothing of it.
+ */
+function drawnAnchor(
+  dataset: LoadedDataset,
+  feature: EntityFeature,
+  through: (id: CountryId) => Drawn,
+): SmallEntityAnchor | null {
+  const drawn = through(feature.properties.countryId)
+  const anchor = anchorFor(dataset, feature, drawn.path, drawn.projection)
+  if (anchor && drawn.clip && !withinClip(drawn.clip, anchor.x, anchor.y)) return null
+  return anchor
+}
+
+/**
+ * The same anchors, measured a slice at a time — see `createSlicer`. Resolves to `null` if
+ * `cancelled` turns true while it pauses.
+ */
+export async function computeSmallEntityAnchorsInSlices(
+  dataset: LoadedDataset,
+  projection: GeoProjection,
+  insets: readonly ResolvedInset[],
+  slicer: Slicer,
+  cancelled: () => boolean,
+): Promise<SmallEntityAnchor[] | null> {
+  const through = projectorFor(projection, insets)
+  const anchors: SmallEntityAnchor[] = []
+
+  for (const feature of dataset.features) {
+    if (slicer.due()) {
+      await slicer.pause()
+      if (cancelled()) return null
+    }
+    const anchor = drawnAnchor(dataset, feature, through)
+    if (anchor) anchors.push(anchor)
+  }
+
+  return anchors
+}
+
+/** One feature's anchor, or `null` when it is not a small entity or cannot be projected. */
+function anchorFor(
+  dataset: LoadedDataset,
+  feature: EntityFeature,
+  path: GeoPath,
+  projection: GeoProjection,
+): SmallEntityAnchor | null {
+  const id = feature.properties.countryId
+  const metrics = dataset.metrics.get(id)
+  if (!metrics?.small) return null
+
+  const point = projection(metrics.representativePoint)
+  if (!point || !Number.isFinite(point[0]) || !Number.isFinite(point[1])) return null
+
+  // The main landmass, which anchors both the representative point and — for a
+  // scattered archipelago — the lens.
+  const bounds = path.bounds({
+    type: 'Polygon',
+    coordinates: metrics.representativePolygon,
+  })
+  const hasBounds = Number.isFinite(bounds[0][0]) && Number.isFinite(bounds[1][0])
+  const width = hasBounds ? bounds[1][0] - bounds[0][0] : 0
+  const height = hasBounds ? bounds[1][1] - bounds[0][1] : 0
+
+  // A degenerate projected size would blow the magnification up to infinity.
+  const projectedSize = Math.max(width, height, 1e-4)
+
+  // The whole feature, islands included. Cheap here because these are the
+  // smallest features in the dataset.
+  const full = path.bounds(feature)
+  const fullOk = Number.isFinite(full[0][0]) && Number.isFinite(full[1][0])
+  const featureSize = fullOk
+    ? Math.max(full[1][0] - full[0][0], full[1][1] - full[0][1], 1e-4)
+    : projectedSize
+
+  /**
+   * Magnify the whole country when its parts hang together, and only the main
+   * landmass when they do not. Bahrain's Hawar group sits a short way off its main
+   * island and is part of the same place, so the lens should show it; the Maldives
+   * stretch over hundreds of kilometres of ocean, so fitting them all in would
+   * leave every atoll invisible.
+   */
+  const compact = fullOk && featureSize <= projectedSize * SMALL_ENTITY_MAX_LENS_SPREAD
+  const lensSize = compact ? featureSize : projectedSize
+  const lensBounds = compact ? full : bounds
+  const lensCenterX = hasBounds || fullOk ? (lensBounds[0][0] + lensBounds[1][0]) / 2 : point[0]
+  const lensCenterY = hasBounds || fullOk ? (lensBounds[0][1] + lensBounds[1][1]) / 2 : point[1]
+
+  return {
+    id,
+    name: feature.properties.name,
+    areaKm2: metrics.areaKm2,
+    x: point[0],
+    y: point[1],
+    centerX: hasBounds ? (bounds[0][0] + bounds[1][0]) / 2 : point[0],
+    centerY: hasBounds ? (bounds[0][1] + bounds[1][1]) / 2 : point[1],
+    projectedSize,
+    lensSize,
+    lensCenterX,
+    lensCenterY,
+    featureSize,
+    featureCenterX: fullOk ? (full[0][0] + full[1][0]) / 2 : point[0],
+    featureCenterY: fullOk ? (full[0][1] + full[1][1]) / 2 : point[1],
+    magnification: magnifiedSizeForArea(metrics.areaKm2) / lensSize,
+  }
 }
 
 export interface Transform {
@@ -344,9 +432,11 @@ export const EMPTY_ASSIST_INDEX: AssistIndex = { islands: [], ids: new Set() }
 export function buildAssistIndex(
   dataset: LoadedDataset | null,
   projection: GeoProjection | null,
+  insets: readonly ResolvedInset[] = [],
 ): AssistIndex {
   if (!dataset || !projection) return EMPTY_ASSIST_INDEX
 
+  const through = projectorFor(projection, insets)
   const islands: AssistIsland[] = []
   const ids = new Set<CountryId>()
 
@@ -354,6 +444,7 @@ export function buildAssistIndex(
     const id = feature.properties.countryId
     const metrics = dataset.metrics.get(id)
     if (!metrics) continue
+    const drawn = through(id)
     const claims = metrics.assisted
     const overLandPx = metrics.small ? overLandReachForArea(metrics.areaKm2) : 0
 
@@ -370,7 +461,7 @@ export function buildAssistIndex(
         [east, north],
         [west, north],
       ] as [number, number][]) {
-        const point = projection(corner)
+        const point = drawn.projection(corner)
         if (!point || !Number.isFinite(point[0]) || !Number.isFinite(point[1])) {
           minX = Infinity
           break
@@ -382,6 +473,8 @@ export function buildAssistIndex(
       }
 
       if (!Number.isFinite(minX)) continue
+      // An inset cuts away what lies outside its frame, so an island there has nothing to click.
+      if (drawn.clip && !withinClip(drawn.clip, (minX + maxX) / 2, (minY + maxY) / 2)) continue
 
       const extent = Math.max(maxX - minX, maxY - minY)
       if (extent >= ASSIST_TARGET_PX) continue
@@ -525,10 +618,26 @@ export function minimumSizeTransform(
   anchor: SmallEntityAnchor,
   k: number,
 ): string | null {
+  const frame = minimumSizeFrame(anchor, k)
+  if (!frame) return null
+  const { cx, cy, scale } = frame
+  return `translate(${cx},${cy}) scale(${scale}) translate(${-cx},${-cy})`
+}
+
+/**
+ * The same floor as numbers: the centre the feature is scaled about and by how much, or null
+ * when it is drawn at its real size. For the selection tools, which test a floored feature
+ * where it is drawn — see `selectionGeometry.ts`.
+ */
+export function minimumSizeFrame(
+  anchor: SmallEntityAnchor,
+  k: number,
+): { cx: number; cy: number; scale: number } | null {
   const onScreen = anchor.featureSize * k
   if (onScreen >= MIN_RENDERED_SIZE_PX) return null
-
-  const scale = MIN_RENDERED_SIZE_PX / onScreen
-  const { featureCenterX: cx, featureCenterY: cy } = anchor
-  return `translate(${cx},${cy}) scale(${scale}) translate(${-cx},${-cy})`
+  return {
+    cx: anchor.featureCenterX,
+    cy: anchor.featureCenterY,
+    scale: MIN_RENDERED_SIZE_PX / onScreen,
+  }
 }

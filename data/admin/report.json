@@ -1,0 +1,6532 @@
+{
+ "generatedAt": "2026-09-13T02:13:38.391Z",
+ "policy": {
+  "wholeCountryBelowKm2": 3000
+ },
+ "countries": {
+  "ABW": {
+   "name": "Aruba",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 170,
+     "medianKm2": 170,
+     "largestKm2": 170,
+     "samples": 1,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "AFG": {
+   "name": "Afghanistan",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 34,
+   "levels": {
+    "ne": {
+     "name": "Provinces",
+     "units": 34,
+     "smallestKm2": 1860,
+     "medianKm2": 16018,
+     "largestKm2": 57351,
+     "samples": 34,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "AGO": {
+   "name": "Angola",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 18,
+   "levels": {
+    "ne": {
+     "name": "Provinces",
+     "units": 18,
+     "smallestKm2": 2814,
+     "medianKm2": 62336,
+     "largestKm2": 199853,
+     "samples": 19,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "AIA": {
+   "name": "Anguilla",
+   "presets": {
+    "curated": "country",
+    "detailed": "country",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 15,
+   "policy": "one unit: under 3000 km²",
+   "levels": {
+    "country": {
+     "name": "Whole country",
+     "units": 1,
+     "smallestKm2": 88,
+     "medianKm2": 88,
+     "largestKm2": 88,
+     "samples": 19,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 15,
+     "smallestKm2": 1,
+     "medianKm2": 6,
+     "largestKm2": 13,
+     "samples": 19,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "ALA": {
+   "name": "Åland Islands",
+   "presets": {
+    "curated": "country",
+    "detailed": "country",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 11,
+   "policy": "one unit: under 3000 km²",
+   "levels": {
+    "country": {
+     "name": "Whole country",
+     "units": 1,
+     "smallestKm2": 556,
+     "medianKm2": 556,
+     "largestKm2": 556,
+     "samples": 39,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 11,
+     "smallestKm2": 9,
+     "medianKm2": 43,
+     "largestKm2": 121,
+     "samples": 39,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "ALB": {
+   "name": "Albania",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 12,
+   "levels": {
+    "ne": {
+     "name": "Counties",
+     "units": 12,
+     "smallestKm2": 805,
+     "medianKm2": 2409,
+     "largestKm2": 3588,
+     "samples": 13,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "AND": {
+   "name": "Andorra",
+   "presets": {
+    "curated": "country",
+    "detailed": "country",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 7,
+   "policy": "one unit: under 3000 km²",
+   "levels": {
+    "country": {
+     "name": "Whole country",
+     "units": 1,
+     "smallestKm2": 452,
+     "medianKm2": 452,
+     "largestKm2": 452,
+     "samples": 7,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 7,
+     "smallestKm2": 14,
+     "medianKm2": 72,
+     "largestKm2": 77,
+     "samples": 7,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "ARE": {
+   "name": "United Arab Emirates",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 9,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 9,
+     "smallestKm2": 13,
+     "medianKm2": 1709,
+     "largestKm2": 59494,
+     "samples": 249,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "ARG": {
+   "name": "Argentina",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 24,
+   "levels": {
+    "ne": {
+     "name": "Provinces",
+     "units": 24,
+     "smallestKm2": 377,
+     "medianKm2": 99474,
+     "largestKm2": 306035,
+     "samples": 33,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "ARM": {
+   "name": "Armenia",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 11,
+   "levels": {
+    "ne": {
+     "name": "Provinces",
+     "units": 11,
+     "smallestKm2": 217,
+     "medianKm2": 2623,
+     "largestKm2": 5266,
+     "samples": 12,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "ASM": {
+   "name": "American Samoa",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 5,
+   "note": "Separate island groups, kept apart.",
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 5,
+     "smallestKm2": 1,
+     "medianKm2": 46,
+     "largestKm2": 77,
+     "samples": 6,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "ATA": {
+   "name": "Antarctica",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 2,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 2,
+     "smallestKm2": 22635,
+     "medianKm2": 12235665,
+     "largestKm2": 12235665,
+     "samples": 180,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "ATF": {
+   "name": "French Southern and Antarctic Lands",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 4,
+   "note": "Separate island groups, kept apart.",
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 4,
+     "smallestKm2": 25,
+     "medianKm2": 205,
+     "largestKm2": 6964,
+     "samples": 20,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "ATG": {
+   "name": "Antigua and Barbuda",
+   "presets": {
+    "curated": "country",
+    "detailed": "country",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 8,
+   "policy": "one unit: under 3000 km²",
+   "levels": {
+    "country": {
+     "name": "Whole country",
+     "units": 1,
+     "smallestKm2": 453,
+     "medianKm2": 453,
+     "largestKm2": 453,
+     "samples": 8,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 8,
+     "smallestKm2": 0,
+     "medianKm2": 51,
+     "largestKm2": 170,
+     "samples": 8,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "AUS": {
+   "name": "Australia",
+   "presets": {
+    "curated": "states",
+    "detailed": "states",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 12,
+   "note": "The six states and three mainland territories. Natural Earth draws Lord Howe Island and Macquarie Island as units of their own; they are part of New South Wales and Tasmania.",
+   "levels": {
+    "states": {
+     "name": "States and territories",
+     "units": 10,
+     "smallestKm2": 3,
+     "medianKm2": 802485,
+     "largestKm2": 2533559,
+     "samples": 242,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 12,
+     "smallestKm2": 3,
+     "medianKm2": 227867,
+     "largestKm2": 2533559,
+     "samples": 242,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "AUT": {
+   "name": "Austria",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 9,
+   "levels": {
+    "ne": {
+     "name": "States",
+     "units": 9,
+     "smallestKm2": 409,
+     "medianKm2": 9621,
+     "largestKm2": 19042,
+     "samples": 10,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "AZE": {
+   "name": "Azerbaijan",
+   "presets": {
+    "curated": "regions",
+    "detailed": "regions",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 78,
+   "note": "The 14 economic regions of the 2021 reform instead of 78 districts; Nakhchivan is one of them. Composition from the presidential decree of 7 July 2021.",
+   "levels": {
+    "regions": {
+     "name": "Economic regions",
+     "units": 14,
+     "smallestKm2": 2362,
+     "medianKm2": 6352,
+     "largestKm2": 9372,
+     "samples": 84,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "Districts",
+     "units": 78,
+     "smallestKm2": 4,
+     "medianKm2": 1150,
+     "largestKm2": 2768,
+     "samples": 84,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "BDI": {
+   "name": "Burundi",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 17,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 17,
+     "smallestKm2": 468,
+     "medianKm2": 1643,
+     "largestKm2": 3381,
+     "samples": 17,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "BEL": {
+   "name": "Belgium",
+   "presets": {
+    "curated": "ne",
+    "detailed": "arrondissements",
+    "maximum": "arrondissements"
+   },
+   "naturalEarthUnits": 11,
+   "note": "Provinces and Brussels. More Detailed: the 43 arrondissements.",
+   "levels": {
+    "ne": {
+     "name": "Provinces",
+     "units": 11,
+     "smallestKm2": 164,
+     "medianKm2": 2968,
+     "largestKm2": 4422,
+     "samples": 13,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "arrondissements": {
+     "name": "Arrondissements",
+     "units": 43,
+     "smallestKm2": 103,
+     "medianKm2": 648,
+     "largestKm2": 1891,
+     "samples": 13,
+     "gaps": 0,
+     "overlaps": 0,
+     "split": {
+      "unassignedSources": 0,
+      "reconciledKm2": 723.439,
+      "clipFailures": [],
+      "unsplitBases": []
+     }
+    }
+   }
+  },
+  "BEN": {
+   "name": "Benin",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 12,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 12,
+     "smallestKm2": 58,
+     "medianKm2": 5109,
+     "largestKm2": 26795,
+     "samples": 12,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "BFA": {
+   "name": "Burkina Faso",
+   "presets": {
+    "curated": "regions",
+    "detailed": "regions",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 45,
+   "note": "The 13 regions instead of 45 provinces.",
+   "levels": {
+    "regions": {
+     "name": "Regions",
+     "units": 13,
+     "smallestKm2": 2845,
+     "medianKm2": 18576,
+     "largestKm2": 46192,
+     "samples": 45,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "Provinces",
+     "units": 45,
+     "smallestKm2": 1682,
+     "medianKm2": 5265,
+     "largestKm2": 15359,
+     "samples": 45,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "BGD": {
+   "name": "Bangladesh",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 7,
+   "levels": {
+    "ne": {
+     "name": "Divisions",
+     "units": 7,
+     "smallestKm2": 9127,
+     "medianKm2": 18884,
+     "largestKm2": 30617,
+     "samples": 28,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "BGR": {
+   "name": "Bulgaria",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 28,
+   "levels": {
+    "ne": {
+     "name": "Provinces",
+     "units": 28,
+     "smallestKm2": 1242,
+     "medianKm2": 4022,
+     "largestKm2": 7636,
+     "samples": 28,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "BHR": {
+   "name": "Bahrain",
+   "presets": {
+    "curated": "country",
+    "detailed": "country",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 5,
+   "policy": "one unit: under 3000 km²",
+   "levels": {
+    "country": {
+     "name": "Whole country",
+     "units": 1,
+     "smallestKm2": 689,
+     "medianKm2": 689,
+     "largestKm2": 689,
+     "samples": 10,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 5,
+     "smallestKm2": 32,
+     "medianKm2": 82,
+     "largestKm2": 396,
+     "samples": 10,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "BHS": {
+   "name": "Bahamas",
+   "presets": {
+    "curated": "country",
+    "detailed": "country",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 30,
+   "note": "One unit: 30 districts across 13,900 km² of land are specks at world scale.",
+   "levels": {
+    "country": {
+     "name": "Whole country",
+     "units": 1,
+     "smallestKm2": 12666,
+     "medianKm2": 12666,
+     "largestKm2": 12666,
+     "samples": 93,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 30,
+     "smallestKm2": 3,
+     "medianKm2": 255,
+     "largestKm2": 2480,
+     "samples": 93,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "BIH": {
+   "name": "Bosnia and Herzegovina",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 18,
+   "levels": {
+    "ne": {
+     "name": "Entities and cantons",
+     "units": 18,
+     "smallestKm2": 153,
+     "medianKm2": 2779,
+     "largestKm2": 8869,
+     "samples": 20,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "BLM": {
+   "name": "Saint Barthélemy",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 25,
+     "medianKm2": 25,
+     "largestKm2": 25,
+     "samples": 1,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "BLR": {
+   "name": "Belarus",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 7,
+   "levels": {
+    "ne": {
+     "name": "Regions",
+     "units": 7,
+     "smallestKm2": 604,
+     "medianKm2": 32813,
+     "largestKm2": 40516,
+     "samples": 7,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "BLZ": {
+   "name": "Belize",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 6,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 6,
+     "smallestKm2": 1980,
+     "medianKm2": 4367,
+     "largestKm2": 5267,
+     "samples": 42,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "BMU": {
+   "name": "Bermuda",
+   "presets": {
+    "curated": "country",
+    "detailed": "country",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 11,
+   "policy": "one unit: under 3000 km²",
+   "levels": {
+    "country": {
+     "name": "Whole country",
+     "units": 1,
+     "smallestKm2": 64,
+     "medianKm2": 64,
+     "largestKm2": 64,
+     "samples": 17,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 11,
+     "smallestKm2": 1,
+     "medianKm2": 6,
+     "largestKm2": 15,
+     "samples": 17,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "BOL": {
+   "name": "Bolivia",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 9,
+   "levels": {
+    "ne": {
+     "name": "Departments",
+     "units": 9,
+     "smallestKm2": 36749,
+     "medianKm2": 63959,
+     "largestKm2": 363265,
+     "samples": 9,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "BRA": {
+   "name": "Brazil",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 27,
+   "levels": {
+    "ne": {
+     "name": "States",
+     "units": 27,
+     "smallestKm2": 5812,
+     "medianKm2": 225749,
+     "largestKm2": 1572547,
+     "samples": 73,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "BRB": {
+   "name": "Barbados",
+   "presets": {
+    "curated": "country",
+    "detailed": "country",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 11,
+   "policy": "one unit: under 3000 km²",
+   "levels": {
+    "country": {
+     "name": "Whole country",
+     "units": 1,
+     "smallestKm2": 446,
+     "medianKm2": 446,
+     "largestKm2": 446,
+     "samples": 11,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 11,
+     "smallestKm2": 25,
+     "medianKm2": 38,
+     "largestKm2": 65,
+     "samples": 11,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "BRN": {
+   "name": "Brunei",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 4,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 4,
+     "smallestKm2": 569,
+     "medianKm2": 1305,
+     "largestKm2": 2782,
+     "samples": 4,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "BTN": {
+   "name": "Bhutan",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 20,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 20,
+     "smallestKm2": 475,
+     "medianKm2": 1898,
+     "largestKm2": 4421,
+     "samples": 20,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "BWA": {
+   "name": "Botswana",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 15,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 15,
+     "smallestKm2": 20,
+     "medianKm2": 5236,
+     "largestKm2": 146610,
+     "samples": 15,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "CAF": {
+   "name": "Central African Republic",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 17,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 17,
+     "smallestKm2": 94,
+     "medianKm2": 31851,
+     "largestKm2": 86053,
+     "samples": 17,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "CAN": {
+   "name": "Canada",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 13,
+   "levels": {
+    "ne": {
+     "name": "Provinces and territories",
+     "units": 13,
+     "smallestKm2": 5718,
+     "medianKm2": 649708,
+     "largestKm2": 2065252,
+     "samples": 535,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "CHE": {
+   "name": "Switzerland",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 26,
+   "levels": {
+    "ne": {
+     "name": "Cantons",
+     "units": 26,
+     "smallestKm2": 40,
+     "medianKm2": 906,
+     "largestKm2": 7002,
+     "samples": 39,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "CHL": {
+   "name": "Chile",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 16,
+   "levels": {
+    "ne": {
+     "name": "Regions",
+     "units": 16,
+     "smallestKm2": 13530,
+     "medianKm2": 33880,
+     "largestKm2": 123168,
+     "samples": 191,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "CHN": {
+   "name": "China",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 32,
+   "levels": {
+    "ne": {
+     "name": "Provinces",
+     "units": 32,
+     "smallestKm2": 6,
+     "medianKm2": 175464,
+     "largestKm2": 1628123,
+     "samples": 168,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "CIV": {
+   "name": "Ivory Coast",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 19,
+   "levels": {
+    "ne": {
+     "name": "Regions",
+     "units": 19,
+     "smallestKm2": 5626,
+     "medianKm2": 14500,
+     "largestKm2": 40272,
+     "samples": 21,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "CMR": {
+   "name": "Cameroon",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 10,
+   "levels": {
+    "ne": {
+     "name": "Regions",
+     "units": 10,
+     "smallestKm2": 14141,
+     "medianKm2": 47663,
+     "largestKm2": 109290,
+     "samples": 11,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "COD": {
+   "name": "DR Congo",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 11,
+   "levels": {
+    "ne": {
+     "name": "Provinces",
+     "units": 11,
+     "smallestKm2": 11112,
+     "medianKm2": 153752,
+     "largestKm2": 502699,
+     "samples": 12,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "COG": {
+   "name": "Republic of the Congo",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 12,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 12,
+     "smallestKm2": 67,
+     "medianKm2": 28248,
+     "largestKm2": 67377,
+     "samples": 12,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "COK": {
+   "name": "Cook Islands",
+   "presets": {
+    "curated": "country",
+    "detailed": "country",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 11,
+   "policy": "one unit: under 3000 km²",
+   "levels": {
+    "country": {
+     "name": "Whole country",
+     "units": 1,
+     "smallestKm2": 201,
+     "medianKm2": 201,
+     "largestKm2": 201,
+     "samples": 21,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 11,
+     "smallestKm2": 1,
+     "medianKm2": 15,
+     "largestKm2": 64,
+     "samples": 21,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "COL": {
+   "name": "Colombia",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 34,
+   "levels": {
+    "ne": {
+     "name": "Departments",
+     "units": 34,
+     "smallestKm2": 8,
+     "medianKm2": 24118,
+     "largestKm2": 109743,
+     "samples": 50,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "COM": {
+   "name": "Comoros",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 3,
+   "note": "Separate island groups, kept apart.",
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 3,
+     "smallestKm2": 200,
+     "medianKm2": 450,
+     "largestKm2": 1029,
+     "samples": 3,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "CPV": {
+   "name": "Cape Verde",
+   "presets": {
+    "curated": "groups",
+    "detailed": "groups",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 22,
+   "note": "The Barlavento and Sotavento island groups instead of 22 municipalities.",
+   "levels": {
+    "groups": {
+     "name": "Island groups",
+     "units": 2,
+     "smallestKm2": 1756,
+     "medianKm2": 2184,
+     "largestKm2": 2184,
+     "samples": 24,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 22,
+     "smallestKm2": 32,
+     "medianKm2": 135,
+     "largestKm2": 638,
+     "samples": 24,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "CRI": {
+   "name": "Costa Rica",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 7,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 7,
+     "smallestKm2": 2706,
+     "medianKm2": 9405,
+     "largestKm2": 11178,
+     "samples": 11,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "CUB": {
+   "name": "Cuba",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 16,
+   "levels": {
+    "ne": {
+     "name": "Provinces",
+     "units": 16,
+     "smallestKm2": 703,
+     "medianKm2": 6726,
+     "largestKm2": 15636,
+     "samples": 93,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "CUW": {
+   "name": "Curaçao",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 465,
+     "medianKm2": 465,
+     "largestKm2": 465,
+     "samples": 1,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "CYM": {
+   "name": "Cayman Islands",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 310,
+     "medianKm2": 310,
+     "largestKm2": 310,
+     "samples": 3,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "CYP": {
+   "name": "Cyprus",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 5,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 5,
+     "smallestKm2": 195,
+     "medianKm2": 1272,
+     "largestKm2": 1968,
+     "samples": 8,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "CZE": {
+   "name": "Czechia",
+   "presets": {
+    "curated": "ne",
+    "detailed": "okresy",
+    "maximum": "okresy"
+   },
+   "naturalEarthUnits": 14,
+   "note": "The 14 regions (kraje). More Detailed: the 77 districts (okresy).",
+   "levels": {
+    "ne": {
+     "name": "Regions",
+     "units": 14,
+     "smallestKm2": 515,
+     "medianKm2": 5298,
+     "largestKm2": 10869,
+     "samples": 14,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "okresy": {
+     "name": "Districts",
+     "units": 77,
+     "smallestKm2": 223,
+     "medianKm2": 1003,
+     "largestKm2": 2088,
+     "samples": 14,
+     "gaps": 0,
+     "overlaps": 0,
+     "split": {
+      "unassignedSources": 0,
+      "reconciledKm2": 2666.666,
+      "clipFailures": [],
+      "unsplitBases": []
+     }
+    }
+   }
+  },
+  "DEU": {
+   "name": "Germany",
+   "presets": {
+    "curated": "rb",
+    "detailed": "kreise",
+    "maximum": "kreise"
+   },
+   "naturalEarthUnits": 16,
+   "note": "The 16 Länder are too coarse beside their neighbours: Bavaria alone is the size of Ireland. The Regierungsbezirke (NUTS 2) are the next level down — Upper Bavaria, the three Franconias, Swabia, Weser-Ems — and are real historical regions. Länder without districts are one region. More Detailed uses the 400 Kreise.",
+   "levels": {
+    "rb": {
+     "name": "Government districts",
+     "units": 38,
+     "smallestKm2": 384,
+     "medianKm2": 8040,
+     "largestKm2": 29919,
+     "samples": 40,
+     "gaps": 0,
+     "overlaps": 0,
+     "split": {
+      "unassignedSources": 0,
+      "reconciledKm2": 3287.697,
+      "clipFailures": [],
+      "unsplitBases": []
+     }
+    },
+    "kreise": {
+     "name": "Districts and independent cities",
+     "units": 401,
+     "smallestKm2": 36,
+     "medianKm2": 788,
+     "largestKm2": 5419,
+     "samples": 40,
+     "gaps": 0,
+     "overlaps": 0,
+     "split": {
+      "unassignedSources": 0,
+      "reconciledKm2": 5803.351,
+      "clipFailures": [],
+      "unsplitBases": []
+     }
+    }
+   }
+  },
+  "DJI": {
+   "name": "Djibouti",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 6,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 6,
+     "smallestKm2": 182,
+     "medianKm2": 4638,
+     "largestKm2": 6842,
+     "samples": 8,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "DMA": {
+   "name": "Dominica",
+   "presets": {
+    "curated": "country",
+    "detailed": "country",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 10,
+   "policy": "one unit: under 3000 km²",
+   "levels": {
+    "country": {
+     "name": "Whole country",
+     "units": 1,
+     "smallestKm2": 733,
+     "medianKm2": 733,
+     "largestKm2": 733,
+     "samples": 10,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 10,
+     "smallestKm2": 3,
+     "medianKm2": 65,
+     "largestKm2": 199,
+     "samples": 10,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "DNK": {
+   "name": "Denmark",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 5,
+   "levels": {
+    "ne": {
+     "name": "Regions",
+     "units": 5,
+     "smallestKm2": 2534,
+     "medianKm2": 7881,
+     "largestKm2": 13140,
+     "samples": 23,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "DOM": {
+   "name": "Dominican Republic",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 32,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 32,
+     "smallestKm2": 78,
+     "medianKm2": 1351,
+     "largestKm2": 3335,
+     "samples": 34,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "DZA": {
+   "name": "Algeria",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 48,
+   "levels": {
+    "ne": {
+     "name": "Provinces",
+     "units": 48,
+     "smallestKm2": 195,
+     "medianKm2": 6191,
+     "largestKm2": 610748,
+     "samples": 48,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "ECU": {
+   "name": "Ecuador",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 24,
+   "levels": {
+    "ne": {
+     "name": "Provinces",
+     "units": 24,
+     "smallestKm2": 3405,
+     "medianKm2": 8669,
+     "largestKm2": 29260,
+     "samples": 39,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "EGY": {
+   "name": "Egypt",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 27,
+   "levels": {
+    "ne": {
+     "name": "Governorates",
+     "units": 27,
+     "smallestKm2": 12,
+     "medianKm2": 4797,
+     "largestKm2": 454101,
+     "samples": 43,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "ERI": {
+   "name": "Eritrea",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 6,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 6,
+     "smallestKm2": 1567,
+     "medianKm2": 22535,
+     "largestKm2": 33807,
+     "samples": 14,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "ESH": {
+   "name": "Western Sahara",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 90696,
+     "medianKm2": 90696,
+     "largestKm2": 90696,
+     "samples": 1,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "ESP": {
+   "name": "Spain",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 52,
+   "note": "The 50 provinces and the two autonomous cities; each can be selected by autonomous community.",
+   "levels": {
+    "ne": {
+     "name": "Provinces",
+     "units": 52,
+     "smallestKm2": 18,
+     "medianKm2": 9837,
+     "largestKm2": 21973,
+     "samples": 75,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "EST": {
+   "name": "Estonia",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 15,
+   "levels": {
+    "ne": {
+     "name": "Counties",
+     "units": 15,
+     "smallestKm2": 1068,
+     "medianKm2": 2949,
+     "largestKm2": 4840,
+     "samples": 21,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "ETH": {
+   "name": "Ethiopia",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 11,
+   "levels": {
+    "ne": {
+     "name": "Regions",
+     "units": 11,
+     "smallestKm2": 365,
+     "medianKm2": 50275,
+     "largestKm2": 326991,
+     "samples": 14,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "FIN": {
+   "name": "Finland",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 18,
+   "levels": {
+    "ne": {
+     "name": "Regions",
+     "units": 18,
+     "smallestKm2": 5302,
+     "medianKm2": 13911,
+     "largestKm2": 97611,
+     "samples": 239,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "FJI": {
+   "name": "Fiji",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 5,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 5,
+     "smallestKm2": 40,
+     "medianKm2": 4582,
+     "largestKm2": 6601,
+     "samples": 46,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "FLK": {
+   "name": "Falkland Islands",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 11618,
+     "medianKm2": 11618,
+     "largestKm2": 11618,
+     "samples": 23,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "FRA": {
+   "name": "France",
+   "presets": {
+    "curated": "ne",
+    "detailed": "arrondissements",
+    "maximum": "arrondissements"
+   },
+   "naturalEarthUnits": 101,
+   "note": "Departments, as they are. More Detailed divides them into arrondissements.",
+   "levels": {
+    "ne": {
+     "name": "Departments",
+     "units": 101,
+     "smallestKm2": 129,
+     "medianKm2": 5963,
+     "largestKm2": 83552,
+     "samples": 130,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "arrondissements": {
+     "name": "Arrondissements",
+     "units": 325,
+     "smallestKm2": 33,
+     "medianKm2": 1657,
+     "largestKm2": 83552,
+     "samples": 130,
+     "gaps": 0,
+     "overlaps": 0,
+     "split": {
+      "unassignedSources": 0,
+      "reconciledKm2": 11533.053,
+      "clipFailures": [],
+      "unsplitBases": [
+       "FRA-1442",
+       "FRA-2000",
+       "FRA-4601",
+       "FRA-4602",
+       "FRA-4603"
+      ]
+     }
+    }
+   }
+  },
+  "FRO": {
+   "name": "Faroe Islands",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 1321,
+     "medianKm2": 1321,
+     "largestKm2": 1321,
+     "samples": 11,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "FSM": {
+   "name": "Micronesia",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 4,
+   "note": "Separate island groups, kept apart.",
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 4,
+     "smallestKm2": 75,
+     "medianKm2": 114,
+     "largestKm2": 400,
+     "samples": 27,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "GAB": {
+   "name": "Gabon",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 9,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 9,
+     "smallestKm2": 17937,
+     "medianKm2": 29119,
+     "largestKm2": 43028,
+     "samples": 10,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "GBR": {
+   "name": "United Kingdom",
+   "presets": {
+    "curated": "itl1",
+    "detailed": "counties",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 232,
+   "note": "Natural Earth draws 232 local authorities, down to London boroughs. The curated map uses the constituent countries and England’s nine regions (ITL 1). More Detailed uses counties and unitary authorities, with Greater London and the six metropolitan counties whole; Maximum is every local authority.",
+   "levels": {
+    "itl1": {
+     "name": "Countries and regions",
+     "units": 12,
+     "smallestKm2": 1599,
+     "medianKm2": 15558,
+     "largestKm2": 77920,
+     "samples": 289,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "counties": {
+     "name": "Counties and unitary authorities",
+     "units": 170,
+     "smallestKm2": 11,
+     "medianKm2": 555,
+     "largestKm2": 25679,
+     "samples": 289,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "Local authorities",
+     "units": 232,
+     "smallestKm2": 3,
+     "medianKm2": 290,
+     "largestKm2": 25679,
+     "samples": 289,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "GEO": {
+   "name": "Georgia",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 12,
+   "levels": {
+    "ne": {
+     "name": "Regions",
+     "units": 12,
+     "smallestKm2": 235,
+     "medianKm2": 6409,
+     "largestKm2": 11180,
+     "samples": 12,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "GGY": {
+   "name": "Guernsey",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 73,
+     "medianKm2": 73,
+     "largestKm2": 73,
+     "samples": 3,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "GHA": {
+   "name": "Ghana",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 10,
+   "levels": {
+    "ne": {
+     "name": "Regions",
+     "units": 10,
+     "smallestKm2": 3223,
+     "medianKm2": 20088,
+     "largestKm2": 69707,
+     "samples": 10,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "GIB": {
+   "name": "Gibraltar",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 4,
+     "medianKm2": 4,
+     "largestKm2": 4,
+     "samples": 1,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "GIN": {
+   "name": "Guinea",
+   "presets": {
+    "curated": "regions",
+    "detailed": "regions",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 34,
+   "note": "The seven regions and Conakry instead of 34 prefectures.",
+   "levels": {
+    "regions": {
+     "name": "Regions",
+     "units": 8,
+     "smallestKm2": 25,
+     "medianKm2": 34811,
+     "largestKm2": 67702,
+     "samples": 34,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "Prefectures",
+     "units": 34,
+     "smallestKm2": 25,
+     "medianKm2": 5740,
+     "largestKm2": 17774,
+     "samples": 34,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "GMB": {
+   "name": "Gambia",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 6,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 6,
+     "smallestKm2": 209,
+     "medianKm2": 1984,
+     "largestKm2": 3047,
+     "samples": 6,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "GNB": {
+   "name": "Guinea-Bissau",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 9,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 9,
+     "smallestKm2": 128,
+     "medianKm2": 3155,
+     "largestKm2": 8864,
+     "samples": 21,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "GNQ": {
+   "name": "Equatorial Guinea",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 7,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 7,
+     "smallestKm2": 14,
+     "medianKm2": 3328,
+     "largestKm2": 8370,
+     "samples": 8,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "GRC": {
+   "name": "Greece",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 14,
+   "levels": {
+    "ne": {
+     "name": "Regions",
+     "units": 14,
+     "smallestKm2": 335,
+     "medianKm2": 9703,
+     "largestKm2": 19219,
+     "samples": 118,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "GRD": {
+   "name": "Grenada",
+   "presets": {
+    "curated": "country",
+    "detailed": "country",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 7,
+   "policy": "one unit: under 3000 km²",
+   "levels": {
+    "country": {
+     "name": "Whole country",
+     "units": 1,
+     "smallestKm2": 353,
+     "medianKm2": 353,
+     "largestKm2": 353,
+     "samples": 9,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 7,
+     "smallestKm2": 24,
+     "medianKm2": 44,
+     "largestKm2": 84,
+     "samples": 9,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "GRL": {
+   "name": "Greenland",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 6,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 6,
+     "smallestKm2": 656,
+     "medianKm2": 540874,
+     "largestKm2": 869255,
+     "samples": 136,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "GTM": {
+   "name": "Guatemala",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 22,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 22,
+     "smallestKm2": 686,
+     "medianKm2": 2587,
+     "largestKm2": 36181,
+     "samples": 23,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "GUM": {
+   "name": "Guam",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 566,
+     "medianKm2": 566,
+     "largestKm2": 566,
+     "samples": 1,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "GUY": {
+   "name": "Guyana",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 10,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 10,
+     "smallestKm2": 2125,
+     "medianKm2": 19884,
+     "largestKm2": 55606,
+     "samples": 14,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "HKG": {
+   "name": "Hong Kong",
+   "presets": {
+    "curated": "country",
+    "detailed": "country",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 18,
+   "policy": "one unit: under 3000 km²",
+   "levels": {
+    "country": {
+     "name": "Whole country",
+     "units": 1,
+     "smallestKm2": 1084,
+     "medianKm2": 1084,
+     "largestKm2": 1084,
+     "samples": 48,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 18,
+     "smallestKm2": 4,
+     "medianKm2": 52,
+     "largestKm2": 173,
+     "samples": 48,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "HMD": {
+   "name": "Heard Island and McDonald Islands",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 393,
+     "medianKm2": 393,
+     "largestKm2": 393,
+     "samples": 1,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "HND": {
+   "name": "Honduras",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 18,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 18,
+     "smallestKm2": 264,
+     "medianKm2": 4537,
+     "largestKm2": 23980,
+     "samples": 56,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "HRV": {
+   "name": "Croatia",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 21,
+   "levels": {
+    "ne": {
+     "name": "Counties",
+     "units": 21,
+     "smallestKm2": 703,
+     "medianKm2": 2388,
+     "largestKm2": 6086,
+     "samples": 67,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "HTI": {
+   "name": "Haiti",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 10,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 10,
+     "smallestKm2": 1207,
+     "medianKm2": 2106,
+     "largestKm2": 4984,
+     "samples": 14,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "HUN": {
+   "name": "Hungary",
+   "presets": {
+    "curated": "counties",
+    "detailed": "counties",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 43,
+   "note": "The 19 counties and Budapest. Natural Earth draws the 23 cities with county rights as holes in their counties; each is joined to the county around it.",
+   "levels": {
+    "counties": {
+     "name": "Counties",
+     "units": 20,
+     "smallestKm2": 537,
+     "medianKm2": 4559,
+     "largestKm2": 8366,
+     "samples": 44,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 43,
+     "smallestKm2": 94,
+     "medianKm2": 537,
+     "largestKm2": 8123,
+     "samples": 44,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "IDN": {
+   "name": "Indonesia",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 33,
+   "levels": {
+    "ne": {
+     "name": "Provinces",
+     "units": 33,
+     "smallestKm2": 820,
+     "medianKm2": 38859,
+     "largestKm2": 314096,
+     "samples": 515,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "IMN": {
+   "name": "Isle of Man",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 575,
+     "medianKm2": 575,
+     "largestKm2": 575,
+     "samples": 2,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "IND": {
+   "name": "India",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 36,
+   "note": "States and union territories, current since 2020.",
+   "levels": {
+    "ne": {
+     "name": "States and union territories",
+     "units": 36,
+     "smallestKm2": 34,
+     "medianKm2": 55438,
+     "largestKm2": 343698,
+     "samples": 81,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "IOT": {
+   "name": "British Indian Ocean Territory",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 49,
+     "medianKm2": 49,
+     "largestKm2": 49,
+     "samples": 10,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "IRL": {
+   "name": "Ireland",
+   "presets": {
+    "curated": "counties",
+    "detailed": "counties",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 34,
+   "note": "The 26 traditional counties. Natural Earth splits Dublin into four councils and Cork, Galway, Limerick, Waterford and Tipperary into city and county; they are joined again.",
+   "levels": {
+    "counties": {
+     "name": "Counties",
+     "units": 26,
+     "smallestKm2": 784,
+     "medianKm2": 2018,
+     "largestKm2": 7236,
+     "samples": 47,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 34,
+     "smallestKm2": 29,
+     "medianKm2": 1854,
+     "largestKm2": 7176,
+     "samples": 47,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "IRN": {
+   "name": "Iran",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 31,
+   "levels": {
+    "ne": {
+     "name": "Provinces",
+     "units": 31,
+     "smallestKm2": 4657,
+     "medianKm2": 25122,
+     "largestKm2": 183403,
+     "samples": 44,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "IRQ": {
+   "name": "Iraq",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 18,
+   "levels": {
+    "ne": {
+     "name": "Governorates",
+     "units": 18,
+     "smallestKm2": 658,
+     "medianKm2": 17105,
+     "largestKm2": 138265,
+     "samples": 18,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "ISL": {
+   "name": "Iceland",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 9,
+   "levels": {
+    "ne": {
+     "name": "Regions",
+     "units": 9,
+     "smallestKm2": 354,
+     "medianKm2": 9552,
+     "largestKm2": 24808,
+     "samples": 41,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "ISR": {
+   "name": "Israel",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 6,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 6,
+     "smallestKm2": 178,
+     "medianKm2": 1252,
+     "largestKm2": 14535,
+     "samples": 6,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "ITA": {
+   "name": "Italy",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 110,
+   "note": "Provinces; each can be selected by region.",
+   "levels": {
+    "ne": {
+     "name": "Provinces",
+     "units": 110,
+     "smallestKm2": 176,
+     "medianKm2": 2483,
+     "largestKm2": 7373,
+     "samples": 161,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "JAM": {
+   "name": "Jamaica",
+   "presets": {
+    "curated": "counties",
+    "detailed": "counties",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 14,
+   "note": "Jamaica’s three historic counties instead of 14 parishes.",
+   "levels": {
+    "counties": {
+     "name": "Counties",
+     "units": 3,
+     "smallestKm2": 2018,
+     "medianKm2": 3974,
+     "largestKm2": 5076,
+     "samples": 14,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "Parishes",
+     "units": 14,
+     "smallestKm2": 30,
+     "medianKm2": 819,
+     "largestKm2": 1255,
+     "samples": 14,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "JEY": {
+   "name": "Jersey",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 119,
+     "medianKm2": 119,
+     "largestKm2": 119,
+     "samples": 1,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "JOR": {
+   "name": "Jordan",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 12,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 12,
+     "smallestKm2": 410,
+     "medianKm2": 3478,
+     "largestKm2": 32926,
+     "samples": 12,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "JPN": {
+   "name": "Japan",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 47,
+   "levels": {
+    "ne": {
+     "name": "Prefectures",
+     "units": 47,
+     "smallestKm2": 1855,
+     "medianKm2": 6088,
+     "largestKm2": 78664,
+     "samples": 325,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "KAZ": {
+   "name": "Kazakhstan",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 16,
+   "levels": {
+    "ne": {
+     "name": "Regions",
+     "units": 16,
+     "smallestKm2": 295,
+     "medianKm2": 153385,
+     "largestKm2": 428109,
+     "samples": 23,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "KEN": {
+   "name": "Kenya",
+   "presets": {
+    "curated": "counties",
+    "detailed": "counties",
+    "maximum": "counties"
+   },
+   "naturalEarthUnits": 8,
+   "note": "The 47 counties of the 2010 constitution. Natural Earth still draws the 8 provinces they replaced in 2013.",
+   "levels": {
+    "counties": {
+     "name": "Counties",
+     "units": 47,
+     "smallestKm2": 202,
+     "medianKm2": 3506,
+     "largestKm2": 75247,
+     "samples": 9,
+     "gaps": 0,
+     "overlaps": 0,
+     "split": {
+      "unassignedSources": 0,
+      "reconciledKm2": 9205.723,
+      "clipFailures": [],
+      "unsplitBases": []
+     }
+    }
+   }
+  },
+  "KGZ": {
+   "name": "Kyrgyzstan",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 8,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 8,
+     "smallestKm2": 111,
+     "medianKm2": 28989,
+     "largestKm2": 45352,
+     "samples": 8,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "KHM": {
+   "name": "Cambodia",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 24,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 24,
+     "smallestKm2": 134,
+     "medianKm2": 6838,
+     "largestKm2": 14116,
+     "samples": 29,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "KIR": {
+   "name": "Kiribati",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 2,
+   "note": "Separate island groups, kept apart.",
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 2,
+     "smallestKm2": 31,
+     "medianKm2": 952,
+     "largestKm2": 952,
+     "samples": 43,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "KNA": {
+   "name": "Saint Kitts and Nevis",
+   "presets": {
+    "curated": "country",
+    "detailed": "country",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 14,
+   "policy": "one unit: under 3000 km²",
+   "levels": {
+    "country": {
+     "name": "Whole country",
+     "units": 1,
+     "smallestKm2": 265,
+     "medianKm2": 265,
+     "largestKm2": 265,
+     "samples": 14,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 14,
+     "smallestKm2": 4,
+     "medianKm2": 17,
+     "largestKm2": 35,
+     "samples": 14,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "KOR": {
+   "name": "South Korea",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 17,
+   "levels": {
+    "ne": {
+     "name": "Provinces",
+     "units": 17,
+     "smallestKm2": 133,
+     "medianKm2": 1874,
+     "largestKm2": 19161,
+     "samples": 159,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "KWT": {
+   "name": "Kuwait",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 6,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 6,
+     "smallestKm2": 59,
+     "medianKm2": 218,
+     "largestKm2": 12218,
+     "samples": 9,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "LAO": {
+   "name": "Laos",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 17,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 17,
+     "smallestKm2": 3516,
+     "medianKm2": 15170,
+     "largestKm2": 21185,
+     "samples": 17,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "LBN": {
+   "name": "Lebanon",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 6,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 6,
+     "smallestKm2": 28,
+     "medianKm2": 1990,
+     "largestKm2": 3937,
+     "samples": 6,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "LBR": {
+   "name": "Liberia",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 15,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 15,
+     "smallestKm2": 1786,
+     "medianKm2": 5382,
+     "largestKm2": 11371,
+     "samples": 15,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "LBY": {
+   "name": "Libya",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 22,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 22,
+     "smallestKm2": 1334,
+     "medianKm2": 46325,
+     "largestKm2": 423879,
+     "samples": 22,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "LCA": {
+   "name": "Saint Lucia",
+   "presets": {
+    "curated": "country",
+    "detailed": "country",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 11,
+   "policy": "one unit: under 3000 km²",
+   "levels": {
+    "country": {
+     "name": "Whole country",
+     "units": 1,
+     "smallestKm2": 607,
+     "medianKm2": 607,
+     "largestKm2": 607,
+     "samples": 11,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 11,
+     "smallestKm2": 34,
+     "medianKm2": 47,
+     "largestKm2": 94,
+     "samples": 11,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "LIE": {
+   "name": "Liechtenstein",
+   "presets": {
+    "curated": "country",
+    "detailed": "country",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 11,
+   "policy": "one unit: under 3000 km²",
+   "levels": {
+    "country": {
+     "name": "Whole country",
+     "units": 1,
+     "smallestKm2": 137,
+     "medianKm2": 137,
+     "largestKm2": 137,
+     "samples": 18,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 11,
+     "smallestKm2": 3,
+     "medianKm2": 8,
+     "largestKm2": 26,
+     "samples": 18,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "LKA": {
+   "name": "Sri Lanka",
+   "presets": {
+    "curated": "provinces",
+    "detailed": "provinces",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 25,
+   "note": "The nine provinces instead of 25 districts.",
+   "levels": {
+    "provinces": {
+     "name": "Provinces",
+     "units": 9,
+     "smallestKm2": 3789,
+     "medianKm2": 8160,
+     "largestKm2": 10716,
+     "samples": 36,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "Districts",
+     "units": 25,
+     "smallestKm2": 683,
+     "medianKm2": 2099,
+     "largestKm2": 7259,
+     "samples": 36,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "LSO": {
+   "name": "Lesotho",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 10,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 10,
+     "smallestKm2": 1720,
+     "medianKm2": 2848,
+     "largestKm2": 5059,
+     "samples": 11,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "LTU": {
+   "name": "Lithuania",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 10,
+   "levels": {
+    "ne": {
+     "name": "Counties",
+     "units": 10,
+     "smallestKm2": 3814,
+     "medianKm2": 7018,
+     "largestKm2": 9760,
+     "samples": 11,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "LUX": {
+   "name": "Luxembourg",
+   "presets": {
+    "curated": "country",
+    "detailed": "country",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 3,
+   "policy": "one unit: under 3000 km²",
+   "levels": {
+    "country": {
+     "name": "Whole country",
+     "units": 1,
+     "smallestKm2": 2600,
+     "medianKm2": 2600,
+     "largestKm2": 2600,
+     "samples": 3,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 3,
+     "smallestKm2": 461,
+     "medianKm2": 995,
+     "largestKm2": 1143,
+     "samples": 3,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "LVA": {
+   "name": "Latvia",
+   "presets": {
+    "curated": "regions",
+    "detailed": "municipalities",
+    "maximum": "municipalities"
+   },
+   "naturalEarthUnits": 119,
+   "note": "Natural Earth draws the 119 municipalities of 2009-2021. The curated map uses the six statistical regions — Riga, Pierīga, Vidzeme, Kurzeme, Zemgale, Latgale — which carry the historical lands. More Detailed uses the 43 municipalities of the 2021 reform.",
+   "levels": {
+    "regions": {
+     "name": "Statistical regions",
+     "units": 6,
+     "smallestKm2": 316,
+     "medianKm2": 13584,
+     "largestKm2": 15009,
+     "samples": 122,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "municipalities": {
+     "name": "Municipalities (2021)",
+     "units": 43,
+     "smallestKm2": 17,
+     "medianKm2": 1642,
+     "largestKm2": 3563,
+     "samples": 122,
+     "gaps": 0,
+     "overlaps": 0,
+     "split": {
+      "unassignedSources": 0,
+      "reconciledKm2": 699.047,
+      "clipFailures": [],
+      "unsplitBases": []
+     }
+    }
+   }
+  },
+  "MAC": {
+   "name": "Macau",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 30,
+     "medianKm2": 30,
+     "largestKm2": 30,
+     "samples": 2,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "MAF": {
+   "name": "Saint Martin",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 68,
+     "medianKm2": 68,
+     "largestKm2": 68,
+     "samples": 1,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "MAR": {
+   "name": "Morocco",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 16,
+   "levels": {
+    "ne": {
+     "name": "Regions",
+     "units": 16,
+     "smallestKm2": 816,
+     "medianKm2": 22208,
+     "largestKm2": 101602,
+     "samples": 18,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "MCO": {
+   "name": "Monaco",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 19,
+     "medianKm2": 19,
+     "largestKm2": 19,
+     "samples": 1,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "MDA": {
+   "name": "Moldova",
+   "presets": {
+    "curated": "regions",
+    "detailed": "regions",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 40,
+   "note": "The development regions — North, Centre, South — with Chișinău, Gagauzia and the left bank of the Dniester, instead of 40 districts. Natural Earth files Bender with the left-bank units and does not separate the government-controlled part of Dubăsari.",
+   "levels": {
+    "regions": {
+     "name": "Development regions",
+     "units": 6,
+     "smallestKm2": 176,
+     "medianKm2": 7857,
+     "largestKm2": 10124,
+     "samples": 42,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "Districts",
+     "units": 40,
+     "smallestKm2": 17,
+     "medianKm2": 803,
+     "largestKm2": 1713,
+     "samples": 42,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "MDG": {
+   "name": "Madagascar",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 22,
+   "levels": {
+    "ne": {
+     "name": "Regions",
+     "units": 22,
+     "smallestKm2": 6673,
+     "medianKm2": 22256,
+     "largestKm2": 69225,
+     "samples": 24,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "MDV": {
+   "name": "Maldives",
+   "presets": {
+    "curated": "country",
+    "detailed": "country",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 21,
+   "policy": "one unit: under 3000 km²",
+   "levels": {
+    "country": {
+     "name": "Whole country",
+     "units": 1,
+     "smallestKm2": 109,
+     "medianKm2": 109,
+     "largestKm2": 109,
+     "samples": 176,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 21,
+     "smallestKm2": 0,
+     "medianKm2": 3,
+     "largestKm2": 35,
+     "samples": 176,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "MEX": {
+   "name": "Mexico",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 33,
+   "levels": {
+    "ne": {
+     "name": "States",
+     "units": 33,
+     "smallestKm2": 135,
+     "medianKm2": 57836,
+     "largestKm2": 248320,
+     "samples": 112,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "MHL": {
+   "name": "Marshall Islands",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 2,
+   "note": "Separate island groups, kept apart.",
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 2,
+     "smallestKm2": 94,
+     "medianKm2": 99,
+     "largestKm2": 99,
+     "samples": 62,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "MKD": {
+   "name": "North Macedonia",
+   "presets": {
+    "curated": "regions",
+    "detailed": "regions",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 84,
+   "note": "The eight statistical regions instead of 84 municipalities.",
+   "levels": {
+    "regions": {
+     "name": "Statistical regions",
+     "units": 8,
+     "smallestKm2": 1816,
+     "medianKm2": 3522,
+     "largestKm2": 4832,
+     "samples": 84,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "Municipalities",
+     "units": 84,
+     "smallestKm2": 3,
+     "medianKm2": 229,
+     "largestKm2": 1166,
+     "samples": 84,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "MLI": {
+   "name": "Mali",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 9,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 9,
+     "smallestKm2": 214,
+     "medianKm2": 91813,
+     "largestKm2": 505503,
+     "samples": 9,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "MLT": {
+   "name": "Malta",
+   "presets": {
+    "curated": "regions",
+    "detailed": "regions",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 68,
+   "note": "Malta and Gozo (NUTS 3) instead of 68 local councils.",
+   "levels": {
+    "regions": {
+     "name": "Regions",
+     "units": 2,
+     "smallestKm2": 67,
+     "medianKm2": 261,
+     "largestKm2": 261,
+     "samples": 69,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "Local councils",
+     "units": 68,
+     "smallestKm2": 0,
+     "medianKm2": 3,
+     "largestKm2": 27,
+     "samples": 69,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "MMR": {
+   "name": "Myanmar",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 14,
+   "levels": {
+    "ne": {
+     "name": "Regions and states",
+     "units": 14,
+     "smallestKm2": 9750,
+     "medianKm2": 36918,
+     "largestKm2": 154992,
+     "samples": 69,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "MNE": {
+   "name": "Montenegro",
+   "presets": {
+    "curated": "regions",
+    "detailed": "regions",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 21,
+   "note": "Montenegro’s three statistical regions instead of 21 municipalities.",
+   "levels": {
+    "regions": {
+     "name": "Statistical regions",
+     "units": 3,
+     "smallestKm2": 1555,
+     "medianKm2": 4970,
+     "largestKm2": 7179,
+     "samples": 22,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "Municipalities",
+     "units": 21,
+     "smallestKm2": 33,
+     "medianKm2": 512,
+     "largestKm2": 2058,
+     "samples": 22,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "MNG": {
+   "name": "Mongolia",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 22,
+   "levels": {
+    "ne": {
+     "name": "Provinces",
+     "units": 22,
+     "smallestKm2": 645,
+     "medianKm2": 74759,
+     "largestKm2": 166067,
+     "samples": 22,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "MNP": {
+   "name": "Northern Mariana Islands",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 4,
+   "note": "Separate island groups, kept apart.",
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 4,
+     "smallestKm2": 97,
+     "medianKm2": 133,
+     "largestKm2": 241,
+     "samples": 12,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "MOZ": {
+   "name": "Mozambique",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 11,
+   "levels": {
+    "ne": {
+     "name": "Provinces",
+     "units": 11,
+     "smallestKm2": 100,
+     "medianKm2": 76486,
+     "largestKm2": 129961,
+     "samples": 14,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "MRT": {
+   "name": "Mauritania",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 13,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 13,
+     "smallestKm2": 1530,
+     "medianKm2": 44779,
+     "largestKm2": 258560,
+     "samples": 18,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "MSR": {
+   "name": "Montserrat",
+   "presets": {
+    "curated": "country",
+    "detailed": "country",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 3,
+   "policy": "one unit: under 3000 km²",
+   "levels": {
+    "country": {
+     "name": "Whole country",
+     "units": 1,
+     "smallestKm2": 100,
+     "medianKm2": 100,
+     "largestKm2": 100,
+     "samples": 3,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 3,
+     "smallestKm2": 17,
+     "medianKm2": 32,
+     "largestKm2": 51,
+     "samples": 3,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "MUS": {
+   "name": "Mauritius",
+   "presets": {
+    "curated": "islands",
+    "detailed": "islands",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 16,
+   "note": "Mauritius, Rodrigues and Agaléga, which lie hundreds of kilometres apart.",
+   "levels": {
+    "islands": {
+     "name": "Islands",
+     "units": 3,
+     "smallestKm2": 14,
+     "medianKm2": 100,
+     "largestKm2": 1907,
+     "samples": 20,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 16,
+     "smallestKm2": 12,
+     "medianKm2": 143,
+     "largestKm2": 319,
+     "samples": 20,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "MWI": {
+   "name": "Malawi",
+   "presets": {
+    "curated": "regions",
+    "detailed": "regions",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 28,
+   "note": "The three regions instead of 28 districts.",
+   "notes": [
+    "MWI: regions: MWI-1194 (Chitipa) lies in no geoBoundaries MWI ADM1 unit; given to the nearest, Northern Region",
+    "MWI: regions: MWI-1873 (Chitipa) lies in no geoBoundaries MWI ADM1 unit; given to the nearest, Northern Region",
+    "MWI: regions: MWI-1910 (Mangochi) lies in no geoBoundaries MWI ADM1 unit; given to the nearest, Southern Region"
+   ],
+   "levels": {
+    "regions": {
+     "name": "Regions",
+     "units": 3,
+     "smallestKm2": 35267,
+     "medianKm2": 41648,
+     "largestKm2": 42933,
+     "samples": 29,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "Districts",
+     "units": 28,
+     "smallestKm2": 200,
+     "medianKm2": 3726,
+     "largestKm2": 11011,
+     "samples": 29,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "MYS": {
+   "name": "Malaysia",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 16,
+   "levels": {
+    "ne": {
+     "name": "States",
+     "units": 16,
+     "smallestKm2": 52,
+     "medianKm2": 9170,
+     "largestKm2": 123103,
+     "samples": 51,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "NAM": {
+   "name": "Namibia",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 13,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 13,
+     "smallestKm2": 8524,
+     "medianKm2": 43351,
+     "largestKm2": 160463,
+     "samples": 13,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "NCL": {
+   "name": "New Caledonia",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 3,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 3,
+     "smallestKm2": 2022,
+     "medianKm2": 7332,
+     "largestKm2": 9539,
+     "samples": 13,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "NER": {
+   "name": "Niger",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 8,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 8,
+     "smallestKm2": 675,
+     "medianKm2": 105206,
+     "largestKm2": 624074,
+     "samples": 8,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "NFK": {
+   "name": "Norfolk Island",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 41,
+     "medianKm2": 41,
+     "largestKm2": 41,
+     "samples": 1,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "NGA": {
+   "name": "Nigeria",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 37,
+   "levels": {
+    "ne": {
+     "name": "States",
+     "units": 37,
+     "smallestKm2": 3561,
+     "medianKm2": 21101,
+     "largestKm2": 71326,
+     "samples": 39,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "NIC": {
+   "name": "Nicaragua",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 17,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 17,
+     "smallestKm2": 560,
+     "medianKm2": 4818,
+     "largestKm2": 32539,
+     "samples": 114,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "NIU": {
+   "name": "Niue",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 221,
+     "medianKm2": 221,
+     "largestKm2": 221,
+     "samples": 1,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "NLD": {
+   "name": "Netherlands",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 15,
+   "levels": {
+    "ne": {
+     "name": "Provinces",
+     "units": 15,
+     "smallestKm2": 7,
+     "medianKm2": 2388,
+     "largestKm2": 5182,
+     "samples": 26,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "NOR": {
+   "name": "Norway",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 21,
+   "levels": {
+    "ne": {
+     "name": "Counties",
+     "units": 21,
+     "smallestKm2": 55,
+     "medianKm2": 15083,
+     "largestKm2": 61559,
+     "samples": 235,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "NPL": {
+   "name": "Nepal",
+   "presets": {
+    "curated": "provinces",
+    "detailed": "provinces",
+    "maximum": "provinces"
+   },
+   "naturalEarthUnits": 14,
+   "note": "The seven provinces of the 2015 constitution. Natural Earth still draws the 14 zones they replaced.",
+   "levels": {
+    "provinces": {
+     "name": "Provinces",
+     "units": 7,
+     "smallestKm2": 10158,
+     "medianKm2": 20217,
+     "largestKm2": 30240,
+     "samples": 14,
+     "gaps": 0,
+     "overlaps": 0,
+     "split": {
+      "unassignedSources": 0,
+      "reconciledKm2": 2248.168,
+      "clipFailures": [],
+      "unsplitBases": []
+     }
+    }
+   }
+  },
+  "NRU": {
+   "name": "Nauru",
+   "presets": {
+    "curated": "country",
+    "detailed": "country",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 14,
+   "policy": "one unit: under 3000 km²",
+   "levels": {
+    "country": {
+     "name": "Whole country",
+     "units": 1,
+     "smallestKm2": 29,
+     "medianKm2": 29,
+     "largestKm2": 29,
+     "samples": 14,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 14,
+     "smallestKm2": 1,
+     "medianKm2": 2,
+     "largestKm2": 6,
+     "samples": 14,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "NZL": {
+   "name": "New Zealand",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 24,
+   "levels": {
+    "ne": {
+     "name": "Regions",
+     "units": 24,
+     "smallestKm2": 5,
+     "medianKm2": 8396,
+     "largestKm2": 45774,
+     "samples": 62,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "OMN": {
+   "name": "Oman",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 11,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 11,
+     "smallestKm2": 1681,
+     "medianKm2": 16024,
+     "largestKm2": 128690,
+     "samples": 15,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "PAK": {
+   "name": "Pakistan",
+   "presets": {
+    "curated": "provinces",
+    "detailed": "provinces",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 8,
+   "note": "The Federally Administered Tribal Areas joined Khyber Pakhtunkhwa in 2018.",
+   "levels": {
+    "provinces": {
+     "name": "Provinces and territories",
+     "units": 7,
+     "smallestKm2": 867,
+     "medianKm2": 102404,
+     "largestKm2": 348505,
+     "samples": 9,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 8,
+     "smallestKm2": 867,
+     "medianKm2": 74968,
+     "largestKm2": 348505,
+     "samples": 9,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "PAN": {
+   "name": "Panama",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 12,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 12,
+     "smallestKm2": 2378,
+     "medianKm2": 5121,
+     "largestKm2": 11761,
+     "samples": 37,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "PCN": {
+   "name": "Pitcairn Islands",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 43,
+     "medianKm2": 43,
+     "largestKm2": 43,
+     "samples": 4,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "PER": {
+   "name": "Peru",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 26,
+   "levels": {
+    "ne": {
+     "name": "Regions",
+     "units": 26,
+     "smallestKm2": 57,
+     "medianKm2": 35991,
+     "largestKm2": 375424,
+     "samples": 30,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "PHL": {
+   "name": "Philippines",
+   "presets": {
+    "curated": "regions",
+    "detailed": "regions",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 118,
+   "note": "The 17 regions instead of 118 provinces and highly urbanised cities.",
+   "notes": [
+    "PHL: regions: PHL-2566 (Laguna) lies in no geoBoundaries PHL ADM1 unit; given to the nearest, Calabarzon",
+    "PHL: regions: PHL-2572 (Quezon) lies in no geoBoundaries PHL ADM1 unit; given to the nearest, Calabarzon",
+    "PHL: regions: PHL-5557 (Muntinlupa) lies in no geoBoundaries PHL ADM1 unit; given to the nearest, NCR",
+    "PHL: regions: PHL-5558 (Taguig City) lies in no geoBoundaries PHL ADM1 unit; given to the nearest, NCR"
+   ],
+   "levels": {
+    "regions": {
+     "name": "Regions",
+     "units": 17,
+     "smallestKm2": 692,
+     "medianKm2": 18047,
+     "largestKm2": 26726,
+     "samples": 330,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "Provinces and cities",
+     "units": 118,
+     "smallestKm2": 2,
+     "medianKm2": 2072,
+     "largestKm2": 12087,
+     "samples": 330,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "PLW": {
+   "name": "Palau",
+   "presets": {
+    "curated": "country",
+    "detailed": "country",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 16,
+   "policy": "one unit: under 3000 km²",
+   "levels": {
+    "country": {
+     "name": "Whole country",
+     "units": 1,
+     "smallestKm2": 494,
+     "medianKm2": 494,
+     "largestKm2": 494,
+     "samples": 18,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 16,
+     "smallestKm2": 1,
+     "medianKm2": 32,
+     "largestKm2": 72,
+     "samples": 18,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "PNG": {
+   "name": "Papua New Guinea",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 20,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 20,
+     "smallestKm2": 239,
+     "medianKm2": 20676,
+     "largestKm2": 100464,
+     "samples": 120,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "POL": {
+   "name": "Poland",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 16,
+   "levels": {
+    "ne": {
+     "name": "Voivodeships",
+     "units": 16,
+     "smallestKm2": 9169,
+     "medianKm2": 18570,
+     "largestKm2": 34848,
+     "samples": 16,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "PRI": {
+   "name": "Puerto Rico",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 9035,
+     "medianKm2": 9035,
+     "largestKm2": 9035,
+     "samples": 4,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "PRK": {
+   "name": "North Korea",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 11,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 11,
+     "smallestKm2": 744,
+     "medianKm2": 12246,
+     "largestKm2": 18520,
+     "samples": 51,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "PRT": {
+   "name": "Portugal",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 20,
+   "levels": {
+    "ne": {
+     "name": "Districts and autonomous regions",
+     "units": 20,
+     "smallestKm2": 812,
+     "medianKm2": 4965,
+     "largestKm2": 10247,
+     "samples": 42,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "PRY": {
+   "name": "Paraguay",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 18,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 18,
+     "smallestKm2": 165,
+     "medianKm2": 12522,
+     "largestKm2": 88575,
+     "samples": 18,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "PSE": {
+   "name": "Palestine",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 2,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 2,
+     "smallestKm2": 340,
+     "medianKm2": 5739,
+     "largestKm2": 5739,
+     "samples": 2,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "PYF": {
+   "name": "French Polynesia",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 5,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 5,
+     "smallestKm2": 113,
+     "medianKm2": 668,
+     "largestKm2": 1161,
+     "samples": 89,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "QAT": {
+   "name": "Qatar",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 7,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 7,
+     "smallestKm2": 120,
+     "medianKm2": 1014,
+     "largestKm2": 6402,
+     "samples": 8,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "ROU": {
+   "name": "Romania",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 42,
+   "note": "The 41 counties and Bucharest. Each can be selected by development region, and by historical region as the counties approximate them.",
+   "levels": {
+    "ne": {
+     "name": "Counties",
+     "units": 42,
+     "smallestKm2": 284,
+     "medianKm2": 5557,
+     "largestKm2": 8835,
+     "samples": 42,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "RUS": {
+   "name": "Russia",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 86,
+   "levels": {
+    "ne": {
+     "name": "Federal subjects",
+     "units": 86,
+     "smallestKm2": 38,
+     "medianKm2": 71831,
+     "largestKm2": 3053155,
+     "samples": 352,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "RWA": {
+   "name": "Rwanda",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 5,
+   "levels": {
+    "ne": {
+     "name": "Provinces",
+     "units": 5,
+     "smallestKm2": 731,
+     "medianKm2": 5844,
+     "largestKm2": 9503,
+     "samples": 5,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "SAU": {
+   "name": "Saudi Arabia",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 13,
+   "levels": {
+    "ne": {
+     "name": "Regions",
+     "units": 13,
+     "smallestKm2": 10338,
+     "medianKm2": 117671,
+     "largestKm2": 554575,
+     "samples": 26,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "SDN": {
+   "name": "Sudan",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 17,
+   "levels": {
+    "ne": {
+     "name": "States",
+     "units": 17,
+     "smallestKm2": 21183,
+     "medianKm2": 57245,
+     "largestKm2": 363889,
+     "samples": 18,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "SEN": {
+   "name": "Senegal",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 14,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 14,
+     "smallestKm2": 574,
+     "medianKm2": 11065,
+     "largestKm2": 39851,
+     "samples": 16,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "SGP": {
+   "name": "Singapore",
+   "presets": {
+    "curated": "country",
+    "detailed": "country",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 5,
+   "policy": "one unit: under 3000 km²",
+   "levels": {
+    "country": {
+     "name": "Whole country",
+     "units": 1,
+     "smallestKm2": 513,
+     "medianKm2": 513,
+     "largestKm2": 513,
+     "samples": 5,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 5,
+     "smallestKm2": 28,
+     "medianKm2": 96,
+     "largestKm2": 201,
+     "samples": 5,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "SGS": {
+   "name": "South Georgia",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 3941,
+     "medianKm2": 3941,
+     "largestKm2": 3941,
+     "samples": 17,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "SHN": {
+   "name": "Saint Helena, Ascension and Tristan da Cunha",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 3,
+   "note": "Separate island groups, kept apart.",
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 3,
+     "smallestKm2": 89,
+     "medianKm2": 125,
+     "largestKm2": 153,
+     "samples": 4,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "SLB": {
+   "name": "Solomon Islands",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 10,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 10,
+     "smallestKm2": 30,
+     "medianKm2": 3132,
+     "largestKm2": 5338,
+     "samples": 61,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "SLE": {
+   "name": "Sierra Leone",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 4,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 4,
+     "smallestKm2": 653,
+     "medianKm2": 20019,
+     "largestKm2": 35908,
+     "samples": 5,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "SLV": {
+   "name": "El Salvador",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 14,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 14,
+     "smallestKm2": 761,
+     "medianKm2": 1308,
+     "largestKm2": 2112,
+     "samples": 16,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "SMR": {
+   "name": "San Marino",
+   "presets": {
+    "curated": "country",
+    "detailed": "country",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 9,
+   "policy": "one unit: under 3000 km²",
+   "levels": {
+    "country": {
+     "name": "Whole country",
+     "units": 1,
+     "smallestKm2": 60,
+     "medianKm2": 60,
+     "largestKm2": 60,
+     "samples": 9,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 9,
+     "smallestKm2": 2,
+     "medianKm2": 7,
+     "largestKm2": 12,
+     "samples": 9,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "SOM": {
+   "name": "Somalia",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 13,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 13,
+     "smallestKm2": 204,
+     "medianKm2": 34632,
+     "largestKm2": 70404,
+     "samples": 15,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "SPM": {
+   "name": "Saint Pierre and Miquelon",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 2,
+   "note": "Separate island groups, kept apart.",
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 2,
+     "smallestKm2": 30,
+     "medianKm2": 212,
+     "largestKm2": 212,
+     "samples": 2,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "SRB": {
+   "name": "Serbia",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 25,
+   "levels": {
+    "ne": {
+     "name": "Districts",
+     "units": 25,
+     "smallestKm2": 1390,
+     "medianKm2": 3047,
+     "largestKm2": 6121,
+     "samples": 25,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "SSD": {
+   "name": "South Sudan",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 10,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 10,
+     "smallestKm2": 34828,
+     "medianKm2": 68037,
+     "largestKm2": 121417,
+     "samples": 10,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "STP": {
+   "name": "São Tomé and Príncipe",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 2,
+   "note": "Separate island groups, kept apart.",
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 2,
+     "smallestKm2": 157,
+     "medianKm2": 885,
+     "largestKm2": 885,
+     "samples": 2,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "SUR": {
+   "name": "Suriname",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 10,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 10,
+     "smallestKm2": 147,
+     "medianKm2": 4618,
+     "largestKm2": 112058,
+     "samples": 11,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "SVK": {
+   "name": "Slovakia",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 8,
+   "levels": {
+    "ne": {
+     "name": "Regions",
+     "units": 8,
+     "smallestKm2": 2089,
+     "medianKm2": 6614,
+     "largestKm2": 9401,
+     "samples": 8,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "SVN": {
+   "name": "Slovenia",
+   "presets": {
+    "curated": "regions",
+    "detailed": "regions",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 193,
+   "note": "Natural Earth draws Slovenia’s 193 municipalities, which average 100 km². The 12 statistical regions (NUTS 3) are the division Slovenia itself reports by.",
+   "levels": {
+    "regions": {
+     "name": "Statistical regions",
+     "units": 12,
+     "smallestKm2": 268,
+     "medianKm2": 2008,
+     "largestKm2": 2718,
+     "samples": 193,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "Municipalities",
+     "units": 193,
+     "smallestKm2": 3,
+     "medianKm2": 75,
+     "largestKm2": 589,
+     "samples": 193,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "SWE": {
+   "name": "Sweden",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 21,
+   "levels": {
+    "ne": {
+     "name": "Counties",
+     "units": 21,
+     "smallestKm2": 3041,
+     "medianKm2": 11140,
+     "largestKm2": 104310,
+     "samples": 258,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "SWZ": {
+   "name": "Eswatini",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 4,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 4,
+     "smallestKm2": 3582,
+     "medianKm2": 4237,
+     "largestKm2": 5479,
+     "samples": 4,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "SXM": {
+   "name": "Sint Maarten",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 23,
+     "medianKm2": 23,
+     "largestKm2": 23,
+     "samples": 1,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "SYC": {
+   "name": "Seychelles",
+   "presets": {
+    "curated": "country",
+    "detailed": "country",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 26,
+   "policy": "one unit: under 3000 km²",
+   "levels": {
+    "country": {
+     "name": "Whole country",
+     "units": 1,
+     "smallestKm2": 439,
+     "medianKm2": 439,
+     "largestKm2": 439,
+     "samples": 51,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 26,
+     "smallestKm2": 1,
+     "medianKm2": 8,
+     "largestKm2": 180,
+     "samples": 51,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "SYR": {
+   "name": "Syria",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 15,
+   "levels": {
+    "ne": {
+     "name": "Governorates",
+     "units": 15,
+     "smallestKm2": 116,
+     "medianKm2": 6634,
+     "largestKm2": 50109,
+     "samples": 15,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "TCA": {
+   "name": "Turks and Caicos Islands",
+   "presets": {
+    "curated": "country",
+    "detailed": "country",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 6,
+   "policy": "one unit: under 3000 km²",
+   "levels": {
+    "country": {
+     "name": "Whole country",
+     "units": 1,
+     "smallestKm2": 446,
+     "medianKm2": 446,
+     "largestKm2": 446,
+     "samples": 12,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 6,
+     "smallestKm2": 5,
+     "medianKm2": 98,
+     "largestKm2": 135,
+     "samples": 12,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "TCD": {
+   "name": "Chad",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 22,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 22,
+     "smallestKm2": 120,
+     "medianKm2": 41981,
+     "largestKm2": 249294,
+     "samples": 22,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "TGO": {
+   "name": "Togo",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 5,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 5,
+     "smallestKm2": 6208,
+     "medianKm2": 11636,
+     "largestKm2": 17286,
+     "samples": 5,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "THA": {
+   "name": "Thailand",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 77,
+   "levels": {
+    "ne": {
+     "name": "Provinces",
+     "units": 77,
+     "smallestKm2": 416,
+     "medianKm2": 5741,
+     "largestKm2": 22830,
+     "samples": 107,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "TJK": {
+   "name": "Tajikistan",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 5,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 5,
+     "smallestKm2": 136,
+     "medianKm2": 25819,
+     "largestKm2": 63509,
+     "samples": 7,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "TKM": {
+   "name": "Turkmenistan",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 5,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 5,
+     "smallestKm2": 73083,
+     "medianKm2": 93208,
+     "largestKm2": 118493,
+     "samples": 7,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "TLS": {
+   "name": "Timor-Leste",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 13,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 13,
+     "smallestKm2": 403,
+     "medianKm2": 1270,
+     "largestKm2": 1897,
+     "samples": 14,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "TON": {
+   "name": "Tonga",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 5,
+   "note": "Separate island groups, kept apart.",
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 5,
+     "smallestKm2": 57,
+     "medianKm2": 106,
+     "largestKm2": 260,
+     "samples": 15,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "TTO": {
+   "name": "Trinidad and Tobago",
+   "presets": {
+    "curated": "islands",
+    "detailed": "islands",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 16,
+   "note": "Trinidad and Tobago as its two islands.",
+   "levels": {
+    "islands": {
+     "name": "Islands",
+     "units": 2,
+     "smallestKm2": 292,
+     "medianKm2": 4860,
+     "largestKm2": 4860,
+     "samples": 18,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "Regional corporations and municipalities",
+     "units": 16,
+     "smallestKm2": 10,
+     "medianKm2": 215,
+     "largestKm2": 903,
+     "samples": 18,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "TUN": {
+   "name": "Tunisia",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 23,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 23,
+     "smallestKm2": 279,
+     "medianKm2": 4539,
+     "largestKm2": 39739,
+     "samples": 28,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "TUR": {
+   "name": "Türkiye",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 81,
+   "levels": {
+    "ne": {
+     "name": "Provinces",
+     "units": 81,
+     "smallestKm2": 687,
+     "medianKm2": 7823,
+     "largestKm2": 40237,
+     "samples": 101,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "TUV": {
+   "name": "Tuvalu",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 24,
+     "medianKm2": 24,
+     "largestKm2": 24,
+     "samples": 12,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "TWN": {
+   "name": "Taiwan",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 21,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 21,
+     "smallestKm2": 77,
+     "medianKm2": 1869,
+     "largestKm2": 4512,
+     "samples": 54,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "TZA": {
+   "name": "Tanzania",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 30,
+   "levels": {
+    "ne": {
+     "name": "Regions",
+     "units": 30,
+     "smallestKm2": 249,
+     "medianKm2": 28680,
+     "largestKm2": 77001,
+     "samples": 36,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "UGA": {
+   "name": "Uganda",
+   "presets": {
+    "curated": "regions",
+    "detailed": "regions",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 112,
+   "note": "The four regions instead of 112 districts.",
+   "levels": {
+    "regions": {
+     "name": "Regions",
+     "units": 4,
+     "smallestKm2": 39015,
+     "medianKm2": 61833,
+     "largestKm2": 85791,
+     "samples": 112,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "Districts",
+     "units": 112,
+     "smallestKm2": 204,
+     "medianKm2": 1682,
+     "largestKm2": 8897,
+     "samples": 112,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "UKR": {
+   "name": "Ukraine",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 25,
+   "levels": {
+    "ne": {
+     "name": "Oblasts",
+     "units": 25,
+     "smallestKm2": 1636,
+     "medianKm2": 24411,
+     "largestKm2": 33084,
+     "samples": 30,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "UMI": {
+   "name": "United States Minor Outlying Islands",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 8,
+   "note": "Separate island groups, kept apart.",
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 8,
+     "smallestKm2": 0,
+     "medianKm2": 4,
+     "largestKm2": 7,
+     "samples": 12,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "URY": {
+   "name": "Uruguay",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 19,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 19,
+     "smallestKm2": 540,
+     "medianKm2": 9596,
+     "largestKm2": 15957,
+     "samples": 19,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "USA": {
+   "name": "United States",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 51,
+   "levels": {
+    "ne": {
+     "name": "States",
+     "units": 51,
+     "smallestKm2": 162,
+     "medianKm2": 145225,
+     "largestKm2": 1496211,
+     "samples": 575,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "UZB": {
+   "name": "Uzbekistan",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 14,
+   "levels": {
+    "ne": {
+     "name": "Regions",
+     "units": 14,
+     "smallestKm2": 242,
+     "medianKm2": 16495,
+     "largestKm2": 164993,
+     "samples": 17,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "VAT": {
+   "name": "Vatican City",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 0,
+     "medianKm2": 0,
+     "largestKm2": 0,
+     "samples": 1,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "VCT": {
+   "name": "Saint Vincent and the Grenadines",
+   "presets": {
+    "curated": "country",
+    "detailed": "country",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 6,
+   "policy": "one unit: under 3000 km²",
+   "levels": {
+    "country": {
+     "name": "Whole country",
+     "units": 1,
+     "smallestKm2": 374,
+     "medianKm2": 374,
+     "largestKm2": 374,
+     "samples": 12,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 6,
+     "smallestKm2": 34,
+     "medianKm2": 56,
+     "largestKm2": 103,
+     "samples": 12,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "VEN": {
+   "name": "Venezuela",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 26,
+   "levels": {
+    "ne": {
+     "name": "States",
+     "units": 26,
+     "smallestKm2": 1,
+     "medianKm2": 13916,
+     "largestKm2": 252290,
+     "samples": 86,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "VGB": {
+   "name": "British Virgin Islands",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 145,
+     "medianKm2": 145,
+     "largestKm2": 145,
+     "samples": 6,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "VIR": {
+   "name": "United States Virgin Islands",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 3,
+   "note": "Separate island groups, kept apart.",
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 3,
+     "smallestKm2": 60,
+     "medianKm2": 86,
+     "largestKm2": 214,
+     "samples": 5,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "VNM": {
+   "name": "Vietnam",
+   "presets": {
+    "curated": "provinces",
+    "detailed": "provinces",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 63,
+   "note": "The 34 provincial units in force since 1 July 2025 (Resolution 202/2025/QH15): 23 formed by merging whole provinces, 11 unchanged. Maximum shows the 63 before it.",
+   "levels": {
+    "provinces": {
+     "name": "Provinces (2025)",
+     "units": 34,
+     "smallestKm2": 2480,
+     "medianKm2": 8230,
+     "largestKm2": 24063,
+     "samples": 126,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "Provinces (until 2025)",
+     "units": 63,
+     "smallestKm2": 726,
+     "medianKm2": 4618,
+     "largestKm2": 17100,
+     "samples": 126,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "VUT": {
+   "name": "Vanuatu",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 6,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 6,
+     "smallestKm2": 815,
+     "medianKm2": 1632,
+     "largestKm2": 4343,
+     "samples": 27,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "WLF": {
+   "name": "Wallis and Futuna",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 3,
+   "note": "Separate island groups, kept apart.",
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 3,
+     "smallestKm2": 34,
+     "medianKm2": 60,
+     "largestKm2": 76,
+     "samples": 4,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "WSM": {
+   "name": "Samoa",
+   "presets": {
+    "curated": "country",
+    "detailed": "country",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 11,
+   "policy": "one unit: under 3000 km²",
+   "levels": {
+    "country": {
+     "name": "Whole country",
+     "units": 1,
+     "smallestKm2": 2791,
+     "medianKm2": 2791,
+     "largestKm2": 2791,
+     "samples": 17,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 11,
+     "smallestKm2": 49,
+     "medianKm2": 255,
+     "largestKm2": 517,
+     "samples": 17,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "XAK": {
+   "name": "Akrotiri",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 99,
+     "medianKm2": 99,
+     "largestKm2": 99,
+     "samples": 1,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "XBK": {
+   "name": "Baikonur",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 6486,
+     "medianKm2": 6486,
+     "largestKm2": 6486,
+     "samples": 1,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "XCP": {
+   "name": "Clipperton I.",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 5,
+     "medianKm2": 5,
+     "largestKm2": 5,
+     "samples": 1,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "XCS": {
+   "name": "Coral Sea Is.",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 1,
+     "medianKm2": 1,
+     "largestKm2": 1,
+     "samples": 21,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "XDH": {
+   "name": "Dhekelia",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 127,
+     "medianKm2": 127,
+     "largestKm2": 127,
+     "samples": 1,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "XGB": {
+   "name": "Guantanamo Bay",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 66,
+     "medianKm2": 66,
+     "largestKm2": 66,
+     "samples": 2,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "XIO": {
+   "name": "Indian Ocean Ter.",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 2,
+   "note": "Separate island groups, kept apart.",
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 2,
+     "smallestKm2": 13,
+     "medianKm2": 99,
+     "largestKm2": 99,
+     "samples": 3,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "XKX": {
+   "name": "Kosovo",
+   "presets": {
+    "curated": "districts",
+    "detailed": "districts",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 30,
+   "note": "The seven districts instead of 30 municipalities.",
+   "levels": {
+    "districts": {
+     "name": "Districts",
+     "units": 7,
+     "smallestKm2": 997,
+     "medianKm2": 1403,
+     "largestKm2": 2104,
+     "samples": 30,
+     "gaps": 0,
+     "overlaps": 0
+    },
+    "ne": {
+     "name": "Municipalities",
+     "units": 30,
+     "smallestKm2": 84,
+     "medianKm2": 348,
+     "largestKm2": 607,
+     "samples": 30,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "XNC": {
+   "name": "Northern Cyprus",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 3320,
+     "medianKm2": 3320,
+     "largestKm2": 3320,
+     "samples": 2,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "XSI": {
+   "name": "Siachen Glacier",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 2086,
+     "medianKm2": 2086,
+     "largestKm2": 2086,
+     "samples": 1,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "XSO": {
+   "name": "Somaliland",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 168094,
+     "medianKm2": 168094,
+     "largestKm2": 168094,
+     "samples": 1,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "XSP": {
+   "name": "Spratly Is.",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 1,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 1,
+     "smallestKm2": 12,
+     "medianKm2": 12,
+     "largestKm2": 12,
+     "samples": 12,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "YEM": {
+   "name": "Yemen",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 21,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 21,
+     "smallestKm2": 393,
+     "medianKm2": 10435,
+     "largestKm2": 168406,
+     "samples": 31,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "ZAF": {
+   "name": "South Africa",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 9,
+   "levels": {
+    "ne": {
+     "name": "Provinces",
+     "units": 9,
+     "smallestKm2": 18248,
+     "medianKm2": 125957,
+     "largestKm2": 373042,
+     "samples": 11,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "ZMB": {
+   "name": "Zambia",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 10,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 10,
+     "smallestKm2": 21825,
+     "medianKm2": 85300,
+     "largestKm2": 129206,
+     "samples": 10,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  },
+  "ZWE": {
+   "name": "Zimbabwe",
+   "presets": {
+    "curated": "ne",
+    "detailed": "ne",
+    "maximum": "ne"
+   },
+   "naturalEarthUnits": 10,
+   "levels": {
+    "ne": {
+     "name": "First-level subdivisions",
+     "units": 10,
+     "smallestKm2": 459,
+     "medianKm2": 49141,
+     "largestKm2": 76369,
+     "samples": 10,
+     "gaps": 0,
+     "overlaps": 0
+    }
+   }
+  }
+ },
+ "problems": [
+  "curated: 4 arcs drawn as coast that are not (lostBorder 0, 0 km; internalAsCoast 1, 0 km; newLine 3, 2.9 km) in PHL, KEN",
+  "detailed: 8 arcs drawn as coast that are not (lostBorder 0, 0 km; internalAsCoast 1, 0 km; newLine 7, 6.8 km) in PHL, DEU, FRA, KEN",
+  "maximum: 7 arcs drawn as coast that are not (lostBorder 0, 0 km; internalAsCoast 0, 0 km; newLine 7, 6.8 km) in DEU, FRA, KEN"
+ ],
+ "noding": {
+  "created": 17575,
+  "snapped": 4388,
+  "placed": 14054,
+  "inserted": 87434,
+  "joined": 31
+ },
+ "composition": {
+  "curated": {
+   "lostBorder": {
+    "arcs": 0,
+    "km": 0,
+    "countries": {},
+    "samples": []
+   },
+   "internalAsCoast": {
+    "arcs": 1,
+    "km": 0,
+    "countries": {
+     "PHL": 1
+    },
+    "samples": [
+     {
+      "country": "PHL",
+      "from": [
+       124.3702,
+       6.1326
+      ]
+     }
+    ]
+   },
+   "newLine": {
+    "arcs": 3,
+    "km": 2.9,
+    "countries": {
+     "KEN": 3
+    },
+    "samples": [
+     {
+      "country": "KEN",
+      "from": [
+       39.6146,
+       -3.9594
+      ]
+     },
+     {
+      "country": "KEN",
+      "from": [
+       39.5768,
+       -4.1194
+      ]
+     },
+     {
+      "country": "KEN",
+      "from": [
+       39.5786,
+       -4.1193
+      ]
+     }
+    ]
+   },
+   "coastFromUnion": {
+    "arcs": 0,
+    "km": 0,
+    "countries": {},
+    "samples": []
+   },
+   "nationalArcsReplaced": 0,
+   "longestFaults": [
+    {
+     "kind": "newLine",
+     "country": "KEN",
+     "km": 1.86,
+     "from": [
+      39.5768,
+      -4.1194
+     ],
+     "to": [
+      39.5786,
+      -4.1193
+     ],
+     "points": 7
+    },
+    {
+     "kind": "newLine",
+     "country": "KEN",
+     "km": 0.87,
+     "from": [
+      39.6146,
+      -3.9594
+     ],
+     "to": [
+      39.6146,
+      -3.9594
+     ],
+     "points": 4
+    },
+    {
+     "kind": "newLine",
+     "country": "KEN",
+     "km": 0.2,
+     "from": [
+      39.5786,
+      -4.1193
+     ],
+     "to": [
+      39.5768,
+      -4.1194
+     ],
+     "points": 2
+    },
+    {
+     "kind": "internalAsCoast",
+     "country": "PHL",
+     "km": 0.02,
+     "from": [
+      124.3702,
+      6.1326
+     ],
+     "to": [
+      124.3702,
+      6.1328
+     ],
+     "points": 2
+    }
+   ]
+  },
+  "detailed": {
+   "lostBorder": {
+    "arcs": 0,
+    "km": 0,
+    "countries": {},
+    "samples": []
+   },
+   "internalAsCoast": {
+    "arcs": 1,
+    "km": 0,
+    "countries": {
+     "PHL": 1
+    },
+    "samples": [
+     {
+      "country": "PHL",
+      "from": [
+       124.3702,
+       6.1326
+      ]
+     }
+    ]
+   },
+   "newLine": {
+    "arcs": 7,
+    "km": 6.8,
+    "countries": {
+     "DEU": 1,
+     "FRA": 3,
+     "KEN": 3
+    },
+    "samples": [
+     {
+      "country": "DEU",
+      "from": [
+       12.219,
+       52.8609
+      ]
+     },
+     {
+      "country": "FRA",
+      "from": [
+       -0.2277,
+       49.2833
+      ]
+     },
+     {
+      "country": "FRA",
+      "from": [
+       -1.1947,
+       45.8301
+      ]
+     },
+     {
+      "country": "FRA",
+      "from": [
+       -1.9154,
+       46.9829
+      ]
+     },
+     {
+      "country": "KEN",
+      "from": [
+       39.6146,
+       -3.9594
+      ]
+     },
+     {
+      "country": "KEN",
+      "from": [
+       39.5768,
+       -4.1194
+      ]
+     },
+     {
+      "country": "KEN",
+      "from": [
+       39.5786,
+       -4.1193
+      ]
+     }
+    ]
+   },
+   "coastFromUnion": {
+    "arcs": 0,
+    "km": 0,
+    "countries": {},
+    "samples": []
+   },
+   "nationalArcsReplaced": 5,
+   "longestFaults": [
+    {
+     "kind": "newLine",
+     "country": "FRA",
+     "km": 2.1,
+     "from": [
+      -1.1947,
+      45.8301
+     ],
+     "to": [
+      -1.2091,
+      45.8141
+     ],
+     "points": 3
+    },
+    {
+     "kind": "newLine",
+     "country": "KEN",
+     "km": 1.86,
+     "from": [
+      39.5768,
+      -4.1194
+     ],
+     "to": [
+      39.5786,
+      -4.1193
+     ],
+     "points": 7
+    },
+    {
+     "kind": "newLine",
+     "country": "DEU",
+     "km": 1.12,
+     "from": [
+      12.219,
+      52.8609
+     ],
+     "to": [
+      12.219,
+      52.8609
+     ],
+     "points": 6
+    },
+    {
+     "kind": "newLine",
+     "country": "KEN",
+     "km": 0.87,
+     "from": [
+      39.6146,
+      -3.9594
+     ],
+     "to": [
+      39.6146,
+      -3.9594
+     ],
+     "points": 4
+    },
+    {
+     "kind": "newLine",
+     "country": "FRA",
+     "km": 0.64,
+     "from": [
+      -0.2277,
+      49.2833
+     ],
+     "to": [
+      -0.2284,
+      49.2837
+     ],
+     "points": 3
+    },
+    {
+     "kind": "newLine",
+     "country": "KEN",
+     "km": 0.2,
+     "from": [
+      39.5786,
+      -4.1193
+     ],
+     "to": [
+      39.5768,
+      -4.1194
+     ],
+     "points": 2
+    },
+    {
+     "kind": "internalAsCoast",
+     "country": "PHL",
+     "km": 0.02,
+     "from": [
+      124.3702,
+      6.1326
+     ],
+     "to": [
+      124.3702,
+      6.1328
+     ],
+     "points": 2
+    },
+    {
+     "kind": "newLine",
+     "country": "FRA",
+     "km": 0,
+     "from": [
+      -1.9154,
+      46.9829
+     ],
+     "to": [
+      -1.9154,
+      46.9829
+     ],
+     "points": 2
+    }
+   ]
+  },
+  "maximum": {
+   "lostBorder": {
+    "arcs": 0,
+    "km": 0,
+    "countries": {},
+    "samples": []
+   },
+   "internalAsCoast": {
+    "arcs": 0,
+    "km": 0,
+    "countries": {},
+    "samples": []
+   },
+   "newLine": {
+    "arcs": 7,
+    "km": 6.8,
+    "countries": {
+     "DEU": 1,
+     "FRA": 3,
+     "KEN": 3
+    },
+    "samples": [
+     {
+      "country": "DEU",
+      "from": [
+       12.219,
+       52.8609
+      ]
+     },
+     {
+      "country": "FRA",
+      "from": [
+       -0.2277,
+       49.2833
+      ]
+     },
+     {
+      "country": "FRA",
+      "from": [
+       -1.1947,
+       45.8301
+      ]
+     },
+     {
+      "country": "FRA",
+      "from": [
+       -1.9154,
+       46.9829
+      ]
+     },
+     {
+      "country": "KEN",
+      "from": [
+       39.6146,
+       -3.9594
+      ]
+     },
+     {
+      "country": "KEN",
+      "from": [
+       39.5768,
+       -4.1194
+      ]
+     },
+     {
+      "country": "KEN",
+      "from": [
+       39.5786,
+       -4.1193
+      ]
+     }
+    ]
+   },
+   "coastFromUnion": {
+    "arcs": 0,
+    "km": 0,
+    "countries": {},
+    "samples": []
+   },
+   "nationalArcsReplaced": 5,
+   "longestFaults": [
+    {
+     "kind": "newLine",
+     "country": "FRA",
+     "km": 2.1,
+     "from": [
+      -1.1947,
+      45.8301
+     ],
+     "to": [
+      -1.2091,
+      45.8141
+     ],
+     "points": 3
+    },
+    {
+     "kind": "newLine",
+     "country": "KEN",
+     "km": 1.86,
+     "from": [
+      39.5768,
+      -4.1194
+     ],
+     "to": [
+      39.5786,
+      -4.1193
+     ],
+     "points": 7
+    },
+    {
+     "kind": "newLine",
+     "country": "DEU",
+     "km": 1.12,
+     "from": [
+      12.219,
+      52.8609
+     ],
+     "to": [
+      12.219,
+      52.8609
+     ],
+     "points": 6
+    },
+    {
+     "kind": "newLine",
+     "country": "KEN",
+     "km": 0.87,
+     "from": [
+      39.6146,
+      -3.9594
+     ],
+     "to": [
+      39.6146,
+      -3.9594
+     ],
+     "points": 4
+    },
+    {
+     "kind": "newLine",
+     "country": "FRA",
+     "km": 0.64,
+     "from": [
+      -0.2277,
+      49.2833
+     ],
+     "to": [
+      -0.2284,
+      49.2837
+     ],
+     "points": 3
+    },
+    {
+     "kind": "newLine",
+     "country": "KEN",
+     "km": 0.2,
+     "from": [
+      39.5786,
+      -4.1193
+     ],
+     "to": [
+      39.5768,
+      -4.1194
+     ],
+     "points": 2
+    },
+    {
+     "kind": "newLine",
+     "country": "FRA",
+     "km": 0,
+     "from": [
+      -1.9154,
+      46.9829
+     ],
+     "to": [
+      -1.9154,
+      46.9829
+     ],
+     "points": 2
+    }
+   ]
+  }
+ },
+ "totals": {
+  "curated": 3152,
+  "detailed": 4029,
+  "maximum": 5256
+ },
+ "outputs": {
+  "base.json": "8.65 MB",
+  "base-meta.json": "1.58 MB",
+  "AIA.ne.json": "0.01 MB",
+  "ALA.ne.json": "0.01 MB",
+  "AND.ne.json": "0.00 MB",
+  "ATG.ne.json": "0.01 MB",
+  "AUS.ne.json": "0.01 MB",
+  "AZE.ne.json": "0.06 MB",
+  "BEL.arrondissements.json": "0.06 MB",
+  "BFA.ne.json": "0.04 MB",
+  "BHR.ne.json": "0.00 MB",
+  "BHS.ne.json": "0.02 MB",
+  "BMU.ne.json": "0.01 MB",
+  "BRB.ne.json": "0.01 MB",
+  "COK.ne.json": "0.01 MB",
+  "CPV.ne.json": "0.02 MB",
+  "CZE.okresy.json": "0.11 MB",
+  "DEU.kreise.json": "0.74 MB",
+  "DMA.ne.json": "0.01 MB",
+  "FRA.arrondissements.json": "0.56 MB",
+  "GBR.counties.json": "0.16 MB",
+  "GBR.ne.json": "0.22 MB",
+  "GIN.ne.json": "0.03 MB",
+  "GRD.ne.json": "0.00 MB",
+  "HKG.ne.json": "0.01 MB",
+  "HUN.ne.json": "0.04 MB",
+  "IRL.ne.json": "0.02 MB",
+  "JAM.ne.json": "0.01 MB",
+  "KNA.ne.json": "0.01 MB",
+  "LCA.ne.json": "0.01 MB",
+  "LIE.ne.json": "0.01 MB",
+  "LKA.ne.json": "0.02 MB",
+  "LUX.ne.json": "0.00 MB",
+  "LVA.municipalities.json": "0.14 MB",
+  "MDA.ne.json": "0.03 MB",
+  "MDV.ne.json": "0.01 MB",
+  "MKD.ne.json": "0.08 MB",
+  "MLT.ne.json": "0.05 MB",
+  "MNE.ne.json": "0.02 MB",
+  "MSR.ne.json": "0.00 MB",
+  "MUS.ne.json": "0.01 MB",
+  "MWI.ne.json": "0.03 MB",
+  "NRU.ne.json": "0.01 MB",
+  "PAK.ne.json": "0.01 MB",
+  "PHL.ne.json": "0.09 MB",
+  "PLW.ne.json": "0.01 MB",
+  "SGP.ne.json": "0.00 MB",
+  "SMR.ne.json": "0.01 MB",
+  "SVN.ne.json": "0.16 MB",
+  "SYC.ne.json": "0.02 MB",
+  "TCA.ne.json": "0.00 MB",
+  "TTO.ne.json": "0.01 MB",
+  "UGA.ne.json": "0.09 MB",
+  "VCT.ne.json": "0.00 MB",
+  "VNM.ne.json": "0.05 MB",
+  "WSM.ne.json": "0.01 MB",
+  "XKX.ne.json": "0.02 MB",
+  "index.json": "0.07 MB"
+ }
+}

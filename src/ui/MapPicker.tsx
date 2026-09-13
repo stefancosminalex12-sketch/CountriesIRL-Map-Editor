@@ -39,10 +39,14 @@ export function MapPicker() {
             >
               <span className="map-list__name">{atlas.name}</span>
               <span className="map-list__note">
-                {atlas.noun.many.replace(/^./, (c) => c.toUpperCase())}
-                {atlas.insets.length > 0
-                  ? ` · ${atlas.insets.map((i) => i.name).join(' and ')} inset`
-                  : ''}
+                {atlas.note ?? (
+                  <>
+                    {atlas.noun.many.replace(/^./, (c) => c.toUpperCase())}
+                    {atlas.insets.length > 0
+                      ? ` · ${atlas.insets.map((i) => i.name).join(' and ')} inset`
+                      : ''}
+                  </>
+                )}
               </span>
             </button>
           )

@@ -20,9 +20,11 @@
  * written against `US-CA` can never be mistaken for one written against a country.
  */
 import type { GeoDataset } from '../geo/datasets'
+import { USGS_LAKES } from '../geo/lakes'
+import { USGS_RIVERS } from '../geo/rivers'
 import type { RegionId } from '../types/map'
 
-export type AtlasId = 'world' | 'admin-world' | 'usa-states'
+export type AtlasId = 'world' | 'admin-world' | 'usa-states' | 'usa-official'
 
 /**
  * Geography drawn away from where it actually is.
@@ -46,6 +48,12 @@ export interface MapInset {
   name: string
   /** The entities drawn here instead of in the main projection. */
   members: string[]
+  /**
+   * Parents whose every entity is drawn here, and the parents themselves: `state-02` puts
+   * Alaska, its boroughs and its county subdivisions in the Alaska inset at whichever level
+   * is loaded. Resolved against the loaded dataset (`buildInsets`).
+   */
+  parents?: string[]
   /**
    * The inset's own conic, as `[lambda, phi]` rotation and standard parallels.
    *
@@ -100,6 +108,13 @@ export interface Atlas {
   noun: { one: string; many: string }
   datasets: GeoDataset[]
   defaultDatasetId: string
+  /** What the dataset picker is called on this map: "Dataset", or "Detail". */
+  datasetLabel?: string
+  /**
+   * The line under the map's name in the Maps list, when the one made from its noun and
+   * insets would not read well — five insets joined by "and" is a sentence, not a caption.
+   */
+  note?: string
   /** The regions this atlas offers, as ids into the region registry. */
   regionIds: RegionId[]
   defaultRegionIds: RegionId[]
@@ -127,7 +142,8 @@ const WORLD_DATASETS: GeoDataset[] = [
     url: 'geo/countries-110m.json',
     objectName: 'countries',
     metaUrl: 'geo/country-meta.json',
-    identify: 'iso-country',
+    // Built by `build-geography.mjs`, which stamps each country with its entity id.
+    identify: 'feature-id',
   },
   {
     id: 'modern-50m',
@@ -139,7 +155,8 @@ const WORLD_DATASETS: GeoDataset[] = [
     url: 'geo/countries-50m.json',
     objectName: 'countries',
     metaUrl: 'geo/country-meta.json',
-    identify: 'iso-country',
+    // Built by `build-geography.mjs`, which stamps each country with its entity id.
+    identify: 'feature-id',
   },
   {
     id: 'modern-10m',
@@ -151,32 +168,67 @@ const WORLD_DATASETS: GeoDataset[] = [
     url: 'geo/countries-10m.json',
     objectName: 'countries',
     metaUrl: 'geo/country-meta.json',
-    identify: 'iso-country',
+    // Built by `build-geography.mjs`, which stamps each country with its entity id.
+    identify: 'feature-id',
   },
 ]
 
 /**
- * The modern world by first-level subdivision: states, provinces, regions, territories.
+ * The modern world by region: each country drawn at the level of subdivision that suits it.
  *
- * Natural Earth's 10m admin-1 layer, built by `scripts/fetch-admin1.mjs` into one topology
- * on the country map's own quantisation grid, so a subdivision is drawn at exactly the
- * country map's detail and every boundary two subdivisions share is one arc. Its entity
- * table (see `prepare-data.mjs`) names each subdivision's parent country, which is what
- * the national-border layer and the regions read.
+ * Not one administrative level everywhere — Slovenia's 193 municipalities and Germany's 16
+ * Länder are both "admin-1", and a map drawn with both is fragmented in one place and coarse
+ * in the other. Which level each country uses is decided country by country in
+ * `scripts/admin/countries.mjs`, from Natural Earth's admin-1 layer (whose coast, islands and
+ * borders are the World map's own) and, where that layer is too coarse or out of date, the
+ * official finer division from geoBoundaries cut into Natural Earth's outline. See
+ * `scripts/admin/build-admin.mjs`.
+ *
+ * Three levels of detail, three datasets over one base: "Curated Default" is the table's
+ * choice for every country; "More Detailed" and "Maximum Available Detail" swap in a finer
+ * level for the countries that have one, as fragments loaded on demand (`composition.ts`).
+ * A unit whose land is the same at two levels has the same id at both, so a value given to
+ * a French department survives switching level; one that exists only at another level waits
+ * in the document until that level is shown again.
  */
+const ADMIN_BASE = {
+  atlasId: 'admin-world',
+  name: 'Modern administrative world',
+  era: 'modern',
+  year: null,
+  detail: '10m',
+  url: 'geo/admin/base.json',
+  objectName: 'provinces',
+  metaUrl: 'geo/admin/base-meta.json',
+  // The build stamps every unit with its id.
+  identify: 'feature-id',
+  progressive: true,
+} as const
+
 const ADMIN_DATASETS: GeoDataset[] = [
   {
-    id: 'admin1-10m',
-    atlasId: 'admin-world',
-    name: 'Modern administrative world',
-    era: 'modern',
-    year: null,
-    detail: '10m',
-    url: 'geo/admin1-10m.json',
-    objectName: 'provinces',
-    metaUrl: 'geo/admin1-meta.json',
-    // Natural Earth's `adm1_code` is on every feature, unique, and is the entity id.
-    identify: 'feature-id',
+    ...ADMIN_BASE,
+    id: 'admin-curated',
+    label: 'Curated Default',
+    description:
+      'A level chosen for each country: counties in Romania, departments in France, regions in Slovenia.',
+    compose: { index: 'geo/admin/index.json', preset: 'curated' },
+  },
+  {
+    ...ADMIN_BASE,
+    id: 'admin-detailed',
+    label: 'More Detailed',
+    description:
+      'A finer official level where one is useful: Germany’s districts, France’s arrondissements, UK counties.',
+    compose: { index: 'geo/admin/index.json', preset: 'detailed' },
+  },
+  {
+    ...ADMIN_BASE,
+    id: 'admin-maximum',
+    label: 'Maximum Available Detail',
+    description:
+      'The finest level available and practical for each country — municipalities and local councils included.',
+    compose: { index: 'geo/admin/index.json', preset: 'maximum' },
   },
 ]
 
@@ -197,6 +249,67 @@ const USA_DATASETS: GeoDataset[] = [
   },
 ]
 
+/**
+ * The United States from official U.S. government data, at three levels.
+ *
+ * Separate from the USA States map, which stays Natural Earth's and unchanged. Built by
+ * `scripts/usa/build-usa.mjs` from the Census Bureau's 2024 cartographic boundary files
+ * (1:500,000) — states and state-equivalents, counties and county-equivalents, county
+ * subdivisions — with USGS 1:1,000,000 hydrography for the lakes and rivers drawn over them.
+ * Each level is its own topology and entity table, loaded only when it is chosen; each unit
+ * is identified by its Census GEOID and names its state as its parent, so state lines are
+ * the heavier border network at the county and subdivision levels.
+ */
+const USA_OFFICIAL_BASE = {
+  atlasId: 'usa-official',
+  name: 'Official USA administrative map',
+  era: 'modern',
+  year: 2024,
+  detail: '10m',
+  objectName: 'units',
+  // The build stamps every unit with its GEOID-based id.
+  identify: 'feature-id',
+  water: { lakes: USGS_LAKES, rivers: USGS_RIVERS },
+} as const
+
+const USA_OFFICIAL_DATASETS: GeoDataset[] = [
+  {
+    ...USA_OFFICIAL_BASE,
+    id: 'usa-official-states',
+    label: 'States',
+    description:
+      'The 50 states, the District of Columbia, and Puerto Rico, Guam, the Northern Mariana Islands, American Samoa and the U.S. Virgin Islands.',
+    noun: { one: 'state', many: 'states' },
+    url: 'geo/usa-official/states.json',
+    metaUrl: 'geo/usa-official/states-meta.json',
+    detailsUrl: 'geo/usa-official/states-details.json',
+  },
+  {
+    ...USA_OFFICIAL_BASE,
+    id: 'usa-official-counties',
+    label: 'Counties',
+    description:
+      'Counties and county-equivalents: parishes, boroughs and census areas, independent cities, municipios, Connecticut’s planning regions.',
+    noun: { one: 'county', many: 'counties' },
+    url: 'geo/usa-official/counties.json',
+    metaUrl: 'geo/usa-official/counties-meta.json',
+    detailsUrl: 'geo/usa-official/counties-details.json',
+    progressive: true,
+  },
+  {
+    ...USA_OFFICIAL_BASE,
+    id: 'usa-official-subdivisions',
+    label: 'More Detailed',
+    description:
+      'County subdivisions that are legal units — towns, townships, boroughs, barrios. Where a state’s subdivisions are only statistical, its counties.',
+    noun: { one: 'subdivision', many: 'subdivisions' },
+    url: 'geo/usa-official/subdivisions.json',
+    metaUrl: 'geo/usa-official/subdivisions-meta.json',
+    detailsUrl: 'geo/usa-official/subdivisions-details/{parent}.json',
+    progressive: true,
+  },
+]
+
 export const ATLASES: Atlas[] = [
   {
     id: 'world',
@@ -214,7 +327,8 @@ export const ATLASES: Atlas[] = [
     name: 'Modern Administrative World',
     noun: { one: 'subdivision', many: 'subdivisions' },
     datasets: ADMIN_DATASETS,
-    defaultDatasetId: 'admin1-10m',
+    defaultDatasetId: 'admin-curated',
+    datasetLabel: 'Detail',
     /*
      * The world's regions, unchanged. A subdivision takes its country's region and
      * subregion, so "Europe" means the subdivisions of European countries without a
@@ -276,6 +390,164 @@ export const ATLASES: Atlas[] = [
         center: [-0.3, 20.4],
         anchor: { x: 0.26, y: 0.845 },
         frame: { width: 0.125, height: 0.2 },
+      },
+      /*
+       * The territories where the Official USA Administrative Map puts them, drawn from the
+       * same Census coastline: Guam with the Northern Mariana Islands and American Samoa in
+       * the Pacific corner, Puerto Rico with the Virgin Islands in the open Atlantic east of
+       * Florida.
+       */
+      {
+        id: 'pacific-territories',
+        name: 'Guam and the Northern Mariana Islands',
+        members: ['US-GU', 'US-MP'],
+        rotate: [-145.5, 0],
+        parallels: [13, 20],
+        scaleFactor: 0.6,
+        center: [0.2, 16.9],
+        anchor: { x: 0.365, y: 0.885 },
+        frame: { width: 0.06, height: 0.19 },
+      },
+      {
+        id: 'american-samoa',
+        name: 'American Samoa',
+        members: ['US-AS'],
+        rotate: [170, 0],
+        parallels: [-15, -12],
+        scaleFactor: 1,
+        center: [0.3, -13.4],
+        // A little lower than on the Official USA Administrative Map, whose frame reaches
+        // over the southern tip of Texas.
+        anchor: { x: 0.43, y: 0.945 },
+        frame: { width: 0.07, height: 0.095 },
+      },
+      {
+        id: 'caribbean-territories',
+        name: 'Puerto Rico and the U.S. Virgin Islands',
+        members: ['US-PR', 'US-VI'],
+        rotate: [66, 0],
+        parallels: [17, 19],
+        scaleFactor: 1.4,
+        center: [0.4, 18.15],
+        anchor: { x: 0.921, y: 0.9 },
+        frame: { width: 0.135, height: 0.1 },
+      },
+      /*
+       * Navassa, between Florida and Puerto Rico as it lies, at Puerto Rico's scale. Five
+       * kilometres across, so at this scale it is drawn at the legibility floor.
+       */
+      {
+        id: 'navassa',
+        name: 'Navassa Island',
+        members: ['UM-76'],
+        rotate: [75.02, 0],
+        parallels: [17, 20],
+        scaleFactor: 1.4,
+        center: [0, 18.41],
+        anchor: { x: 0.8, y: 0.935 },
+        frame: { width: 0.045, height: 0.06 },
+      },
+      /*
+       * The Pacific's remote islands, in their true relation to one another — Wake in the
+       * west, Midway in the north, Jarvis on the equator in the east. Below the Gulf coast:
+       * off the Pacific coast, where they would belong, a phone's narrow canvas has no room
+       * beside California, and this stretch is open on a phone as on a desktop. They span a
+       * third of the ocean and none is ten kilometres across, so every one is drawn at the
+       * legibility floor about its own centre.
+       */
+      {
+        id: 'pacific-remote-islands',
+        name: 'Pacific remote islands',
+        members: ['UM-81', 'UM-84', 'UM-86', 'UM-67', 'UM-71', 'UM-95', 'UM-79'],
+        rotate: [176.7, 0],
+        parallels: [5, 23],
+        scaleFactor: 0.13,
+        center: [0, 13.9],
+        anchor: { x: 0.6, y: 0.925 },
+        frame: { width: 0.1, height: 0.14 },
+      },
+    ],
+    note: 'States and territories · Alaska, Hawaii and territory insets',
+    ownFlags: false,
+  },
+  {
+    id: 'usa-official',
+    name: 'Official USA Administrative Map',
+    note: 'States, counties, subdivisions · U.S. Census 2024',
+    noun: { one: 'area', many: 'areas' },
+    datasets: USA_OFFICIAL_DATASETS,
+    defaultDatasetId: 'usa-official-counties',
+    datasetLabel: 'Detail',
+    regionIds: ['usa'],
+    defaultRegionIds: ['usa'],
+    /*
+     * Alaska and Hawaii where the USA States map puts them, and the territories beside them:
+     * Puerto Rico with the Virgin Islands off Florida, Guam with the Northern Mariana Islands
+     * and American Samoa in the Pacific corner. Named by state, so each inset holds that
+     * state's units at whichever level is loaded. Every shape is still drawn from its real
+     * coordinates; only the projection placing it on the canvas is the inset's own.
+     */
+    insets: [
+      {
+        id: 'alaska',
+        name: 'Alaska',
+        members: [],
+        parents: ['state-02'],
+        rotate: [154, 0],
+        parallels: [55, 65],
+        scaleFactor: 0.3,
+        center: [-2, 58.5],
+        anchor: { x: 0.1, y: 0.835 },
+        frame: { width: 0.175, height: 0.29 },
+      },
+      {
+        id: 'hawaii',
+        name: 'Hawaii',
+        members: [],
+        parents: ['state-15'],
+        rotate: [157, 0],
+        parallels: [8, 18],
+        scaleFactor: 1,
+        center: [-0.3, 20.4],
+        anchor: { x: 0.26, y: 0.845 },
+        frame: { width: 0.125, height: 0.2 },
+      },
+      {
+        id: 'pacific-territories',
+        name: 'Guam and the Northern Mariana Islands',
+        members: [],
+        parents: ['state-66', 'state-69'],
+        rotate: [-145.5, 0],
+        parallels: [13, 20],
+        scaleFactor: 0.6,
+        center: [0.2, 16.9],
+        anchor: { x: 0.365, y: 0.885 },
+        frame: { width: 0.06, height: 0.19 },
+      },
+      {
+        id: 'american-samoa',
+        name: 'American Samoa',
+        members: [],
+        parents: ['state-60'],
+        rotate: [170, 0],
+        parallels: [-15, -12],
+        scaleFactor: 1,
+        center: [0.3, -13.4],
+        anchor: { x: 0.43, y: 0.92 },
+        frame: { width: 0.07, height: 0.11 },
+      },
+      {
+        id: 'caribbean-territories',
+        name: 'Puerto Rico and the U.S. Virgin Islands',
+        members: [],
+        parents: ['state-72', 'state-78'],
+        rotate: [66, 0],
+        parallels: [17, 19],
+        scaleFactor: 1.4,
+        center: [0.4, 18.15],
+        // In the open Atlantic east of Florida, whose coast reaches 84% of the width down there.
+        anchor: { x: 0.921, y: 0.9 },
+        frame: { width: 0.135, height: 0.1 },
       },
     ],
     ownFlags: false,

@@ -40,10 +40,28 @@ export function buildInsets(
   main: GeoProjection | null,
   width: number,
   height: number,
+  entities?: Record<string, { id: string; parent?: { id: string } }>,
 ): ResolvedInset[] {
   if (!main || atlas.insets.length === 0 || width < 2 || height < 2) return []
   const scale = main.scale()
   if (!Number.isFinite(scale) || scale <= 0) return []
+
+  /*
+   * An inset named by state takes whatever of that state the loaded level draws — the state
+   * itself, its counties, or its county subdivisions — so one inset serves every level of an
+   * atlas. The entities are the dataset's own table; without them only named members count.
+   */
+  const byParent = new Map<string, string[]>()
+  if (entities && atlas.insets.some((inset) => inset.parents?.length)) {
+    for (const entity of Object.values(entities)) {
+      for (const key of [entity.id, entity.parent?.id]) {
+        if (!key) continue
+        const list = byParent.get(key)
+        if (list) list.push(entity.id)
+        else byParent.set(key, [entity.id])
+      }
+    }
+  }
 
   return atlas.insets.map((inset) => {
     const anchorX = inset.anchor.x * width
@@ -64,7 +82,7 @@ export function buildInsets(
     return {
       inset,
       projection,
-      members: new Set(inset.members),
+      members: new Set([...inset.members, ...(inset.parents ?? []).flatMap((id) => byParent.get(id) ?? [])]),
       /*
        * The frame is a viewport, not a deletion. Alaska's Aleutian chain and Hawaii's
        * northwestern islands are still drawn from their real coordinates; they simply

@@ -1,0 +1,458 @@
+{
+ "generatedAt": "2026-09-13T02:11:36.931Z",
+ "source": "Natural Earth (natural-earth-vector master)",
+ "admin0": {
+  "10m": {
+   "entities": 256,
+   "unresolved": [],
+   "points": 515207
+  },
+  "50m": {
+   "entities": 241,
+   "unresolved": [],
+   "points": 80667
+  },
+  "110m": {
+   "entities": 177,
+   "unresolved": [],
+   "points": 8256
+  }
+ },
+ "islands": {
+  "total": 2795,
+  "alreadyLand": 26,
+  "assigned": 2769,
+  "via": {
+   "sameCoast": 34,
+   "zone": 2635,
+   "zoneOverlap": 1,
+   "dependency": 48,
+   "nearestLand": 99
+  },
+  "unassigned": [],
+  "notOnAdministrativeMap": [],
+  "zoneDisagreesWithNearestLand": [
+   {
+    "at": [
+     -57.1572,
+     5.751
+    ],
+    "owner": "SUR",
+    "nearestLand": "GUY",
+    "km": 2.6
+   },
+   {
+    "at": [
+     118.2376,
+     24.4304
+    ],
+    "owner": "CHN",
+    "nearestLand": "TWN",
+    "km": 4.9
+   },
+   {
+    "at": [
+     29.5809,
+     36.1436
+    ],
+    "owner": "GRC",
+    "nearestLand": "TUR",
+    "km": 4.7
+   },
+   {
+    "at": [
+     24.1556,
+     65.7942
+    ],
+    "owner": "FIN",
+    "nearestLand": "SWE",
+    "km": 1.3
+   }
+  ],
+  "byOwner": {
+   "ATA": 1,
+   "CHL": 13,
+   "SGS": 5,
+   "FLK": 8,
+   "NZL": 22,
+   "ARG": 3,
+   "AUS": 140,
+   "BRA": 4,
+   "NCL": 2,
+   "PYF": 1,
+   "ATF": 2,
+   "TON": 5,
+   "COK": 8,
+   "MUS": 4,
+   "FJI": 1,
+   "WLF": 1,
+   "PNG": 47,
+   "IDN": 230,
+   "SLB": 12,
+   "TUV": 3,
+   "SYC": 3,
+   "KIR": 8,
+   "TZA": 2,
+   "GNQ": 1,
+   "MYS": 21,
+   "PHL": 132,
+   "SUR": 1,
+   "MHL": 40,
+   "THA": 11,
+   "GUY": 2,
+   "FSM": 7,
+   "IND": 7,
+   "PAN": 10,
+   "VNM": 37,
+   "LKA": 5,
+   "MMR": 16,
+   "COL": 5,
+   "VEN": 34,
+   "XSP": 1,
+   "TTO": 2,
+   "SOM": 2,
+   "DJI": 2,
+   "NIC": 94,
+   "GRD": 2,
+   "ERI": 6,
+   "HND": 33,
+   "YEM": 2,
+   "XBN": 1,
+   "FRA": 11,
+   "GTM": 1,
+   "BLZ": 27,
+   "CHN": 69,
+   "SAU": 3,
+   "VIR": 2,
+   "MRT": 1,
+   "MEX": 25,
+   "CUB": 38,
+   "TWN": 28,
+   "HKG": 27,
+   "EGY": 6,
+   "BHS": 41,
+   "USA": 171,
+   "JPN": 174,
+   "ARE": 223,
+   "IRN": 2,
+   "BMU": 1,
+   "KOR": 92,
+   "GRC": 33,
+   "ESP": 3,
+   "MLT": 1,
+   "TUR": 14,
+   "PRT": 7,
+   "TUN": 2,
+   "PRK": 31,
+   "ALB": 1,
+   "ITA": 18,
+   "HRV": 22,
+   "RUS": 45,
+   "KAZ": 2,
+   "CAN": 101,
+   "GBR": 8,
+   "IRL": 7,
+   "SWE": 198,
+   "EST": 1,
+   "NOR": 92,
+   "FIN": 180,
+   "ALA": 22,
+   "ISL": 28,
+   "GRL": 1,
+   "VCT": 3,
+   "NLD": 1,
+   "DEU": 2,
+   "IMN": 1,
+   "DNK": 4
+  },
+  "areaKm2": 15357
+ },
+ "admin1": {
+  "naturalEarthUnits": 4596
+ },
+ "administrative": {
+  "totals": {
+   "curated": 3152,
+   "detailed": 4029,
+   "maximum": 5256
+  },
+  "problems": 3
+ },
+ "usStates": {
+  "entities": 64,
+  "states": 51,
+  "territories": 5,
+  "outlyingIslands": [
+   {
+    "id": "UM-81",
+    "name": "Baker Island",
+    "polygons": 1,
+    "km2": 1.664,
+    "drawn": 1
+   },
+   {
+    "id": "UM-84",
+    "name": "Howland Island",
+    "polygons": 1,
+    "km2": 1.893,
+    "drawn": 1
+   },
+   {
+    "id": "UM-86",
+    "name": "Jarvis Island",
+    "polygons": 1,
+    "km2": 4.544,
+    "drawn": 1
+   },
+   {
+    "id": "UM-67",
+    "name": "Johnston Atoll",
+    "polygons": 13,
+    "km2": 2.868,
+    "drawn": 10
+   },
+   {
+    "id": "UM-71",
+    "name": "Midway Atoll",
+    "polygons": 303,
+    "km2": 5.863,
+    "drawn": 146
+   },
+   {
+    "id": "UM-95",
+    "name": "Palmyra Atoll",
+    "polygons": 12,
+    "km2": 3.328,
+    "drawn": 12
+   },
+   {
+    "id": "UM-79",
+    "name": "Wake Island",
+    "polygons": 5,
+    "km2": 7.168,
+    "drawn": 4
+   },
+   {
+    "id": "UM-76",
+    "name": "Navassa Island",
+    "polygons": 1,
+    "km2": 4.767,
+    "drawn": 1
+   }
+  ],
+  "omitted": [
+   {
+    "id": "UM-89",
+    "name": "Kingman Reef",
+    "reason": "no land in the USGS Global Islands database"
+   }
+  ],
+  "polygonsBelowGrid": {
+   "UM-67": 3,
+   "UM-71": 157,
+   "UM-79": 1
+  },
+  "points": 56753
+ },
+ "lakes10m": {
+  "main": 1355,
+  "europe": {
+   "added": 766,
+   "alreadyInMainLayer": 1
+  },
+  "northAmerica": {
+   "added": 1162,
+   "alreadyInMainLayer": 0
+  },
+  "total": 3283
+ },
+ "lakes50m": {
+  "total": 412
+ },
+ "rivers10m": {
+  "main": 1455,
+  "europe": 1325,
+  "northAmerica": 1064
+ },
+ "rivers50m": {
+  "total": 462
+ },
+ "places": [
+  {
+   "name": "Danube delta: Razim lagoon",
+   "water": true,
+   "via": "coast"
+  },
+  {
+   "name": "Danube: Lake Yalpuh",
+   "water": true,
+   "via": "lake: Yalpug and Kugurlui"
+  },
+  {
+   "name": "Danube: Lake Kahul",
+   "water": false,
+   "via": null
+  },
+  {
+   "name": "Sasyk lagoon",
+   "water": true,
+   "via": "coast"
+  },
+  {
+   "name": "Dniester liman",
+   "water": true,
+   "via": "lake: unnamed"
+  },
+  {
+   "name": "Khadzhibey liman",
+   "water": false,
+   "via": null
+  },
+  {
+   "name": "Kuyalnyk liman",
+   "water": false,
+   "via": null
+  },
+  {
+   "name": "Tylihul liman",
+   "water": false,
+   "via": null
+  },
+  {
+   "name": "Dnieper-Bug estuary",
+   "water": true,
+   "via": "coast"
+  },
+  {
+   "name": "Molochnyi liman",
+   "water": true,
+   "via": "lake: Molochnyy Liman"
+  },
+  {
+   "name": "NL IJsselmeer",
+   "water": true,
+   "via": "lake: IJsselmeer"
+  },
+  {
+   "name": "NL Oosterschelde",
+   "water": true,
+   "via": "coast"
+  },
+  {
+   "name": "NL Westerschelde",
+   "water": false,
+   "via": null
+  },
+  {
+   "name": "NL Haringvliet",
+   "water": false,
+   "via": null
+  },
+  {
+   "name": "NL Grevelingen",
+   "water": true,
+   "via": "coast"
+  },
+  {
+   "name": "NL Wadden Sea",
+   "water": true,
+   "via": "coast"
+  },
+  {
+   "name": "FR Etang de Berre",
+   "water": true,
+   "via": "coast"
+  },
+  {
+   "name": "FR Etang de Thau",
+   "water": true,
+   "via": "lake: unnamed"
+  },
+  {
+   "name": "FR Bassin d'Arcachon",
+   "water": true,
+   "via": "coast"
+  },
+  {
+   "name": "FR Etang de Vaccares",
+   "water": true,
+   "via": "lake: unnamed"
+  },
+  {
+   "name": "FR Lac de Grand-Lieu",
+   "water": true,
+   "via": "lake: unnamed"
+  },
+  {
+   "name": "FR Gironde estuary",
+   "water": true,
+   "via": "coast"
+  },
+  {
+   "name": "PA Gatun Lake",
+   "water": true,
+   "via": "lake: Lago Gatun"
+  },
+  {
+   "name": "PA Lake Alajuela",
+   "water": true,
+   "via": "lake: Lago Alajuela"
+  },
+  {
+   "name": "KH Tonle Sap",
+   "water": true,
+   "via": "lake: Tonlé Sap"
+  },
+  {
+   "name": "TH Songkhla lake",
+   "water": false,
+   "via": null
+  },
+  {
+   "name": "PH Laguna de Bay",
+   "water": true,
+   "via": "lake: Laguna de Bay"
+  },
+  {
+   "name": "IT Venice lagoon",
+   "water": true,
+   "via": "coast"
+  },
+  {
+   "name": "LT Curonian lagoon",
+   "water": true,
+   "via": "coast"
+  },
+  {
+   "name": "EG Lake Manzala",
+   "water": true,
+   "via": "coast"
+  },
+  {
+   "name": "IN Chilika lake",
+   "water": true,
+   "via": "coast"
+  },
+  {
+   "name": "US Pamlico Sound",
+   "water": true,
+   "via": "coast"
+  },
+  {
+   "name": "US Lake Pontchartrain",
+   "water": true,
+   "via": "coast"
+  }
+ ],
+ "outputs": {
+  "countries-10m.json": "4.85 MB",
+  "countries-50m.json": "0.74 MB",
+  "countries-110m.json": "0.11 MB",
+  "us-states-10m.json": "0.54 MB",
+  "us-states-meta.json": "0.02 MB",
+  "lakes-10m.geojson": "4.55 MB",
+  "lakes-50m.geojson": "0.41 MB",
+  "rivers-10m.geojson": "7.54 MB",
+  "rivers-50m.geojson": "0.53 MB"
+ }
+}

@@ -26,6 +26,9 @@ export type MapToggleIcon =
   | 'legend'
   | 'names'
   | 'caption'
+  | 'rectangle'
+  | 'brush'
+  | 'magnifier'
 
 /**
  * One glyph per control, each a closed idea at 14 px:
@@ -105,6 +108,27 @@ const ICON_PATHS: Record<MapToggleIcon, JSX.Element> = {
       <path d="M4.1 10.8 8 3.6l3.9 7.2" />
       <path d="M5.7 8.4h4.6" />
       <path d="M2.6 13.4h10.8" />
+    </>
+  ),
+  rectangle: (
+    <>
+      {/* A dashed box over the ground it takes, and the pointer that drew it. */}
+      <rect x="2.4" y="2.8" width="9.6" height="8" rx="0.8" strokeDasharray="1.8 1.6" />
+      <path d="M9.4 8.6l4.4 1.6-1.9.7-.7 1.9z" />
+    </>
+  ),
+  magnifier: (
+    <>
+      {/* A lens and its handle. */}
+      <circle cx="6.8" cy="6.8" r="4.2" />
+      <path d="M9.9 9.9l3.7 3.7" />
+    </>
+  ),
+  brush: (
+    <>
+      {/* A brush head, and the trail it leaves across the land. */}
+      <path d="M9.6 2.6l3.8 3.8-3.4 3.4-3.8-3.8z" />
+      <path d="M2.6 13c1.3-1.8 2.7-1.8 4 0s2.7 1.8 4 0" />
     </>
   ),
   legend: (

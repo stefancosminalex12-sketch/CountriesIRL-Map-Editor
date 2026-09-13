@@ -43,17 +43,69 @@ export interface EntityMeta {
    * Present on every entity of the administrative world, where it is what tells a border
    * between two countries from one inside a country, and what region a subdivision is in.
    */
-  parent?: { id: string; name: string; iso2: string | null }
-  /** What the source calls this kind of subdivision: State, Province, Region, County. */
+  parent?: {
+    id: string
+    name: string
+    iso2: string | null
+    /** What the parent is — "State", "Territory" — where it is not a country. */
+    kind?: string
+    /** Its short code: `CA`. */
+    code?: string
+  }
+  /** What this kind of subdivision is called: State, Province, Statistical region, County. */
   kind?: string | null
-  /** The source's own identifiers, so an entity can always be traced back to its row. */
+  /** The level of its country's subdivision this unit belongs to — "Statistical regions". */
+  level?: { id: string; name: string }
+  /**
+   * The regions this unit can be selected with: its autonomous community, the coarser
+   * levels of its own country that hold it, a historical region. See {@link EntityGroup}.
+   */
+  groups?: EntityGroup[]
+  /** Where the unit was dissolved from several source units, their names. */
+  members?: string[]
+  /** Where the unit comes from, so an entity can always be traced back to its rows. */
   source?: {
-    adm1Code: string
-    neId: number | null
+    /** The dataset its outline comes from, or its internal lines where `outline` is set. */
+    dataset: string
+    /** The source rows it was made from. */
+    ids: string[]
+    /** Where the unit's outline is another dataset's — a cut into Natural Earth's unit. */
+    outline?: string
+    /** Where membership of a dissolved unit was read from another dataset. */
+    grouping?: string | null
     iso31662: string | null
     hasc: string | null
     wikidata: string | null
+    /** Ids into the composition index's `sources`. */
+    credits?: string[]
+    /** The official identifier, where the source has one: a Census GEOID (`06037`). */
+    geoid?: string
+    /** The year the boundaries represent. */
+    vintage?: number
+    /** The source's own codes, by the source's field names: `STATEFP`, `COUNTYFP`, `LSAD`. */
+    codes?: Record<string, string>
+    landKm2?: number
+    waterKm2?: number
   }
+}
+
+/**
+ * A region a unit lies in, which is not itself a unit on the map at this level.
+ *
+ * Catalonia on a map of Spanish provinces, Upper Bavaria on a map of Kreise, Transylvania on
+ * a map of Romanian counties. Metadata rather than geometry: selecting a group selects the
+ * units that carry it, and nothing is drawn that the level does not draw.
+ */
+export interface EntityGroup {
+  /** What kind of region: "Autonomous community", "Government district". */
+  scheme: string
+  /** Stable, and shared by every unit of the group at this level. */
+  id: string
+  name: string
+  /** A region only approximated by the units — historical regions drawn by county. */
+  approximate?: boolean
+  /** Set where the group is a unit of another level of the same country. */
+  level?: string
 }
 
 /** Kept as the old name so the country-shaped call sites read naturally. */
@@ -71,6 +123,51 @@ export type CountryMetaIndex = EntityMetaIndex
 
 const cache = new Map<string, Promise<EntityMetaIndex>>()
 
+/** A parent as a compact table lists it once: what its units would otherwise each repeat. */
+interface CompactParent {
+  id: string
+  name: string
+  iso2: string | null
+  kind?: string
+  code?: string
+  region?: string
+  subregion?: string
+  groups?: EntityGroup[]
+}
+
+/**
+ * A compact entity table made whole: each entity names its parent and its groups by id, and
+ * takes what every entity shares from `defaults`. Written this way by a dataset of tens of
+ * thousands of units (the official USA map's county subdivisions); everything downstream sees
+ * ordinary entries.
+ */
+function expand(
+  entities: Record<string, EntityMeta>,
+  defaults: Partial<EntityMeta>,
+  parents: Record<string, CompactParent>,
+  groups: Record<string, EntityGroup>,
+): Record<string, EntityMeta> {
+  const out: Record<string, EntityMeta> = {}
+  for (const [id, raw] of Object.entries(entities)) {
+    const entry = raw as EntityMeta & { parent?: string | EntityMeta['parent']; groups?: (string | EntityGroup)[] }
+    const parent = typeof entry.parent === 'string' ? parents[entry.parent] : undefined
+    const own = (entry.groups ?? []).map((g) => (typeof g === 'string' ? groups[g] : g)).filter((g): g is EntityGroup => !!g)
+    out[id] = {
+      ...defaults,
+      ...entry,
+      id,
+      officialName: entry.officialName ?? entry.name,
+      region: entry.region ?? parent?.region ?? 'Unknown',
+      subregion: entry.subregion ?? parent?.subregion ?? 'Unknown',
+      parent: parent
+        ? { id: parent.id, name: parent.name, iso2: parent.iso2, kind: parent.kind, code: parent.code }
+        : (entry.parent as EntityMeta['parent']),
+      groups: [...own, ...(parent?.groups ?? [])],
+    } as EntityMeta
+  }
+  return out
+}
+
 /** Fetches and caches one atlas's entity table. */
 export function loadEntityMeta(url: string): Promise<EntityMetaIndex> {
   const existing = cache.get(url)
@@ -78,12 +175,18 @@ export function loadEntityMeta(url: string): Promise<EntityMetaIndex> {
 
   const promise = fetch(`${import.meta.env.BASE_URL}${url}`).then(async (r) => {
     if (!r.ok) throw new Error(`Failed to load entity metadata "${url}" (${r.status})`)
-    const raw = (await r.json()) as EntityMetaIndex & { countries?: Record<string, EntityMeta> }
+    const raw = (await r.json()) as EntityMetaIndex & {
+      countries?: Record<string, EntityMeta>
+      defaults?: Partial<EntityMeta>
+      parents?: Record<string, CompactParent>
+      groups?: Record<string, EntityGroup>
+    }
+    // `countries` is the field the world table used before atlases existed.
+    const entities = raw.entities ?? raw.countries ?? {}
     return {
       numericToId: raw.numericToId ?? {},
       nameToId: raw.nameToId ?? {},
-      // `countries` is the field the world table used before atlases existed.
-      entities: raw.entities ?? raw.countries ?? {},
+      entities: raw.parents || raw.defaults || raw.groups ? expand(entities, raw.defaults ?? {}, raw.parents ?? {}, raw.groups ?? {}) : entities,
     }
   })
 

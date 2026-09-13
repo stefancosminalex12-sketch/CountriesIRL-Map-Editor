@@ -456,7 +456,7 @@ function ComparisonControls() {
   const doc = useMapStore((s) => s.doc)
   const dispatch = useMapStore((s) => s.dispatch)
   const selected = useMapStore((s) => s.selectedCountryIds)
-  const clearSelection = useMapStore((s) => s.clearSelection)
+  const clearSelectionWithLastEdit = useMapStore((s) => s.clearSelectionWithLastEdit)
   const { comparison } = doc
 
   /** Which group the next assignment writes to. A pointer, not authored content. */
@@ -638,7 +638,7 @@ function ComparisonControls() {
                       // The whole selection in one operation, so twelve countries are
                       // one undo step rather than twelve.
                       dispatch({ op: 'add_to_comparison', index, countryIds: selected })
-                      clearSelection()
+                      clearSelectionWithLastEdit()
                       playSfx('confirm')
                     }}
                   >

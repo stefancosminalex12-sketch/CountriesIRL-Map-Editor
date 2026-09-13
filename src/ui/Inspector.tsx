@@ -19,6 +19,8 @@ import { useMapStore } from '../state/mapStore'
 import { playSfx } from '../audio/sfx'
 import type { CountryId, MapValue } from '../types/map'
 import { useNoun } from '../maps/useNoun'
+import { GroupActions } from './GroupActions'
+import { EntitySource } from './EntitySource'
 
 /**
  * What counts as a number in the value field.
@@ -186,6 +188,7 @@ export function Inspector() {
   const selectedCountryIds = useMapStore((s) => s.selectedCountryIds)
   const dispatch = useMapStore((s) => s.dispatch)
   const clearSelection = useMapStore((s) => s.clearSelection)
+  const clearSelectionWithLastEdit = useMapStore((s) => s.clearSelectionWithLastEdit)
   const noun = useNoun()
 
   const layer = doc.layers.find((l) => l.id === doc.activeLayerId) ?? doc.layers[0]
@@ -216,7 +219,8 @@ export function Inspector() {
    * Predefined, Flags and Compare keep their selection exactly as before.
    */
   const palette = !doc.flags.enabled && !comparing && layer?.colorScale.mode === 'numeric'
-  const onApplied = palette ? clearSelection : undefined
+  // Letting go is part of the edit, so one undo brings back the value and the selection both.
+  const onApplied = palette ? clearSelectionWithLastEdit : undefined
 
   /*
    * What the shared field shows: the value if every selected country already agrees,
@@ -300,27 +304,25 @@ export function Inspector() {
               {merge
                 ? `Made from: ${merge.members.join(', ')}`
                 : meta?.parent
-                  ? `${meta.kind ?? 'Subdivision'} of ${meta.parent.name}${
-                      meta.parent.iso2 ? ` (${meta.parent.iso2})` : ''
+                  ? `${meta.kind ?? 'Subdivision'} in ${meta.parent.name}${
+                      meta.parent.iso2 || meta.parent.code ? ` (${meta.parent.iso2 ?? meta.parent.code})` : ''
                     }`
                   : meta
                     ? `${meta.subregion} · ${meta.region}`
                     : 'Not in the country table'}
             </div>
             {/*
-              A subdivision's own codes, from the source it came from — the ISO 3166-2 code
-              where it has one, and Natural Earth's identifier, which it always has.
+              A subdivision's own codes and where it comes from — the ISO 3166-2 code where it
+              has one, and the dataset its lines are drawn from.
             */}
-            {!merge && meta?.source && (
+            {!merge && meta && <EntitySource meta={meta} detailsUrl={geo?.dataset.detailsUrl} />}
+            {!merge && meta?.members && meta.members.length > 1 && (
               <div className="hint">
-                {[
-                  meta.source.iso31662 ? `ISO 3166-2 ${meta.source.iso31662}` : null,
-                  `Natural Earth ${meta.source.adm1Code}`,
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
+                Made from {meta.members.length}: {meta.members.slice(0, 12).join(', ')}
+                {meta.members.length > 12 ? `, and ${meta.members.length - 12} more` : ''}
               </div>
             )}
+            {!merge && meta && single === id && <GroupActions meta={meta} />}
 
             {/* Only the single-selection view offers per-country editing; with many
                 selected the shared row above does the work and these stay read-outs. */}

@@ -6,11 +6,13 @@
  * another layer later (rivers, glaciers, urban areas) means another module like this
  * one — not a change to the country geometry or to the renderer's structure.
  *
- * The data is Natural Earth's lakes, filtered to `scalerank <= 5` and vendored under
- * `data/natural-earth/` by `scripts/fetch-lakes.mjs`. That is the cartographers' own
- * judgement of which lakes belong on a general-purpose map: every major lake in the
- * world plus small-but-notable ones such as Geneva and Bodensee, without the
- * thousand ponds the unfiltered file carries.
+ * The data is the curated inland-water layer `scripts/build-geography.mjs` prepares for
+ * every map: all of Natural Earth's 10m lakes, reservoirs and lagoons, and its Europe and
+ * North America supplements where the main layer does not already draw the lake — 3,283
+ * bodies of water at 10m. It used to be cut to the most prominent 336 (`scalerank <= 5`),
+ * which left the Dniester liman, the Danube delta's Yalpuh and Kuhurlui, the Étang de Thau
+ * and a thousand more drawn as land. At world zoom the small ones are sub-pixel, as any
+ * small geography is; zoomed in, they are where they belong.
  *
  * Two things are deliberately NOT here. Lakes carry no identity in the map document —
  * they are background geography, not selectable entities — and they are loaded
@@ -35,9 +37,16 @@ export interface LakeLayer {
   url: string
 }
 
+/**
+ * USGS lakes and reservoirs, 1:1,000,000, for the Official USA Administrative Map — whose
+ * Census land keeps inland water, so it is drawn over it here. See `scripts/usa/build-usa.mjs`.
+ */
+export const USGS_LAKES: LakeLayer = { id: 'usgs-lakes-1m', detail: '10m', url: 'geo/usa-official/lakes.geojson' }
+
 export const LAKE_LAYERS: LakeLayer[] = [
   { id: 'lakes-10m', detail: '10m', url: 'geo/lakes-10m.geojson' },
   { id: 'lakes-50m', detail: '50m', url: 'geo/lakes-50m.geojson' },
+  USGS_LAKES,
 ]
 
 /**

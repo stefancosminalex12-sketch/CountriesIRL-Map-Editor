@@ -10,7 +10,7 @@
  * carry their own identifier or have to be matched to an ISO table — it says so in its
  * own spec and this loader follows it.
  */
-import { geoContains } from 'd3-geo'
+import { geoArea, geoContains } from 'd3-geo'
 import { feature, mesh, meshArcs } from 'topojson-client'
 import type {
   Feature,
@@ -22,10 +22,14 @@ import type {
   Position,
 } from 'geojson'
 import type { Topology, GeometryCollection, GeometryObject } from 'topojson-specification'
-import { loadEntityMeta, type EntityMeta } from './countryMeta'
+import { loadEntityMeta, type EntityMeta, type EntityMetaIndex } from './countryMeta'
+import { fetchTopology, loadComposed, type DetailPreset } from './composition'
+import type { LakeLayer } from './lakes'
+import type { RiverLayer } from './rivers'
 import { SUPPLEMENTAL_COUNTRIES } from './supplemental'
-import { computeDatasetMetrics, type CountryMetrics } from './metrics'
+import { computeDatasetMetricsInSlices, type CountryMetrics } from './metrics'
 import { repairPolygon } from './repair'
+import { createSlicer } from './slices'
 import { ALL_DATASETS } from '../maps/atlas'
 import type { EntityId } from '../types/map'
 
@@ -75,6 +79,45 @@ export interface GeoDataset {
    * it means, which is both simpler and exact.
    */
   identify: 'iso-country' | 'feature-id'
+  /**
+   * How the dataset is named in the picker, where "Modern world · 10m" is not the right
+   * description — the administrative world's levels are "Curated Default", "More Detailed".
+   */
+  label?: string
+  /** One line saying what choosing this dataset changes, shown under the picker. */
+  description?: string
+  /**
+   * What one entity of this dataset is called, where the atlas's noun is too general: the
+   * official USA map is states, counties or county subdivisions depending on the level.
+   */
+  noun?: { one: string; many: string }
+  /**
+   * The water drawn over this dataset's land, where it is not Natural Earth's: the official
+   * USA map draws USGS lakes and rivers, at the scale of its Census boundaries.
+   */
+  water?: { lakes: LakeLayer; rivers: RiverLayer }
+  /**
+   * The entities' codes and sources, kept out of the entity table and fetched only when the
+   * inspector asks — for a dataset of tens of thousands of units. See `entityDetails.ts`.
+   */
+  detailsUrl?: string
+  /**
+   * A dataset assembled from `url` as the base and the per-country fragments `index` lists
+   * for `preset`. See `composition.ts`.
+   */
+  compose?: { index: string; preset: DetailPreset }
+  /**
+   * Whether this dataset is heavy enough that the canvas prepares it off the render path.
+   *
+   * Set on the administrative world: 4,595 subdivisions and 20 MB of projected outline,
+   * which in one render held the page for seconds. Such a dataset is projected in slices
+   * while the page stays responsive, and the layers drawn over it — lakes, border networks,
+   * names — follow one render after the land rather than lengthening the first. See
+   * `projectedLand.ts`. Nothing about what is drawn differs; only when.
+   *
+   * Absent on the world and states maps, which are drawn exactly as they always were.
+   */
+  progressive?: boolean
 }
 
 /** Highest detail by default — this tool exists to produce high-quality exports. */
@@ -274,12 +317,19 @@ export function coastByEntity(loaded: LoadedDataset): Map<EntityId, EntityCoast>
      * "an arc of a single geometry is coast", asked of the whole map in one pass.
      */
     const owner = new Map<number, GeometryObject | null>()
+    /*
+     * On a composed map — units cut from one source into another's outline — an arc one unit
+     * uses twice is a seam between two of its own polygons, where a strip joined to it across
+     * a hairline stayed a polygon of its own. It is inside the unit, not its coast. The maps
+     * built whole are left exactly as they were drawn.
+     */
+    const seams = loaded.dataset.compose != null
     const visit = (arcs: unknown, geometry: GeometryObject): void => {
       if (typeof arcs === 'number') {
         const index = arcs < 0 ? ~arcs : arcs
         const seen = owner.get(index)
         if (seen === undefined) owner.set(index, geometry)
-        else if (seen !== geometry) owner.set(index, null)
+        else if (seen !== geometry || seams) owner.set(index, null)
         return
       }
       if (Array.isArray(arcs)) for (const arc of arcs) visit(arc, geometry)
@@ -443,18 +493,27 @@ export function loadGeoDataset(id: string): Promise<LoadedDataset> {
 
   const dataset = getDataset(id)
   const promise = (async (): Promise<LoadedDataset> => {
-    const [topology, metaIndex] = await Promise.all([
-      fetch(`${import.meta.env.BASE_URL}${dataset.url}`).then((r) => {
-        if (!r.ok) throw new Error(`Failed to load dataset "${dataset.id}" (${r.status})`)
-        return r.json() as Promise<Topology>
-      }),
-      loadEntityMeta(dataset.metaUrl),
-    ])
+    const { topology, metaIndex } = dataset.compose
+      ? await loadComposed({ ...dataset, compose: dataset.compose })
+      : await Promise.all([fetchTopology(dataset.url), loadEntityMeta(dataset.metaUrl)]).then(
+          ([topology, metaIndex]): { topology: Topology; metaIndex: EntityMetaIndex } => ({ topology, metaIndex }),
+        )
+
+    /*
+     * Everything below is one long computation over every entity — decoding, repairing,
+     * measuring — and on the administrative world it ran as seconds of uninterrupted work in
+     * which the page could not paint or answer a click. It now runs in slices (see
+     * `createSlicer`): the same steps in the same order, pausing between entities whenever a
+     * slice's budget is spent, so the result is identical and the editor stays responsive
+     * while a map opens.
+     */
+    const slicer = createSlicer()
 
     const collection = feature(
       topology,
       topology.objects[dataset.objectName] as GeometryCollection,
     ) as FeatureCollection<Polygon | MultiPolygon>
+    await slicer.pause()
 
     /*
      * The international boundary network, extracted before the features are regrouped.
@@ -522,6 +581,7 @@ export function loadGeoDataset(id: string): Promise<LoadedDataset> {
       // A dataset without usable topology simply gets no border network.
       borders = null
     }
+    if (slicer.due()) await slicer.pause()
 
     /*
      * The national network, for a map whose entities have parent countries: the arcs whose
@@ -546,6 +606,7 @@ export function loadGeoDataset(id: string): Promise<LoadedDataset> {
       } catch {
         nationalBorders = null
       }
+      if (slicer.due()) await slicer.pause()
     }
 
     /**
@@ -560,6 +621,7 @@ export function loadGeoDataset(id: string): Promise<LoadedDataset> {
     const groups = new Map<EntityId, { name: string; polygons: MultiPolygon['coordinates'] }>()
 
     for (const raw of collection.features) {
+      if (slicer.due()) await slicer.pause()
       const neName = String((raw.properties as { name?: string } | null)?.name ?? '')
       // Exactly the resolution the border mesh used, so the two can never disagree
       // about which entity a polygon belongs to.
@@ -590,18 +652,55 @@ export function loadGeoDataset(id: string): Promise<LoadedDataset> {
      *
      * Either way a supplement only applies to the resolutions it was sourced for, so
      * 10m coastlines never leak into the 110m map.
+     *
+     * A supplement is a *country's* shape, so on a map of countries it is the shape of
+     * the entity with that id. On a map whose entities are parts of countries it is the
+     * shape of a country's only part, when the country is a single entity there: Vatican
+     * City is one subdivision of the administrative world, its admin-1 ring collapses to
+     * two corners under the same quantisation that loses it from the country map, and
+     * the country's supplement is exactly that subdivision's outline. A country divided
+     * into several parts is never given a country outline — it would lie over all of
+     * them — and a map whose entities belong to no country takes none.
      */
     const supplemented: EntityId[] = []
-    // Supplemental geometry patches gaps in the *world* country layers specifically;
-    // it names ISO 3166-1 ids and has nothing to say about any other atlas.
-    for (const supplement of dataset.identify === 'iso-country' ? SUPPLEMENTAL_COUNTRIES : []) {
+    const partsOfCountry = new Map<string, EntityId[]>()
+    if (dataset.identify === 'feature-id') {
+      for (const entity of Object.values(metaIndex.entities)) {
+        const parent = entity.parent?.id
+        if (!parent) continue
+        const parts = partsOfCountry.get(parent)
+        if (parts) parts.push(entity.id)
+        else partsOfCountry.set(parent, [entity.id])
+      }
+    }
+    const supplementTarget = (countryId: string): EntityId | null => {
+      if (dataset.identify === 'iso-country' || metaIndex.entities[countryId]) return countryId
+      const parts = partsOfCountry.get(countryId)
+      return parts && parts.length === 1 ? parts[0] : null
+    }
+
+    for (const supplement of SUPPLEMENTAL_COUNTRIES) {
       if (supplement.appliesToDetail && !supplement.appliesToDetail.includes(dataset.detail)) {
         continue
       }
+      const targetId = supplementTarget(supplement.id)
+      if (!targetId) continue
 
-      const existing = groups.get(supplement.id)
+      const existing = groups.get(targetId)
       const hasGeometry = Boolean(existing && existing.polygons.length > 0)
-      if (supplement.mode === 'fallback' && hasGeometry) continue
+      /*
+       * On a map of subdivisions, a country's only unit can come through as a shard of it:
+       * Natural Earth's admin-1 Vatican is 0.012 km² of a 0.44 km² state. That describes the
+       * country no better than nothing does, so there the supplement stands in for anything
+       * under half its own size. The World map's own entity is left exactly as it is drawn.
+       */
+      const viaPart = targetId !== supplement.id
+      const shard =
+        viaPart &&
+        hasGeometry &&
+        geoArea({ type: 'MultiPolygon', coordinates: existing!.polygons }) <
+          0.5 * geoArea({ type: 'MultiPolygon', coordinates: supplement.polygons })
+      if (supplement.mode === 'fallback' && hasGeometry && !shard) continue
 
       const polygons: MultiPolygon['coordinates'] = []
       for (const polygon of supplement.polygons) {
@@ -610,8 +709,8 @@ export function loadGeoDataset(id: string): Promise<LoadedDataset> {
       }
       if (polygons.length === 0) continue
 
-      groups.set(supplement.id, { name: existing?.name ?? supplement.name, polygons })
-      supplemented.push(supplement.id)
+      groups.set(targetId, { name: existing?.name ?? supplement.name, polygons })
+      supplemented.push(targetId)
     }
 
     const features: EntityFeature[] = []
@@ -645,7 +744,7 @@ export function loadGeoDataset(id: string): Promise<LoadedDataset> {
       byId.set(countryId, feat)
     }
 
-    const metrics = computeDatasetMetrics(features)
+    const metrics = await computeDatasetMetricsInSlices(features, slicer)
 
     /*
      * The coast of each supplemented entity, classified from its own rings. The coast of
@@ -704,5 +803,27 @@ export function loadGeoDataset(id: string): Promise<LoadedDataset> {
   })()
 
   cache.set(id, promise)
+  // A failed load is not remembered, so switching back to the dataset tries again.
+  promise.catch(() => {
+    if (cache.get(id) === promise) cache.delete(id)
+  })
+  evictHeavy(id)
   return promise
+}
+
+/**
+ * Keeps at most two heavy datasets decoded at once: the one being opened and the last one.
+ *
+ * Each level of the administrative world decodes to tens of megabytes of coordinates, and a
+ * phone that has visited all three would hold every one of them for the rest of the session.
+ * Switching straight back to the previous level stays instant; a third is decoded again from
+ * the raw files, which stay cached, so nothing is fetched twice.
+ */
+const heavyOrder: string[] = []
+function evictHeavy(id: string) {
+  if (!getDataset(id).progressive) return
+  const at = heavyOrder.indexOf(id)
+  if (at >= 0) heavyOrder.splice(at, 1)
+  heavyOrder.push(id)
+  while (heavyOrder.length > 2) cache.delete(heavyOrder.shift() as string)
 }

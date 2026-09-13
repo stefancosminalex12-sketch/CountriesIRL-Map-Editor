@@ -1,250 +1,123 @@
 /**
- * Copies the vector geographic datasets into public/geo/ and derives a compact
- * country metadata table (ISO codes, names, region/subregion) from `world-countries`.
+ * Copies the curated geographic datasets into public/geo/ and writes the entity tables the
+ * app reads them with.
  *
- * Runs automatically before `npm run dev` / `npm run build`.
- * Keeping this as a build step (instead of importing the JSON) means datasets are
- * fetched lazily at runtime, which is what future historical datasets will need too.
+ * Runs automatically before `npm run dev` / `npm run build`, and only ever copies: the
+ * geometry itself is prepared once, by `scripts/build-geography.mjs`, into
+ * `data/natural-earth/` — the shared foundation every map draws from (see that script).
+ * Keeping this a copy rather than an import means datasets are fetched lazily at runtime,
+ * and the build stays offline.
  */
-import { createRequire } from 'node:module'
-import { mkdirSync, copyFileSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
-import * as topojson from 'topojson-server'
+import { mkdirSync, copyFileSync, cpSync, writeFileSync, readFileSync, existsSync, readdirSync, rmSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { buildCountryTable } from './country-table.mjs'
 
-const require = createRequire(import.meta.url)
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const dataDir = resolve(root, 'data/natural-earth')
 const outDir = resolve(root, 'public/geo')
 
 mkdirSync(outDir, { recursive: true })
 
-/* ---------------------------------------------------------------- topojson */
-
-const topologies = ['countries-110m.json', 'countries-50m.json', 'countries-10m.json']
-for (const file of topologies) {
-  const src = require.resolve(`world-atlas/${file}`)
-  copyFileSync(src, resolve(outDir, file))
-}
-
-/* ------------------------------------------------------------------- lakes */
+/* --------------------------------------------------------- curated geometry */
 
 /**
- * Lakes are a separate geographic layer, vendored under data/natural-earth/ by
- * scripts/fetch-lakes.mjs. Copied rather than fetched so the build stays offline.
+ * Everything a map draws: the World map's land at three resolutions, the administrative
+ * world, the USA map, and the shared inland water and rivers — all from one pipeline.
  */
-for (const detail of ['10m', '50m']) {
-  const src = resolve(root, `data/natural-earth/lakes-${detail}.geojson`)
-  if (existsSync(src)) copyFileSync(src, resolve(outDir, `lakes-${detail}.geojson`))
-  else console.warn(`[prepare-data] missing lakes-${detail}.geojson - run: node scripts/fetch-lakes.mjs`)
+const CURATED = [
+  'countries-110m.json',
+  'countries-50m.json',
+  'countries-10m.json',
+  'us-states-10m.json',
+  'lakes-10m.geojson',
+  'lakes-50m.geojson',
+  'rivers-10m.geojson',
+  'rivers-50m.geojson',
+]
+const missing = []
+for (const file of CURATED) {
+  const src = resolve(dataDir, file)
+  if (existsSync(src)) copyFileSync(src, resolve(outDir, file))
+  else missing.push(file)
 }
-
-/**
- * Rivers, on the same terms as the lakes above: a separate geographic layer, vendored
- * under data/natural-earth/ by scripts/fetch-rivers.mjs, copied rather than fetched so
- * the build stays offline.
- */
-for (const detail of ['10m', '50m']) {
-  const src = resolve(root, `data/natural-earth/rivers-${detail}.geojson`)
-  if (existsSync(src)) copyFileSync(src, resolve(outDir, `rivers-${detail}.geojson`))
-  else console.warn(`[prepare-data] missing rivers-${detail}.geojson - run: node scripts/fetch-rivers.mjs`)
-}
-
-/* --------------------------------------------------------------- US states */
-
-/**
- * The USA States map's geometry, built into TopoJSON here rather than vendored as one.
- *
- * Topology is not a storage detail for this app, it is a capability: shared arcs are
- * what `mesh` reads to find the boundaries between two states and nothing else, and
- * what `topojson.merge` dissolves when states are merged into one body. A plain
- * GeoJSON collection has neither, so a states map built from one would silently lose
- * internal borders and the Merge feature. Quantising to the same grid `world-atlas`
- * uses keeps the arc sharing exact.
- */
-{
-  const src = resolve(root, 'data/natural-earth/us-states.geojson')
-  if (existsSync(src)) {
-    const collection = JSON.parse(readFileSync(src, 'utf8'))
-    const topology = topojson.topology({ states: collection }, 1e5)
-    writeFileSync(resolve(outDir, 'us-states-10m.json'), JSON.stringify(topology))
-    // The same envelope the country table uses, so one loader reads both. States are
-    // identified by the feature id Natural Earth already carries, so the numeric and
-    // name indexes a country needs are simply empty here rather than absent.
-    writeFileSync(
-      resolve(outDir, 'us-state-meta.json'),
-      JSON.stringify({
-        generatedAt: new Date().toISOString(),
-        numericToId: {},
-        nameToId: {},
-        entities: JSON.parse(readFileSync(resolve(root, 'data/natural-earth/us-states-meta.json'), 'utf8')),
-      }),
-    )
-    const arcs = topology.arcs.length
-    console.log(
-      `[prepare-data] ${collection.features.length} US states, ${arcs} arcs -> public/geo/us-states-10m.json`,
-    )
-  } else {
-    console.warn('[prepare-data] missing us-states.geojson - run: node scripts/fetch-us-states.mjs')
-  }
+if (missing.length > 0) {
+  console.warn(`[prepare-data] missing ${missing.join(', ')} - run: npm run build-geography`)
 }
 
 /* -------------------------------------------------------- country metadata */
 
-const countries = require('world-countries/countries.json')
-
-/**
- * Entities present in Natural Earth that have no ISO 3166-1 code.
- * They are matched by their Natural Earth `properties.name` and given a stable
- * user-assigned (ISO 3166 "X" range) identifier so they behave like any other country.
- */
-const nonIsoEntities = [
-  { id: 'XKX', name: 'Kosovo',              neNames: ['Kosovo'],             iso2: 'XK', region: 'Europe',   subregion: 'Southeast Europe', latlng: [42.6, 20.9] },
-  { id: 'XNC', name: 'Northern Cyprus',     neNames: ['N. Cyprus'],          iso2: 'XN', region: 'Asia',     subregion: 'Western Asia',     latlng: [35.2, 33.6] },
-  { id: 'XSO', name: 'Somaliland',          neNames: ['Somaliland'],         iso2: 'XS', region: 'Africa',   subregion: 'Eastern Africa',   latlng: [9.6, 46.2] },
-  { id: 'XIO', name: 'Indian Ocean Ter.',   neNames: ['Indian Ocean Ter.'],  iso2: 'XI', region: 'Oceania',  subregion: 'Australia and New Zealand', latlng: [-12.4, 96.9] },
-  { id: 'XSI', name: 'Siachen Glacier',     neNames: ['Siachen Glacier'],    iso2: 'XG', region: 'Asia',     subregion: 'Southern Asia',    latlng: [35.4, 77.1] },
-  // Present from the 10m dataset onwards.
-  { id: 'XAK', name: 'Akrotiri',            neNames: ['Akrotiri'],           iso2: 'XA', region: 'Asia',     subregion: 'Western Asia',     latlng: [34.6, 32.9] },
-  { id: 'XDH', name: 'Dhekelia',            neNames: ['Dhekelia'],           iso2: 'XD', region: 'Asia',     subregion: 'Western Asia',     latlng: [34.98, 33.75] },
-  { id: 'XCB', name: 'Cyprus U.N. Buffer Zone', neNames: ['Cyprus U.N. Buffer Zone'], iso2: 'XB', region: 'Asia', subregion: 'Western Asia', latlng: [35.1, 33.4] },
-  { id: 'XGB', name: 'Guantanamo Bay',      neNames: ['USNB Guantanamo Bay'], iso2: 'XU', region: 'Americas', subregion: 'Caribbean',       latlng: [19.9, -75.15] },
-  { id: 'XBK', name: 'Baikonur',            neNames: ['Baikonur'],           iso2: 'XR', region: 'Asia',     subregion: 'Central Asia',     latlng: [45.7, 63.3] },
-  { id: 'XCS', name: 'Coral Sea Is.',       neNames: ['Coral Sea Is.'],      iso2: 'XC', region: 'Oceania',  subregion: 'Australia and New Zealand', latlng: [-18.0, 152.0] },
-  { id: 'XSP', name: 'Spratly Is.',         neNames: ['Spratly Is.'],        iso2: 'XY', region: 'Asia',     subregion: 'South-Eastern Asia', latlng: [9.7, 114.0] },
-  { id: 'XCP', name: 'Clipperton I.',       neNames: ['Clipperton I.'],      iso2: 'XP', region: 'Americas', subregion: 'North America',    latlng: [10.3, -109.2] },
-  { id: 'XBN', name: 'Bajo Nuevo Bank',     neNames: ['Bajo Nuevo Bank'],    iso2: 'XJ', region: 'Americas', subregion: 'Caribbean',        latlng: [15.85, -78.65] },
-  { id: 'XSN', name: 'Serranilla Bank',     neNames: ['Serranilla Bank'],    iso2: 'XL', region: 'Americas', subregion: 'Caribbean',        latlng: [15.85, -79.85] },
-  { id: 'XSR', name: 'Scarborough Reef',    neNames: ['Scarborough Reef'],   iso2: 'XW', region: 'Asia',     subregion: 'South-Eastern Asia', latlng: [15.15, 117.76] },
-]
-
-/** @type {Record<string, object>} keyed by ISO 3166-1 alpha-3 (or user-assigned) */
-const byId = {}
-/** @type {Record<string, string>} ISO 3166-1 numeric -> alpha-3 */
-const numericToId = {}
-/** @type {Record<string, string>} Natural Earth name -> alpha-3, for entities without a numeric id */
-const nameToId = {}
-
-for (const c of countries) {
-  byId[c.cca3] = {
-    id: c.cca3,
-    iso2: c.cca2,
-    // The entity's own short code. For a country it coincides with its alpha-2; the
-    // field exists because for a state or a province it does not.
-    code: c.cca2,
-    numeric: c.ccn3,
-    name: c.name.common,
-    officialName: c.name.official,
-    region: c.region,
-    subregion: c.subregion || c.region,
-    independent: c.independent === true,
-    lat: c.latlng[0],
-    lng: c.latlng[1],
-  }
-  if (c.ccn3) numericToId[c.ccn3] = c.cca3
-}
-
-for (const e of nonIsoEntities) {
-  byId[e.id] = {
-    id: e.id,
-    iso2: e.iso2,
-    code: e.iso2,
-    numeric: null,
-    name: e.name,
-    officialName: e.name,
-    region: e.region,
-    subregion: e.subregion,
-    independent: false,
-    lat: e.latlng[0],
-    lng: e.latlng[1],
-  }
-  for (const n of e.neNames) nameToId[n] = e.id
-}
+const table = buildCountryTable()
+const { byId, numericToId, nameToId } = table
 
 writeFileSync(
   resolve(outDir, 'country-meta.json'),
   JSON.stringify({ generatedAt: new Date().toISOString(), numericToId, nameToId, entities: byId }),
 )
 
-/* ------------------------------------------------- Modern Administrative World */
+/* --------------------------------------------------------------- US states */
 
 /**
- * The administrative world map: Natural Earth's admin-1 subdivisions, vendored as TopoJSON
- * by scripts/fetch-admin1.mjs and copied here like every other layer.
- *
- * Its entity table is built here rather than vendored, because a subdivision's place in
- * the world is its country's: Bavaria is in Europe because Germany is. So each one names
- * its parent by the world map's own id for that country and takes the country's region and
- * subregion from the table above — the vocabulary the region presets are written in — so
- * Europe, Asia and the rest work on this map unchanged.
+ * The USA map's entity table, in the envelope every table shares so one loader reads them
+ * all. States are identified by the feature id Natural Earth carries (`US-CA`), so the
+ * numeric and name indexes a country table needs are simply empty here.
  */
 {
-  const topo = resolve(root, 'data/natural-earth/admin1-10m.json')
-  const src = resolve(root, 'data/natural-earth/admin1-source.json')
-  if (existsSync(topo) && existsSync(src)) {
-    copyFileSync(topo, resolve(outDir, 'admin1-10m.json'))
-    const source = JSON.parse(readFileSync(src, 'utf8'))
-    const idByIso2 = new Map(Object.values(byId).filter((m) => m.iso2).map((m) => [m.iso2, m.id]))
-    /*
-     * Natural Earth's own adm0 codes where they differ from the table's id for the same
-     * place — its user-assigned codes for the non-ISO entities above, and the handful of
-     * countries it codes differently from ISO.
-     */
-    const NATURAL_EARTH_ADM0 = {
-      KOS: 'XKX', SOL: 'XSO', CYN: 'XNC', CNM: 'XCB', KAB: 'XBK', KAS: 'XSI', WSB: 'XAK',
-      ESB: 'XDH', USG: 'XGB', IOA: 'XIO', CSI: 'XCS', PGA: 'XSP', CLP: 'XCP', BJN: 'XBN',
-      SER: 'XSN', SCR: 'XSR', SDS: 'SSD', PSX: 'PSE', SAH: 'ESH', ALD: 'ALA',
-    }
-    const entities = {}
-    const unplaced = new Set()
-    for (const [id, s] of Object.entries(source)) {
-      const parentId =
-        NATURAL_EARTH_ADM0[s.adm0] ?? (byId[s.adm0] ? s.adm0 : (s.iso2 && idByIso2.get(s.iso2)) || null)
-      const parent = parentId ? byId[parentId] : null
-      if (!parent) unplaced.add(`${s.adm0} ${s.country}`)
-      const iso = s.iso31662
-      entities[id] = {
-        id,
-        // A subdivision is not a country, and this is the field the flag library reads.
-        iso2: null,
-        code: iso && iso.includes('-') ? iso.split('-').slice(1).join('-') : (s.postal ?? id),
-        numeric: null,
-        name: s.name,
-        officialName: s.localName ?? s.name,
-        region: parent?.region ?? 'Unknown',
-        subregion: parent?.subregion ?? parent?.region ?? 'Unknown',
-        independent: false,
-        lat: s.lat,
-        lng: s.lng,
-        parent: {
-          id: parent?.id ?? s.adm0,
-          name: parent?.name ?? s.country,
-          iso2: parent?.iso2 ?? s.iso2 ?? null,
-        },
-        kind: s.kind,
-        source: {
-          adm1Code: s.adm1Code,
-          neId: s.neId,
-          iso31662: iso,
-          hasc: s.hasc,
-          wikidata: s.wikidata,
-        },
-      }
-    }
+  const src = resolve(dataDir, 'us-states-meta.json')
+  if (existsSync(src)) {
+    const entities = JSON.parse(readFileSync(src, 'utf8'))
     writeFileSync(
-      resolve(outDir, 'admin1-meta.json'),
+      resolve(outDir, 'us-state-meta.json'),
       JSON.stringify({ generatedAt: new Date().toISOString(), numericToId: {}, nameToId: {}, entities }),
     )
-    console.log(
-      `[prepare-data] ${Object.keys(entities).length} subdivisions -> public/geo/admin1-10m.json` +
-        (unplaced.size ? `; parent not in the country table: ${[...unplaced].join(', ')}` : ''),
-    )
+    console.log(`[prepare-data] ${Object.keys(entities).length} USA States entities -> public/geo/us-state-meta.json`)
   } else {
-    console.warn('[prepare-data] missing admin1-10m.json - run: node scripts/fetch-admin1.mjs')
+    console.warn('[prepare-data] missing us-states-meta.json - run: npm run build-geography')
   }
 }
 
-const check = topologies.every((f) => existsSync(resolve(outDir, f)))
+/* ------------------------------------------------- Modern Administrative World */
+
+/**
+ * The administrative world is written whole by `scripts/admin/build-admin.mjs` — its base
+ * topology, the entity table, one fragment per country and level, and the index that says
+ * which fragments each detail level uses — so this only copies it. Stale files from an
+ * earlier build are removed first, or a fragment the table no longer uses would linger.
+ */
+{
+  const src = resolve(root, 'data/admin')
+  const dest = resolve(outDir, 'admin')
+  if (existsSync(resolve(src, 'index.json'))) {
+    rmSync(dest, { recursive: true, force: true })
+    mkdirSync(dest, { recursive: true })
+    const files = readdirSync(src).filter((f) => f.endsWith('.json') && f !== 'report.json')
+    for (const file of files) copyFileSync(resolve(src, file), resolve(dest, file))
+    for (const stale of ['admin1-10m.json', 'admin1-meta.json']) rmSync(resolve(outDir, stale), { force: true })
+    console.log(`[prepare-data] administrative world: ${files.length} files -> public/geo/admin/`)
+  } else {
+    console.warn('[prepare-data] missing data/admin/index.json - run: npm run build-geography')
+  }
+}
+
+/* ---------------------------------------------- Official USA Administrative Map */
+
+/**
+ * Written whole by `scripts/usa/build-usa.mjs` from Census Bureau and USGS data — a topology,
+ * an entity table and a details file per level, and the USGS water — so this only copies it.
+ */
+{
+  const src = resolve(root, 'data/usa-official')
+  const dest = resolve(outDir, 'usa-official')
+  if (existsSync(resolve(src, 'counties.json'))) {
+    rmSync(dest, { recursive: true, force: true })
+    cpSync(src, dest, { recursive: true, filter: (path) => !path.endsWith('report.json') })
+    console.log(`[prepare-data] official USA map -> public/geo/usa-official/`)
+  } else {
+    console.warn('[prepare-data] missing data/usa-official/ - run: npm run build-usa')
+  }
+}
+
 console.log(
-  `[prepare-data] ${topologies.length} topologies ${check ? 'copied' : 'MISSING'}, ` +
+  `[prepare-data] ${CURATED.length - missing.length} of ${CURATED.length} curated layers copied, ` +
     `${Object.keys(byId).length} countries indexed -> public/geo/`,
 )

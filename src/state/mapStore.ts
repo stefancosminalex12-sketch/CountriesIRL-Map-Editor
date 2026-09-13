@@ -14,7 +14,7 @@ import {
   type MapOperation,
   type OperationResult,
 } from './operations'
-import { loadGeoDataset, type LoadedDataset } from '../geo/datasets'
+import { loadGeoDataset, type GeoDataset, type LoadedDataset } from '../geo/datasets'
 import { lakeLayerForDetail, loadLakes, type LoadedLakes } from '../geo/lakes'
 import { riverLayerForDetail, loadRivers, type LoadedRivers } from '../geo/rivers'
 import { loadMaritime, type LoadedMaritime } from '../geo/maritime'
@@ -28,7 +28,7 @@ export type Transform = { k: number; x: number; y: number }
 export const IDENTITY_TRANSFORM: Transform = { k: 1, x: 0, y: 0 }
 
 /**
- * One step on the undo stack: the document as it stood before an edit.
+ * One step on the undo stack: the document and the selection as they stood before an edit.
  *
  * Snapshots rather than inverse operations. The executor already returns a new
  * document and never mutates the old one, so the previous state is simply the value
@@ -37,11 +37,38 @@ export const IDENTITY_TRANSFORM: Transform = { k: 1, x: 0, y: 0 }
  * would mean writing and maintaining an undo for every operation in the vocabulary,
  * and getting one of them subtly wrong is how undo stacks start lying.
  */
-interface HistoryEntry {
-  doc: MapDocument
-  /** Edits sharing a key and arriving close together extend this step. */
+interface HistoryEntry extends HistoryState {
+  /**
+   * Edits sharing a key and arriving close together extend this step. A key that belongs to
+   * a pointer gesture (see {@link GESTURE_HISTORY_PREFIX}) extends it for the whole gesture.
+   */
   key: string | null
   at: number
+}
+
+/**
+ * The selection, and the merge groups it fills — the part of an undo step that is not the
+ * document.
+ *
+ * Selecting is how most work on this editor starts, and on the administrative world a
+ * selection built with the brush or the rectangle can be a hundred subdivisions: losing it
+ * to a stray click, or wanting the last stroke back, is exactly what undo is for. So a
+ * selection change is a step of its own, restored together with the document it was made
+ * against. The merge groups ride with it because while one is collecting, the group and the
+ * selection are the same fact seen twice — undoing one without the other would leave a
+ * subdivision highlighted but not in the group, or in the group but not highlighted.
+ *
+ * Which group is collecting is not in here: that is which panel is open, not what was done.
+ */
+export interface SelectionState {
+  selectedCountryIds: CountryId[]
+  mergeDrafts: MergeDraft[]
+}
+
+/** One restorable moment: the document and the selection as they stood together. */
+interface HistoryState {
+  doc: MapDocument
+  selection: SelectionState
 }
 
 /**
@@ -55,14 +82,29 @@ interface HistoryEntry {
  * adds to, reviews, and merges when it is right.
  *
  * Deliberately *not* in the document. A draft is not map content — nothing on the map is
- * different because one exists — so it stays out of the undo stack, out of exports and
- * out of anything a saved map would carry. It lives beside the selection, which is the
- * other piece of state of exactly this kind, and is parked with the map when the author
- * switches atlases so a half-built merge survives the trip.
+ * different because one exists — so it stays out of exports and out of anything a saved
+ * map would carry. It lives beside the selection, which is the other piece of state of
+ * exactly this kind: undo restores the two together (see {@link SelectionState}), and both
+ * are parked with the map when the author switches atlases so a half-built merge survives
+ * the trip.
  */
 export interface MergeDraft {
   id: string
   members: CountryId[]
+}
+
+/**
+ * The Selection panel's tools, which every map offers.
+ *
+ * Session state, beside the selection it feeds: which tool is in hand is a fact about how the
+ * author is working rather than about the map, so it is not undoable, not saved and not
+ * exported. The rectangle starts on — it answers only to the middle button, which the map
+ * otherwise has no use for — and the brush starts off, because while it is on a drag selects
+ * instead of panning.
+ */
+export interface SelectionTools {
+  rectangle: boolean
+  brush: boolean
 }
 
 /**
@@ -81,7 +123,7 @@ export interface MergeDraft {
 interface ParkedMap {
   doc: MapDocument
   past: HistoryEntry[]
-  future: MapDocument[]
+  future: HistoryState[]
   selectedCountryIds: CountryId[]
   mergeDrafts: MergeDraft[]
   activeMergeDraftId: string | null
@@ -105,6 +147,137 @@ const COALESCE_MS = 700
 
 /** Depth of the undo stack. Snapshots are cheap, but not free. */
 const HISTORY_LIMIT = 100
+
+/**
+ * Marks a history key as one pointer gesture's: every change made under it is one undo step,
+ * however long the gesture takes. A time window cannot say that — a slow brush stroke lasts
+ * longer than any window, and two quick strokes would merge inside one.
+ */
+export const GESTURE_HISTORY_PREFIX = 'gesture:'
+
+function selectionOf(state: SelectionState): SelectionState {
+  return { selectedCountryIds: state.selectedCountryIds, mergeDrafts: state.mergeDrafts }
+}
+
+function sameSelection(a: SelectionState, b: SelectionState): boolean {
+  if (a.mergeDrafts !== b.mergeDrafts) return false
+  const x = a.selectedCountryIds
+  const y = b.selectedCountryIds
+  return x === y || (x.length === y.length && x.every((id, i) => id === y[i]))
+}
+
+/**
+ * Whether an edit changed anything. An operation can succeed and change nothing — a value
+ * typed again, a toggle set to what it already was — and a step that restores the same
+ * state is an undo press that visibly does nothing. Only the parts the edit replaced are
+ * compared, and only by value when they differ by reference.
+ */
+function sameDocument(a: MapDocument, b: MapDocument): boolean {
+  if (a === b) return true
+  const keys = Object.keys(b) as (keyof MapDocument)[]
+  if (keys.length !== Object.keys(a).length) return false
+  return keys.every((key) => a[key] === b[key] || JSON.stringify(a[key]) === JSON.stringify(b[key]))
+}
+
+/**
+ * The history after recording `before` as the state an edit started from. A run of edits
+ * sharing a key extends the step already on top — its snapshot is still the state before the
+ * first of them, which is what the author means by "undo that". Any fresh edit abandons the
+ * branch redo would have replayed.
+ */
+function recorded(
+  past: HistoryEntry[],
+  before: HistoryState,
+  key: string | null,
+): { past: HistoryEntry[]; future: HistoryState[] } {
+  const now = Date.now()
+  const top = past[past.length - 1]
+  const extend =
+    key !== null &&
+    top !== undefined &&
+    top.key === key &&
+    (key.startsWith(GESTURE_HISTORY_PREFIX) || now - top.at < COALESCE_MS)
+  return {
+    past: extend
+      ? [...past.slice(0, -1), { ...top, at: now }]
+      : [...past, { ...before, key, at: now }].slice(-HISTORY_LIMIT),
+    future: [],
+  }
+}
+
+/**
+ * The step the most recent document edit made, while it is still the top of the stack —
+ * what {@link MapStore.clearSelectionWithLastEdit} joins. Anything recorded after it replaces
+ * the top, and the two stop being the same object.
+ */
+let lastEdit: HistoryEntry | null = null
+
+/**
+ * The document an undo or redo restores, with the parts that are never undone kept as they
+ * are now: the scope — dataset, regions, projection — the style, and which layer is active.
+ * Those change through operations that deliberately make no undo step (see
+ * `UNDOABLE_OPERATIONS`), but a snapshot taken before them still carries their old values, so
+ * restoring it whole quietly moved the camera, swapped the dataset or reverted a switch along
+ * with the edit being undone.
+ */
+function withCurrentView(restored: MapDocument, current: MapDocument): MapDocument {
+  const activeLayerId = restored.layers.some((layer) => layer.id === current.activeLayerId)
+    ? current.activeLayerId
+    : restored.activeLayerId
+  if (
+    restored.scope === current.scope &&
+    restored.style === current.style &&
+    restored.activeLayerId === activeLayerId
+  ) {
+    return restored
+  }
+  return { ...restored, scope: current.scope, style: current.style, activeLayerId }
+}
+
+/** The store fields a restored selection sets, keeping the collecting group if it still exists. */
+function restoredSelection(
+  selection: SelectionState,
+  activeMergeDraftId: string | null,
+): Pick<MapStore, 'selectedCountryIds' | 'mergeDrafts' | 'activeMergeDraftId'> {
+  return {
+    selectedCountryIds: selection.selectedCountryIds,
+    mergeDrafts: selection.mergeDrafts,
+    activeMergeDraftId: selection.mergeDrafts.some((draft) => draft.id === activeMergeDraftId)
+      ? activeMergeDraftId
+      : null,
+  }
+}
+
+/**
+ * Which group a selection change fills, if any: the one collecting, or — in Merge, with none
+ * collecting — a new one, because there the first tap makes the group (see `selectCountry`).
+ */
+function collectingGroup(state: MapStore): { drafts: MergeDraft[]; activeId: string | null } {
+  if (state.activeMergeDraftId || !state.mergeMode) {
+    return { drafts: state.mergeDrafts, activeId: state.activeMergeDraftId }
+  }
+  const id = `draft-${Date.now().toString(36)}`
+  return { drafts: [...state.mergeDrafts, { id, members: [] }], activeId: id }
+}
+
+/** A group's removal, and what it takes out of the selection with it. */
+function withoutDraft(state: MapStore, id: string): Partial<MapStore> {
+  const gone = state.mergeDrafts.find((d) => d.id === id)
+  const remaining = state.mergeDrafts.filter((d) => d.id !== id)
+  // What a discarded group was holding stops being highlighted, because there is no longer
+  // anything it is highlighted for — but only while it was the one collecting.
+  const collecting = state.mergeMode && state.activeMergeDraftId === id
+  return {
+    mergeDrafts: remaining,
+    ...(collecting && gone
+      ? { selectedCountryIds: state.selectedCountryIds.filter((c) => !gone.members.includes(c)) }
+      : null),
+    activeMergeDraftId:
+      state.activeMergeDraftId === id
+        ? (remaining[remaining.length - 1]?.id ?? null)
+        : state.activeMergeDraftId,
+  }
+}
 
 interface MapStore {
   doc: MapDocument
@@ -144,6 +317,20 @@ interface MapStore {
   /* interaction */
   hoveredCountryId: CountryId | null
   selectedCountryIds: CountryId[]
+  /** See {@link SelectionTools}. */
+  selectionTools: SelectionTools
+  /**
+   * Whether the magnifying glass is on: an enlarged copy of each selected speck of a
+   * territory, drawn beside it so it can be seen at a zoom where it is a pixel wide.
+   *
+   * Off until the author turns it on, on every map and after every load. It used to have no
+   * switch at all: selecting any small entity summoned a lens, so the feature was on for
+   * whoever happened to click Monaco. Session state beside the selection tools, not
+   * document content — it is an editor aid, never part of the map, never exported and
+   * never undone — and one switch for every map, so it does not change under the author
+   * when they open another.
+   */
+  magnifier: boolean
 
   /* merges being assembled. See {@link MergeDraft}. */
   mergeDrafts: MergeDraft[]
@@ -162,9 +349,10 @@ interface MapStore {
   /* operation log — the audit trail the AI assistant will write into */
   log: OperationResult[]
 
-  /* edit history */
+  /* edit history — see {@link HistoryEntry} */
   past: HistoryEntry[]
-  future: MapDocument[]
+  /** What redo re-applies, most recent undo first. */
+  future: HistoryState[]
 
   loadDataset: (datasetId: string) => Promise<void>
   /** Opens another atlas, parking the current map's state and restoring the target's. */
@@ -199,6 +387,24 @@ interface MapStore {
   setHovered: (id: CountryId | null) => void
   selectCountry: (id: CountryId | null, additive?: boolean) => void
   clearSelection: () => void
+  /**
+   * Clears the selection as part of the document edit just made, so the two are one undo
+   * step — the Palette letting go of a selection once its value has landed, Compare once
+   * the selection has joined a group. With no such edit just made it is an ordinary clear.
+   */
+  clearSelectionWithLastEdit: () => void
+  /**
+   * Adds entities to the selection and takes none out — what a rectangle or a brush stroke
+   * does. Anything already selected stays selected, and passing over it again changes
+   * nothing.
+   *
+   * Calls sharing a `historyKey` that starts with {@link GESTURE_HISTORY_PREFIX} are one
+   * undo step however long the gesture takes, so a brush stroke that adds to the selection
+   * on every frame is still one thing to undo.
+   */
+  addToSelection: (ids: CountryId[], historyKey?: string | null) => void
+  setSelectionTool: (tool: keyof SelectionTools, on: boolean) => void
+  setMagnifier: (on: boolean) => void
 
   setTransform: (t: Transform) => void
   resetTransform: () => void
@@ -209,12 +415,13 @@ type GetState = () => MapStore
 
 /** Fetches the river layer matching a dataset's resolution, if it is not already the one held. */
 function loadRiversFor(
-  detail: '110m' | '50m' | '10m',
+  dataset: GeoDataset,
   datasetId: string,
   set: SetState,
   get: GetState,
 ) {
-  const layer = riverLayerForDetail(detail)
+  // A dataset with water of its own (the official USA map's USGS rivers) draws that.
+  const layer = dataset.water?.rivers ?? riverLayerForDetail(dataset.detail)
   if (get().rivers?.layer.id === layer.id) return
   void loadRivers(layer)
     .then((rivers) => {
@@ -231,7 +438,36 @@ function loadMaritimeOnce(set: SetState, get: GetState) {
     .catch((error) => console.warn('[geo] maritime territory unavailable', error))
 }
 
-export const useMapStore = create<MapStore>((set, get) => ({
+export const useMapStore = create<MapStore>((set, get) => {
+  /**
+   * Applies a change to the selection or the merge groups as one undo step — or as part of
+   * the step `historyKey` is extending. A change that leaves both as they were records
+   * nothing, so a click that selects nothing new, or a stroke over subdivisions already
+   * taken, costs no undo press.
+   */
+  const commitSelection = (patch: Partial<MapStore>, historyKey: string | null) => {
+    const state = get()
+    const before: HistoryState = { doc: state.doc, selection: selectionOf(state) }
+    const after = selectionOf({ ...state, ...patch })
+    if (sameSelection(before.selection, after)) {
+      if (patch.activeMergeDraftId !== undefined) set({ activeMergeDraftId: patch.activeMergeDraftId })
+      return
+    }
+    set({ ...patch, ...recorded(state.past, before, historyKey) })
+  }
+
+  /**
+   * Applies a selection change as part of the document edit just made, when there was one:
+   * the top step already holds the state from before that edit, so leaving it where it is
+   * makes the edit and this change a single undo. Otherwise it is a step of its own.
+   */
+  const withLastEdit = (patch: Partial<MapStore>) => {
+    const { past } = get()
+    if (lastEdit !== null && past[past.length - 1] === lastEdit) set(patch)
+    else commitSelection(patch, null)
+  }
+
+  return {
   doc: createMapDocument(),
   parked: {},
 
@@ -249,6 +485,8 @@ export const useMapStore = create<MapStore>((set, get) => ({
 
   hoveredCountryId: null,
   selectedCountryIds: [],
+  selectionTools: { rectangle: true, brush: false },
+  magnifier: false,
 
   mergeDrafts: [],
   activeMergeDraftId: null,
@@ -266,11 +504,25 @@ export const useMapStore = create<MapStore>((set, get) => ({
       // Ignore a stale response if the scope moved on while we were loading — which
       // now includes the author switching to another map mid-load.
       if (get().doc.scope.datasetId !== datasetId) return
-      set({ geo, geoStatus: 'ready' })
+      /*
+       * A selection names entities, and another level of the same map may not have them:
+       * Upper Bavaria is not a unit on a map of Kreise. Those drop out of the selection so
+       * the count and the inspector describe what is on screen. Their values stay in the
+       * document and come back with the level that draws them.
+       */
+      const state = get()
+      const present = (id: string) => geo.byId.has(id) || state.doc.merges.some((m) => m.id === id)
+      const selected = state.selectedCountryIds.filter(present)
+      set({
+        geo,
+        geoStatus: 'ready',
+        ...(selected.length !== state.selectedCountryIds.length ? { selectedCountryIds: selected } : {}),
+        ...(state.hoveredCountryId && !present(state.hoveredCountryId) ? { hoveredCountryId: null } : {}),
+      })
 
       // Lakes follow, unawaited: the map paints as soon as the countries are ready
       // and the water arrives a moment later rather than delaying first paint.
-      const layer = lakeLayerForDetail(geo.dataset.detail)
+      const layer = geo.dataset.water?.lakes ?? lakeLayerForDetail(geo.dataset.detail)
       if (get().lakes?.layer.id !== layer.id) {
         void loadLakes(layer)
           .then((lakes) => {
@@ -286,7 +538,7 @@ export const useMapStore = create<MapStore>((set, get) => ({
        * the switch is turned on, and from then on this keeps it in step with the
        * dataset's resolution exactly as it always did.
        */
-      if (get().riversWanted) loadRiversFor(geo.dataset.detail, datasetId, set, get)
+      if (get().riversWanted) loadRiversFor(geo.dataset, datasetId, set, get)
 
       // Maritime territory the same way, and only once: it is a single global file
       // that does not vary with the country dataset's resolution.
@@ -323,7 +575,7 @@ export const useMapStore = create<MapStore>((set, get) => ({
       : {
           doc: carryOverGlobals(state.doc, createMapDocument({}, atlas.id)),
           past: [] as HistoryEntry[],
-          future: [] as MapDocument[],
+          future: [] as HistoryState[],
           selectedCountryIds: [] as CountryId[],
           mergeDrafts: [] as MergeDraft[],
           activeMergeDraftId: null as string | null,
@@ -384,19 +636,16 @@ export const useMapStore = create<MapStore>((set, get) => ({
      * already on the stack: the snapshot there is still the state before the first
      * keystroke, which is what the user means by "undo that".
      */
-    const undoable = outcome.results.some((r) => r.ok && UNDOABLE_OPERATIONS.has(r.op.op as never))
+    const undoable =
+      outcome.results.some((r) => r.ok && UNDOABLE_OPERATIONS.has(r.op.op as never)) &&
+      !sameDocument(doc, outcome.doc)
     let nextPast = past
     let nextFuture = get().future
     if (undoable) {
-      const now = Date.now()
-      const key = coalesceKey(ops)
-      const top = past[past.length - 1]
-      const extend = key !== null && top && top.key === key && now - top.at < COALESCE_MS
-      nextPast = extend
-        ? [...past.slice(0, -1), { ...top, at: now }]
-        : [...past, { doc, key, at: now }].slice(-HISTORY_LIMIT)
-      // Any fresh edit abandons the branch that redo would have replayed.
-      nextFuture = []
+      const history = recorded(past, { doc, selection: selectionOf(get()) }, coalesceKey(ops))
+      nextPast = history.past
+      nextFuture = history.future
+      lastEdit = nextPast[nextPast.length - 1]
     }
 
     set({
@@ -421,28 +670,38 @@ export const useMapStore = create<MapStore>((set, get) => ({
   },
 
   /**
-   * Steps the document back one edit.
+   * Steps back one edit: the document and the selection, as they stood before it.
    *
-   * Selection is trimmed to what still exists, because undoing a country's data does
-   * not remove the country but undoing a group can leave the panel pointing at one
-   * that is gone. Everything else about the view is left alone: undo is about the
-   * document, and moving the camera as a side effect of it would be a surprise.
+   * The two are restored together because they were recorded together, so a value comes
+   * back on the subdivisions it was given to and a stroke's subdivisions leave the selection
+   * as one. Everything about the view is left alone — the scope, the style, the camera — see
+   * `withCurrentView`: undo is about the map, and moving the camera as a side effect of it
+   * would be a surprise.
    */
   undo() {
-    const { past, future, doc } = get()
-    const previous = past[past.length - 1]
+    const state = get()
+    const previous = state.past[state.past.length - 1]
     if (!previous) return
-    set({ doc: previous.doc, past: past.slice(0, -1), future: [doc, ...future] })
+    const current: HistoryState = { doc: state.doc, selection: selectionOf(state) }
+    set({
+      doc: withCurrentView(previous.doc, state.doc),
+      ...restoredSelection(previous.selection, state.activeMergeDraftId),
+      past: state.past.slice(0, -1),
+      future: [current, ...state.future].slice(0, HISTORY_LIMIT),
+    })
   },
 
+  /** Re-applies the step the last undo took back — exactly the state it left. */
   redo() {
-    const { past, future, doc } = get()
-    const next = future[0]
+    const state = get()
+    const next = state.future[0]
     if (!next) return
+    const current: HistoryState = { doc: state.doc, selection: selectionOf(state) }
     set({
-      doc: next,
-      past: [...past, { doc, key: null, at: Date.now() }].slice(-HISTORY_LIMIT),
-      future: future.slice(1),
+      doc: withCurrentView(next.doc, state.doc),
+      ...restoredSelection(next.selection, state.activeMergeDraftId),
+      past: [...state.past, { ...current, key: null, at: Date.now() }].slice(-HISTORY_LIMIT),
+      future: state.future.slice(1),
     })
   },
 
@@ -474,7 +733,7 @@ export const useMapStore = create<MapStore>((set, get) => ({
     // Numbered by position rather than by a running counter, so deleting Group 2 of
     // three leaves Group 1 and Group 2 rather than Group 1 and Group 3.
     const draft: MergeDraft = { id, members: [] }
-    set({ mergeDrafts: [...mergeDrafts, draft], activeMergeDraftId: id })
+    commitSelection({ mergeDrafts: [...mergeDrafts, draft], activeMergeDraftId: id }, null)
     return id
   },
 
@@ -502,36 +761,23 @@ export const useMapStore = create<MapStore>((set, get) => ({
    */
   removeFromMergeDraft(id, memberId) {
     const collecting = get().mergeMode && get().activeMergeDraftId === id
-    set({
-      mergeDrafts: get().mergeDrafts.map((draft) =>
-        draft.id === id
-          ? { ...draft, members: draft.members.filter((m) => m !== memberId) }
-          : draft,
-      ),
-      ...(collecting
-        ? { selectedCountryIds: get().selectedCountryIds.filter((c) => c !== memberId) }
-        : null),
-    })
+    commitSelection(
+      {
+        mergeDrafts: get().mergeDrafts.map((draft) =>
+          draft.id === id
+            ? { ...draft, members: draft.members.filter((m) => m !== memberId) }
+            : draft,
+        ),
+        ...(collecting
+          ? { selectedCountryIds: get().selectedCountryIds.filter((c) => c !== memberId) }
+          : null),
+      },
+      null,
+    )
   },
 
   deleteMergeDraft(id) {
-    const gone = get().mergeDrafts.find((d) => d.id === id)
-    const remaining = get().mergeDrafts.filter((d) => d.id !== id)
-    // Same reasoning as `removeFromMergeDraft`: what a discarded group was holding
-    // stops being highlighted, because there is no longer anything it is highlighted for.
-    const collecting = get().mergeMode && get().activeMergeDraftId === id
-    set({
-      mergeDrafts: remaining,
-      ...(collecting && gone
-        ? {
-            selectedCountryIds: get().selectedCountryIds.filter(
-              (c) => !gone.members.includes(c),
-            ),
-          }
-        : null),
-      activeMergeDraftId:
-        get().activeMergeDraftId === id ? (remaining[remaining.length - 1]?.id ?? null) : get().activeMergeDraftId,
-    })
+    commitSelection(withoutDraft(get(), id), null)
   },
 
   /**
@@ -552,15 +798,15 @@ export const useMapStore = create<MapStore>((set, get) => ({
       name: defaultMergeName(get().geo, draft.members),
       members: [...draft.members],
     })
-    get().deleteMergeDraft(id)
-    set({ selectedCountryIds: [], activeMergeDraftId: null })
+    // The group becoming a merge is one act: undo brings back the group and its selection.
+    withLastEdit({ ...withoutDraft(get(), id), selectedCountryIds: [], activeMergeDraftId: null })
   },
 
   ensureRivers() {
     if (get().riversWanted) return
     set({ riversWanted: true })
     const geo = get().geo
-    if (geo) loadRiversFor(geo.dataset.detail, get().doc.scope.datasetId, set, get)
+    if (geo) loadRiversFor(geo.dataset, get().doc.scope.datasetId, set, get)
   },
 
   ensureMaritime() {
@@ -591,19 +837,18 @@ export const useMapStore = create<MapStore>((set, get) => ({
    */
   selectCountry(id, additive = true) {
     if (id === null) {
-      set({ selectedCountryIds: [] })
+      commitSelection({ selectedCountryIds: [] }, null)
       return
     }
-    const current = get().selectedCountryIds
-    if (additive) {
-      set({
-        selectedCountryIds: current.includes(id)
-          ? current.filter((c) => c !== id)
-          : [...current, id],
-      })
-    } else {
-      set({ selectedCountryIds: current.length === 1 && current[0] === id ? [] : [id] })
-    }
+    const state = get()
+    const current = state.selectedCountryIds
+    const selectedCountryIds = additive
+      ? current.includes(id)
+        ? current.filter((c) => c !== id)
+        : [...current, id]
+      : current.length === 1 && current[0] === id
+        ? []
+        : [id]
 
     /*
      * A group that is collecting takes what is clicked, as it is clicked.
@@ -621,25 +866,79 @@ export const useMapStore = create<MapStore>((set, get) => ({
      * author who taps an entity has already said what they want, and asking them to
      * declare a container beforehand is a step that only exists for the machine.
      */
-    let collecting = get().activeMergeDraftId
-    if (!collecting && get().mergeMode) collecting = get().addMergeDraft()
-    if (!collecting) return
-    set({
-      mergeDrafts: get().mergeDrafts.map((draft) =>
-        draft.id === collecting
-          ? {
-              ...draft,
-              members: draft.members.includes(id)
-                ? draft.members.filter((m) => m !== id)
-                : [...draft.members, id],
-            }
-          : draft,
-      ),
-    })
+    const { drafts, activeId } = collectingGroup(state)
+    // One click is one undo step, whatever it did to the selection and the group together.
+    commitSelection(
+      activeId
+        ? {
+            selectedCountryIds,
+            activeMergeDraftId: activeId,
+            mergeDrafts: drafts.map((draft) =>
+              draft.id === activeId
+                ? {
+                    ...draft,
+                    members: draft.members.includes(id)
+                      ? draft.members.filter((m) => m !== id)
+                      : [...draft.members, id],
+                  }
+                : draft,
+            ),
+          }
+        : { selectedCountryIds },
+      null,
+    )
   },
 
   clearSelection() {
-    set({ selectedCountryIds: [] })
+    commitSelection({ selectedCountryIds: [] }, null)
+  },
+
+  clearSelectionWithLastEdit() {
+    withLastEdit({ selectedCountryIds: [] })
+  },
+
+  addToSelection(ids, historyKey = null) {
+    const state = get()
+    const current = state.selectedCountryIds
+    const have = new Set(current)
+    const fresh: CountryId[] = []
+    for (const id of ids) {
+      if (have.has(id)) continue
+      have.add(id)
+      fresh.push(id)
+    }
+    if (fresh.length === 0) return
+
+    /*
+     * A group that is collecting takes them too, exactly as it takes a click — see
+     * `selectCountry` — except that nothing is ever taken back out: a stroke that passes
+     * over a member again leaves it where it is.
+     */
+    const { drafts, activeId } = collectingGroup(state)
+    commitSelection(
+      activeId
+        ? {
+            selectedCountryIds: [...current, ...fresh],
+            activeMergeDraftId: activeId,
+            mergeDrafts: drafts.map((draft) =>
+              draft.id === activeId
+                ? { ...draft, members: [...draft.members, ...fresh.filter((id) => !draft.members.includes(id))] }
+                : draft,
+            ),
+          }
+        : { selectedCountryIds: [...current, ...fresh] },
+      historyKey,
+    )
+  },
+
+  setSelectionTool(tool, on) {
+    const current = get().selectionTools
+    if (current[tool] === on) return
+    set({ selectionTools: { ...current, [tool]: on } })
+  },
+
+  setMagnifier(on) {
+    if (get().magnifier !== on) set({ magnifier: on })
   },
 
   setTransform(transform) {
@@ -649,7 +948,8 @@ export const useMapStore = create<MapStore>((set, get) => ({
   resetTransform() {
     set({ transform: IDENTITY_TRANSFORM, framingEpoch: get().framingEpoch + 1 })
   },
-}))
+  }
+})
 
 /* ------------------------------------------------------------------ selectors */
 
