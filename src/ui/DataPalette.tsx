@@ -162,10 +162,9 @@ export function DataPalette() {
             Bounded, so a large selection scrolls here instead of pushing everything
             below it — the Merge panel in particular — down the section.
 
-            Hidden entirely while Merge is open. There the group *is* the read-out of
-            what has been picked, and a second list of the same entities above it is
-            duplication that grows and shrinks with every tap — which is precisely what
-            Merge is not allowed to do.
+            Hidden entirely while Merge is open. There the group being edited *is* the
+            read-out, with its members listed, and a second list of the same entities above
+            it is duplication that grows and shrinks with every tap.
           */}
           {!mergeMode && (
             <>
@@ -270,10 +269,9 @@ export function DataPalette() {
             one control that is specific to this mode underneath it.
 
             Both are gone in Merge mode, together, because both are the selection — and
-            in Merge mode the selection means something else. What is highlighted there
-            is a group being assembled, not a set of countries being edited, so offering
-            to change its flag offers to do the one thing the tap was not for. The
-            merged entity gets its own flag afterwards, from its own row in Merge.
+            in Merge mode the selection means something else: the group being edited and
+            what is waiting to be added to it, not a set of countries being edited. A group
+            gets its flag from its own row in Merge.
           */}
           {!mergeMode && (
             <>

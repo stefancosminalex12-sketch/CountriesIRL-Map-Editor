@@ -59,9 +59,12 @@ import {
   polygonKey,
   despiked,
 } from './geometry.mjs'
-import { union as clipUnion, created } from './clip.mjs'
+import { union as clipUnion, difference as clipDifference, created } from './clip.mjs'
 
 export const PRESETS = ['curated', 'detailed', 'maximum']
+
+/** The name of the piece a split's `join` leaves: the cut unit itself, less what was taken. */
+const REMAINDER = '\u0000remainder'
 const QUANTIZATION = 1e6
 
 const known = (value) =>
@@ -339,9 +342,63 @@ class Country {
       sourceUnits.push({ key, name: entry.name, ids: entry.ids, polygons })
     }
 
+    /*
+     * `only`: the Natural Earth units that are cut. Every other unit passes through as it is —
+     * the same entity, the same geometry — and only the source units lying in a cut unit are
+     * used.
+     */
+    const cutIds = recipe.only ? new Set(this.match(recipe.only).map((u) => u.id)) : null
+    const cutBases = cutIds ? base.features.filter((f) => cutIds.has(f.id)) : base.features
+    let units = sourceUnits
+    if (cutIds) {
+      const inside = cutBases.map((b) => indexed(b.polygons.map(oriented)))
+      units = units.filter((u) => {
+        const point = interiorPoint(u.polygons)
+        return point !== null && inside.some((entry) => contains(entry, point))
+      })
+    }
+
+    /*
+     * `join`: source units joined into named pieces, `{ Name: [source unit names] }`. The units
+     * named nowhere form the remainder, which keeps the cut unit's own id, name and description
+     * — the same entity, less what was taken out of it — so values an older map gave it stay
+     * with the part it still is.
+     */
+    if (recipe.join) {
+      const pieceOf = new Map()
+      for (const [name, members] of Object.entries(recipe.join)) {
+        for (const member of members) {
+          if (!units.some((u) => u.name === member)) {
+            this.problem(`${levelId}: "${member}" is not a ${source.dataset} unit inside the units cut`)
+          }
+          pieceOf.set(member, name)
+        }
+      }
+      const joined = new Map()
+      for (const u of units) {
+        const name = pieceOf.get(u.name) ?? REMAINDER
+        const entry = joined.get(name) ?? { key: name, name, ids: [], parts: [] }
+        entry.ids.push(...u.ids)
+        entry.parts.push(u.polygons)
+        joined.set(name, entry)
+      }
+      units = []
+      for (const entry of joined.values()) {
+        let polygons = entry.parts.flat()
+        if (entry.parts.length > 1) {
+          try {
+            polygons = clipUnion(...entry.parts)
+          } catch {
+            this.problem(`${levelId}: could not join the source units of ${entry.name === REMAINDER ? 'the remainder' : entry.name}`)
+          }
+        }
+        units.push({ key: entry.key, name: entry.name, ids: entry.ids, polygons })
+      }
+    }
+
     const { pieces, report } = split(
-      base.features.map((f) => ({ id: f.id, polygons: f.polygons })),
-      sourceUnits,
+      cutBases.map((f) => ({ id: f.id, polygons: f.polygons })),
+      units,
     )
     this.splitReports ??= {}
     this.splitReports[levelId] = {
@@ -353,15 +410,69 @@ class Country {
     for (const failure of report.clipFailures) this.problem(`${levelId}: clipping failed ${JSON.stringify(failure)}`)
 
     const baseById = new Map(base.features.map((f) => [f.id, f]))
+
+    /*
+     * With `join`, only the cut line is new.
+     *
+     * The remainder is the cut unit less the joined pieces — not what the remainder's own
+     * source units cover, whose outline crosses the unit's all along its borders: every such
+     * crossing would become a vertex of the neighbour across that border too, changing units
+     * the cut never reached. And a point clipping created on a piece's outline that no other
+     * piece of the unit shares — a crossing of the source's outline with the unit's own, not
+     * a point of the cut — is dropped: it lies on the unit's edge to 2 cm, and kept, the
+     * noding would put it into the neighbour's border as well. What is left new is the cut
+     * line, and its two ends where it meets the unit's outline.
+     */
+    if (recipe.join) {
+      for (const baseId of new Set(pieces.map((p) => p.baseId))) {
+        const own = pieces.filter((p) => p.baseId === baseId)
+        const rest = own.find((p) => p.source?.name === REMAINDER)
+        const named = own.filter((p) => p.source && p.source.name !== REMAINDER)
+        if (!rest || named.length === 0) continue
+        const less = clipDifference(baseById.get(baseId).polygons, ...named.map((p) => p.polygons))
+        if (less.error || less.length === 0) this.problem(`${levelId}: could not take the joined pieces out of ${baseId}`)
+        // Wound as `split` winds its pieces: Clipper's winding reads to d3 as the rest of the globe.
+        else rest.polygons = despiked(less).map(oriented)
+        const createdKeys = new Set(created.map(([x, y]) => `${x},${y}`))
+        const holders = new Map()
+        for (const piece of own) {
+          const seen = new Set()
+          for (const polygon of piece.polygons) for (const ring of polygon) for (const [x, y] of ring) seen.add(`${x},${y}`)
+          for (const key of seen) holders.set(key, (holders.get(key) ?? 0) + 1)
+        }
+        for (const piece of own) {
+          piece.polygons = piece.polygons.map((polygon) =>
+            polygon.map((ring) => {
+              const open = ring.slice(0, -1).filter(([x, y]) => {
+                const key = `${x},${y}`
+                return !createdKeys.has(key) || holders.get(key) > 1
+              })
+              return open.length >= 3 ? [...open, open[0]] : ring
+            }),
+          )
+        }
+        // And from the points the noding inserts, which would otherwise put it straight back.
+        const dropped = new Set([...holders].filter(([key, n]) => n === 1 && createdKeys.has(key)).map(([key]) => key))
+        for (let i = created.length - 1; i >= 0; i--) if (dropped.has(`${created[i][0]},${created[i][1]}`)) created.splice(i, 1)
+      }
+    }
+
     const perBase = new Map()
     for (const piece of pieces) perBase.set(piece.baseId, (perBase.get(piece.baseId) ?? 0) + 1)
     const used = new Set()
     const features = []
+    // The units `only` leaves alone.
+    if (cutIds) for (const f of base.features) if (!cutIds.has(f.id)) features.push({ ...f })
     for (const piece of pieces) {
       const parent = baseById.get(piece.baseId)
       // One piece is the base unit itself: the same land, so the same entity.
       if (!piece.source || perBase.get(piece.baseId) === 1) {
         features.push({ ...parent })
+        continue
+      }
+      // What `join` left of the unit is the unit: its own id, less what was taken out.
+      if (recipe.join && piece.source.name === REMAINDER) {
+        features.push({ ...parent, polygons: piece.polygons, derived: true })
         continue
       }
       const name = recipe.name ? recipe.name(piece.source.name) : piece.source.name

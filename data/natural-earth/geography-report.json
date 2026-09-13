@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-09-13T02:11:36.931Z",
+ "generatedAt": "2026-09-13T21:07:06.202Z",
  "source": "Natural Earth (natural-earth-vector master)",
  "admin0": {
   "10m": {
@@ -172,9 +172,9 @@
  },
  "administrative": {
   "totals": {
-   "curated": 3152,
-   "detailed": 4029,
-   "maximum": 5256
+   "curated": 3153,
+   "detailed": 4030,
+   "maximum": 5257
   },
   "problems": 3
  },

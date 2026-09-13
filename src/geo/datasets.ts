@@ -215,16 +215,23 @@ export interface LoadedDataset {
  *
  * `nationalOnly` asks the same of {@link LoadedDataset.nationalBorders}: only the arcs
  * between subdivisions of two different countries.
+ *
+ * `groupOf`, when given, maps the members of merged entities to their merge. An arc with two
+ * members of one merge on its two sides is inside that merged entity, not a border of it, so
+ * it goes — whatever the members' countries — while the merge's borders with everything
+ * around it stay.
  */
 export function bordersWithout(
   loaded: LoadedDataset,
   hidden: ReadonlySet<EntityId>,
   include?: (id: EntityId) => boolean,
   nationalOnly = false,
+  groupOf?: ReadonlyMap<EntityId, string>,
 ): MultiLineString | null {
   const whole = nationalOnly ? loaded.nationalBorders : loaded.borders
   if (nationalOnly && !whole) return null
-  if ((hidden.size === 0 && !include) || !loaded.topology) return whole
+  const grouped = groupOf !== undefined && groupOf.size > 0
+  if ((hidden.size === 0 && !include && !grouped) || !loaded.topology) return whole
 
   const object = loaded.topology.objects[loaded.dataset.objectName] as GeometryCollection
   if (!object) return whole
@@ -239,6 +246,10 @@ export function bordersWithout(
       const left = idOf.get(a)
       const right = idOf.get(b)
       if (!left || !right || left === right) return false
+      if (grouped) {
+        const group = groupOf.get(left)
+        if (group !== undefined && group === groupOf.get(right)) return false
+      }
       if (nationalOnly) {
         const leftCountry = loaded.meta[left]?.parent?.id
         const rightCountry = loaded.meta[right]?.parent?.id

@@ -32,7 +32,7 @@ export interface CountryPathProps {
   strokeWidth: number
   /** `'stroke'` while a flag is painted, so the fill covers the border's inner half. */
   paintOrder: string | undefined
-  /** The minimum-size floor, for an entity too small to draw at this zoom. */
+  /** An SVG transform for the path. The canvas passes none: nothing is drawn larger than it is. */
   transform: string | undefined
   clipPath: string | undefined
   /**

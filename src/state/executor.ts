@@ -137,14 +137,15 @@ export function validateOperation(op: MapOperation, ctx: ExecutionContext = {}):
       if (!op.key) return 'key is required'
       return null
     case 'create_merge': {
+      // A group can start empty: the Merge panel creates one, then members are added to it.
       if (!op.id) return 'a merge needs an id'
-      if (!Array.isArray(op.members) || op.members.length < 2) {
-        return 'a merge needs at least two countries'
-      }
+      if (!Array.isArray(op.members)) return 'a merge needs a list of members'
       return null
     }
     case 'update_merge':
-      return op.id ? null : 'a merge needs an id'
+      if (!op.id) return 'a merge needs an id'
+      if (op.patch?.members !== undefined && !Array.isArray(op.patch.members)) return 'members must be a list'
+      return null
     case 'delete_merge':
       return op.id ? null : 'a merge needs an id'
 
@@ -368,16 +369,32 @@ function applyOperation(doc: MapDocument, op: MapOperation): MapDocument {
      * renderer draws them as one body, and deleting the merge is all it takes to have
      * them back.
      */
-    case 'create_merge':
+    /*
+     * A merge's members are each held once, and never by two merges: an entity inside two
+     * bodies would be drawn twice. Nor is a merge ever a member of another. Whatever list the
+     * operation carries, what the document keeps obeys that — so no caller can make a
+     * duplicate, however it arrives.
+     */
+    case 'create_merge': {
+      if (doc.merges.some((m) => m.id === op.id)) return doc
+      const mergeIds = new Set(doc.merges.map((m) => m.id))
+      const taken = new Set(doc.merges.flatMap((m) => m.members))
+      const members = [...new Set(op.members)].filter((id) => !mergeIds.has(id) && !taken.has(id))
+      return { ...doc, merges: [...doc.merges, { id: op.id, name: op.name, members, flag: null }] }
+    }
+    case 'update_merge': {
+      // In place: a group edited keeps its position in the list.
+      if (op.patch.members === undefined) {
+        return { ...doc, merges: doc.merges.map((m) => (m.id === op.id ? { ...m, ...op.patch } : m)) }
+      }
+      const mergeIds = new Set(doc.merges.map((m) => m.id))
+      const taken = new Set(doc.merges.filter((m) => m.id !== op.id).flatMap((m) => m.members))
+      const members = [...new Set(op.patch.members)].filter((id) => !mergeIds.has(id) && !taken.has(id))
       return {
         ...doc,
-        merges: [...doc.merges, { id: op.id, name: op.name, members: op.members, flag: null }],
+        merges: doc.merges.map((m) => (m.id === op.id ? { ...m, ...op.patch, members } : m)),
       }
-    case 'update_merge':
-      return {
-        ...doc,
-        merges: doc.merges.map((m) => (m.id === op.id ? { ...m, ...op.patch } : m)),
-      }
+    }
     case 'delete_merge':
       return { ...doc, merges: doc.merges.filter((m) => m.id !== op.id) }
 

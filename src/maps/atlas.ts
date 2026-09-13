@@ -434,7 +434,8 @@ export const ATLASES: Atlas[] = [
       },
       /*
        * Navassa, between Florida and Puerto Rico as it lies, at Puerto Rico's scale. Five
-       * kilometres across, so at this scale it is drawn at the legibility floor.
+       * kilometres across, so at this scale it is a speck drawn at its true size, selected
+       * through its click catchment.
        */
       {
         id: 'navassa',
@@ -452,8 +453,8 @@ export const ATLASES: Atlas[] = [
        * west, Midway in the north, Jarvis on the equator in the east. Below the Gulf coast:
        * off the Pacific coast, where they would belong, a phone's narrow canvas has no room
        * beside California, and this stretch is open on a phone as on a desktop. They span a
-       * third of the ocean and none is ten kilometres across, so every one is drawn at the
-       * legibility floor about its own centre.
+       * third of the ocean and none is ten kilometres across, so every one is a speck drawn
+       * at its true size, selected through its click catchment.
        */
       {
         id: 'pacific-remote-islands',

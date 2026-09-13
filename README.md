@@ -198,9 +198,9 @@ Earth's, as before.
   Rico, and the Pacific's remote islands, in their true relation to one another, below the
   Gulf coast — the one open stretch that stays open on a phone's narrow canvas, where the
   Pacific coast has no room beside California. None of the outlying islands is ten
-  kilometres across, so each is drawn at the legibility floor — its own outline scaled about
-  its own centre, never a marker. The floor, the magnifier and the click catchments are
-  measured through the inset that draws the entity, so they sit on it.
+  kilometres across, so at an inset's scale each is a speck drawn at its true size, growing
+  as the camera zooms in, and is selected through its click catchment. The magnifier and the
+  catchments are measured through the inset that draws the entity, so they sit on it.
 
 Rebuilding: `npm run build-geography` (fetches the Census file and the island polygons into
 `.cache/` once).
@@ -288,9 +288,23 @@ in one editable table, `scripts/admin/countries.mjs`, with the reason written be
 | Romania, Bulgaria, Greece, Spain, Italy, Poland | counties, provinces, regions — Natural Earth's own | same | same |
 | Kenya · Nepal · Vietnam | 47 counties · 7 provinces · 34 provinces (2025) | same | · · 63 before 2025 |
 
-Curated Default has 3,152 units, More Detailed 4,029, Maximum 5,256 (Natural Earth alone
+Curated Default has 3,153 units, More Detailed 4,030, Maximum 5,257 (Natural Earth alone
 has 4,596). Countries smaller than 3,000 km² are one unit unless the table keeps their island
 groups apart.
+
+**Odesa Oblast is two units.** It is divided along the Dniester and its estuary, the water
+that all but reaches Moldova. North of it the oblast keeps its Natural Earth id (`UKR-322`),
+name and code, so values an older map gave it stay with it. South of it is the **Budjak**
+(`UKR-OB-budjak`, a historical region inside Ukraine), the southern end of Bessarabia and part
+of Moldavia until 1812: the nine raions that lie there in geoBoundaries' raion layer (2006
+boundaries), 13,049 km² of the oblast's 33,085. `split.only` confines the cut to that one
+oblast and `split.join` gathers the raions into one piece; the rest is the oblast less that
+piece, not the union of its own raions, so the cut line is the only new line. Every other
+Ukrainian oblast, and every unit of every other country's fragments, decodes to the same
+coordinates as before. Moldova's South (and Ștefan Vodă at the finer level) gains two
+vertices on its existing border line: the cut's end at Palanca, and one point the Budjak and
+Moldova share 111 m from an existing vertex. Quantisation moves them by at most 23 m, and the
+region's area by 0.03 km².
 
 **Real boundaries only.** Every unit is either Natural Earth's own, a dissolve of Natural
 Earth units into an official coarser division (Slovenia's statistical regions, England's ITL 1
@@ -343,9 +357,8 @@ so it used to be the one subdivision the map dropped. It is supplied exactly as 
 map supplies it: the country's supplemental outline (`geo/supplemental.ts`) becomes its
 only subdivision's, a rule that applies to any country that is a single entity on this map
 and never to one divided into several. From there it is an ordinary small entity — its real
-shape at its real position, painted after Rome, drawn at the minimum rendered size and given
-an assisted catchment, so it can be seen and hit at any zoom without anything around it
-changing.
+shape at its real position, painted after Rome, drawn at its true size and given an assisted
+catchment, so it can be hit at any zoom without anything around it changing.
 
 **Every subdivision knows its country.** `prepare-data.mjs` builds the entity table from
 the source's own fields and resolves each subdivision's parent against the world map's
@@ -670,21 +683,20 @@ Zealand. Both now agree with the 10m framing, which is unchanged.
 ### Small geographic entities
 
 A country of a few square kilometres is a fraction of a pixel at continental zoom and
-cannot be clicked. Three editor-only affordances make the map usable without forcing
-the user to zoom, and they are deliberately independent of one another:
+cannot be clicked. Two editor-only affordances make the map usable without forcing the
+user to zoom, and they are deliberately independent of one another:
 
 - **assisted selection** — an invisible catchment that follows a country's actual
   islands, so a speck or a scattered archipelago can be hit;
 - **the magnifier** — an enlarged copy of a selected feature's own outline, so a
   selected speck is visible. Optional, and off until turned on: *Magnifying Glass* in
   Map → Display, one switch for every map, session state rather than document content.
-  It used to have no switch at all, so selecting any small entity summoned a lens;
-- **the minimum rendered size** — a legibility floor, so a sub-pixel polygon is drawn
-  as something rather than as nothing.
+  It used to have no switch at all, so selecting any small entity summoned a lens.
 
-The last two are keyed to whole countries below `SMALL_ENTITY_AREA_KM2` (1,000 km²,
-in `geo/metrics.ts`). Assisted selection is not, because being small is not the same
-problem as being scattered.
+Nothing draws a small entity larger than it is — see *No minimum rendered size* below.
+The magnifier is keyed to whole countries below `SMALL_ENTITY_AREA_KM2` (1,000 km², in
+`geo/metrics.ts`). Assisted selection is not, because being small is not the same problem
+as being scattered.
 
 #### Assisted selection follows the islands, not a point
 
@@ -755,7 +767,7 @@ interiors resolved to the wrong country at world zoom, now 65; 183 in Asia, now 
 in North America, now 2; 24 in Oceania, now 0. No case that resolved correctly before
 resolves incorrectly now.
 
-#### The magnifier and the rendering floor
+#### The magnifier
 
 What the lens fits depends on how spread out the country is, measured as its full
 projected extent over its largest polygon's. Below `SMALL_ENTITY_MAX_LENS_SPREAD`
@@ -805,8 +817,8 @@ ever takes anything out.
 which is why nothing about them depends on the dataset: the path strings every entity is drawn
 from are read back into vertices once (`render/selectionGeometry.ts`, read ahead in slices when a
 tool is on) and tested exactly. The differences between maps are differences in how outlines
-are drawn, and the tests follow the drawing: an entity drawn at the minimum rendered size is
-tested where it is drawn, and one drawn in an inset — Alaska and Hawaii — is tested only inside
+are drawn, and the tests follow the drawing: every entity is tested at the size and place it is
+drawn, and one drawn in an inset — Alaska and Hawaii — is tested only inside
 the inset's frame, because the outline runs on past it (Hawaii's north-western atolls) and the
 part beyond is clipped away. The tools are live on any map that has drawn something to test.
 
@@ -1060,29 +1072,20 @@ Lakes keep pointer events but carry no `data-country-id`, so hovering or clickin
 picks nothing rather than picking the country underneath, while a microstate's assist
 zone still wins over the water.
 
-### Minimum rendered size
+### No minimum rendered size
 
-Some entities are too small to draw at all: Vatican City is 0.16 px wide at Europe
-zoom, which rounds away to nothing. `minimumSizeTransform` in
-`render/smallEntities.ts` gives every feature a floor of `MIN_RENDERED_SIZE_PX`
-(3 px) by scaling its own projected outline about its own centre.
+Every entity is drawn at its true size, through the same zoom transform as the land
+around it, so zooming in never makes one smaller and zooming out never makes one larger.
 
-The factor is only ever `3 / (size on screen)` — the least enlargement that clears
-the floor, never more. As the camera zooms in the real feature grows, the factor
-falls smoothly toward 1, and the moment the genuine geometry reaches 3 px the
-transform is dropped and the feature is drawn untouched. For Vatican City at 10m
-that handover happens at about 19x zoom.
-
-It applies only where the WHOLE feature is under the floor, which is what keeps
-scattered archipelagos out: scaling one about a common centre would push its islands
-apart and misplace them. At Europe zoom it touches 18 of 254 features — Vatican,
-Monaco, Gibraltar, San Marino and similar — while Liechtenstein (3.8 px), Malta,
-Andorra and every large country are left alone.
-
-This is a rendering level-of-detail treatment. It is a `transform` attribute on the
-path element; no stored coordinate, no `MapDocument` geometry and no area
-calculation changes, and it is independent of both the assisted hit areas and the
-selection magnifier.
+There used to be a floor: `minimumSizeTransform` scaled any feature smaller than 3 px on
+screen up to 3 px for the current zoom, and flag mode did the same per island for
+scattered countries. Held at a constant size on screen, those specks — Vatican City,
+Monaco, San Marino, a Maldivian atoll — grew against their neighbours as the camera zoomed
+out and shrank as it zoomed in, the opposite of everything else on the map, and their
+proportions were wrong at every zoom but one. Both floors are gone. A speck is drawn as the
+speck it is (its outline stroke keeps it a visible dot), the pointer finds it through its
+assist catchment, which is sized in screen pixels and draws nothing, and the magnifier
+shows a selected one enlarged in a lens beside it — an overlay, never the map.
 
 ### Manual editing
 
@@ -1452,8 +1455,8 @@ Regions' World EEZ — the authoritative source for them — fetched by
 `scripts/fetch-eez.mjs` and drawn at half opacity beneath the land.
 
 **Off by default, behind a switch with the mode it belongs to.** "Island Water Coverage"
-appears under the Flags control and governs this layer alone: the flags on land, the
-floored islands and the separately framed territories are untouched either way. It is a
+appears under the Flags control and governs this layer alone: the flags on land and the
+separately framed territories are untouched either way. It is a
 visibility control and nothing more — the geometry is prepared and cached on the same
 inputs regardless, so turning it on and off measures 0 ms of blocking work and only
 changes what is drawn.
@@ -1485,6 +1488,14 @@ country's islands, and a territory's sea is hundreds of times their size, so it 
 repeats — Palau's water came out as a field of identical yellow discs and Micronesia's as
 rows of stars, which is the one-flag-per-island look this exists to avoid. Nothing about
 land placement is touched.
+
+**A merged group is one territory too.** Its members' zones are still judged one by one —
+Guam by Guam's land, not by the group's — and are then handed to the group and dissolved
+into one body carrying the group's flag. A group with no flag has plain land and no flag to
+fly over its water, so its members' water is not drawn; before, Guam's and the Marianas'
+own flags went on being drawn round islands whose land no longer wore them. Measured with
+the two grouped: 72 bodies, 70 with the group unflagged, 71 with it flying the Stars and
+Stripes (one body where there were two), and 72 again once the group was deleted.
 
 Nothing about it is derived from where the islands sit. An earlier version buffered the
 islands' own geometry and dissolved the result; it was built from real geometry, but
@@ -1536,26 +1547,12 @@ carried by the same transform as the land: **184 zones at every zoom from 0.25×
 with a byte-identical geometry hash at each.** They cannot turn into circles or drop out,
 because there is no threshold and no level of detail — only the one real polygon.
 
-**Scattered island countries are also held at a minimum drawn size.** A Maldivian atoll
-is about a twentieth of a pixel at world zoom: its flag is fitted correctly and rasterises
-to nothing. Each island is floored **about its own centre**, so the shape is the island's
-real outline and its centre does not move. `smallEntities.ts` already does this for a
-country small enough to vanish whole, and says plainly that it cannot help a scattered one,
-since scaling those about a single centre would push their islands apart — this is the
-same idea applied per island. The factor falls to 1 as the camera comes in: **233 islands
-floored at k=0.5, 232 at k=1, 220 at k=2, 167 at k=8, 69 at k=32, 4 at k=128, none at
-k=512.** No cliff, and no threshold that hides anything.
-
-**A floored island may never reach another country.** Growing one is exactly how a flag
-ends up on someone else's land: Guantanamo Bay is an enclave inside Cuba, and flooring it
-put the American flag on Cuban soil — 44 sampled points landed in the wrong country. Each
-island may grow into only half its measured distance to the nearest other coastline, and
-the floor applies only to countries whose land is genuinely *spread* — at least five times
-the size of its own pieces, the distinction between a country made of many islands and one
-normal polygon with a couple beside it. The Maldives spread their atolls two hundred times
-their own width and Saint Vincent's islets some eight times; Macau's pieces and Hong
-Kong's are under three times theirs, so they are left alone. **247 islands across 24
-countries, 3,652 sampled points inside them: none in another country.**
+**Scattered island countries are drawn at their true size.** A Maldivian atoll is about a
+twentieth of a pixel at world zoom, and its flag rasterises to nothing there; it appears as
+the camera comes in, like every other island. Islands used to be held at a minimum drawn
+size per island, which made them grow as the camera zoomed out — see *No minimum rendered
+size*. The island-water layer, drawn from the real zones, is what shows an island nation's
+extent at world zoom.
 
 **"Auto" is one fixed projection, not the region's own.** It resolves to Robinson
 everywhere, through a single `resolveProjectionId` that both the
@@ -1731,14 +1728,14 @@ to the corner whatever the anchor says. At about 108,000 distance tests per coun
 countries were paying for a result that was discarded — **six seconds**.
 
 *The world was measured four times over.* Framing measures a country's cluster, the border
-rule measures its land, and the island floor measures it again to pick candidates and
-again to find neighbours; each full pass of `path.bounds` and `path.area` over 4,252
+rule measures its land, and the island floor (since removed) measured it again to pick
+candidates and again to find neighbours; each full pass of `path.bounds` and `path.area` over 4,252
 polygons costs 1.3 seconds. They can share, because `flagPlacement.ts` puts the feature's
 own coordinate arrays into its clusters rather than copying them, so a cluster's polygon
 is reference-identical to the country's — a `WeakMap` keyed on the array, and on the
 projection, collapses the four passes into one.
 
-*The island floor built a neighbour table for the whole planet.* It projected ring points
+*The island floor (since removed) built a neighbour table for the whole planet.* It projected ring points
 for all 4,252 polygons when almost none is within reach of a scattered archipelago.
 Gathering the candidates first bounds the table to what could actually affect an answer:
 **3.2 s to 0.45 s**.
@@ -1755,7 +1752,7 @@ the browser is idle, so it is never on the critical path of a click.
 
 Measured end to end, as blocking time on the main thread: **987 ms the first time the mode
 is opened, 0 ms to close it, and 184–271 ms to reopen it** — from about ten seconds, every
-time, with byte-identical output: the same 247 tiles, 248 floored islands, 68 maritime
+time, with byte-identical output: the same 247 tiles, 248 floored islands (a layer since removed), 68 maritime
 territories and the same placement hash across four toggle cycles.
 
 **Compare owns its groups.** The mode used to borrow the document's `MapGroup`
@@ -1838,10 +1835,10 @@ The **territory layer is not drawn** while this is on. It exists to give a detac
 territory its own framing of its country's flag, and with one flag already spanning the
 world, Alaska is covered by the same continuous design as the rest of the country; a
 second copy framed to Alaska alone is exactly the repetition the single pattern avoids.
-The island rendering floor and the maritime layer *are* kept, painted from the same
-override, so scattered archipelagos stay visible and island water keeps working.
+The maritime layer *is* kept, painted from the same override, so island water keeps
+working.
 
-It is an **override, not an edit**. The footprints, tiles, territories and island floor
+It is an **override, not an edit**. The footprints, tiles and territories
 are built exactly as they always are and are not consulted about it, so the switch
 changes only which paint server the shapes point at. Turning it off restored all 247
 per-country fills with zero differences from before it was turned on, and brought the 18
@@ -1867,14 +1864,10 @@ parent's artwork, exactly as that territory does — a stored filename would hav
 re-derive all of that, and would drift the first time the manifest changed.
 
 Resolution happens in **one place**. `MapCanvas` has a single `flagCodeOf(id)` that
-consults the overrides before falling back to the country's own code, and both
-`buildFlagTiles` and `buildFlagIslands` are handed it instead of a bare `flagCodeFor`.
-Everything downstream follows for free: the maritime codes derive from the tiles, and
-the island floor paints from `url(#map-flag-<id>)` — the country's *own* pattern, whose
-image href is now the borrowed one — so a scattered archipelago borrows a flag across
-all of its islands without the island layer knowing overrides exist. Verified on Turks
-and Caicos: 216 island paths still drawn, the country's pattern carrying Japan's
-artwork.
+consults the overrides before falling back to the country's own code, and
+`buildFlagTiles` is handed it instead of a bare `flagCodeFor`. Everything downstream
+follows for free: the maritime codes derive from the tiles, so an island territory's water
+borrows the flag its land does without the maritime layer knowing overrides exist.
 
 Nothing is written to the flag data. `geo.meta.ROU.iso2` is still `RO` and
 `flagCodeFor('ROU', 'RO')` still returns `ro` with an override in force; **Use default
@@ -2185,9 +2178,20 @@ pipeline and every projection, zoom and export handles it exactly as it handles 
 country. Its flag is fitted by the same `fitFlag` a country's is, so a merged body gets
 the mode's real framing and cover policy rather than a second flag system beside it.
 
-The dissolve is cached on dataset plus membership and runs on the **Merge** button, never
-on a selection change: it walks every arc of every member, which is exactly the kind of
+The dissolve is cached on dataset plus membership and runs when a group's members change,
+never on a selection change: it walks every arc of every member, which is exactly the kind of
 work that must not happen on a pointer move.
+
+**No border is left inside a group.** The dissolve takes the members' shared borders out of
+the group's own outline, but the map also draws a border network of its own — the national
+lines while coastlines are off, the international borders of Flags mode, the country
+outlines over the administrative map — and that network is a mesh of every arc between two
+different entities. Two members of one group were two different entities to it, so it drew
+the Franco-German border straight back across a France + Germany group. `bordersWithout`
+now takes the grouping as well and leaves out an arc whose two sides are in the same group,
+while the arcs a group shares with its neighbours stay. Measured along the Rhine with the
+two grouped, the nearest line drawn moved from 0.004 px (the border itself) to 1.254 px away;
+on the administrative map a Budjak + Odesa group loses the estuary line the same way.
 
 **A merge is an entity, not a drawing.** It has an id, and everything downstream takes an
 id — so rather than special-casing merges through the selection, fill, data and legend
@@ -2217,23 +2221,23 @@ The inspector shows a merge's own identity — its name, a `MERGED` tag and "Mad
 ESP, PRT" — rather than a region for it. It is not a real-world country, and giving it a
 subregion would be stating something false.
 
-**The Merge button sits above the selection, not below it.** The inspector draws a row per
-selected country, so with the button underneath it, selecting a dozen countries pushed the
-one control the author was reaching for down the panel — and further away with every
-shift-click. It is now first in the Merge panel.
+**Groups are made and edited in the Merge panel.** **New group** makes an empty group, and
+nothing else makes one — clicking on the map never does. Groups are listed in the order they
+were made, the first at the top and each new one beneath it, and the list is never reordered.
+Clicking a group's row chooses it for editing: the group is selected on the map as one entity
+and its members are listed under it.
 
-That alone was not enough, because Merge is a subsection of Data and Data shows the same
-inspector above it: a long selection there pushed the whole Merge block down regardless of
-what Merge did internally. So the bound belongs to the *list*, not to Merge — one
-`.selection-scroll` wrapper, used by both. The part that grows without limit is the part
-that scrolls, and everything around it keeps its position.
+Members are added one at a time: select an entity on the map and press **Add** (with several
+selected it reads "Add 3 selected"). An entity already in the group is not added twice, a
+member of another group is refused with a notice rather than taken from it, and a group is
+never a member of another. × beside a member takes it out, and the outline, the dissolve and
+the selection follow at once; × beside a group deletes it and gives its members back. A group
+is edited in place — it keeps its id, its place in the list, its name, flag and value — and
+each change is one step of undo.
 
-Measured: with 2, 5, 10, 20 and 25 countries selected the Merge button stayed at exactly
-the same offset and stayed on screen every time; before, it moved 652 -> 1912px. Nothing
-else changed — merging 25 countries still produces one entity with 25 members drawn on the
-map, and the name field, flag selector and member list are all where they were. In Flags
-mode the Change Flag control is deliberately outside the scrolled list, so it cannot
-scroll away from the selection it acts on.
+While Merge is open, clicking any part of a group on the map chooses that group for editing.
+Everywhere else the map selects as it always has, with a group selected as the one entity it
+is.
 
 **Renaming a merge costs nothing.** It used to cost everything. The document is
 immutable, so typing one character into a merged entity's name replaced `doc.merges`,

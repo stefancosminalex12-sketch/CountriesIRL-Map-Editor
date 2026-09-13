@@ -2,8 +2,8 @@
  * Assisted interaction and magnification for geographically tiny features.
  *
  * A country of a few square kilometres is a fraction of a pixel at continental zoom.
- * Three editor-only affordances make the map usable without forcing the user to
- * zoom, and they are deliberately independent of one another:
+ * Two editor-only affordances make the map usable without forcing the user to zoom,
+ * and they are deliberately independent of one another:
  *
  *   - **assisted selection**: an invisible catchment that follows a country's actual
  *     islands, so a speck or a scattered archipelago can be clicked. It spills over
@@ -11,8 +11,11 @@
  *     select Monaco even though the pixel under the cursor belongs to France.
  *   - **the magnifier**: an enlarged copy of a selected feature's own projected
  *     outline, so a selected speck is actually visible.
- *   - **the minimum rendered size**: a legibility floor, so a sub-pixel polygon is
- *     drawn as something rather than as nothing.
+ *
+ * There is deliberately no third: nothing draws a small country larger than it is. A
+ * size floor held specks at a few pixels for the current zoom, which made them grow as
+ * the camera zoomed out and shrink as it zoomed in — the opposite of the land around
+ * them. A speck is drawn at its true size; the catchment is what makes it selectable.
  *
  * None of them touches the map. The real polygons keep their real coordinates, their
  * real area and their real position; these overlays are computed alongside them and
@@ -64,18 +67,6 @@ export const SMALL_ENTITY_MIN_MAGNIFIED_PX = 14
  * about 31, so this sits comfortably in the middle of empty space.
  */
 export const SMALL_ENTITY_MAX_LENS_SPREAD = 6
-
-/* ------------------------------------------------------- minimum rendered size */
-
-/**
- * Floor on how small a feature may be drawn, in screen px.
- *
- * Below this an entity is not "small", it is absent: a 0.16 px polygon rounds away
- * to nothing at all. Three pixels is about the least that still reads as a shape on
- * the map rather than as a stray dot, which is the point — this is a legibility
- * floor, not a way of making tiny countries prominent.
- */
-export const MIN_RENDERED_SIZE_PX = 3
 
 export interface SmallEntityAnchor {
   id: CountryId
@@ -596,48 +587,3 @@ export function pickAssistedCountryAt(
   return claimedId !== null && claimedId === nearestId ? claimedId : null
 }
 
-/**
- * The transform that keeps a feature visible when its real geometry is too small
- * to draw, or null when the genuine geometry is already big enough.
- *
- * This is a rendering level-of-detail floor and nothing more. It scales the feature's
- * own projected outline about its own centre, so the shape and the location stay
- * exactly what the geography says — no substitute marker, no offset, no change to any
- * stored coordinate.
- *
- * The factor is only ever `MIN_RENDERED_SIZE_PX / (size on screen)`: the least
- * enlargement that clears the floor, never more. As the camera zooms in, the real
- * feature grows, the factor falls smoothly toward 1, and at the moment the genuine
- * geometry reaches the floor it becomes exactly 1 and the feature is drawn untouched.
- *
- * It applies only where the WHOLE feature is below the floor. A scattered archipelago
- * is excluded by that test, which matters: scaling one about a common centre would
- * push its islands apart and misplace them.
- */
-export function minimumSizeTransform(
-  anchor: SmallEntityAnchor,
-  k: number,
-): string | null {
-  const frame = minimumSizeFrame(anchor, k)
-  if (!frame) return null
-  const { cx, cy, scale } = frame
-  return `translate(${cx},${cy}) scale(${scale}) translate(${-cx},${-cy})`
-}
-
-/**
- * The same floor as numbers: the centre the feature is scaled about and by how much, or null
- * when it is drawn at its real size. For the selection tools, which test a floored feature
- * where it is drawn — see `selectionGeometry.ts`.
- */
-export function minimumSizeFrame(
-  anchor: SmallEntityAnchor,
-  k: number,
-): { cx: number; cy: number; scale: number } | null {
-  const onScreen = anchor.featureSize * k
-  if (onScreen >= MIN_RENDERED_SIZE_PX) return null
-  return {
-    cx: anchor.featureCenterX,
-    cy: anchor.featureCenterY,
-    scale: MIN_RENDERED_SIZE_PX / onScreen,
-  }
-}

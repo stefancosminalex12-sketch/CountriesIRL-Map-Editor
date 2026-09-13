@@ -33,9 +33,9 @@ export interface Outline {
 }
 
 /**
- * How an entity drawn at the minimum rendered size is scaled about its centre — see
- * `minimumSizeFrame`. The tools test such an entity where it is drawn, not where its
- * sub-pixel geometry is, because what the author aimed at is what they could see.
+ * How an entity drawn at another size than its own is scaled about its centre, so the tools
+ * test it where it is drawn. The map draws every entity at its true size — there is no size
+ * floor — so the canvas passes no frames; a speck is found through its assist catchment.
  */
 export interface OutlineFrame {
   cx: number
@@ -55,7 +55,7 @@ export interface OutlineClip {
   height: number
 }
 
-/** How the outlines are drawn: what is floored, what is clipped, and what is drawn at all. */
+/** How the outlines are drawn: how each is framed, what is clipped, and what is drawn at all. */
 export interface OutlineView {
   frames: ReadonlyMap<string, OutlineFrame>
   clips: ReadonlyMap<string, OutlineClip>

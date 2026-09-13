@@ -47,8 +47,12 @@
  *   order, so a table survives a unit being renamed.
  *
  *   split: { base: levelId | 'ne' | 'country', source: gb(ISO, LEVEL), merge?: true,
- *            name?: (name) => string, kindOf?: (name) => string }
- *     cuts the base level's units into the source's finer units.
+ *            name?: (name) => string, kindOf?: (name) => string,
+ *            only?: [Natural Earth units], join?: { Name: [source unit names] } }
+ *     cuts the base level's units into the source's finer units. With `only`, just those
+ *     units are cut and every other passes through untouched. With `join`, the named source
+ *     units become one piece each, and the rest of the unit — its own id, name and
+ *     description kept — is what remains.
  *
  * A unit keeps Natural Earth's id wherever its geometry is Natural Earth's unit unchanged
  * — a group of one, a split into one piece — so it is the same entity at every level and in
@@ -166,6 +170,46 @@ export const COUNTRIES = {
     curated: 'rb',
     detailed: 'kreise',
     maximum: 'kreise',
+  },
+
+  UKR: {
+    note:
+      'Oblasts, as they are, except Odesa Oblast, divided along the Dniester and its estuary, ' +
+      'which all but reaches Moldova. South of that water is the Budjak, the southern end of ' +
+      'historical Bessarabia (part of Moldavia until 1812): a region of its own here, made of ' +
+      "the nine raions that lie there in geoBoundaries' raion layer (2006 boundaries). The rest " +
+      'of the oblast keeps its Natural Earth id.',
+    levels: {
+      oblasts: {
+        name: 'Oblasts',
+        kind: 'Oblast',
+        code: 'OB',
+        adminLevel: 'ADM1',
+        split: {
+          base: 'ne',
+          source: gb('UKR', 'ADM2'),
+          only: ['UKR-322'],
+          // West and south of the Dniester and its estuary, spelled as geoBoundaries spells them.
+          join: {
+            Budjak: [
+              'Artsyi',
+              'Bilhorod Dnistrovskyi',
+              'Bolhrad',
+              'Izmali',
+              'Kiliia',
+              'Reni',
+              'Sarata',
+              'Tarutyne',
+              'Tatarbunary',
+            ],
+          },
+          kindOf: () => 'Historical region',
+        },
+      },
+    },
+    curated: 'oblasts',
+    detailed: 'oblasts',
+    maximum: 'oblasts',
   },
 
   FRA: {

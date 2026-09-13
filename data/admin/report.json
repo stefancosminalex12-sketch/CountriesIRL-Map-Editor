@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-09-13T02:13:38.391Z",
+ "generatedAt": "2026-09-13T21:09:10.918Z",
  "policy": {
   "wholeCountryBelowKm2": 3000
  },
@@ -5269,21 +5269,28 @@
   "UKR": {
    "name": "Ukraine",
    "presets": {
-    "curated": "ne",
-    "detailed": "ne",
-    "maximum": "ne"
+    "curated": "oblasts",
+    "detailed": "oblasts",
+    "maximum": "oblasts"
    },
    "naturalEarthUnits": 25,
+   "note": "Oblasts, as they are, except Odesa Oblast, divided along the Dniester and its estuary, which all but reaches Moldova. South of that water is the Budjak, the southern end of historical Bessarabia (part of Moldavia until 1812): a region of its own here, made of the nine raions that lie there in geoBoundaries' raion layer (2006 boundaries). The rest of the oblast keeps its Natural Earth id.",
    "levels": {
-    "ne": {
+    "oblasts": {
      "name": "Oblasts",
-     "units": 25,
+     "units": 26,
      "smallestKm2": 1636,
-     "medianKm2": 24411,
-     "largestKm2": 33084,
+     "medianKm2": 23482,
+     "largestKm2": 31721,
      "samples": 30,
      "gaps": 0,
-     "overlaps": 0
+     "overlaps": 0,
+     "split": {
+      "unassignedSources": 0,
+      "reconciledKm2": 1970.771,
+      "clipFailures": [],
+      "unsplitBases": []
+     }
     }
    }
   },
@@ -5951,10 +5958,10 @@
   "maximum: 7 arcs drawn as coast that are not (lostBorder 0, 0 km; internalAsCoast 0, 0 km; newLine 7, 6.8 km) in DEU, FRA, KEN"
  ],
  "noding": {
-  "created": 17575,
+  "created": 17580,
   "snapped": 4388,
-  "placed": 14054,
-  "inserted": 87434,
+  "placed": 14059,
+  "inserted": 87465,
   "joined": 31
  },
  "composition": {
@@ -6465,9 +6472,9 @@
   }
  },
  "totals": {
-  "curated": 3152,
-  "detailed": 4029,
-  "maximum": 5256
+  "curated": 3153,
+  "detailed": 4030,
+  "maximum": 5257
  },
  "outputs": {
   "base.json": "8.65 MB",

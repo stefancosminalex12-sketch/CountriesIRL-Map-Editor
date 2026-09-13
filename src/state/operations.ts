@@ -97,7 +97,7 @@ export type MapOperation =
    * dissolves, deleting one restores them, and the dataset is never touched by either.
    */
   | { op: 'create_merge'; id: string; name: string; members: CountryId[] }
-  | { op: 'update_merge'; id: string; patch: { name?: string; flag?: string | null } }
+  | { op: 'update_merge'; id: string; patch: { name?: string; flag?: string | null; members?: CountryId[] } }
   | { op: 'delete_merge'; id: string }
   /** Turns the flag overlay on or off. Deletes nothing when it goes off. */
   | {

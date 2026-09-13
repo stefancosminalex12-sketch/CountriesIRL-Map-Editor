@@ -39,8 +39,8 @@ import {
 import { MapLegend, LEGEND_MARKER } from './MapLegend'
 import type { GeometryCollection, MultiLineString, MultiPolygon, Position } from 'geojson'
 import { buildMaritimeShapes, MapMaritime, selectIslandZones } from './MapMaritime'
+import { dissolveTouching } from '../geo/dissolve'
 import {
-  buildFlagIslands,
   buildFlagTiles,
   FLAG_BORDER_COLOR,
   flagBorderWidth,
@@ -50,7 +50,6 @@ import {
   boundaryInkWidth,
   MARITIME_OPACITY,
   maritimeBorderWidth,
-  FlagIslands,
   FlagPatterns,
   flagPatternId,
   FlagTerritories,
@@ -82,9 +81,6 @@ import { getTheme } from '../theme/themes'
 import { playSfx } from '../audio/sfx'
 import {
   EMPTY_ASSIST_INDEX,
-  MIN_RENDERED_SIZE_PX,
-  minimumSizeFrame,
-  minimumSizeTransform,
   pickAssistedCountryAt,
 } from './smallEntities'
 import { anchorsOf, assistOf, useProjectedLand } from './projectedLand'
@@ -110,6 +106,9 @@ interface LineNetworks {
 
 /** Above this many units the flag geometry is not warmed ahead of the flag mode. See `warm`. */
 const WARM_MAX_FEATURES = 10000
+
+/** Outlines drawn at another size than their own, for the selection tools: none. */
+const NO_FRAMES: ReadonlyMap<string, OutlineFrame> = new Map()
 
 /* What a layer is while it waits — see `layersReady`. Constants, so waiting changes nothing. */
 const NO_INSETS: ResolvedInset[] = []
@@ -863,12 +862,20 @@ export function MapCanvas() {
       return out
     }
 
-    if (prepareBorders) layers.borders = split((include) => bordersWithout(geo, hiddenIds, include))
+    /*
+     * The members of each merged entity, which the networks draw no line between: the merged
+     * body is one entity, and a border inside it — between two countries, two regions, or
+     * two regions of different countries — is not a border any more.
+     */
+    const groupOf = new Map<string, string>()
+    for (const merge of mergeGeometry) for (const id of merge.members) groupOf.set(id, merge.id)
+
+    if (prepareBorders) layers.borders = split((include) => bordersWithout(geo, hiddenIds, include, false, groupOf))
     if (prepareNational) {
-      layers.national = split((include) => bordersWithout(geo, hiddenIds, include, true))
+      layers.national = split((include) => bordersWithout(geo, hiddenIds, include, true, groupOf))
     }
     return layers
-  }, [projection, geo, hiddenIds, insets, prepareBorders, prepareNational])
+  }, [projection, geo, hiddenIds, insets, prepareBorders, prepareNational, mergeGeometry])
 
   /**
    * Each entity's coast on its own, through the projection that draws the entity.
@@ -1014,29 +1021,14 @@ export function MapCanvas() {
   const pickCountryAt = (event: ReactMouseEvent) =>
     pickEntityAt(event.clientX, event.clientY, event.target as Element | null)
 
-  /**
-   * Rendering floor for features too small to draw at the current zoom.
-   *
-   * Recomputed only when the anchors or the zoom factor change, and only over the
-   * handful of features that qualify — never per frame, never over the whole dataset.
+  /*
+   * No entity is drawn larger than it is. A country too small to see at this zoom is drawn at
+   * its real size like everything around it — it grows as the camera zooms in and shrinks as
+   * it zooms out, in proportion with its neighbours — and the pointer finds it through its
+   * assist catchment (`assistOf`), which is sized in screen pixels and draws nothing. It used
+   * to be scaled up to a three-pixel floor for the current zoom, which made Vatican City and
+   * every other speck grow as the camera zoomed out and shrink as it zoomed in.
    */
-  const minimumSizeById = useMemo(() => {
-    const transforms = new Map<string, string>()
-    for (const anchor of smallAnchors) {
-      const transform = minimumSizeTransform(anchor, zoomK)
-      if (transform) transforms.set(anchor.id, transform)
-    }
-    return transforms
-  }, [smallAnchors, zoomK])
-  /* The same floors as numbers, for the selection tools' hit tests. */
-  const minimumSizeFrames = useMemo(() => {
-    const frames = new Map<string, OutlineFrame>()
-    for (const anchor of smallAnchors) {
-      const frame = minimumSizeFrame(anchor, zoomK)
-      if (frame) frames.set(anchor.id, frame)
-    }
-    return frames
-  }, [smallAnchors, zoomK])
 
   /* ----------------------------------------------------------- selection tools */
 
@@ -1086,8 +1078,8 @@ export function MapCanvas() {
   }, [insets, shapes, mergedShapes])
 
   /* Read by the gestures when they run, so they always test the outlines on screen. */
-  const selectable = useRef({ shapes, mergedShapes, drawnIds, frames: minimumSizeFrames, clips: clipsById })
-  selectable.current = { shapes, mergedShapes, drawnIds, frames: minimumSizeFrames, clips: clipsById }
+  const selectable = useRef({ shapes, mergedShapes, drawnIds, frames: NO_FRAMES, clips: clipsById })
+  selectable.current = { shapes, mergedShapes, drawnIds, frames: NO_FRAMES, clips: clipsById }
 
   useSelectionGestures(svgRef, zoomedRef, selectionOverlayRef, {
     rectangle: rectangleOn,
@@ -1406,9 +1398,6 @@ export function MapCanvas() {
       .slice(0, COMPACT_FLAG_MAX_COUNT)
   }, [compactViewport, drawnFlagTiles, flagZoomStep])
 
-  /** Ids that still have a pattern, so nothing can reference one that was skipped. */
-  const flaggedIds = useMemo(() => new Set(visibleFlagTiles.map((t) => t.id)), [visibleFlagTiles])
-
   /**
    * Which entities the maritime layer may paint, and with whose artwork.
    *
@@ -1452,11 +1441,12 @@ export function MapCanvas() {
     return selectIslandZones(
       maritime.zones,
       (id) => geo.byId.get(id),
-      (id) => maritimeCodes.has(id),
+      // A merged member counts: its water is handed to its group below.
+      (id) => maritimeCodes.has(id) || mergeIdByMember.has(id),
       // On the map, shown or hidden — a hidden territory's water is hidden with it.
       (id) => geo.byId.has(id),
     )
-  }, [prepareIslandWater, maritime, geo, maritimeCodes])
+  }, [prepareIslandWater, maritime, geo, maritimeCodes, mergeIdByMember])
 
   /**
    * A flag placement per merged body, fitted by the same rules a country's flag is.
@@ -1491,38 +1481,46 @@ export function MapCanvas() {
     )
   }, [flagsOn, projection, geo, mergePaint, compactViewport, flagZoomStep])
 
+  /**
+   * Island water by what the land shows: a merged group is one entity, so it is one sea.
+   *
+   * Zones are still chosen member by member — Guam is judged by Guam's land, not by the
+   * group's — and are then given to the group and dissolved into one body carrying the
+   * group's flag, as a country's zones are. A group with no flag has plain land and no
+   * flag to fly over its water, so its members' water is not drawn at all: leaving it
+   * showed Guam's and the Marianas' own flags round islands whose land no longer wore them.
+   */
+  const waterZones = useMemo(() => {
+    if (mergeIdByMember.size === 0 || islandZones.size === 0) return islandZones
+    const flagOf = new Map(mergePaint.map((merge) => [merge.id, merge.flag]))
+    const zones = new Map<string, MultiPolygon>()
+    const grouped = new Set<string>()
+    for (const [id, geometry] of islandZones) {
+      const mergeId = mergeIdByMember.get(id)
+      if (mergeId === undefined) {
+        zones.set(id, geometry)
+        continue
+      }
+      if (!flagOf.get(mergeId)) continue
+      const existing = zones.get(mergeId)?.coordinates ?? []
+      zones.set(mergeId, { type: 'MultiPolygon', coordinates: [...existing, ...geometry.coordinates] })
+      grouped.add(mergeId)
+    }
+    for (const id of grouped) zones.set(id, dissolveTouching(zones.get(id) as MultiPolygon))
+    return zones
+  }, [islandZones, mergeIdByMember, mergePaint])
+
+  /** `maritimeCodes`, with each flagged group's own flag for its water. */
+  const waterCodes = useMemo(() => {
+    if (!mergePaint.some((merge) => merge.flag)) return maritimeCodes
+    const codes = new Map(maritimeCodes)
+    for (const merge of mergePaint) if (merge.flag) codes.set(merge.id, merge.flag)
+    return codes
+  }, [maritimeCodes, mergePaint])
+
   const maritimeShapes = useMemo(
-    () => buildMaritimeShapes(islandZones, projection, (id) => maritimeCodes.get(id)),
-    [islandZones, projection, maritimeCodes],
-  )
-
-  /**
-   * Islands of scattered countries, for the rendering floor. Memoised on the same
-   * inputs as the tiles, so zooming re-reads them and recomputes nothing.
-   */
-  const flagIslands = useMemo(() => {
-    if (!footprints || !geo || !projection) return []
-    return buildFlagIslands(
-      footprints,
-      projection,
-      flagCodeOf,
-      (id) => geo.byId.get(id),
-    )
-  }, [footprints, geo, projection, flagCodeOf])
-
-  /**
-   * Islands, restricted to entities that still have a pattern.
-   *
-   * The island layer paints from its country's own pattern — `url(#map-flag-XX)` — so an
-   * island whose country was skipped above would reference a paint server that does not
-   * exist, and SVG renders that as nothing at all. Filtering by the same set keeps the
-   * two in step: an island appears exactly when its country's flag does.
-   *
-   * Untouched off a compact viewport, where nothing is skipped and the set is everything.
-   */
-  const visibleFlagIslands = useMemo(
-    () => (compactViewport ? flagIslands.filter((i) => flaggedIds.has(i.countryId)) : flagIslands),
-    [compactViewport, flagIslands, flaggedIds],
+    () => buildMaritimeShapes(waterZones, projection, (id) => waterCodes.get(id)),
+    [waterZones, projection, waterCodes],
   )
 
   /**
@@ -1622,14 +1620,14 @@ export function MapCanvas() {
    * pattern, which the effect above has already asked for.
    */
   useEffect(() => {
-    if (dominationCode || islandZones.size === 0) return
+    if (dominationCode || waterZones.size === 0) return
     const codes: string[] = []
-    for (const id of islandZones.keys()) {
-      const code = maritimeCodes.get(id)
+    for (const id of waterZones.keys()) {
+      const code = waterCodes.get(id)
       if (code) codes.push(code)
     }
     if (codes.length) requestFlags(codes)
-  }, [dominationCode, islandZones, maritimeCodes, requestFlags])
+  }, [dominationCode, waterZones, waterCodes, requestFlags])
 
   /** Which merged bodies have artwork ready, and the pattern each one points at. */
   const mergedFlagFillById = useMemo(() => {
@@ -1877,7 +1875,6 @@ export function MapCanvas() {
           : style.borderWidth,
         paintOrder: flagFill ? 'stroke' : undefined,
       },
-      transform: minimumSizeById.get(shape.id),
       clipPath: shape.clipId ? `url(#map-inset-${shape.clipId})` : undefined,
     }
   }
@@ -2178,7 +2175,7 @@ export function MapCanvas() {
              */
             return (
               <Fragment key={shape.id}>
-                {coastBeside(shape.id, paint.outline, paint.transform, paint.clipPath, true)}
+                {coastBeside(shape.id, paint.outline, undefined, paint.clipPath, true)}
                 <CountryPath
                   countryId={shape.id}
                   d={shape.d}
@@ -2187,10 +2184,10 @@ export function MapCanvas() {
                   stroke={outlineOn ? paint.outline.stroke : 'none'}
                   strokeWidth={outlineOn ? paint.outline.strokeWidth : 0}
                   paintOrder={paint.outline.paintOrder}
-                  transform={paint.transform}
+                  transform={undefined}
                   clipPath={paint.clipPath}
                 />
-                {coastBeside(shape.id, paint.outline, paint.transform, paint.clipPath, false)}
+                {coastBeside(shape.id, paint.outline, undefined, paint.clipPath, false)}
               </Fragment>
             )
           })}
@@ -2222,24 +2219,6 @@ export function MapCanvas() {
               {coastBeside(shape.id, paint.outline, undefined, paint.clipPath, false)}
             </Fragment>
           ))}
-
-          {/*
-            Islands of scattered countries, held at a minimum drawn size.
-
-            Before the territories and the lakes, and after the country paths, so a
-            floored island is drawn over the country's own rendering of it.
-          */}
-          {flagsOn && (
-            <FlagIslands
-              islands={visibleFlagIslands}
-              zoomK={zoomK}
-              floorPx={MIN_RENDERED_SIZE_PX}
-              borderColor={FLAG_BORDER_COLOR}
-              borderWidth={Math.min(style.borderWidth, 0.6)}
-              showOutline={style.showCoastlines}
-              patternOverride={worldFlagFill ?? undefined}
-            />
-          )}
 
           {/*
             Second flags, over the territories that earned one.
