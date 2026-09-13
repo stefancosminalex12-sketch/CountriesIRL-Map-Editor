@@ -55,7 +55,13 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
  * had already been thinned one at a time — exactly the geometry that cannot be repaired.
  */
 const CACHE = join(root, '.cache', 'eez-snapped')
-const OUT = join(root, 'public', 'geo', 'eez-territories.geojson')
+/*
+ * Vendored in `data/`, which is committed, and copied into `public/geo/` by
+ * `prepare-data.mjs` like every other dataset. It used to be written straight into
+ * `public/geo/`, which is ignored: the deploy builds from a clean checkout, so the live
+ * site never had the file and island water drew nothing there.
+ */
+const OUT = join(root, 'data', 'maritime', 'eez-territories.geojson')
 const META = join(root, 'public', 'geo', 'country-meta.json')
 
 const WFS = 'https://geo.vliz.be/geoserver/MarineRegions/wfs'

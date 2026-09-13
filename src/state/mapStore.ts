@@ -299,13 +299,26 @@ interface MapStore {
   setRegions: (regionIds: RegionId[]) => void
   toggleRegion: (regionId: RegionId) => void
 
-  /** Creates an empty group — a merge with no members yet — chooses it, and returns its id. */
+  /**
+   * Creates an empty group — a merge with no members yet — and returns its id. It becomes the
+   * group being edited only when no group is: making a second group never takes the author
+   * away from the one they are working on.
+   */
   createMergeGroup: () => string
   setMergeMode: (on: boolean) => void
-  /** Chooses the group Add puts the selection into, selected as one entity; `null` for none. */
+  /** Chooses the group taps go into, selected as one entity; `null` for none. */
   setActiveMerge: (id: string | null) => void
-  /** Adds the selected entities to the chosen group: what it added, and what another group holds. */
-  addSelectionToMerge: () => { added: CountryId[]; elsewhere: CountryId[] }
+  /**
+   * Puts entities into the group being edited, and makes a group for them when none is — what
+   * a tap, a rectangle or a brush stroke does while Merge is open.
+   */
+  addToMerge: (ids: CountryId[]) => void
+  /**
+   * A tap on the map while Merge is open. A group chooses that group; tapped inside the group
+   * being edited, it takes out `member`, the entity under the tap. Anything else goes into
+   * the group being edited — see `addToMerge`.
+   */
+  tapInMerge: (id: CountryId, member?: CountryId | null) => void
   removeFromMerge: (mergeId: string, memberId: CountryId) => void
   deleteMerge: (mergeId: string) => void
 
@@ -337,11 +350,27 @@ interface MapStore {
    * on every frame is still one thing to undo.
    */
   addToSelection: (ids: CountryId[], historyKey?: string | null) => void
+  /**
+   * Takes entities out of the selection — what a rectangle or a brush stroke does when it
+   * starts on something already selected. The same history keys as `addToSelection`.
+   */
+  removeFromSelection: (ids: CountryId[], historyKey?: string | null) => void
   setSelectionTool: (tool: keyof SelectionTools, on: boolean) => void
   setMagnifier: (on: boolean) => void
 
   setTransform: (t: Transform) => void
   resetTransform: () => void
+}
+
+/** The next group's id and default name: "Group N", N its place in the list. */
+function nextGroup(merges: readonly { id: string; name: string }[]): { id: string; name: string } {
+  const names = new Set(merges.map((m) => m.name))
+  let n = merges.length + 1
+  while (names.has(`Group ${n}`)) n++
+  const ids = new Set(merges.map((m) => m.id))
+  let id = `merge-${Date.now().toString(36)}`
+  for (let k = 2; ids.has(id); k++) id = `merge-${Date.now().toString(36)}-${k}`
+  return { id, name: `Group ${n}` }
 }
 
 type SetState = (partial: Partial<MapStore>) => void
@@ -653,43 +682,36 @@ export const useMapStore = create<MapStore>((set, get) => {
   /* ------------------------------------------------------------ merge groups */
 
   /**
-   * A new, empty group, named for its place in the list and chosen for editing.
+   * A new, empty group, named for its place in the list.
    *
-   * The only way a group comes to exist: nothing else — a click on the map, a click on a
-   * row, an Add — creates one. It is a merge from the start, through the ordinary operation,
-   * so it is undoable, saved and exported like every merge, and editing it later edits it in
-   * place instead of recreating it. Appended, so the first group made stays at the top.
+   * It is a merge from the start, through the ordinary operation, so it is undoable, saved and
+   * exported like every merge, and editing it later edits it in place instead of recreating it.
+   * Appended, so the first group made stays at the top. It is chosen for editing only when no
+   * group is: pressing New group while working on a group leaves that group chosen.
    */
   createMergeGroup(): string {
-    const { doc } = get()
-    const names = new Set(doc.merges.map((m) => m.name))
-    let n = doc.merges.length + 1
-    while (names.has(`Group ${n}`)) n++
-    const id = `merge-${Date.now().toString(36)}`
-    get().dispatch({ op: 'create_merge', id, name: `Group ${n}`, members: [] })
-    set({ activeMergeId: id })
+    const { id, name } = nextGroup(get().doc.merges)
+    get().dispatch({ op: 'create_merge', id, name, members: [] })
+    if (!get().activeMergeId) set({ activeMergeId: id })
     return id
   },
 
   /**
-   * Chooses the group Add puts the selection into — or `null` for none.
+   * Chooses the group taps go into — or `null` for none.
    *
-   * The group is selected with it, as one entity: its body is highlighted on the map, and
-   * the entities already picked and waiting to go in stay picked. An empty group has no
-   * body, so there is nothing of it to select.
+   * The group is selected with it, as one entity: its body is highlighted on the map. An empty
+   * group has no body, so there is nothing of it to select.
    */
   setActiveMerge(id) {
     if (id === null) {
       set({ activeMergeId: null })
+      commitSelection({ selectedCountryIds: [] }, null)
       return
     }
-    const state = get()
-    const merge = state.doc.merges.find((m) => m.id === id)
+    const merge = get().doc.merges.find((m) => m.id === id)
     if (!merge) return
-    const mergeIds = new Set(state.doc.merges.map((m) => m.id))
-    const waiting = state.selectedCountryIds.filter((c) => !mergeIds.has(c) && !merge.members.includes(c))
     set({ activeMergeId: id })
-    commitSelection({ selectedCountryIds: merge.members.length > 0 ? [id, ...waiting] : waiting }, null)
+    commitSelection({ selectedCountryIds: merge.members.length > 0 ? [id] : [] }, null)
   },
 
   /** Leaving the panel stops editing a group. The groups themselves are merges, and stay. */
@@ -698,35 +720,47 @@ export const useMapStore = create<MapStore>((set, get) => {
   },
 
   /**
-   * Puts the selected entities into the group being edited, each once.
+   * Puts entities into the group being edited, each once — and when no group is being edited,
+   * makes one for them and edits that.
    *
-   * Only entities of this map in no group: another merge is never a member, and an entity
-   * another group holds is left where it is and reported, rather than moved out from under
-   * it. The added entities then answer as the group — it stays selected and they leave the
-   * selection, because they are inside it now. One undo step.
+   * Only entities of this map in no group: a group is never a member of another, and an entity
+   * another group holds is drawn as part of that group's body, so a tap there chooses that
+   * group instead of reaching this. The group stays selected as one entity, since what went in
+   * is inside it now.
    */
-  addSelectionToMerge() {
+  addToMerge(ids) {
     const state = get()
-    const merge = state.doc.merges.find((m) => m.id === state.activeMergeId)
-    if (!merge) return { added: [], elsewhere: [] }
+    if (!state.geo) return
     const mergeIds = new Set(state.doc.merges.map((m) => m.id))
-    const owner = new Map<CountryId, string>()
-    for (const m of state.doc.merges) for (const member of m.members) owner.set(member, m.id)
-    const added: CountryId[] = []
-    const elsewhere: CountryId[] = []
-    for (const id of state.selectedCountryIds) {
-      if (mergeIds.has(id) || added.includes(id) || !state.geo?.byId.has(id)) continue
-      const holder = owner.get(id)
-      if (holder === merge.id) continue
-      if (holder) elsewhere.push(id)
-      else added.push(id)
+    const held = new Set(state.doc.merges.flatMap((m) => m.members))
+    const fresh: CountryId[] = []
+    for (const id of ids) {
+      if (mergeIds.has(id) || held.has(id) || fresh.includes(id) || !state.geo.byId.has(id)) continue
+      fresh.push(id)
     }
-    if (added.length === 0) return { added, elsewhere }
-    get().dispatch({ op: 'update_merge', id: merge.id, patch: { members: [...merge.members, ...added] } })
-    withLastEdit({
-      selectedCountryIds: [merge.id, ...state.selectedCountryIds.filter((c) => c !== merge.id && !added.includes(c))],
-    })
-    return { added, elsewhere }
+    if (fresh.length === 0) return
+    const merge = state.doc.merges.find((m) => m.id === state.activeMergeId)
+    let mergeId: string
+    if (merge) {
+      mergeId = merge.id
+      get().dispatch({ op: 'update_merge', id: mergeId, patch: { members: [...merge.members, ...fresh] } })
+    } else {
+      const { id, name } = nextGroup(state.doc.merges)
+      mergeId = id
+      get().dispatch({ op: 'create_merge', id, name, members: fresh })
+      set({ activeMergeId: id })
+    }
+    withLastEdit({ selectedCountryIds: [mergeId] })
+  },
+
+  tapInMerge(id, member = null) {
+    const state = get()
+    if (state.doc.merges.some((m) => m.id === id)) {
+      if (id !== state.activeMergeId) get().setActiveMerge(id)
+      else if (member) get().removeFromMerge(id, member)
+      return
+    }
+    get().addToMerge([id])
   },
 
   /** Takes one entity out of a group; the merged body is redrawn without it at once. */
@@ -796,12 +830,10 @@ export const useMapStore = create<MapStore>((set, get) => {
         ? []
         : [id]
 
-    /*
-     * In Merge, clicking a merged body chooses that group for editing, as clicking its row
-     * does: the body is the group, selected as one entity. A click never creates a group.
-     */
-    if (state.mergeMode && !current.includes(id) && state.doc.merges.some((m) => m.id === id)) {
-      set({ activeMergeId: id })
+    // In Merge, a tap builds groups rather than a selection — see `tapInMerge`.
+    if (state.mergeMode) {
+      get().tapInMerge(id)
+      return
     }
     commitSelection({ selectedCountryIds }, null)
   },
@@ -816,6 +848,11 @@ export const useMapStore = create<MapStore>((set, get) => {
 
   addToSelection(ids, historyKey = null) {
     const state = get()
+    // While Merge is open the selection tools fill the group being edited.
+    if (state.mergeMode) {
+      get().addToMerge(ids)
+      return
+    }
     const current = state.selectedCountryIds
     const have = new Set(current)
     const fresh: CountryId[] = []
@@ -827,6 +864,15 @@ export const useMapStore = create<MapStore>((set, get) => {
     if (fresh.length === 0) return
 
     commitSelection({ selectedCountryIds: [...current, ...fresh] }, historyKey)
+  },
+
+  removeFromSelection(ids, historyKey = null) {
+    const state = get()
+    if (state.mergeMode) return
+    const drop = new Set(ids)
+    const next = state.selectedCountryIds.filter((id) => !drop.has(id))
+    if (next.length === state.selectedCountryIds.length) return
+    commitSelection({ selectedCountryIds: next }, historyKey)
   },
 
   setSelectionTool(tool, on) {

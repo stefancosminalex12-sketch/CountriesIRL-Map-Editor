@@ -16,7 +16,7 @@ import {
   useState,
   type MouseEvent as ReactMouseEvent,
 } from 'react'
-import { geoPath, geoGraticule10 } from 'd3-geo'
+import { geoCentroid, geoContains, geoDistance, geoGraticule10, geoPath } from 'd3-geo'
 import { select } from 'd3-selection'
 import { zoom, zoomIdentity, type ZoomBehavior } from 'd3-zoom'
 import { useElementSize, type Size } from './useElementSize'
@@ -268,6 +268,10 @@ export function MapCanvas() {
   const selectionTools = useMapStore((s) => s.selectionTools)
   const magnifierOn = useMapStore((s) => s.magnifier)
   const addToSelection = useMapStore((s) => s.addToSelection)
+  const removeFromSelection = useMapStore((s) => s.removeFromSelection)
+  const mergeMode = useMapStore((s) => s.mergeMode)
+  const activeMergeId = useMapStore((s) => s.activeMergeId)
+  const tapInMerge = useMapStore((s) => s.tapInMerge)
   /**
    * The zoomed group, so a gesture can move the map without re-rendering it.
    *
@@ -1021,6 +1025,42 @@ export function MapCanvas() {
   const pickCountryAt = (event: ReactMouseEvent) =>
     pickEntityAt(event.clientX, event.clientY, event.target as Element | null)
 
+  /**
+   * Which member of a group is under a tap — what a tap inside the group being edited takes
+   * out. The group is drawn as one body, so the answer comes from the members' own land: the
+   * one containing the point, or, for a speck of an island the tap cannot land on, the one
+   * with a piece of land nearest the tap. Nearest by the pieces themselves, not by a member's
+   * bounding box: Portugal's box runs out to the Azores and Spain's to the Canaries, and a
+   * tap in the sea between them is inside both.
+   */
+  const memberAt = (clientX: number, clientY: number, mergeId: string): string | null => {
+    const merge = doc.merges.find((m) => m.id === mergeId)
+    const matrix = zoomedRef.current?.getScreenCTM()
+    if (!merge || !matrix || !geo || !projection) return null
+    const point = new DOMPoint(clientX, clientY).matrixTransform(matrix.inverse())
+    let nearest: string | null = null
+    let nearestDistance = Infinity
+    for (const member of merge.members) {
+      const feature = geo.byId.get(member)
+      if (!feature) continue
+      const drawnWith = insets.find((inset) => inset.members.has(member))?.projection ?? projection
+      const lonLat = drawnWith.invert?.([point.x, point.y])
+      if (!lonLat || !Number.isFinite(lonLat[0]) || !Number.isFinite(lonLat[1])) continue
+      if (geoContains(feature, lonLat)) return member
+      const geometry = feature.geometry
+      const pieces =
+        geometry?.type === 'Polygon' ? [geometry.coordinates] : geometry?.type === 'MultiPolygon' ? geometry.coordinates : []
+      for (const piece of pieces) {
+        const distance = geoDistance(lonLat, geoCentroid({ type: 'Polygon', coordinates: piece }))
+        if (distance < nearestDistance) {
+          nearestDistance = distance
+          nearest = member
+        }
+      }
+    }
+    return nearest
+  }
+
   /*
    * No entity is drawn larger than it is. A country too small to see at this zoom is drawn at
    * its real size like everything around it — it grows as the camera zooms in and shrinks as
@@ -1102,6 +1142,12 @@ export function MapCanvas() {
     },
     pickAt: pickEntityAt,
     add: addToSelection,
+    remove: removeFromSelection,
+    // In Merge the tools only ever fill the group being edited, so nothing counts as selected.
+    isSelected: (id) => {
+      const state = useMapStore.getState()
+      return !state.mergeMode && state.selectedCountryIds.includes(id)
+    },
     finished: (added) => {
       if (added > 0) playSfx('tick')
     },
@@ -2000,7 +2046,9 @@ export function MapCanvas() {
            */
           const id = pickCountryAt(event)
           if (!id) return
-          selectCountry(id)
+          // In Merge a tap builds groups: inside the group being edited it takes out the member under it.
+          if (mergeMode) tapInMerge(id, id === activeMergeId ? memberAt(event.clientX, event.clientY, id) : null)
+          else selectCountry(id)
           playSfx('tick')
         }}
       >

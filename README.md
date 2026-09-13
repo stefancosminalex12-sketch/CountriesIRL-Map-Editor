@@ -797,16 +797,21 @@ controls: it selects countries and territories on the World map, states, provinc
 regions on the administrative world, states on the USA map — whatever the open map's entities
 are, in its own words (`Atlas.noun`), and whatever a future atlas brings, with nothing to add
 for it. Both tools add to the ordinary selection through `addToSelection`, so the inspector,
-the palette, merge groups and everything else that reads a selection work on theirs; neither
-ever takes anything out.
+the palette, merge groups and everything else that reads a selection work on theirs. Both
+deselect as well, the way a click does: a rectangle over entities that are mostly selected
+already takes the selected ones out, and a brush stroke that starts on something selected
+takes out whatever it passes over.
 
 - *Rectangle selection* (on by default): hold the middle mouse button and drag. The box is
   anchored to the map, so zooming with the wheel mid-drag keeps its corner on the place it
   started; releasing selects every territory whose drawn outline meets it — an edge inside or
-  across it, or the outline all around it. It never moves the camera. The browser's
+  across it, or the outline all around it. Drawn over territories that are at least half
+  selected, it deselects the selected ones instead, and leaves a neighbour whose edge it only
+  clips as it was. It never moves the camera. The browser's
   middle-button autoscroll is refused only while the tool is on, and Escape cancels.
 - *Brush mode* (off by default): hold the left button, or a finger, and drag; every territory
-  passed over is added as the stroke goes, once. The stroke is tested segment by segment, so a
+  passed over is added as the stroke goes, once. A stroke that starts on a selected territory
+  erases instead, taking out every selected territory it passes over. The stroke is tested segment by segment, so a
   fast one cannot step over a narrow territory, with a footprint of a pixel for a mouse and a
   fingertip for touch; it also asks the click resolver at the pointer, so the catchments that
   make a speck of an island clickable make it brushable. While it is on, a drag paints rather
@@ -1507,6 +1512,11 @@ boundary between two neighbours is the median line the dataset draws, not an arc
 Natural Earth, which supplies everything else here, has no equivalent — it carries
 maritime *indicator lines*, bathymetry and named sea regions, none of which is a
 country-associated area — so this is the one layer that comes from elsewhere:
+
+**The zones are vendored in `data/maritime/`** and copied into `public/geo/` by
+`prepare-data.mjs` like every other dataset. `fetch-eez.mjs` used to write them straight into
+`public/geo/`, which git ignores, so the deploy — a clean checkout — never had the file: island
+water worked on every machine that had run the fetch and drew nothing on the live site.
 
 >  Flanders Marine Institute (2019). *Maritime Boundaries Geodatabase: Maritime
 >  Boundaries and Exclusive Economic Zones (200NM), version 11.*
@@ -2221,23 +2231,19 @@ The inspector shows a merge's own identity — its name, a `MERGED` tag and "Mad
 ESP, PRT" — rather than a region for it. It is not a real-world country, and giving it a
 subregion would be stating something false.
 
-**Groups are made and edited in the Merge panel.** **New group** makes an empty group, and
-nothing else makes one — clicking on the map never does. Groups are listed in the order they
-were made, the first at the top and each new one beneath it, and the list is never reordered.
-Clicking a group's row chooses it for editing: the group is selected on the map as one entity
-and its members are listed under it.
+**Groups are made on the map.** With the Merge panel open, tapping an entity puts it into the
+group being edited, and when no group is being edited it makes one — "Group 1", "Group 2" —
+and edits that. The rectangle and the brush fill the group the same way. Tapping a group
+chooses it for editing and selects it as one entity; tapping inside the group being edited
+takes out the entity under the tap, as × beside it in the list does. An entity already in a
+group is part of that group's body, so it is never added twice or to two groups.
 
-Members are added one at a time: select an entity on the map and press **Add** (with several
-selected it reads "Add 3 selected"). An entity already in the group is not added twice, a
-member of another group is refused with a notice rather than taken from it, and a group is
-never a member of another. × beside a member takes it out, and the outline, the dissolve and
-the selection follow at once; × beside a group deletes it and gives its members back. A group
-is edited in place — it keeps its id, its place in the list, its name, flag and value — and
-each change is one step of undo.
-
-While Merge is open, clicking any part of a group on the map chooses that group for editing.
-Everywhere else the map selects as it always has, with a group selected as the one entity it
-is.
+**New group** adds an empty group to the list without leaving the one being edited, so a
+second group can be set up while the first is still being worked on; choosing its row starts
+editing it. Groups are listed in the order they were made, the first at the top, and are never
+reordered. × beside a group deletes it and gives its members back. A group is edited in place
+— it keeps its id, its place in the list, its name, flag and value — and each change is one
+step of undo. Outside Merge the map selects exactly as it always has.
 
 **Renaming a merge costs nothing.** It used to cost everything. The document is
 immutable, so typing one character into a merged entity's name replaced `doc.merges`,

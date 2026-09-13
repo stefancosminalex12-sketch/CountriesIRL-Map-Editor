@@ -2,10 +2,13 @@
  * The Selection panel's two gestures: a rectangle drawn with the middle mouse button, and a
  * brush that selects whatever the pointer passes over.
  *
- * Both only ever *add* to the selection, through the store's `addToSelection` — the same
- * selection a click builds, so the inspector, the palette, merging and everything else that
- * reads it work on the result without knowing how it was made. Neither changes the camera,
- * the projection or any geometry.
+ * Both select and deselect, the way a click does. A brush stroke that starts on something
+ * already selected takes out whatever it passes over; one that starts anywhere else adds. A
+ * rectangle over entities that are mostly selected takes the selected ones out; over anything
+ * else it adds. Either way it goes through the store's `addToSelection` and
+ * `removeFromSelection` — the same selection a click builds, so the inspector, the palette,
+ * merging and everything else that reads it work on the result without knowing how it was
+ * made. Neither changes the camera, the projection or any geometry.
  *
  * Native listeners on the `<svg>`, not React handlers, and for the same reason the zoom
  * behaviour uses them: a gesture runs at the pointer's rate, and nothing about the map has to
@@ -43,8 +46,12 @@ export interface SelectionGestureHandlers {
    * history key, so the whole rectangle or stroke is one undo step.
    */
   add: (ids: string[], historyKey: string) => void
-  /** Called once a gesture ends, with how many entities it added. */
-  finished: (added: number) => void
+  /** Takes entities back out of the selection, with the same history keys as `add`. */
+  remove: (ids: string[], historyKey: string) => void
+  /** Whether an entity is selected right now — what decides whether a gesture adds or takes out. */
+  isSelected: (id: string) => boolean
+  /** Called once a gesture ends, with how many entities it added or took out. */
+  finished: (changed: number) => void
   /** Held true while a gesture runs, so hover is not tracked underneath it. */
   selecting: MutableRefObject<boolean>
   /**
@@ -76,7 +83,13 @@ type Gesture =
       queue: Point[]
       /** Everything this stroke has reached, so each is taken once. */
       seen: Set<string>
-      added: number
+      /**
+       * Whether the stroke adds or takes out, decided by the first thing it reaches: a stroke
+       * that starts on a selected entity erases, so the brush can undo its own work.
+       */
+      mode: 'add' | 'remove' | null
+      /** How many entities the stroke has added or taken out. */
+      changed: number
       /** How far the pointer has travelled, in client px. */
       travel: number
     }
@@ -254,13 +267,26 @@ export function useSelectionGestures(
       current.queue = []
 
       const at = current.last
+      let under: string | null = null
       if (at) {
         const target = document.elementFromPoint(at.x, at.y)
-        if (target && svg.contains(target)) take(h.pickAt(at.x, at.y, target))
+        if (target && svg.contains(target)) under = h.pickAt(at.x, at.y, target)
       }
+      // The entity under the press decides, and failing that the first outline it crossed.
+      if (current.mode === null) {
+        const first = under ?? fresh[0] ?? null
+        if (first) current.mode = h.isSelected(first) ? 'remove' : 'add'
+      }
+      take(under)
 
-      if (fresh.length > 0) {
-        current.added += fresh.length
+      if (fresh.length > 0 && current.mode === 'remove') {
+        const gone = fresh.filter((id) => h.isSelected(id))
+        if (gone.length > 0) {
+          current.changed += gone.length
+          h.remove(gone, current.historyKey)
+        }
+      } else if (fresh.length > 0) {
+        current.changed += fresh.length
         h.add(fresh, current.historyKey)
       }
       moveRing(at)
@@ -285,12 +311,23 @@ export function useSelectionGestures(
             Math.max(done.anchor.x, corner.x),
             Math.max(done.anchor.y, corner.y),
           )
-          if (ids.length > 0) h.add(ids, done.historyKey)
-          added = ids.length
+          /*
+           * Mostly selected already: the rectangle is being drawn to take them out, and it takes
+           * out the selected ones — a neighbour whose edge it clips is left as it was. Otherwise
+           * it adds.
+           */
+          const selected = ids.filter((id) => h.isSelected(id))
+          if (ids.length > 0 && selected.length * 2 >= ids.length) {
+            h.remove(selected, done.historyKey)
+            added = selected.length
+          } else if (ids.length > 0) {
+            h.add(ids, done.historyKey)
+            added = ids.length - selected.length
+          }
         }
       } else {
         if (commit) stroke()
-        added = done.added
+        added = done.changed
         h.suppressClick.current = done.seen.size > 0 || done.travel > CLICK_SLOP_PX
         window.clearTimeout(clearSuppress)
         clearSuppress = window.setTimeout(() => {
@@ -361,7 +398,8 @@ export function useSelectionGestures(
         last: null,
         queue: [{ x: event.clientX, y: event.clientY }],
         seen: new Set(),
-        added: 0,
+        mode: null,
+        changed: 0,
         travel: 0,
       }
       h.selecting.current = true

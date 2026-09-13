@@ -1,12 +1,13 @@
 /**
  * Merge: making one entity out of several.
  *
- * **A group is a merged entity, from the moment it is made.** "New group" creates one —
- * nothing else does — and it is listed where it was made, the first group at the top and
- * every new one beneath the last. Choosing a group opens it for editing and selects it on
- * the map as one entity; clicking its body on the map chooses it too. Select countries or
- * regions on the map and press Add to put them in; × takes one out. Every change edits
- * the group in place, is one undo step, and redraws the merged body at once.
+ * **A group is a merged entity, from the moment it is made.** With this panel open, tapping
+ * an entity on the map puts it into the group being edited — and when no group is, makes one
+ * for it. The rectangle and the brush do the same. Tapping a group chooses it for editing;
+ * tapping inside the group being edited takes out the entity under the tap, as × does in its
+ * list. New group adds an empty group without leaving the one being edited. Groups are listed
+ * where they were made, the first at the top. Every change edits the group in place, is one
+ * undo step, and redraws the merged body at once.
  *
  * The merge itself is the same `create_merge`/`update_merge` operation and the same
  * topological dissolve as ever — its own name, flag and value, one selectable, labelled,
@@ -121,19 +122,14 @@ function MemberList({ members, nameOf, onRemove, label }: {
 export function MergeControls() {
   const merges = useMapStore((s) => s.doc.merges)
   const geo = useMapStore((s) => s.geo)
-  const selected = useMapStore((s) => s.selectedCountryIds)
   const activeId = useMapStore((s) => s.activeMergeId)
   const dispatch = useMapStore((s) => s.dispatch)
   const createGroup = useMapStore((s) => s.createMergeGroup)
   const setActive = useMapStore((s) => s.setActiveMerge)
-  const addSelection = useMapStore((s) => s.addSelectionToMerge)
   const removeMember = useMapStore((s) => s.removeFromMerge)
   const deleteGroup = useMapStore((s) => s.deleteMerge)
   const setMergeMode = useMapStore((s) => s.setMergeMode)
   const noun = useNoun()
-
-  /* What the last Add could not do, until the next thing the author does. */
-  const [notice, setNotice] = useState<string | null>(null)
 
   /*
    * Merge mode is simply this panel being open — it is unmounted when the section is
@@ -147,15 +143,6 @@ export function MergeControls() {
   }, [setMergeMode])
 
   const nameOf = (id: string) => geo?.meta[id]?.name ?? geo?.byId.get(id)?.properties.name ?? id
-
-  const active = merges.find((m) => m.id === activeId) ?? null
-
-  /* What Add would put in the chosen group: selected entities of this map in no group. */
-  const mergeIds = new Set(merges.map((m) => m.id))
-  const held = new Set(merges.flatMap((m) => m.members))
-  const addable = active
-    ? selected.filter((id) => !mergeIds.has(id) && !held.has(id) && !!geo?.byId.has(id))
-    : []
 
   /*
    * Every entity's own flag, plus the historical set, sorted into one alphabet — the point
@@ -176,13 +163,12 @@ export function MergeControls() {
 
   return (
     <div className="stack">
-      {/* The one control that is always in the same place, and the only one that makes a group. */}
+      {/* Always in the same place. It never takes the author away from the group being edited. */}
       <button
         type="button"
         className="btn"
         onClick={() => {
           createGroup()
-          setNotice(null)
           playSfx('confirm')
         }}
       >
@@ -194,11 +180,11 @@ export function MergeControls() {
         a member arriving never moves a control while it is being used.
       */}
       <div className="merge-scroll">
-        {merges.length === 0 && (
-          <p className="hint">
-            Make a group, then select {noun.many} on the map and press Add.
-          </p>
-        )}
+        <p className="hint">
+          {activeId
+            ? `Tap ${noun.many} on the map to add them. Tap one inside the group to take it out.`
+            : `Tap a ${noun.one} on the map to start a group, or tap a group to edit it.`}
+        </p>
 
         {/* In creation order: the document keeps them in the order they were made. */}
         {merges.map((entity) => {
@@ -212,7 +198,6 @@ export function MergeControls() {
                   aria-expanded={editing}
                   onClick={() => {
                     setActive(editing ? null : entity.id)
-                    setNotice(null)
                     playSfx('click')
                   }}
                 >
@@ -229,7 +214,6 @@ export function MergeControls() {
                   onClick={() => {
                     // Nothing to undo but the record: the entities were never altered.
                     deleteGroup(entity.id)
-                    setNotice(null)
                     playSfx('click')
                   }}
                 >
@@ -267,34 +251,8 @@ export function MergeControls() {
                     members={entity.members}
                     nameOf={nameOf}
                     label={`${entity.name} members`}
-                    onRemove={(id) => {
-                      removeMember(entity.id, id)
-                      setNotice(null)
-                    }}
+                    onRemove={(id) => removeMember(entity.id, id)}
                   />
-                  <button
-                    type="button"
-                    className="btn btn--on"
-                    disabled={addable.length === 0}
-                    onClick={() => {
-                      const { added, elsewhere } = addSelection()
-                      setNotice(
-                        elsewhere.length > 0
-                          ? `${elsewhere.map(nameOf).join(', ')} ${elsewhere.length === 1 ? 'is' : 'are'} already in another group.`
-                          : null,
-                      )
-                      playSfx(added.length > 0 ? 'confirm' : 'click')
-                    }}
-                  >
-                    {addable.length === 1
-                      ? `Add ${nameOf(addable[0])}`
-                      : addable.length > 1
-                        ? `Add ${addable.length} selected`
-                        : 'Add'}
-                  </button>
-                  <p className="hint">
-                    {notice ?? (addable.length === 0 ? `Select a ${noun.one} on the map, then press Add.` : '')}
-                  </p>
                 </>
               )}
             </div>

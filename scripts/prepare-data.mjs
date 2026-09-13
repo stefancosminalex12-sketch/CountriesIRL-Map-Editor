@@ -45,6 +45,14 @@ if (missing.length > 0) {
   console.warn(`[prepare-data] missing ${missing.join(', ')} - run: npm run build-geography`)
 }
 
+/*
+ * Island water: the maritime zones `scripts/fetch-eez.mjs` vendors into `data/maritime/`.
+ * Copied here like the rest, so a clean checkout — the deploy — has them too.
+ */
+const EEZ = resolve(root, 'data/maritime/eez-territories.geojson')
+if (existsSync(EEZ)) copyFileSync(EEZ, resolve(outDir, 'eez-territories.geojson'))
+else console.warn('[prepare-data] missing data/maritime/eez-territories.geojson - run: npm run fetch-eez')
+
 /* -------------------------------------------------------- country metadata */
 
 const table = buildCountryTable()
