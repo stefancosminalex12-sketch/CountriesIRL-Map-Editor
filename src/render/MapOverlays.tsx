@@ -2,9 +2,13 @@
  * Map overlays: movable copies of entities' shapes, drawn over the map. See `overlayGeometry.ts`.
  *
  * Inside the zoomed group and above everything else the map draws, so an overlay moves with the
- * camera exactly as the land does and is exported with the map. Overlays answer the pointer only
- * while the Overlays panel is open; the rest of the time they are pictures, and every click and
- * drag goes to the map beneath them as it always has.
+ * camera exactly as the land does and is exported with the map.
+ *
+ * Overlays take the pointer in every mode and whichever panel is open — Flags mode is worked from the
+ * Data panel, and an overlay that answered only while the Overlays panel was open could not be
+ * moved there: a drag on it panned the map and a tap on it selected the country beneath. A press on
+ * an overlay is the overlay's: it is chosen and dragged, and the map's own gestures and clicks leave
+ * it alone (see `OVERLAY_MARKER`).
  *
  * A drag moves an overlay by the pointer's own movement in the map's coordinates, so it follows
  * the finger at every zoom. It is shown from local state while it runs — the map is not
@@ -15,12 +19,9 @@
  * coordinates its outline is drawn in, and painted only inside that outline: every island and
  * exclave of it, and nowhere else. The flag is the overlay's own (`MapOverlay.flag`).
  *
- * The chosen overlay carries a handle: editor furniture, marked `data-export="none"` so no PNG, JPG
- * or SVG contains it. It is what makes a speck — an overlay of Monaco — something a pointer can
- * take hold of, and it is the one mark that says which overlay is being edited; the Overlays panel
- * says so too. There is no outline round the chosen overlay: it was drawn in the selection colour
- * exactly over the entity the overlay had just been made from, and read as a box round that
- * entity rather than as anything the overlay needed.
+ * Nothing marks the chosen overlay on the map: it looks exactly as it does when it is not chosen, and
+ * which one is being edited is shown in the Overlays panel alone. A dashed outline and a round handle
+ * used to be drawn on it; both read as a selection marker over the map rather than as part of it.
  */
 import { memo, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react'
 import { geoPath, type GeoProjection } from 'd3-geo'
@@ -40,8 +41,6 @@ const TEXTURE_WEIGHT_PX = 1.1
 const TINT = 0.35
 /** The outline, in screen pixels. */
 const OUTLINE_PX = 1.6
-/** The chosen overlay's handle, as a radius in screen pixels. */
-const HANDLE_PX = 7
 
 const textureId = (id: string) => `map-overlay-texture-${id}`
 const flagFillId = (id: string) => `map-overlay-flag-${id}`
@@ -93,11 +92,6 @@ export interface MapOverlaysProps {
   sources: ReadonlyMap<string, OverlaySource>
   projection: GeoProjection
   zoomK: number
-  /** Whether the Overlays panel is open: only then do overlays take the pointer. */
-  interactive: boolean
-  activeId: string | null
-  /** The selection colour, for the chosen overlay's handle. */
-  accent: string
   zoomedRef: RefObject<SVGGElement>
   onSelect: (id: string) => void
   onMove: (id: string, anchor: [number, number]) => void
@@ -120,9 +114,6 @@ export const MapOverlays = memo(function MapOverlays({
   sources,
   projection,
   zoomK,
-  interactive,
-  activeId,
-  accent,
   zoomedRef,
   onSelect,
   onMove,
@@ -230,17 +221,12 @@ export const MapOverlays = memo(function MapOverlays({
     setPreview(null)
   }
 
-  const handlers = (overlay: MapOverlay, centre: [number, number]) =>
-    interactive
-      ? {
-          onPointerDown: (event: ReactPointerEvent<SVGElement>) => begin(event, overlay, centre),
-          onPointerMove: move,
-          onPointerUp: end,
-          onPointerCancel: end,
-        }
-      : {}
-
-  const chosen = interactive ? placed.find(({ overlay }) => overlay.id === activeId) ?? null : null
+  const handlers = (overlay: MapOverlay, centre: [number, number]) => ({
+    onPointerDown: (event: ReactPointerEvent<SVGElement>) => begin(event, overlay, centre),
+    onPointerMove: move,
+    onPointerUp: end,
+    onPointerCancel: end,
+  })
 
   return (
     <g className="map-overlays">
@@ -318,8 +304,8 @@ export const MapOverlays = memo(function MapOverlays({
           {...{ [OVERLAY_MARKER]: overlay.id }}
           transform={transformOf(place)}
           opacity={overlay.opacity}
-          pointerEvents={interactive ? 'visiblePainted' : 'none'}
-          style={interactive ? { cursor: 'move', touchAction: 'none' } : undefined}
+          pointerEvents="visiblePainted"
+          style={{ cursor: 'move', touchAction: 'none' }}
           {...handlers(overlay, place.centre)}
         >
           {overlay.texture === 'flag' && flag && flags.has(overlay.id) ? (
@@ -347,22 +333,6 @@ export const MapOverlays = memo(function MapOverlays({
           />
         </g>
       ))}
-
-      {chosen && (
-        <g data-export="none" {...{ [OVERLAY_MARKER]: chosen.overlay.id }}>
-          <circle
-            cx={chosen.place.centre[0]}
-            cy={chosen.place.centre[1]}
-            r={HANDLE_PX / k}
-            fill={accent}
-            stroke="#ffffff"
-            strokeWidth={1.5}
-            vectorEffect="non-scaling-stroke"
-            style={{ cursor: 'move', touchAction: 'none' }}
-            {...handlers(chosen.overlay, chosen.place.centre)}
-          />
-        </g>
-      )}
     </g>
   )
 })

@@ -323,8 +323,6 @@ export function MapCanvas() {
   const mergeMode = useMapStore((s) => s.mergeMode)
   const activeMergeId = useMapStore((s) => s.activeMergeId)
   const tapInMerge = useMapStore((s) => s.tapInMerge)
-  const overlayMode = useMapStore((s) => s.overlayMode)
-  const activeOverlayId = useMapStore((s) => s.activeOverlayId)
   /**
    * The zoomed group, so a gesture can move the map without re-rendering it.
    *
@@ -2724,9 +2722,6 @@ export function MapCanvas() {
               sources={overlaySources}
               projection={projection}
               zoomK={zoomK}
-              interactive={overlayMode}
-              activeId={activeOverlayId}
-              accent={style.selectedOutline}
               zoomedRef={zoomedRef}
               onSelect={chooseOverlay}
               onMove={moveOverlay}

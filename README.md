@@ -2613,23 +2613,28 @@ The centre an overlay is carried by is its main landmass's, not the whole entity
 centre over all its land lies in the Atlantic, between Paris and French Guiana; its mainland's
 is in France, which is where a hand dragging France expects to be holding it.
 
-**Overlays take the pointer only while the section is open.** Then a press on an overlay
+**Overlays take the pointer in every mode, whichever panel is open.** A press on an overlay
 chooses it and drags it: the map does not pan, the brush does not paint, and no country is
-selected. A drag follows the pointer's own movement in the map's coordinates, so it tracks the
-finger at every zoom. It is drawn from local state while it runs and committed once, on
-release, as one undo step. The wheel and a two-finger pinch still zoom the map from anywhere.
-With the section closed, overlays are pictures with `pointer-events: none`, and every click
-reaches the map beneath exactly as before.
+selected or recoloured. This is so in Flags mode too. There, the Data panel is usually the one
+open, and overlays used to answer only while the Overlays panel was: a drag on one panned the
+map and a tap selected the country beneath.
+
+A drag follows the pointer's own movement in the map's coordinates, so it tracks the finger at
+every zoom. It is drawn from local state while it runs and committed once, on release, as one
+undo step. The wheel and a two-finger pinch still zoom the map from anywhere. A country an
+overlay covers is reached by moving the overlay off it.
 
 **Drawn over the map and inside the camera.** The layer is the last thing in the zoomed group,
 above the names, so it moves with the land and is exported with it. The tint, texture and
 outline are all in the overlay's colour, so it never reads as the land it covers. The texture
 is spaced in screen pixels and the outline does not scale, so neither thickens as the map
-zooms. The chosen overlay has a handle, marked `data-export="none"` so no PNG, JPG or SVG contains
-it. The handle is what makes an overlay of Vatican City something a pointer can take hold of, and
-with the list it shows which overlay is being edited. There is no outline round the chosen
-overlay. One used to be drawn there, dashed, in the selection colour; it lay right over the entity
-just copied and read as a blue box round it.
+zooms.
+
+**Nothing marks the chosen overlay.** It looks exactly as it does when it is not chosen, and
+which overlay is being edited is shown in the Overlays list alone. There used to be a dashed
+outline and a round handle on it; both read as a selection marker over the map, and both are
+gone. An overlay is dragged by its own shape, so one of Vatican City is taken hold of once the
+map is zoomed in far enough to reach it, or moved with **Move over**.
 
 Verified in the browser:
 
@@ -2641,27 +2646,33 @@ Verified in the browser:
 - **Undo and redo** took the move back and put it again; **Reset position** returned the
   overlay to its home.
 - **Merged group.** An overlay of an Iberia group had all 49 subpaths of the merged body.
-- **Micro-nation.** Vatican City was drawn at its true 0.004 px, and dragged by its handle
-  exactly as far as the pointer went.
+- **Micro-nation.** Vatican City was drawn at its true 0.004 px.
 - **Projection-aware.** On Mercator, Greenland moved to the equator came out at 5.6% of the
   area of its box at home (2,292 against 40,581 px²). In Shape mode the same overlay kept its
   40,581 px².
-- **Export.** The overlay and its texture were in it; the handle was not.
+- **Export.** The overlay and its texture were in it.
 - **Island water** was unaffected. With overlays on the map, the zones drawn were exactly the
   ones the map's own rules draw.
 - **Create overlay deselects what it copies.** The cases: a country, two countries, Monaco, a
   merged group and a region of the Detailed World Map. In each the selection was empty afterwards,
-  the new overlay was the one being edited, and the original was back in its own fill. The
-  overlay's handle was the only mark drawn with it. One undo restored the selection and removed the
+  the new overlay was the one being edited, and the original was back in its own fill. Nothing
+  else was drawn with it. One undo restored the selection and removed the
   overlays; redo put both back.
 - **Flag texture.**
   - France's overlay showed the tricolour on the mainland, and French Guiana carried its own.
   - The United States' overlay showed the whole flag on the lower 48, and Alaska its own.
   - A Belgium + Netherlands group showed the flag chosen for it.
   - Changing France's flag afterwards left the overlay's alone.
-  - The export carried the flag pattern with its artwork inline, and no handle.
-- **Section closed.** A point over France hit the overlay while the section was open, and
-  France itself once it was closed; a click there reached the map's own picker.
+  - The export carried the flag pattern with its artwork inline.
+- **In every mode and panel.** A drag on an overlay's own shape moved it, with a mouse and
+  with a finger, without panning the map or selecting anything beneath. The cases:
+  - normal mode;
+  - Flags mode with the Overlays panel open, and with the Data panel open;
+  - flag-filled, hatched, scaled and merged overlays;
+  - a region of the Detailed World Map.
+- **No marker.** The overlay layer drew exactly the same markup with an overlay chosen as with
+  none chosen. That held for flag-filled, hatched, scaled and merged overlays, after a zoom and
+  a pan, and in and out of Flags mode. No circle, handle or outline was drawn anywhere in it.
 - **Detailed World Map.** An overlay of the Budjak started as exactly the Budjak's path and
   dragged exactly 150 px. The Budjak and Odesa beneath it were unchanged.
 - **Phone.** On a phone-sized viewport, a touch drag moved an overlay exactly 60 × 40 px
