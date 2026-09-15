@@ -5,6 +5,7 @@
  * ephemeral view/selection state. Mutations to the document go exclusively through
  * `dispatch(ops)` so the UI and the future AI assistant share one code path.
  */
+import type { MapOverlay } from '../types/map'
 import { create } from 'zustand'
 import { createMapDocument } from './defaults'
 import { executeOperations } from './executor'
@@ -279,6 +280,10 @@ interface MapStore {
    * that group for editing.
    */
   mergeMode: boolean
+  /** Whether the Map Overlays panel is open: overlays take the pointer only then. */
+  overlayMode: boolean
+  /** The overlay being edited, or `null`. */
+  activeOverlayId: string | null
 
   /* operation log — the audit trail the AI assistant will write into */
   log: OperationResult[]
@@ -306,6 +311,14 @@ interface MapStore {
    */
   createMergeGroup: () => string
   setMergeMode: (on: boolean) => void
+  setOverlayMode: (on: boolean) => void
+  setActiveOverlay: (id: string | null) => void
+  /**
+   * Makes an overlay of each selected entity — a country, a region, a merged group — and chooses
+   * the last. One undo step. Returns the new overlays' ids.
+   */
+  createOverlaysFromSelection: () => string[]
+  deleteOverlay: (id: string) => void
   /** Chooses the group taps go into, selected as one entity; `null` for none. */
   setActiveMerge: (id: string | null) => void
   /**
@@ -361,6 +374,12 @@ interface MapStore {
   setTransform: (t: Transform) => void
   resetTransform: () => void
 }
+
+/**
+ * The colours new overlays take in turn: saturated enough to read over any land colour, flag or
+ * data ramp at the default opacity, and far enough apart that two overlays are never confused.
+ */
+const OVERLAY_COLORS = ['#e8590c', '#1971c2', '#c2255c', '#2f9e44', '#7048e8', '#0c8599']
 
 /** The next group's id and default name: "Group N", N its place in the list. */
 function nextGroup(merges: readonly { id: string; name: string }[]): { id: string; name: string } {
@@ -450,6 +469,9 @@ export const useMapStore = create<MapStore>((set, get) => {
 
   activeMergeId: null,
   mergeMode: false,
+
+  overlayMode: false,
+  activeOverlayId: null,
 
   log: [],
 
@@ -543,6 +565,7 @@ export const useMapStore = create<MapStore>((set, get) => {
       selectedCountryIds: next.selectedCountryIds,
       activeMergeId: null,
       parked,
+      activeOverlayId: null,
       /*
        * The other map's geometry is not this map's. Clearing it rather than leaving the
        * previous atlas's features on screen is what stops a frame of Europe appearing
@@ -717,6 +740,59 @@ export const useMapStore = create<MapStore>((set, get) => {
   /** Leaving the panel stops editing a group. The groups themselves are merges, and stay. */
   setMergeMode(on) {
     set(on ? { mergeMode: true } : { mergeMode: false, activeMergeId: null })
+  },
+
+  /* ------------------------------------------------------------- map overlays */
+
+  /** Leaving the panel stops editing an overlay; the overlays themselves stay on the map. */
+  setOverlayMode(on) {
+    set(on ? { overlayMode: true } : { overlayMode: false, activeOverlayId: null })
+  },
+
+  setActiveOverlay(id) {
+    if (get().activeOverlayId !== id) set({ activeOverlayId: id })
+  },
+
+  /**
+   * An overlay of each selected entity, exactly over it, in the next colour of the set — faded
+   * and hatched, so the map beneath stays legible and the copy never reads as the original.
+   */
+  createOverlaysFromSelection() {
+    const state = get()
+    const geo = state.geo
+    if (!geo) return []
+    const mergeById = new Map(state.doc.merges.map((m) => [m.id, m]))
+    const existing = state.doc.overlays ?? []
+    const taken = new Set(existing.map((o) => o.id))
+    const stamp = Date.now().toString(36)
+    const overlays: MapOverlay[] = []
+    for (const sourceId of state.selectedCountryIds) {
+      const merge = mergeById.get(sourceId)
+      if (!merge && !geo.byId.has(sourceId)) continue
+      let id = `overlay-${stamp}-${overlays.length + 1}`
+      for (let n = 2; taken.has(id); n++) id = `overlay-${stamp}-${overlays.length + 1}-${n}`
+      taken.add(id)
+      overlays.push({
+        id,
+        sourceId,
+        name: merge?.name ?? geo.meta[sourceId]?.name ?? geo.byId.get(sourceId)?.properties.name ?? sourceId,
+        mode: 'shape',
+        anchor: null,
+        color: OVERLAY_COLORS[(existing.length + overlays.length) % OVERLAY_COLORS.length],
+        opacity: 0.7,
+        texture: 'hatch',
+        scale: 1,
+      })
+    }
+    if (overlays.length === 0) return []
+    get().dispatch(overlays.map((overlay) => ({ op: 'create_overlay' as const, overlay })))
+    set({ activeOverlayId: overlays[overlays.length - 1].id })
+    return overlays.map((o) => o.id)
+  },
+
+  deleteOverlay(id) {
+    get().dispatch({ op: 'delete_overlay', id })
+    if (get().activeOverlayId === id) set({ activeOverlayId: null })
   },
 
   /**

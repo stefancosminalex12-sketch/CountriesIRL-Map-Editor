@@ -29,6 +29,7 @@ import { memo } from 'react'
 import { geoPath, type GeoProjection } from 'd3-geo'
 import type { MultiPolygon, Position } from 'geojson'
 import { hasFlag, useFlagStore } from '../flags/flagStore'
+import { screenStrokeWidth } from './CountryPath'
 
 /** Prefix for pattern ids, so a country's fill is `url(#map-flag-DEU)`. */
 const FLAG_PATTERN_PREFIX = 'map-flag-'
@@ -1018,9 +1019,8 @@ export const FlagTerritories = memo(function FlagTerritories({
           d={territory.d}
           fill={`url(#${flagTerritoryPatternId(territory.key)})`}
           stroke={showOutline ? borderColor : 'none'}
-          strokeWidth={showOutline ? borderWidth(tile) : 0}
+          style={{ strokeWidth: screenStrokeWidth(showOutline ? borderWidth(tile) : 0) }}
           strokeLinejoin="round"
-          vectorEffect="non-scaling-stroke"
           paintOrder="stroke"
           pointerEvents="none"
         />

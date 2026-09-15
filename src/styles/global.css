@@ -1,19 +1,19 @@
 :root {
   /* Defaults mirror the dark theme; `applyUiTokens` overwrites these at start-up
      and on every theme change. No component hardcodes a colour. */
-  --bg: #1a1e24;
-  --panel: #22272f;
-  --panel-alt: #262c35;
-  --surface: #2f3641;
-  --surface-hover: #3a424f;
-  --inset: #191d23;
-  --line: #39404b;
-  --line-strong: #4d5765;
-  --text: #e2e6ec;
-  --text-dim: #9aa4b2;
-  --accent: #6fa8dc;
-  --accent-text: #12171d;
-  --accent-soft: #2b3a4b;
+  --bg: #20252c;
+  --panel: #282e36;
+  --panel-alt: #2d333c;
+  --surface: #363d48;
+  --surface-hover: #404855;
+  --inset: #1c2027;
+  --line: #414956;
+  --line-strong: #5a6473;
+  --text: #e6eaf0;
+  --text-dim: #a6b0be;
+  --accent: #78aee8;
+  --accent-text: #0e1319;
+  --accent-soft: #2e4157;
 
   /*
    * The control system, in five numbers.
@@ -2095,6 +2095,102 @@ body {
 }
 
 /*
+ * The Maps list's groups — World, USA — each a disclosure of its maps.
+ *
+ * A group is one bordered block: the header opens and closes it, and the maps sit inside the
+ * same border, so which maps belong to which group reads without a heading doing all the work.
+ * The chevron is the disclosures' own, pointing right when closed and down when open.
+ */
+.map-families {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.map-family {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.map-family__toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: var(--control-h);
+  padding: 6px 10px;
+  background: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.map-family__toggle:hover {
+  background: var(--surface-hover);
+}
+
+.map-family__toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.map-family__name {
+  flex: none;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* The map in use, on its group's header: the accent, so it reads as "this one" at a glance. */
+.map-family__current {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--accent);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.map-family__toggle::after {
+  content: '';
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin-left: auto;
+  border-right: 1.5px solid var(--text-dim);
+  border-bottom: 1.5px solid var(--text-dim);
+  transform: translateY(-1px) rotate(-45deg);
+  transition: transform var(--dur) var(--ease);
+}
+
+.map-family--open .map-family__toggle::after {
+  transform: translateY(-2px) rotate(45deg);
+}
+
+.map-family__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 6px 6px;
+}
+
+/* A fingertip's target on touch screens. */
+@media (pointer: coarse) {
+  .map-family__toggle {
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-family__toggle::after {
+    transition: none;
+  }
+}
+
+/*
  * The merge group switcher and its actions.
  *
  * Both live above the lists that grow, so the four things the panel is for stay in the
@@ -2267,6 +2363,103 @@ body {
 .merge-group__drop:hover {
   background: var(--surface);
   color: var(--text);
+}
+
+/* ============================================================== map overlays */
+
+/* The overlays, one row each — a swatch of its colour, its name, its mode — like the groups. */
+.overlay-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: min(220px, 30vh);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+}
+
+.overlay-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+
+/* The overlay being edited: the accent is the only state the row needs to show. */
+.overlay-row--on {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.overlay-row__pick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  padding: 5px 2px;
+  background: none;
+  border: 0;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+}
+
+.overlay-row__swatch {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.25);
+}
+
+.overlay-row__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overlay-row__mode {
+  flex: none;
+  color: var(--text-dim);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.overlay-row__drop {
+  flex: none;
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  cursor: pointer;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.overlay-row__drop:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.overlay-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
 }
 
 /*
@@ -2693,6 +2886,14 @@ body {
 #map-canvas-svg {
   touch-action: none;
   -webkit-tap-highlight-color: transparent;
+  /*
+   * A long press on the map is a press on the map. Without these a phone took one on a name as
+   * a request to select its text, or offered its callout; the names are drawn, not read here,
+   * and the exported file keeps them as text either way.
+   */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 /*
@@ -3009,4 +3210,23 @@ body {
   .sidebar__body {
     padding: 10px 8px;
   }
+}
+
+/* ======================================================= dark theme refinements */
+
+/*
+ * The rings round colour chips, in the Dark theme only: a faint light hairline rather than a
+ * black one. A black ring reads as an edge on the light themes' paper; on graphite it is a hard
+ * dark outline round every swatch. Scoped to `data-theme`, so Light and Geographic keep theirs.
+ * Only the neutral ring changes — a chosen preset colour is marked by its accent halo, which
+ * is a `box-shadow` and is left alone.
+ */
+:root[data-theme='dark'] .theme-choice__swatches span,
+:root[data-theme='dark'] .preset-color {
+  border-color: rgb(255 255 255 / 0.14);
+}
+
+:root[data-theme='dark'] .compare-group__dot,
+:root[data-theme='dark'] .overlay-row__swatch {
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14);
 }

@@ -197,6 +197,8 @@ export function createMapDocument(
     screen: { enabled: false, rect: null, aspect: null },
     // Nothing merged: every country is its own entity, which is the base state.
     merges: [],
+    // No overlays: the map shows the map until an author puts something over it.
+    overlays: [],
     /*
      * Off by default: a map says what its author asked it to say, and 250 names is a
      * decision rather than a starting point. The appearance beneath the switch is

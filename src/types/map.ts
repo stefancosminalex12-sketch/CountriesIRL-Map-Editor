@@ -669,6 +669,58 @@ export interface MapCaption {
   outlineWidth: number
 }
 
+/* ----------------------------------------------------------------- overlays */
+
+/**
+ * How an overlay follows the map when it is moved. See {@link MapOverlay}.
+ *
+ * - `shape`: the entity's outline exactly as the map draws it where it is, carried anywhere
+ *   unchanged — the same outline at the same size, wherever it is put down.
+ * - `projection`: the entity's land moved across the globe — rotated on the sphere to its new
+ *   place and drawn there by the active projection, so it grows and shrinks as the land there
+ *   would.
+ */
+export type OverlayMode = 'shape' | 'projection'
+
+/** What an overlay is filled with, over its tint. */
+export type OverlayTexture = 'hatch' | 'dots' | 'none'
+
+/**
+ * A movable copy of an entity's shape, for comparing one place with another.
+ *
+ * It records which entity it copies, never the geometry: the outline is worked out from the
+ * map's own data every time it is drawn, so it stays exact at every resolution and in every
+ * projection, and nothing about it can reach the entity it copies. Where it has been moved to
+ * is a point on the globe rather than on the screen, so zooming, panning, reframing and
+ * changing projection all leave it over the same place.
+ */
+export interface MapOverlay {
+  id: string
+  /** The entity copied: a country, a subdivision, a territory or a merged group. */
+  sourceId: CountryId
+  /** Shown in the list: the entity's name when the overlay was made. */
+  name: string
+  mode: OverlayMode
+  /**
+   * Where it has been moved to, as [longitude, latitude] — the point the centre of the entity's
+   * main landmass is put on — or `null` for where it started, exactly over the entity.
+   */
+  anchor: [number, number] | null
+  /** `#rrggbb`. */
+  color: string
+  /** 0–1, of the whole overlay: tint, texture and outline together. */
+  opacity: number
+  texture: OverlayTexture
+  /**
+   * Its size, as a multiple of the entity's own — within {@link OVERLAY_SCALE_RANGE}, 1 for as
+   * the map draws it. Scaled about its centre, so resizing never moves it.
+   */
+  scale: number
+}
+
+/** How far an overlay can be shrunk and grown: from a tenth of its size to five times it. */
+export const OVERLAY_SCALE_RANGE = { min: 0.1, max: 5 } as const
+
 /* ----------------------------------------------------------------- document */
 
 export interface MapDocument {
@@ -696,6 +748,8 @@ export interface MapDocument {
   screen: ScreenFrame
   /** Custom entities dissolved from countries. See {@link MergedEntity}. */
   merges: MergedEntity[]
+  /** Movable copies of entities' shapes, drawn over the map. See {@link MapOverlay}. */
+  overlays: MapOverlay[]
   /** Names drawn on the map. See {@link CountryLabels}. */
   labels: CountryLabels
   /** A headline across the top of the composition. See {@link MapCaption}. */

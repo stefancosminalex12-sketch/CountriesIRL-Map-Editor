@@ -297,9 +297,24 @@ that all but reaches Moldova. North of it the oblast keeps its Natural Earth id 
 name and code, so values an older map gave it stay with it. South of it is the **Budjak**
 (`UKR-OB-budjak`, a historical region inside Ukraine), the southern end of Bessarabia and part
 of Moldavia until 1812: the nine raions that lie there in geoBoundaries' raion layer (2006
-boundaries), 13,049 km² of the oblast's 33,085. `split.only` confines the cut to that one
+boundaries), 12,561 km² of the oblast's 33,085. `split.only` confines the cut to that one
 oblast and `split.join` gathers the raions into one piece; the rest is the oblast less that
-piece, not the union of its own raions, so the cut line is the only new line. Every other
+piece, not the union of its own raions, so the cut line is the only new line.
+
+**The Budjak ends at the water.** `split.stopAt` cuts the Budjak along Natural Earth's own
+Dniester estuary, the lake the map draws, and the river's own line. The river runs down the
+estuary and out through its mouth, which parts the Zatoka spit (Budjak) from the eastern bank.
+The estuary, the delta at its head and the eastern bank belong to northern Odesa.
+
+This needed fixing because the raion layer leaves the estuary and much of the eastern bank
+uncovered, and the split had handed that uncovered land to the Budjak, so it wrapped round the
+estuary. Now only land the river cuts off moves: 148 km², the eastern bank and the delta. A
+scrap of the western shore pinched off by an inlet stays with the Budjak, and nothing is added
+to it.
+
+The Budjak's edge is the lake's own shoreline, so the region boundary and the water the map
+draws agree. The estuary is still land beneath the lake in northern Odesa's outline, as it was
+before the split, and the lake is drawn over it exactly as before. Every other
 Ukrainian oblast, and every unit of every other country's fragments, decodes to the same
 coordinates as before. Moldova's South (and Ștefan Vodă at the finer level) gains two
 vertices on its existing border line: the cut's end at Palanca, and one point the Budjak and
@@ -879,6 +894,21 @@ the flat rail did. `Screen` is deliberately still top-level: it is a composition
 export frame rather than a property of the map, and folding it into Map would have put a
 fourth thing in a group whose three parts are about what the map *is*.
 
+**The Maps list is grouped by what a map is of.** Two groups sit at the top, **World** and
+**USA**, and each is a disclosure that opens onto its maps:
+
+- World holds **Modern World** and **Modern Administrative World**;
+- USA holds **USA States** and **USA Administrative Map**.
+
+The group holding the map in use opens with the section, and the map in use is marked in
+its group and named in the accent on the group's header, so it shows even while the group is
+closed. The two groups open and close independently.
+
+The group each map belongs to is data on the atlas: `family` in `atlas.ts`, the groups
+themselves in `ATLAS_FAMILIES`. The list's own label is `menuName`, used where the group makes
+a map's name read oddly — the World map is "Modern World" under "World". Nothing else about a
+map changed: its id, its data and what switching to it keeps are exactly as they were.
+
 Nothing about a control changed in the regrouping — every one is the same component with
 the same props, referenced exactly once, in a different place in the tree.
 
@@ -972,6 +1002,198 @@ buttons carrying `aria-pressed`; display switches are buttons carrying
 marked by a tick as well as by the accent fill — three ticked chips say "three regions
 compose this map" in a way three accent fills alone leave you counting.
 
+### Performance on dense maps
+
+**The cost was the country layer, rebuilt whole on every render.** For every entity the canvas
+built a paint and three elements, then compared them: 256 countries on the World map, 5,257 units
+on the Detailed World Map at its finest level, and 32,159 on the USA map's subdivisions. The canvas
+renders on every hover change, every selection toggle, every brush frame and every document edit,
+so the cost grew with the number of entities. A pointer crossing one border on the USA map froze
+the page for a quarter of a second. So did an overlay's opacity slider, which changes nothing any
+country is painted from.
+
+What changed, in `MapCanvas.tsx`:
+
+- **Paints are kept, not rebuilt.** They are memoised on exactly what `paintCountry` reads, which
+  is everything but the hover. The zoom counts only while flags are drawn, since it sets a flag's
+  border width and nothing else.
+- **A selection-only change repaints only what it touched.** A click, a brush frame or a rectangle
+  repaints the entities whose selection flipped, and keeps every other paint.
+- **Elements are reused.** Each entity keeps its element while its paint, path and coast are
+  unchanged, so React passes over it by reference.
+- **The layer is drawn in chunks** of 256 entities (`COUNTRY_CHUNK`), each a memoised component. A
+  chunk holding exactly the elements it held last time is the same array, and React skips the whole
+  of it. A hover or a selection change reaches one or two chunks, not the layer.
+- **The hovered entity is the only element made afresh on a hover.** It is painted exactly as
+  before and drawn in its own place, so what is drawn, and in what order, has not changed.
+
+`MapOverlays.tsx` now works out where each overlay rests once per change to the overlays, not on
+every frame of a drag. A projection-aware overlay has to be reprojected to be placed.
+
+Measured in the dev build, from a store change to React's commit, as the median of 8 runs:
+
+| | World (256) | Detailed World, maximum (5,257) | USA subdivisions (32,159) |
+|---|---|---|---|
+| Hover change | 4.7 → **1.2 ms** | 40 → **5.3 ms** | 247 → **2.9 ms** |
+| Selection toggle | 3.0 → **1.4 ms** | 50 → **5.4 ms** | 238 → **21 ms** |
+| Brush frame (10 added) | 3.1 → **1.3 ms** | 35 → **4.1 ms** | 227 → **22 ms** |
+| Zoom commit | 2.9 → **0.7 ms** | 37 → **2.1 ms** | 223 → **1.8 ms** |
+| Mouse move over the map | 9.5 → — | 43 → — | 248 → **12 ms** |
+| Overlay slider | — | — | ≈223 → **5 ms** |
+
+The timing uses `MessageChannel` ticks, which a hidden tab does not throttle, and each change was
+checked against a control. Every change was also checked for what it draws, on all 32,159 units:
+
+- hover and unhover;
+- a unit hovered while selected;
+- a 300-unit brush batch selected and cleared;
+- the draw order;
+- island water, still 72 bodies;
+- Vatican City, still growing exactly 4× at 4× zoom;
+- merges, labels, flags, and an overlay export without its editor handle.
+
+**Checked and found sound:** hit-testing (outlines parsed once and indexed; a rectangle over 7,845
+units spends 7 ms finding them), the projected-land cache (the last 3 views), undo history (100
+steps), sound (Web Audio buffers, decoded once), event listeners (every one removed, or registered
+once for the page's life), and animation frames (requested only while a gesture runs).
+
+**Across platforms:**
+
+- **Long press.** On a phone, a long press on the map no longer starts a text selection on a
+  name or opens a callout. `#map-canvas-svg` refuses both, where before only brush mode did.
+- **Export on iPhone.** The export's object URL is revoked after a minute rather than on the next
+  frame. Revoking it sooner could cancel the download in Safari, on iOS especially, and in Firefox.
+- **Shortcut tooltips.** Undo and redo read ⌘Z and ⇧⌘Z on Apple keyboards. Both key sets were
+  already handled everywhere; only the label was wrong.
+
+**What costs what it has to:**
+
+- **A theme switch or a style change that alters every paint repaints every entity.** About half
+  a second on the USA subdivisions in the dev build; much of that is React's development-only
+  checks, which the production build does not run.
+- **A rectangle or a brush stroke across thousands of units** costs about 23 µs per unit it
+  changes.
+- **An SVG export of the USA subdivisions** serialises 45 MB in 0.64 s.
+
+### Moving around the map
+
+**The map is drawn as vectors on every frame of a gesture, at the camera the gesture has
+reached.** Each line is at its true screen width on every frame, never a stretched picture of an
+earlier one.
+
+**An earlier optimisation was reverted.** It moved an already-drawn picture of the map during a
+gesture and redrew it when the gesture rested or ended. Its faults:
+
+- Borders grew while zooming in and thinned while zooming out, then snapped back at every redraw.
+- Lines looked soft while moving.
+- It was slower on phones. The picture carried a margin of about four screens' worth of pixels,
+  so every redraw drew roughly four times the area, and it added redraws in the middle of
+  gestures.
+- It restyled every map element at the start and end of each gesture.
+
+It was reverted whole. The rebuilt bundle was byte-identical to the build from before it.
+
+Two changes were then made again, each only after showing it draws exactly what the stable
+renderer drew and is no slower on any profile (`MapCanvas.tsx`, the zoom behaviour, and
+`CountryPath.tsx`):
+
+- **The camera is set at most once per frame.**
+  - A gesture's camera waits for the next animation frame and is set there.
+  - A trackpad reports a pinch at 120 Hz and a phone its fingers as fast as they move, so the
+    old code set the camera twice for each frame drawn.
+  - It also set it inside the touch event, and d3-zoom's pointer maths in the next event then
+    forced a synchronous layout of every outline. On a phone-speed CPU that was 9–10 s of
+    blocked script in a one-second pinch on the Detailed World Map; now it is 0.3 s.
+- **Lines are drawn in the map's own units, their width following the camera in the same
+  frame.**
+  - The width is `px ÷ camera scale`, via `screenStrokeWidth` and `--map-k`. A uniform scale draws
+    a stroke exactly as it draws the path at the scaled size, so on screen it is the line
+    `vector-effect: non-scaling-stroke` drew.
+  - The browser no longer transforms every vertex of every outline into screen space again
+    whenever the camera moves, which is what non-scaling strokes cost.
+  - The scale is set in the same frame as the camera's transform: by the zoom behaviour during a
+    gesture, and by React when the camera is committed. No frame draws a line at another width,
+    and a pan, which changes no scale, restyles nothing.
+  - Every map line uses this one method: outlines, coasts, merged bodies, border networks,
+    lakes, rivers, the sphere, the graticule, island water and flag territories. Overlays and
+    the magnifiers keep non-scaling strokes; they are a handful of paths.
+  - Exports get the resolved width written onto each path.
+
+Verified in headless Edge on the real GPU, against the saved build of the stable renderer:
+
+- **Every frame is the settled picture.** A frame drawn while two fingers are held mid-pinch, and
+  the frame after they lift at the same camera, differ in 0 pixels, on both builds. The border
+  measures 0.8 px in both.
+- **Same look as the stable renderer.**
+  - The Modern World, the Detailed World Map and flags with island water are pixel-identical at
+    fit.
+  - Zoomed over Germany (both maps) and over the Caribbean with flags, 99.4–99.9 % of pixels are
+    identical. The rest differ by antialiasing on line edges, and magnified eight times the lines
+    have the same width.
+- **Nothing is doubled.**
+  - Every listener is registered once, the same on both builds.
+  - The same 4,034 paths are drawn before and after gestures.
+  - The map is never moved as a picture.
+- **The camera is set once per frame, not twice.** For example, 61 writes in 60 frames of a touch
+  pinch, against 121 in 62 on the stable renderer.
+
+Before → after: how long about a second of input took to play out, stable renderer → now. Each
+figure is the mean of two runs, in headless Edge on the real GPU with real input. The phone
+profiles slow the CPU fourfold; the GPU runs at full speed, as it always does here.
+
+| | Modern World | Detailed World Map (4,030 units) |
+|---|---|---|
+| Desktop: drag / wheel / trackpad pinch | 4.7 → 4.1 / 1.6 → 1.4 / 9.0 → 7.7 s | 12.7 → 11.4 / 4.2 → 3.7 / 23.1 → 20.4 s |
+| MacBook 1440×900 @2×: drag / wheel / pinch | 5.0 → 4.1 / 1.8 → 1.45 / 8.4 → 7.3 s | 12.5 → 11.6 / 5.0 → 4.4 / 22.4 → 19.0 s |
+| Phone portrait: drag / pinch / two-finger pan | 3.9 → 3.3 / 4.5 → 3.7 / 4.0 → 3.3 s | 12.3 → 11.1 / 11.7 → 10.4 / 12.1 → 11.1 s |
+| Phone landscape: all three | 0.95 → 0.95 s | 0.95 → 0.95 s |
+
+Main-thread time fell further than wall time:
+
+- A desktop drag on the Detailed World Map kept the page busy for 12.2 s. Now it is 1.0–1.5 s,
+  so the page stays free to take input.
+- A phone pinch there ran 9.3 s of script. Now it is 0.3 s.
+
+**What remains** is the graphics card drawing every outline again on each frame: about 4,000
+detailed ones on the Detailed World Map. That is the price of crisp lines at their true width on
+every frame with no geographic detail dropped. The two ways past it are a moved picture (rejected
+above) and fewer vertices per outline at low zoom (not done: it drops detail).
+
+### Trackpad pinch
+
+A pinch on a trackpad zooms the map and never the page. It used to zoom the whole document
+on a MacBook: the toolbar, the sidebar and the legend scaled away like an image and came back
+on the way out. A pinch reaches the page in one of two forms, and both were left to the
+browser (`src/render/pinchZoom.ts`):
+
+- **Chromium and Firefox** send it as `wheel` events with `ctrlKey` set. The map's zoom
+  filter refused every event with Ctrl held, so the map never saw the pinch and the browser
+  zoomed the page with it. The filter now lets a ctrl-wheel through, as d3-zoom's own filter
+  does. d3-zoom still leaves one alone when it would change nothing — at either end of the
+  zoom range — and never sees one over the sidebar, so a listener on the window cancels
+  every ctrl-wheel. It is registered with `passive: false`, which is what allows the cancel
+  to stop the page zoom.
+- **Safari** sends `gesturestart`, `gesturechange` and `gestureend` instead, with the pinch's
+  running scale. Those are cancelled the same way, and over the map each step is handed to
+  d3-zoom as the ctrl-wheel the other browsers send. The map zooms through the one pipeline,
+  with the same limits, the same point held under the pointer, and one commit when the
+  pinch goes quiet.
+
+Over the sidebar, the toolbar and the other panels a pinch does nothing, and ordinary
+scrolling there is untouched. A pinch with fingers on a touch screen is left alone: d3-zoom
+handles it on the map, and the browser zooms the page elsewhere as it always has. The
+keyboard's zoom shortcuts are left alone too, so a larger page is still one Cmd/Ctrl + away.
+
+Verified with the events each browser sends, across the whole path:
+- ctrl-wheel over the map zoomed it (1 → 3.48 → 2), and every event was cancelled;
+- over the rail and the toolbar, and at the zoom limit (40), the events were cancelled and
+  the map stayed where it was;
+- Safari gestures zoomed the map by exactly the pinch's scale, and were cancelled over the
+  map and the rail alike;
+- a touch pinch was not cancelled;
+- a plain wheel still zoomed the map, and scrolled the panels without being cancelled;
+- the page's zoom never changed (`devicePixelRatio` and `visualViewport.scale` constant).
+
 ### Themes and sound
 
 `theme/themes.ts` holds three themes, each split into two parts:
@@ -985,8 +1207,8 @@ compose this map" in a way three accent fills alone leave you counting.
 
 Each theme defines a five-level surface ladder — backdrop, panel, section, control,
 inset — with steps large enough that the interface reads without borders doing all
-the work. **Dark** is cool graphite (`#1a1e24` backdrop, never black) with soft
-blue-white text. **Light** is daylight grey with panels *lighter* than the backdrop,
+the work. **Dark** is soft graphite (`#20252c` backdrop, never black) with blue-white
+text and a clear sky-blue accent. **Light** is daylight grey with panels *lighter* than the backdrop,
 so no field of pure white dominates. **Geographic** is warm stone chrome over a
 layered sea, graticule on by default, hairline boundaries.
 
@@ -1319,6 +1541,11 @@ it.
 | Dark       | 1.09 worst    | **2.76** worst, 5.72 median |
 | Light      | 1.00 worst    | **2.86** worst, 5.84 median |
 | Geographic | 1.03 worst    | **2.86** worst, 5.33 median |
+
+The Dark row was measured with its original border pair, `#0d1116` and `#93a1b3`. The
+softer pair of the refreshed Dark theme, `#141920` and `#9eabbc`, scores **2.79** worst over
+the same 38 palette stops. Measured the same way, the original pair scores exactly the 2.76
+above, so the lighter borders gave up no legibility.
 
 One stroke, never two. A casing pass would mean a second copy of every country's path
 data — doubling the scene and the exported SVG — to buy contrast this already has.
@@ -2290,6 +2517,120 @@ square.
 The country loop in `prepare-flags.mjs` is driven by the dataset and would never copy a
 flag no country flies, so these are emitted separately and published as `FLAG_EXTRAS`
 with the names the chooser searches on.
+
+### Map Overlays
+
+A movable copy of an entity's shape, for comparing one place with another: Texas laid over
+France, Greenland dragged to the equator, a historical territory over its modern successor.
+The **Map Overlays** section of the sidebar makes them. Select a country, region, territory or
+merged group on the map, press **Create overlay**, and drag the overlay anywhere. Every
+overlay is listed in the order it was made. Choosing one, from the list or by tapping it,
+opens its controls:
+
+- mode, **Shape** or **Projection-aware**;
+- colour;
+- opacity;
+- texture: hatching, dots or none;
+- **Reset position**, which puts it back over the entity it copies;
+- **Move over**, which centres it on the entity selected last;
+- **Delete overlay**.
+
+**An overlay copies a shape; it never takes it.** It records the entity it copies and where it
+has been put, and nothing else. The document keeps no geometry for it: the outline is worked
+out from the map's own data every time it is drawn (`src/render/overlayGeometry.ts`). So it is
+exact at every resolution and in every projection, with islands, holes and exclaves as the map
+has them, and nothing done to an overlay can move, recolour or merge the entity beneath it.
+The overlays are their own list in the document (`create_overlay`, `update_overlay`,
+`delete_overlay`), so they are undoable like every other edit.
+
+**Where it has been put is a point on the globe**, not on the screen. Zooming, panning,
+reframing and changing projection all leave an overlay over the same place. The two modes differ
+only in how that point is honoured:
+
+- **Shape** draws the entity's outline exactly as the map draws it where it is, slid so the
+  centre of its main landmass lands on the point. It is the same picture wherever it goes, at
+  the same size as the entity on the map.
+- **Projection-aware** carries the entity's land across the sphere. Two rotations take the
+  centre of its main landmass to the point, and the active projection then draws it there.
+  Rotations keep true size and shape on the globe, so what changes on the map is only what the
+  projection does to land at the new place. Greenland dragged to the equator on Mercator comes
+  out the size it really is.
+
+**Size.** Every overlay has its own size, from 10% to 500% of the entity's, on a slider next to
+**Reset size**. The slider is logarithmic, so halving and doubling are the same distance and the
+entity's own size sits near the middle; it snaps to 100%. Scaling is one uniform transform of the
+drawn overlay about the same centre it is dragged by, applied after it has been placed:
+
+- its proportions are exact;
+- every island and exclave keeps its place relative to the rest;
+- resizing never moves it, whether or not it has been moved;
+- dragging, colour, opacity, texture and mode are all independent of it.
+
+The outline keeps its width on screen, and the texture is spaced against the scale as well as
+the zoom, so a 500% overlay is hatched as finely as a 10% one. Nothing about the map changes
+— not the entity, not the projection, not the zoom — and the size is a multiple of the
+geography, never a size on screen, so an overlay of Vatican City still grows and shrinks with
+the map exactly as Vatican City does.
+
+The centre an overlay is carried by is its main landmass's, not the whole entity's. France's
+centre over all its land lies in the Atlantic, between Paris and French Guiana; its mainland's
+is in France, which is where a hand dragging France expects to be holding it.
+
+**Overlays take the pointer only while the section is open.** Then a press on an overlay
+chooses it and drags it: the map does not pan, the brush does not paint, and no country is
+selected. A drag follows the pointer's own movement in the map's coordinates, so it tracks the
+finger at every zoom. It is drawn from local state while it runs and committed once, on
+release, as one undo step. The wheel and a two-finger pinch still zoom the map from anywhere.
+With the section closed, overlays are pictures with `pointer-events: none`, and every click
+reaches the map beneath exactly as before.
+
+**Drawn over the map and inside the camera.** The layer is the last thing in the zoomed group,
+above the names, so it moves with the land and is exported with it. The tint, texture and
+outline are all in the overlay's colour, so it never reads as the land it covers. The texture
+is spaced in screen pixels and the outline does not scale, so neither thickens as the map
+zooms. The chosen overlay's dashed outline and its handle are marked `data-export="none"`, so no
+PNG, JPG or SVG contains them. The handle is what makes an overlay of Vatican City something a
+pointer can take hold of.
+
+Verified in the browser:
+
+- **At home.** An overlay of France started with exactly France's path, and France's own path
+  and colour were unchanged throughout.
+- **Dragging.** A 200 × 60 px drag moved it exactly 200 × 60 px. After zooming to 2.25×, a
+  90 × −40 px drag moved it exactly that much again. Neither drag moved the camera or changed
+  the selection.
+- **Undo and redo** took the move back and put it again; **Reset position** returned the
+  overlay to its home.
+- **Merged group.** An overlay of an Iberia group had all 49 subpaths of the merged body.
+- **Micro-nation.** Vatican City was drawn at its true 0.004 px, and dragged by its handle
+  exactly as far as the pointer went.
+- **Projection-aware.** On Mercator, Greenland moved to the equator came out at 5.6% of the
+  area of its box at home (2,292 against 40,581 px²). In Shape mode the same overlay kept its
+  40,581 px².
+- **Export.** The overlay and its texture were in it; the dashed outline and the handle were
+  not.
+- **Island water** was unaffected. With overlays on the map, the zones drawn were exactly the
+  ones the map's own rules draw.
+- **Section closed.** A point over France hit the overlay while the section was open, and
+  France itself once it was closed; a click there reached the map's own picker.
+- **Detailed World Map.** An overlay of the Budjak started as exactly the Budjak's path and
+  dragged exactly 150 px. The Budjak and Odesa beneath it were unchanged.
+- **Phone.** On a phone-sized viewport, a touch drag moved an overlay exactly 60 × 40 px
+  without panning the map.
+- **Size.**
+  - **After a move:** set to 50%, an overlay of France came out at exactly half its width and
+    height. Its centre did not move by a pixel, and neither did its anchor, the camera or
+    France.
+  - **At 500%:** five times the width and height, still centred, with the texture spaced at a
+    fifth of its step so it looked the same on screen.
+  - **While zoomed in:** a scaled overlay dragged exactly as far as the pointer went. Resizing
+    it at 2.25× zoom scaled it about its centre too, and **Reset size** left its position
+    alone.
+  - **Projection-aware:** it scaled the same way.
+  - **Merged group and micro-nation:** a merged Iberia at 300% kept all 49 of its parts, and
+    Vatican City scaled five-fold.
+  - **Export:** the scaled transform was in it, the editor outline was not, and island water
+    still drew all 72 bodies.
 
 ### The composition frame
 

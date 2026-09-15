@@ -53,6 +53,7 @@ import {
   km,
   node,
   oriented,
+  polygonAreaKm2,
   polygonsOf,
   split,
   uniquePolygons,
@@ -66,6 +67,127 @@ export const PRESETS = ['curated', 'detailed', 'maximum']
 /** The name of the piece a split's `join` leaves: the cut unit itself, less what was taken. */
 const REMAINDER = '\u0000remainder'
 const QUANTIZATION = 1e6
+
+/*
+ * `stopAt`: where a split's joined pieces end at water — see `endAtWater`.
+ *
+ * The water is Natural Earth's own, from the geography this build is part of: the lake polygon
+ * the map draws, found by a point inside it, and a river's line, drawn as a strip a couple of
+ * metres wide — a thin quad along each segment and a small octagon at each vertex, so no bend
+ * leaves a gap — which parts the land on either side of the line.
+ */
+const RIVER_HALF_WIDTH = 1e-5
+/** The Natural Earth geography this build is part of, found from this file rather than a caller's root. */
+const NATURAL_EARTH = resolve(dirname(fileURLToPath(import.meta.url)), '../../data/natural-earth')
+const waterCutters = new Map()
+
+function waterCutter(stopAt) {
+  const key = JSON.stringify(stopAt)
+  if (waterCutters.has(key)) return waterCutters.get(key)
+  const read = (name) => JSON.parse(readFileSync(resolve(NATURAL_EARTH, name), 'utf8'))
+  const lake = read('lakes-10m.geojson').features.find((f) => contains(indexed(polygonsOf(f.geometry)), stopAt.lakeAt))
+  if (!lake) throw new Error(`stopAt: no lake at ${stopAt.lakeAt.join(', ')}`)
+  const lakePolygons = polygonsOf(lake.geometry)
+  // The river near the lake: a degree round it reaches the oblast's stretch of it, not its source.
+  const ring = lakePolygons.flat(2)
+  const [w, e] = [Math.min(...ring.map((p) => p[0])) - 1, Math.max(...ring.map((p) => p[0])) + 1]
+  const [s, n] = [Math.min(...ring.map((p) => p[1])) - 1, Math.max(...ring.map((p) => p[1])) + 1]
+  const near = ([x, y]) => x >= w && x <= e && y >= s && y <= n
+  const lines = read('rivers-10m.geojson')
+    .features.filter((f) => f.properties.name === stopAt.river)
+    .flatMap((f) => (f.geometry.type === 'LineString' ? [f.geometry.coordinates] : f.geometry.type === 'MultiLineString' ? f.geometry.coordinates : []))
+  if (lines.length === 0) throw new Error(`stopAt: no river named ${stopAt.river}`)
+  const r = RIVER_HALF_WIDTH
+  const strip = []
+  for (const line of lines) {
+    for (let i = 0; i < line.length; i++) {
+      const [bx, by] = line[i]
+      if (!near(line[i]) && !(i > 0 && near(line[i - 1]))) continue
+      const octagon = []
+      for (let k = 0; k <= 8; k++) octagon.push([bx + r * Math.cos((k * Math.PI) / 4), by + r * Math.sin((k * Math.PI) / 4)])
+      strip.push([octagon])
+      if (i === 0) continue
+      const [ax, ay] = line[i - 1]
+      const length = Math.hypot(bx - ax, by - ay)
+      if (!length) continue
+      const nx = (-(by - ay) / length) * r
+      const ny = ((bx - ax) / length) * r
+      strip.push([[[ax + nx, ay + ny], [bx + nx, by + ny], [bx - nx, by - ny], [ax - nx, ay - ny], [ax + nx, ay + ny]]])
+    }
+  }
+  const cutter = clipUnion(lakePolygons, strip)
+  if (cutter.error) throw new Error(`stopAt: could not join the lake and the river: ${cutter.error}`)
+  const water = { cutter, strip }
+  waterCutters.set(key, water)
+  return water
+}
+
+/** Whether a polygon has a vertex on an edge of `polygons`, to a few centimetres. */
+function touchesEdgesOf(polygons) {
+  const CELL = 0.01
+  const TOLERANCE = 2e-6
+  const grid = new Map()
+  const at = (x, y) => `${x},${y}`
+  for (const polygon of polygons) {
+    for (const ring of polygon) {
+      for (let i = 1; i < ring.length; i++) {
+        const a = ring[i - 1]
+        const b = ring[i]
+        for (let x = Math.floor(Math.min(a[0], b[0]) / CELL); x <= Math.floor(Math.max(a[0], b[0]) / CELL); x++) {
+          for (let y = Math.floor(Math.min(a[1], b[1]) / CELL); y <= Math.floor(Math.max(a[1], b[1]) / CELL); y++) {
+            const cell = grid.get(at(x, y))
+            if (cell) cell.push([a, b])
+            else grid.set(at(x, y), [[a, b]])
+          }
+        }
+      }
+    }
+  }
+  const onEdge = ([px, py]) => {
+    const cx = Math.floor(px / CELL)
+    const cy = Math.floor(py / CELL)
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        for (const [a, b] of grid.get(at(cx + dx, cy + dy)) ?? []) {
+          const vx = b[0] - a[0]
+          const vy = b[1] - a[1]
+          const l2 = vx * vx + vy * vy
+          const u = l2 ? Math.max(0, Math.min(1, ((px - a[0]) * vx + (py - a[1]) * vy) / l2)) : 0
+          if (Math.hypot(a[0] + u * vx - px, a[1] + u * vy - py) <= TOLERANCE) return true
+        }
+      }
+    }
+    return false
+  }
+  return (polygon) => polygon.some((ring) => ring.some(onEdge))
+}
+
+/**
+ * A joined piece ended at water: the piece on the near side of a lake and a river, and none of
+ * what they cut off.
+ *
+ * With the water taken out, what is left of the piece falls into parts. Its main body stays —
+ * the largest part. A part the river touches is across the water from that body — the river runs
+ * down the estuary and out through its mouth, so land beyond it, or between its channels, meets
+ * it — and goes to the rest, with the water itself. Every other part stays: an island off the
+ * piece's own coast, and a scrap of its own shore that an inlet of the lake pinches off, which
+ * only the lake touches. (Touching the rest of the unit is no test: the split can leave scraps of
+ * the estuary with the rest, right against the near shore.) Nothing is added to the piece: it can only end sooner, so no land changes hands but
+ * land the water separates from it.
+ */
+function endAtWater(polygons, water) {
+  const cut = clipDifference(polygons, water.cutter)
+  if (cut.error || cut.length === 0) return null
+  const parts = cut.map((p) => ({ p, area: polygonAreaKm2(p) })).sort((a, b) => b.area - a.area)
+  const byRiver = touchesEdgesOf(water.strip)
+  const kept = [parts[0].p]
+  let movedKm2 = 0
+  for (const { p, area } of parts.slice(1)) {
+    if (byRiver(p)) movedKm2 += area
+    else kept.push(p)
+  }
+  return { polygons: despiked(kept).map(oriented), keptKm2: areaKm2(kept), movedKm2 }
+}
 
 const known = (value) =>
   value !== null && value !== undefined && value !== '' && !String(value).includes('-99')
@@ -429,6 +551,19 @@ class Country {
         const rest = own.find((p) => p.source?.name === REMAINDER)
         const named = own.filter((p) => p.source && p.source.name !== REMAINDER)
         if (!rest || named.length === 0) continue
+        // `stopAt`: each joined piece ends at the water, which stays with the rest — see `endAtWater`.
+        if (recipe.stopAt) {
+          const water = waterCutter(recipe.stopAt)
+          for (const piece of named) {
+            const ended = endAtWater(piece.polygons, water)
+            if (!ended) {
+              this.problem(`${levelId}: could not end ${piece.source.name} at the ${recipe.stopAt.river}`)
+              continue
+            }
+            piece.polygons = ended.polygons
+            console.log(`[admin] ${this.id}: ${piece.source.name} ends at the ${recipe.stopAt.river} and its estuary — ${ended.keptKm2.toFixed(0)} km2, ${ended.movedKm2.toFixed(0)} km2 it cut off given to the rest`)
+          }
+        }
         const less = clipDifference(baseById.get(baseId).polygons, ...named.map((p) => p.polygons))
         if (less.error || less.length === 0) this.problem(`${levelId}: could not take the joined pieces out of ${baseId}`)
         // Wound as `split` winds its pieces: Clipper's winding reads to d3 as the rest of the globe.

@@ -93,54 +93,68 @@ export interface Theme {
 }
 
 /**
- * Dark — a graphite studio.
+ * Dark — a soft graphite studio.
  *
- * Built on cool graphite rather than black: the backdrop sits around 12% lightness,
- * so the panels above it can step up several times and still stay comfortable. Text
- * is a soft blue-white, never pure. The accent is a muted slate blue that reads as
- * "selected" without glowing.
+ * Graphite, not black: the backdrop sits near 14% lightness (L* 14.5, up from 11), so it
+ * reads as a dim room rather than a void, and every level above it — sidebar, panel,
+ * control, hovered control — steps up by a visible 4–7 points of lightness. The wells
+ * beneath controls step down as far, so a slider track or an inset reads as recessed.
+ *
+ * Borders are hairlines a shade above the surface they sit on, never darker than it:
+ * 12 points of lightness over a panel, 5 over a control. That is enough to draw an edge
+ * without outlining everything in black. Text is a soft blue-white at about 11:1 on the
+ * panels, bright without glare. Secondary text clears 6:1 on a panel and 5:1 on a control,
+ * and disabled text sits 15 points below it, so the three read as three.
+ *
+ * The accent is a clear sky blue that clears 5.9:1 on the panels. Dark text on it clears
+ * 8:1, so an active chip, a selection, a slider thumb and a focus ring are one colour that
+ * reads everywhere.
+ *
+ * The map moved with the chrome: its sea is a step darker than the backdrop, as before, so
+ * the map still reads as the canvas the interface frames. Its land is a step lighter, and
+ * its borders a softer graphite than the old near-black, while still standing out a little
+ * more against the lighter land.
  */
 const dark: Theme = {
   id: 'dark',
   name: 'Dark',
-  description: 'Cool graphite surfaces with a muted slate accent.',
+  description: 'Soft graphite surfaces with a clear sky-blue accent.',
   scheme: 'dark',
   ui: {
-    bg: '#1a1e24',
-    panel: '#22272f',
-    panelAlt: '#262c35',
-    surface: '#2f3641',
-    surfaceHover: '#3a424f',
-    inset: '#191d23',
-    line: '#39404b',
-    lineStrong: '#4d5765',
-    text: '#e2e6ec',
-    textDim: '#9aa4b2',
-    accent: '#6fa8dc',
-    accentText: '#12171d',
-    accentSoft: '#2b3a4b',
+    bg: '#20252c',
+    panel: '#282e36',
+    panelAlt: '#2d333c',
+    surface: '#363d48',
+    surfaceHover: '#404855',
+    inset: '#1c2027',
+    line: '#414956',
+    lineStrong: '#5a6473',
+    text: '#e6eaf0',
+    textDim: '#a6b0be',
+    accent: '#78aee8',
+    accentText: '#0e1319',
+    accentSoft: '#2e4157',
   },
   map: {
-    background: '#161a20',
-    land: '#39424e',
+    background: '#1c2128',
+    land: '#404a57',
     // Graphite ink for light fills, a cool pale slate for dark ones. Together they
-    // clear 3:1 against every palette stop; the old single '#242a33' managed 1.13
-    // against the deep end of Blue and 1.09 against Red.
-    border: '#0d1116',
-    borderOnDark: '#93a1b3',
+    // clear 3:1 against every palette stop — 17:1 on the palest, 5.5:1 on the deepest.
+    border: '#141920',
+    borderOnDark: '#9eabbc',
     // The panel and text tones this theme already uses in the chrome, restated as map
     // tokens: the legend lives inside the SVG, so it cannot read a CSS variable and
     // still survive being exported to a standalone file.
-    legendSurface: '#22272f',
-    legendText: '#e2e6ec',
-    hover: '#4b5666',
-    selected: '#6fa8dc',
-    selectedOutline: '#cfe4f7',
-    outsideScopeColor: '#22272e',
-    graticule: '#2a313a',
-    lake: '#23303d',
-    lakeOutline: '#1b2530',
-    river: '#3c6d8e',
+    legendSurface: '#282e36',
+    legendText: '#e6eaf0',
+    hover: '#515c6c',
+    selected: '#78aee8',
+    selectedOutline: '#d6e8f9',
+    outsideScopeColor: '#262c33',
+    graticule: '#2d343e',
+    lake: '#283542',
+    lakeOutline: '#202b36',
+    river: '#4379a3',
   },
 }
 

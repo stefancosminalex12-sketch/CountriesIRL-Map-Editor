@@ -214,7 +214,10 @@ function inlineComputedPaint(live: Element, clone: Element): void {
   clone.removeAttribute('data-legend')
 
   const styleAttr = clone.getAttribute('style')
-  if (styleAttr && styleAttr.includes('var(')) clone.removeAttribute('style')
+  // A style that reads a custom property, or only declares one (the camera's `--map-k`), means nothing in the file.
+  if (styleAttr && (styleAttr.includes('var(') || /^(\s*--[\w-]+\s*:[^;]*;?)+\s*$/.test(styleAttr))) {
+    clone.removeAttribute('style')
+  }
 }
 
 /**
@@ -456,9 +459,13 @@ export function downloadBlob(blob: Blob, filename: string): void {
   document.body.appendChild(anchor)
   anchor.click()
   anchor.remove()
-  // Revoked on the next frame: revoking synchronously can cancel the download in
-  // some browsers before it has read the blob.
-  setTimeout(() => URL.revokeObjectURL(url), 0)
+  /*
+   * Revoked a minute later, not on the next frame. Safari — on iOS especially, where the file
+   * opens in a preview before it is saved — and Firefox can still be reading the blob after
+   * the click has returned, and revoking it then cancels the download with no error. A minute
+   * holds one export's bytes briefly; nothing else waits on it.
+   */
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
 
 /** Finds the live map SVG. Returns null when the canvas is not mounted. */

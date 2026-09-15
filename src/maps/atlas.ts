@@ -95,9 +95,24 @@ export interface MapInset {
   frame: { width: number; height: number }
 }
 
+/** The groups of the Maps list, in order: what a map is of. */
+export const ATLAS_FAMILIES = [
+  { id: 'world', name: 'World' },
+  { id: 'usa', name: 'USA' },
+] as const
+
+export type AtlasFamilyId = (typeof ATLAS_FAMILIES)[number]['id']
+
 export interface Atlas {
   id: AtlasId
   name: string
+  /** Which group of the Maps list it sits in — see {@link ATLAS_FAMILIES}. */
+  family: AtlasFamilyId
+  /**
+   * What the Maps list calls it, where its group makes `name` read oddly — the World map is
+   * "Modern World" under "World". Only the list; everywhere else it is `name`.
+   */
+  menuName?: string
   /**
    * What one of this atlas's entities is called.
    *
@@ -314,6 +329,8 @@ export const ATLASES: Atlas[] = [
   {
     id: 'world',
     name: 'World',
+    family: 'world',
+    menuName: 'Modern World',
     noun: { one: 'country', many: 'countries' },
     datasets: WORLD_DATASETS,
     defaultDatasetId: 'modern-10m',
@@ -325,6 +342,7 @@ export const ATLASES: Atlas[] = [
   {
     id: 'admin-world',
     name: 'Modern Administrative World',
+    family: 'world',
     noun: { one: 'subdivision', many: 'subdivisions' },
     datasets: ADMIN_DATASETS,
     defaultDatasetId: 'admin-curated',
@@ -347,6 +365,7 @@ export const ATLASES: Atlas[] = [
   {
     id: 'usa-states',
     name: 'USA States',
+    family: 'usa',
     noun: { one: 'state', many: 'states' },
     datasets: USA_DATASETS,
     defaultDatasetId: 'usa-states-10m',
@@ -474,6 +493,8 @@ export const ATLASES: Atlas[] = [
   {
     id: 'usa-official',
     name: 'Official USA Administrative Map',
+    family: 'usa',
+    menuName: 'USA Administrative Map',
     note: 'States, counties, subdivisions · U.S. Census 2024',
     noun: { one: 'area', many: 'areas' },
     datasets: USA_OFFICIAL_DATASETS,

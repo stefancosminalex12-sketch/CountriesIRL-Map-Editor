@@ -72,6 +72,16 @@ function shortcutLetter(event: KeyboardEvent): string {
   return ''
 }
 
+/**
+ * The shortcuts as the keyboard in front of the author names them: ⌘ on Apple's, Ctrl on
+ * everyone else's. Both are handled on every platform (see `onKeyDown`); this is only what the
+ * tooltip says.
+ */
+const IS_APPLE =
+  typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent)
+const UNDO_HINT = IS_APPLE ? 'Undo (⌘Z)' : 'Undo (Ctrl+Z)'
+const REDO_HINT = IS_APPLE ? 'Redo (⇧⌘Z)' : 'Redo (Ctrl+Y or Ctrl+Shift+Z)'
+
 export function HistoryControls() {
   const canUndo = useMapStore((s) => s.past.length > 0)
   const canRedo = useMapStore((s) => s.future.length > 0)
@@ -102,7 +112,7 @@ export function HistoryControls() {
         type="button"
         className="btn btn--icon"
         disabled={!canUndo}
-        title="Undo (Ctrl+Z)"
+        title={UNDO_HINT}
         aria-label="Undo"
         onClick={undoMapEdit}
       >
@@ -112,7 +122,7 @@ export function HistoryControls() {
         type="button"
         className="btn btn--icon"
         disabled={!canRedo}
-        title="Redo (Ctrl+Y or Ctrl+Shift+Z)"
+        title={REDO_HINT}
         aria-label="Redo"
         onClick={redoMapEdit}
       >

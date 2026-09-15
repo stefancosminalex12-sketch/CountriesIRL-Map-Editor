@@ -48,7 +48,8 @@
  *
  *   split: { base: levelId | 'ne' | 'country', source: gb(ISO, LEVEL), merge?: true,
  *            name?: (name) => string, kindOf?: (name) => string,
- *            only?: [Natural Earth units], join?: { Name: [source unit names] } }
+ *            only?: [Natural Earth units], join?: { Name: [source unit names] },
+ *            stopAt?: { lakeAt: [lon, lat], river: name } }
  *     cuts the base level's units into the source's finer units. With `only`, just those
  *     units are cut and every other passes through untouched. With `join`, the named source
  *     units become one piece each, and the rest of the unit — its own id, name and
@@ -177,8 +178,9 @@ export const COUNTRIES = {
       'Oblasts, as they are, except Odesa Oblast, divided along the Dniester and its estuary, ' +
       'which all but reaches Moldova. South of that water is the Budjak, the southern end of ' +
       'historical Bessarabia (part of Moldavia until 1812): a region of its own here, made of ' +
-      "the nine raions that lie there in geoBoundaries' raion layer (2006 boundaries). The rest " +
-      'of the oblast keeps its Natural Earth id.',
+      "the nine raions that lie there in geoBoundaries' raion layer (2006 boundaries), ending at " +
+      "the estuary's western shore. The estuary itself, the delta at its head and its eastern " +
+      'bank belong to the rest of the oblast, which keeps its Natural Earth id.',
     levels: {
       oblasts: {
         name: 'Oblasts',
@@ -189,6 +191,14 @@ export const COUNTRIES = {
           base: 'ne',
           source: gb('UKR', 'ADM2'),
           only: ['UKR-322'],
+          /*
+           * The Budjak ends at the water: the Dniester's estuary — Natural Earth's own lake, found by a
+           * point in it — and the river's line, from where it enters the oblast to where it leaves the
+           * estuary for the sea. The estuary, and any land it or the river cuts off from the Budjak's
+           * mainland (the delta at its head, the eastern bank, which the raion layer leaves uncovered
+           * and the split would otherwise have handed to the Budjak), stay with the rest of the oblast.
+           */
+          stopAt: { lakeAt: [30.4, 46.22], river: 'Dniester' },
           // West and south of the Dniester and its estuary, spelled as geoBoundaries spells them.
           join: {
             Budjak: [

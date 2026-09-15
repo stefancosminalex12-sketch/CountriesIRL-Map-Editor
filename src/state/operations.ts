@@ -17,6 +17,7 @@
  */
 import type {
   CountryId,
+  MapOverlay,
   MapValue,
   ProjectionId,
   RegionId,
@@ -99,6 +100,14 @@ export type MapOperation =
   | { op: 'create_merge'; id: string; name: string; members: CountryId[] }
   | { op: 'update_merge'; id: string; patch: { name?: string; flag?: string | null; members?: CountryId[] } }
   | { op: 'delete_merge'; id: string }
+  /*
+   * Map overlays: movable copies of an entity's shape. They name the entity they copy and never
+   * touch it — see {@link MapOverlay}. An overlay's id and the entity it copies are what it is,
+   * so a patch never changes them.
+   */
+  | { op: 'create_overlay'; overlay: MapOverlay }
+  | { op: 'update_overlay'; id: string; patch: Partial<Omit<MapOverlay, 'id' | 'sourceId'>> }
+  | { op: 'delete_overlay'; id: string }
   /** Turns the flag overlay on or off. Deletes nothing when it goes off. */
   | {
       op: 'set_flags'
@@ -164,6 +173,9 @@ const IMPLEMENTED: Record<MapOperationType, true> = {
   create_merge: true,
   update_merge: true,
   delete_merge: true,
+  create_overlay: true,
+  update_overlay: true,
+  delete_overlay: true,
   set_flags: true,
   set_comparison: true,
   set_comparison_group: true,
@@ -208,6 +220,9 @@ export const UNDOABLE_OPERATIONS = new Set<MapOperationType>([
   'create_merge',
   'update_merge',
   'delete_merge',
+  'create_overlay',
+  'update_overlay',
+  'delete_overlay',
   'set_flags',
   'set_comparison',
   'set_comparison_group',
@@ -257,6 +272,9 @@ export function coalesceKey(ops: MapOperation[]): string | null {
     // Typing a merged entity's name is one edit, like every other text field.
     case 'update_merge':
       return `update_merge:${first.id}`
+    // A colour or opacity dragged, or an overlay moved twice in a moment, is one edit.
+    case 'update_overlay':
+      return `update_overlay:${first.id}`
     default:
       return null
   }

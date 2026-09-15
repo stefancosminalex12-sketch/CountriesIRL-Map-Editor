@@ -5,7 +5,7 @@
  * document plus a per-operation result. No React, no store, no side effects, so the
  * same path serves the UI, the future AI assistant, tests and replay.
  */
-import { MAX_COMPARISON_GROUPS } from '../types/map'
+import { MAX_COMPARISON_GROUPS, OVERLAY_SCALE_RANGE } from '../types/map'
 import { BUILT_IN_PALETTES, createCountryEntry, createGroup } from './defaults'
 import { PRESET_IDS } from './presets'
 import {
@@ -148,6 +148,24 @@ export function validateOperation(op: MapOperation, ctx: ExecutionContext = {}):
       return null
     case 'delete_merge':
       return op.id ? null : 'a merge needs an id'
+    case 'create_overlay': {
+      const overlay = op.overlay as unknown as Record<string, unknown> | undefined
+      if (!overlay || typeof overlay !== 'object') return 'an overlay is required'
+      if (!overlay.id || !overlay.sourceId) return 'an overlay needs an id and the entity it copies'
+      for (const key of ['mode', 'texture', 'opacity', 'color']) {
+        if (overlay[key] === undefined) return `an overlay needs a ${key}`
+      }
+      return overlayFieldsProblem(overlay)
+    }
+    case 'update_overlay': {
+      if (!op.id) return 'an overlay needs an id'
+      const patch = op.patch as Record<string, unknown> | undefined
+      if (!patch || typeof patch !== 'object') return 'patch must be an object'
+      if ('id' in patch || 'sourceId' in patch) return "an overlay's id and the entity it copies cannot change"
+      return overlayFieldsProblem(patch)
+    }
+    case 'delete_overlay':
+      return op.id ? null : 'an overlay needs an id'
 
     case 'set_screen': {
       if (!op.patch || typeof op.patch !== 'object') return 'patch must be an object'
@@ -227,6 +245,43 @@ export function validateOperation(op: MapOperation, ctx: ExecutionContext = {}):
     default:
       return null
   }
+}
+
+const OVERLAY_MODES = new Set(['shape', 'projection'])
+const OVERLAY_TEXTURES = new Set(['hatch', 'dots', 'none'])
+
+/** Why an overlay's fields are malformed, or `null`. Only the fields present are checked. */
+function overlayFieldsProblem(fields: Record<string, unknown>): string | null {
+  if (fields.mode !== undefined && !OVERLAY_MODES.has(fields.mode as string)) {
+    return 'mode must be "shape" or "projection"'
+  }
+  if (fields.texture !== undefined && !OVERLAY_TEXTURES.has(fields.texture as string)) {
+    return 'texture must be "hatch", "dots" or "none"'
+  }
+  if (fields.opacity !== undefined) {
+    const opacity = fields.opacity
+    if (typeof opacity !== 'number' || !(opacity >= 0 && opacity <= 1)) return 'opacity must be a number from 0 to 1'
+  }
+  if (fields.color !== undefined && !(typeof fields.color === 'string' && /^#[0-9a-f]{6}$/i.test(fields.color))) {
+    return 'color must be a #rrggbb colour'
+  }
+  if (fields.scale !== undefined) {
+    const scale = fields.scale
+    const { min, max } = OVERLAY_SCALE_RANGE
+    if (typeof scale !== 'number' || !(scale >= min && scale <= max)) {
+      return `scale must be a number from ${min} to ${max}`
+    }
+  }
+  if (fields.anchor !== undefined && fields.anchor !== null) {
+    const anchor = fields.anchor
+    const ok =
+      Array.isArray(anchor) &&
+      anchor.length === 2 &&
+      anchor.every((v) => typeof v === 'number' && Number.isFinite(v)) &&
+      Math.abs(anchor[1] as number) <= 90
+    if (!ok) return 'anchor must be [longitude, latitude] or null'
+  }
+  return null
 }
 
 function upsert(
@@ -397,6 +452,20 @@ function applyOperation(doc: MapDocument, op: MapOperation): MapDocument {
     }
     case 'delete_merge':
       return { ...doc, merges: doc.merges.filter((m) => m.id !== op.id) }
+
+    /*
+     * Overlays copy an entity's shape and never touch the entity: these change the overlay list
+     * and nothing else in the document.
+     */
+    case 'create_overlay': {
+      const overlays = doc.overlays ?? []
+      if (overlays.some((o) => o.id === op.overlay.id)) return doc
+      return { ...doc, overlays: [...overlays, { ...op.overlay }] }
+    }
+    case 'update_overlay':
+      return { ...doc, overlays: (doc.overlays ?? []).map((o) => (o.id === op.id ? { ...o, ...op.patch } : o)) }
+    case 'delete_overlay':
+      return { ...doc, overlays: (doc.overlays ?? []).filter((o) => o.id !== op.id) }
 
     case 'set_screen':
       return { ...doc, screen: { ...doc.screen, ...(op.patch as Partial<MapDocument['screen']>) } }

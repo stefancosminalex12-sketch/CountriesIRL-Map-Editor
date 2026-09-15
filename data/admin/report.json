@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-09-13T21:09:10.918Z",
+ "generatedAt": "2026-09-14T23:07:01.449Z",
  "policy": {
   "wholeCountryBelowKm2": 3000
  },
@@ -5274,7 +5274,7 @@
     "maximum": "oblasts"
    },
    "naturalEarthUnits": 25,
-   "note": "Oblasts, as they are, except Odesa Oblast, divided along the Dniester and its estuary, which all but reaches Moldova. South of that water is the Budjak, the southern end of historical Bessarabia (part of Moldavia until 1812): a region of its own here, made of the nine raions that lie there in geoBoundaries' raion layer (2006 boundaries). The rest of the oblast keeps its Natural Earth id.",
+   "note": "Oblasts, as they are, except Odesa Oblast, divided along the Dniester and its estuary, which all but reaches Moldova. South of that water is the Budjak, the southern end of historical Bessarabia (part of Moldavia until 1812): a region of its own here, made of the nine raions that lie there in geoBoundaries' raion layer (2006 boundaries), ending at the estuary's western shore. The estuary itself, the delta at its head and its eastern bank belong to the rest of the oblast, which keeps its Natural Earth id.",
    "levels": {
     "oblasts": {
      "name": "Oblasts",
@@ -5958,8 +5958,8 @@
   "maximum: 7 arcs drawn as coast that are not (lostBorder 0, 0 km; internalAsCoast 0, 0 km; newLine 7, 6.8 km) in DEU, FRA, KEN"
  ],
  "noding": {
-  "created": 17580,
-  "snapped": 4388,
+  "created": 17583,
+  "snapped": 4390,
   "placed": 14059,
   "inserted": 87465,
   "joined": 31

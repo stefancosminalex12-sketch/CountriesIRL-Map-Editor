@@ -21,6 +21,7 @@ import { DataPalette } from './DataPalette'
 import { LegendControls, LegendSizeControls } from './LegendControls'
 import { ScreenControls } from './ScreenControls'
 import { MergeControls } from './MergeControls'
+import { OverlayControls } from './OverlayControls'
 import { SelectionControls } from './SelectionControls'
 import { Disclosure } from './Panels'
 import { playSfx } from '../audio/sfx'
@@ -67,6 +68,13 @@ const ICONS: Record<string, ReactNode> = {
     <>
       <path d="M3.2 16.4h13.6" />
       <path d="M6 16.4V9.2M10 16.4V4.6M14 16.4v-4.8" />
+    </>
+  ),
+  // Two outlines, one lifted off the other: a shape copied and moved.
+  overlays: (
+    <>
+      <path d="M3 8.2 7.6 4.4l5 1.6-.6 5.4-5.6 1.8z" opacity="0.55" />
+      <path d="M7.6 10.6 12.4 7l4.6 2.4-1 5.4-5.4 1.4z" strokeDasharray="2.2 1.6" />
     </>
   ),
   // A key: swatches against their labels.
@@ -204,6 +212,11 @@ const SECTIONS: SidebarSection[] = [
       </div>
     ),
   },
+  /*
+   * Beside Data because it is also about what the map shows, and its own section because an
+   * overlay is not data: it is a picture of one place laid over another.
+   */
+  { id: 'overlays', name: 'Map Overlays', short: 'Overlay', body: <OverlayControls /> },
   {
     id: 'legend',
     name: 'Legend',

@@ -34,6 +34,7 @@ import type { MaritimeZone } from '../geo/maritime'
 import { dissolveTouching } from '../geo/dissolve'
 import { useFlagStore } from '../flags/flagStore'
 import { fitFlagToPlanar, patternGeometry } from './MapFlags'
+import { screenStrokeWidth } from './CountryPath'
 
 /** One body of a country's water, ready to draw. */
 export interface MaritimeShape {
@@ -465,9 +466,8 @@ export const MapMaritime = memo(function MapMaritime({
           d={shape.d}
           fill={patternOverride ?? `url(#${maritimePatternId(shape.key)})`}
           stroke={showBorders ? borderColor : 'none'}
-          strokeWidth={showBorders ? borderWidth(shape.size, zoomK) : 0}
+          style={{ strokeWidth: screenStrokeWidth(showBorders ? borderWidth(shape.size, zoomK) : 0) }}
           strokeLinejoin="round"
-          vectorEffect="non-scaling-stroke"
         />
       ))}
       </g>

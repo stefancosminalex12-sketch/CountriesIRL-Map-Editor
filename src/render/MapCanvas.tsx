@@ -6,16 +6,7 @@
  * eventual 1920x1080 target) without a second rendering path, and every country is a
  * real DOM node so per-country styling and interaction stay trivial.
  */
-import {
-  Fragment,
-  useCallback,
-  useDeferredValue,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type MouseEvent as ReactMouseEvent,
-} from 'react'
+import { Fragment, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactElement, memo } from 'react'
 import { geoCentroid, geoContains, geoDistance, geoGraticule10, geoPath } from 'd3-geo'
 import { select } from 'd3-selection'
 import { zoom, zoomIdentity, type ZoomBehavior } from 'd3-zoom'
@@ -67,7 +58,7 @@ import {
   type LabelShape,
 } from './labelPlacement'
 import { MapLabels } from './MapLabels'
-import { CountryCoast, CountryPath } from './CountryPath'
+import { CountryCoast, CountryPath, MAP_SCALE_VAR, screenStrokeWidth } from './CountryPath'
 import { flagCodeFor, hasFlag, useFlagStore } from '../flags/flagStore'
 import { resolveScreen } from './screenFrame'
 import { mergeCountries } from '../geo/merge'
@@ -86,6 +77,10 @@ import {
 import { anchorsOf, assistOf, useProjectedLand } from './projectedLand'
 import { useGatedMemo } from './useGatedMemo'
 import { useSelectionGestures } from './selectionGestures'
+import { usePinchZoom } from './pinchZoom'
+import { MapOverlays, OVERLAY_MARKER } from './MapOverlays'
+import { overlaySource, type OverlaySource } from './overlayGeometry'
+import type { MapOverlay } from '../types/map'
 import {
   outlinesAlongSegment,
   outlinesInRect,
@@ -109,6 +104,61 @@ const WARM_MAX_FEATURES = 10000
 
 /** Outlines drawn at another size than their own, for the selection tools: none. */
 const NO_FRAMES: ReadonlyMap<string, OutlineFrame> = new Map()
+const NO_OVERLAYS: MapOverlay[] = []
+
+
+/** What a country's element was built from — see `countryLayer`. */
+interface CachedCountryElement {
+  d: string
+  coast: string | undefined
+  outlineOn: boolean
+  paint: CountryPaint
+  element: ReactElement
+}
+
+interface CountryPaint {
+  fill: string
+  fillOpacity: number | undefined
+  outline: { stroke: string; strokeWidth: number; paintOrder: string | undefined }
+  clipPath: string | undefined
+}
+
+/** An entity as the country layer draws it: its outline, and what it was drawn from. */
+interface ShapeRef {
+  id: string
+  name: string
+  d: string
+  clipId: string | null
+}
+
+interface PaintedShape {
+  shape: ShapeRef
+  paint: CountryPaint | null
+}
+
+/**
+ * How many entities one chunk of the country layer holds. Large enough that the chunks
+ * themselves are few — 126 on the 32,159-unit USA map — and small enough that re-rendering
+ * one is cheap.
+ */
+const COUNTRY_CHUNK = 256
+
+/** A run of the country layer. The same array is the same chunk, passed over whole. */
+const CountryChunk = memo(function CountryChunk({ elements }: { elements: ReactElement[] }) {
+  return <>{elements}</>
+})
+
+/** Whether two paints draw the same thing. */
+function samePaint(a: CountryPaint, b: CountryPaint): boolean {
+  return (
+    a.fill === b.fill &&
+    a.fillOpacity === b.fillOpacity &&
+    a.clipPath === b.clipPath &&
+    a.outline.stroke === b.outline.stroke &&
+    a.outline.strokeWidth === b.outline.strokeWidth &&
+    a.outline.paintOrder === b.outline.paintOrder
+  )
+}
 
 /* What a layer is while it waits — see `layersReady`. Constants, so waiting changes nothing. */
 const NO_INSETS: ResolvedInset[] = []
@@ -272,6 +322,8 @@ export function MapCanvas() {
   const mergeMode = useMapStore((s) => s.mergeMode)
   const activeMergeId = useMapStore((s) => s.activeMergeId)
   const tapInMerge = useMapStore((s) => s.tapInMerge)
+  const overlayMode = useMapStore((s) => s.overlayMode)
+  const activeOverlayId = useMapStore((s) => s.activeOverlayId)
   /**
    * The zoomed group, so a gesture can move the map without re-rendering it.
    *
@@ -279,6 +331,11 @@ export function MapCanvas() {
    * straight onto this element, and React is only told once the gesture ends.
    */
   const zoomedRef = useRef<SVGGElement>(null)
+  /** Each country's element from the last build of the layer — see `countryLayer`. */
+  const countryElementCache = useRef(new Map<string, CachedCountryElement>())
+  /** The chunks of the layer's last build, and the paints it was made from. */
+  const countryChunkCache = useRef<ReactElement[][]>([])
+  const countryPaintCache = useRef<{ inputs: readonly unknown[]; selected: ReadonlySet<string>; paints: PaintedShape[] } | null>(null)
   /**
    * The magnifiers, which live in screen space outside the zoomed group — so a gesture
    * that moves the group directly has to move them directly too. See `MapLenses`.
@@ -297,6 +354,23 @@ export function MapCanvas() {
    * is the entire point.
    */
   const gesturingRef = useRef(false)
+  /** The camera a gesture has reached, waiting for the next frame — see the zoom behaviour. */
+  const liveCamera = useRef<{ k: number; x: number; y: number } | null>(null)
+  const cameraFrame = useRef(0)
+  /** The resize correction's scale, for the strokes' screen width — see `screenStrokeWidth`. */
+  const fitScaleRef = useRef(1)
+  /** Puts the waiting camera on the zoomed group, and on the magnifiers that follow it. */
+  const placeCamera = useCallback(() => {
+    cameraFrame.current = 0
+    const t = liveCamera.current
+    const group = zoomedRef.current
+    if (!t || !group) return
+    group.setAttribute('transform', `translate(${t.x},${t.y}) scale(${t.k})`)
+    // The lines' screen width follows the camera in the same frame; a pan leaves it as it is.
+    const scale = String(t.k * fitScaleRef.current)
+    if (group.style.getPropertyValue(MAP_SCALE_VAR) !== scale) group.style.setProperty(MAP_SCALE_VAR, scale)
+    lensesRef.current?.follow(t)
+  }, [])
   /** Held true by a Selection-panel gesture, for the same reason — see `useSelectionGestures`. */
   const selectingRef = useRef(false)
   /** Set when a brush press has already dealt with the click that follows it. */
@@ -449,6 +523,7 @@ export function MapCanvas() {
   const fitTransform = fitCorrection
     ? `translate(${fitCorrection.dx},${fitCorrection.dy}) scale(${fitCorrection.scale})`
     : undefined
+  fitScaleRef.current = fitCorrection?.scale ?? 1
   /** Which countries belong to the active scope — drives the outside-scope treatment. */
   const scopeCountryIds = useMemo(() => {
     if (!geo) return new Set<string>()
@@ -542,6 +617,45 @@ export function MapCanvas() {
       })
       .filter((s): s is NonNullable<typeof s> => s !== null && s.d.length > 0)
   }, [projection, geo, mergeGeometry, insets])
+
+  /* ------------------------------------------------------------- map overlays */
+
+  const overlays = doc.overlays ?? NO_OVERLAYS
+  /** Which entities are copied — all the sources depend on, so moving or recolouring an overlay reprojects nothing. */
+  const overlaySourceKey = [...new Set(overlays.map((o) => o.sourceId))].join('\n')
+
+  /**
+   * What each overlay is drawn from: the copied entity's land, and its outline exactly as the map
+   * draws it — the country's own path, or the merged body's — so an overlay starts exactly over
+   * the entity it copies, islands, holes and all.
+   */
+  const overlaySources = useMemo(() => {
+    const out = new Map<string, OverlaySource>()
+    if (!overlaySourceKey || !geo || !projection) return out
+    for (const id of overlaySourceKey.split('\n')) {
+      const merge = mergeGeometry.find((m) => m.id === id)
+      if (merge) {
+        const drawn = mergedShapes.find((shape) => shape.id === id)
+        const inset = insetForGroup(insets, merge.members)
+        const source = overlaySource(mergeCountries(geo, merge.members), drawn?.d, inset ? inset.projection : projection)
+        if (source) out.set(id, source)
+        continue
+      }
+      const feature = geo.byId.get(id)
+      const path = land && land.geo === geo ? land.paths.get(id) : undefined
+      const inset = insets.find((candidate) => candidate.members.has(id))
+      const source = overlaySource(feature?.geometry, path?.d, inset ? inset.projection : projection)
+      if (source) out.set(id, source)
+    }
+    return out
+  }, [overlaySourceKey, geo, projection, land, insets, mergeGeometry, mergedShapes])
+
+  const chooseOverlay = useCallback((id: string) => useMapStore.getState().setActiveOverlay(id), [])
+  const moveOverlay = useCallback(
+    (id: string, anchor: [number, number]) =>
+      useMapStore.getState().dispatch({ op: 'update_overlay', id, patch: { anchor } }),
+    [],
+  )
 
   /* ----------------------------------------------------------------- labels */
 
@@ -1121,6 +1235,9 @@ export function MapCanvas() {
   const selectable = useRef({ shapes, mergedShapes, drawnIds, frames: NO_FRAMES, clips: clipsById })
   selectable.current = { shapes, mergedShapes, drawnIds, frames: NO_FRAMES, clips: clipsById }
 
+  /* A trackpad pinch zooms the map and never the page — see `usePinchZoom`. */
+  usePinchZoom(svgRef)
+
   useSelectionGestures(svgRef, zoomedRef, selectionOverlayRef, {
     rectangle: rectangleOn,
     brush: brushOn,
@@ -1153,7 +1270,7 @@ export function MapCanvas() {
     },
     selecting: selectingRef,
     suppressClick: suppressClickRef,
-    ignore: (target) => Boolean(target?.closest?.(`[${LEGEND_MARKER}]`)),
+    ignore: (target) => Boolean(target?.closest?.(`[${LEGEND_MARKER}]`) || target?.closest?.(`[${OVERLAY_MARKER}]`)),
   })
 
   /*
@@ -1730,9 +1847,13 @@ export function MapCanvas() {
        * handler because d3 listens natively on the `<svg>` while React's handlers are
        * delegated from the root — the pan would already have started by the time a
        * React `stopPropagation` ran.
+       *
+       * A wheel with Ctrl held is a trackpad pinch, and it zooms the map, as d3's own filter
+       * lets it. Refusing it — as this did — left the pinch to the browser, which zoomed the
+       * whole page instead. See `usePinchZoom`.
        */
       .filter((event) => {
-        if (event.ctrlKey || event.button) return false
+        if (event.button || (event.ctrlKey && event.type !== 'wheel')) return false
         /*
          * With the brush on, a press on the map paints a selection instead of dragging the
          * map — see `useSelectionGestures`. The wheel, the zoom buttons and a two-finger
@@ -1746,7 +1867,16 @@ export function MapCanvas() {
           return false
         }
         const target = event.target as Element | null
-        return !target?.closest?.(`[${LEGEND_MARKER}]`)
+        if (target?.closest?.(`[${LEGEND_MARKER}]`)) return false
+        // A press on an overlay drags the overlay, not the map; the wheel and a pinch still zoom.
+        if (
+          target?.closest?.(`[${OVERLAY_MARKER}]`) &&
+          (event.type === 'mousedown' ||
+            (event.type === 'touchstart' && (event as TouchEvent).touches.length < 2))
+        ) {
+          return false
+        }
+        return true
       })
       .scaleExtent(ZOOM_RANGE)
       .extent([
@@ -1779,6 +1909,12 @@ export function MapCanvas() {
        * readout, the flag and label size steps — updates on that final commit rather than
        * every frame. Those are all quantised or incidental; none of them is worth a full
        * render at 60Hz.
+       *
+       * And at most once a frame. A trackpad reports a pinch or a scroll at 120 Hz, and a
+       * phone its fingers as fast as they move; every camera set on the group has the whole
+       * map drawn again, and only the last one before a frame is ever seen. So the camera
+       * waits for the next animation frame and is set there, once — each frame drawn exactly
+       * as it was, at the latest camera, with the fewer redraws nobody could see left out.
        */
       .on('start', (event) => {
         // Only a real gesture. A programmatic transform has no source event and moves
@@ -1787,16 +1923,22 @@ export function MapCanvas() {
       })
       .on('zoom', (event) => {
         const t = event.transform
-        const group = zoomedRef.current
-        if (group && event.sourceEvent) {
-          group.setAttribute('transform', `translate(${t.x},${t.y}) scale(${t.k})`)
-          lensesRef.current?.follow(t)
+        if (zoomedRef.current && event.sourceEvent) {
+          liveCamera.current = t
+          if (!cameraFrame.current) cameraFrame.current = requestAnimationFrame(placeCamera)
           return
         }
         /* No source event means it was moved programmatically — commit it directly. */
         setTransform({ k: t.k, x: t.x, y: t.y })
       })
       .on('end', (event) => {
+        // A frame still waiting is drawn now, at the final camera: the commit below would skip a
+        // camera equal to the one it last committed, and leave the frame's older one on screen.
+        if (cameraFrame.current) {
+          cancelAnimationFrame(cameraFrame.current)
+          liveCamera.current = event.transform
+          placeCamera()
+        }
         gesturingRef.current = false
         const t = event.transform
         setTransform({ k: t.k, x: t.x, y: t.y })
@@ -1810,8 +1952,10 @@ export function MapCanvas() {
     return () => {
       selection.on('.zoom', null)
       zoomRef.current = null
+      if (cameraFrame.current) cancelAnimationFrame(cameraFrame.current)
+      cameraFrame.current = 0
     }
-  }, [width, height, setTransform])
+  }, [width, height, setTransform, placeCamera])
 
   // A new framing means a new composition — start it at its fitted extent.
   useEffect(() => {
@@ -1877,7 +2021,7 @@ export function MapCanvas() {
    * and in the data modes it lost the tone chosen against the country's fill. One decision
    * leaves nothing to disagree about.
    */
-  const paintCountry = (shape: (typeof shapes)[number]) => {
+  const paintCountry = (shape: (typeof shapes)[number], hovered = false) => {
     const inScope = scopeCountryIds.has(shape.id)
     if (!inScope && style.outsideScope === 'hidden') return null
     const entry = doc.countries[shape.id]
@@ -1886,7 +2030,7 @@ export function MapCanvas() {
     const ctx: FillContext = {
       ...fillContext,
       inScope,
-      hovered: hoveredCountryId === shape.id,
+      hovered,
       selected: selected.has(shape.id),
       landTint: landTintById?.get(shape.id) ?? null,
     }
@@ -1956,7 +2100,6 @@ export function MapCanvas() {
     }
   }
 
-  const countryPaints = shapes.map((shape) => ({ shape, paint: paintCountry(shape) }))
   const mergedPaints = mergedShapes.map((shape) => ({ shape, paint: paintMerge(shape) }))
 
   /** The outline — coast and borders in one stroke — only while both layers are on. */
@@ -1997,6 +2140,122 @@ export function MapCanvas() {
     )
   }
 
+  /**
+   * The country layer: one element per entity, rebuilt only for what changed.
+   *
+   * It used to be rebuilt whole on every render — a paint and three elements for every
+   * entity, 16,000 on the Detailed World Map at its finest level and 96,000 on the USA map's
+   * subdivisions — and the canvas renders on every change of hover, every selection toggle,
+   * every brush frame and every document edit, the overlay sliders included. A hover crossing
+   * a border cost 40 ms on the 5,257-unit map.
+   *
+   * Now the paints are kept until something they are made from changes — everything
+   * `paintCountry` reads, and not the hover — and when only the selection changed, only the
+   * entities whose selection did are repainted. Each entity keeps its element from the last
+   * build while its paint, path and coast are the same, and the elements are drawn in chunks
+   * of `COUNTRY_CHUNK`, each a memoised component: a chunk holding exactly the elements it
+   * held last time is the same array, and React passes over the whole of it without looking
+   * inside. A hover or a selection change therefore reaches one or two chunks, not the layer.
+   * The hovered entity is the one element made afresh on a hover, painted as it always was,
+   * in its own place, so what is drawn — and in what order — is exactly what it was.
+   */
+  /*
+   * Everything `paintCountry` reads, bar the hover and the selection. The zoom only while flags
+   * are drawn: it sets a flag's border width and nothing else, so without flags a zoom repaints
+   * nothing.
+   */
+  const paintZoom = flagFillById.size > 0 ? zoomK : 0
+  const paintInputs = [shapes, scopeCountryIds, style, doc.countries, fillContext, landTintById, flagFillById, flagTileById, paintZoom] as const
+  const countryPaints = useMemo((): PaintedShape[] => {
+    const previous = countryPaintCache.current
+    // Only the selection changed — a click, a brush frame, a rectangle: repaint what it touched.
+    if (previous && previous.inputs.length === paintInputs.length && previous.inputs.every((input, i) => input === paintInputs[i])) {
+      const changed = new Set<string>()
+      for (const id of selected) if (!previous.selected.has(id)) changed.add(id)
+      for (const id of previous.selected) if (!selected.has(id)) changed.add(id)
+      const paints =
+        changed.size === 0
+          ? previous.paints
+          : previous.paints.map((entry) => (changed.has(entry.shape.id) ? { shape: entry.shape, paint: paintCountry(entry.shape) } : entry))
+      countryPaintCache.current = { inputs: paintInputs, selected, paints }
+      return paints
+    }
+    const paints = shapes.map((shape) => ({ shape, paint: paintCountry(shape) }))
+    countryPaintCache.current = { inputs: paintInputs, selected, paints }
+    return paints
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [...paintInputs, selected])
+  const countryElement = (shape: (typeof shapes)[number], paint: NonNullable<ReturnType<typeof paintCountry>>) => (
+    /*
+     * The outline is coast and borders in one stroke, so it is drawn only when both layers
+     * are on. With Borders off the coast is drawn on its own, from the same paint; with
+     * Coastlines off the border network is drawn below. Resolved in `paintCountry` and
+     * handed over as finished attribute values, so the path itself can bail out of a render
+     * it has nothing to do with — see `CountryPath`.
+     */
+    <Fragment key={shape.id}>
+      {coastBeside(shape.id, paint.outline, undefined, paint.clipPath, true)}
+      <CountryPath
+        countryId={shape.id}
+        d={shape.d}
+        fill={paint.fill}
+        fillOpacity={paint.fillOpacity}
+        stroke={outlineOn ? paint.outline.stroke : 'none'}
+        strokeWidth={outlineOn ? paint.outline.strokeWidth : 0}
+        paintOrder={paint.outline.paintOrder}
+        transform={undefined}
+        clipPath={paint.clipPath}
+      />
+      {coastBeside(shape.id, paint.outline, undefined, paint.clipPath, false)}
+    </Fragment>
+  )
+  const countryLayer = useMemo(() => {
+    const previous = countryElementCache.current
+    const next = new Map<string, CachedCountryElement>()
+    const elements: ReactElement[] = []
+    const layerShapes: ShapeRef[] = []
+    const indexById = new Map<string, number>()
+    for (const { shape, paint } of countryPaints) {
+      if (!paint) continue
+      const coast = coastAlone ? coastPaths.get(shape.id) : undefined
+      const old = previous.get(shape.id)
+      const element =
+        old && old.d === shape.d && old.coast === coast && old.outlineOn === outlineOn && samePaint(old.paint, paint)
+          ? old.element
+          : countryElement(shape, paint)
+      next.set(shape.id, { d: shape.d, coast, outlineOn, paint, element })
+      indexById.set(shape.id, elements.length)
+      elements.push(element)
+      layerShapes.push(shape)
+    }
+    countryElementCache.current = next
+    /* In chunks: a chunk with exactly the elements it had last time is the same array. */
+    const previousChunks = countryChunkCache.current
+    const chunks: ReactElement[][] = []
+    for (let start = 0; start < elements.length; start += COUNTRY_CHUNK) {
+      const slice = elements.slice(start, start + COUNTRY_CHUNK)
+      const old = previousChunks[chunks.length]
+      chunks.push(old && old.length === slice.length && old.every((element, i) => element === slice[i]) ? old : slice)
+    }
+    countryChunkCache.current = chunks
+    return { chunks, shapes: layerShapes, indexById }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [countryPaints, outlineOn, coastAlone, coastPaths])
+  /* The hovered entity, painted hovered, in its own place in the layer: one chunk changes. */
+  let countryChunks = countryLayer.chunks
+  const hoveredAt = hoveredCountryId ? countryLayer.indexById.get(hoveredCountryId) : undefined
+  if (hoveredAt !== undefined) {
+    const shape = countryLayer.shapes[hoveredAt]
+    const paint = paintCountry(shape, true)
+    if (paint) {
+      const at = Math.floor(hoveredAt / COUNTRY_CHUNK)
+      const chunk = countryChunks[at].slice()
+      chunk[hoveredAt % COUNTRY_CHUNK] = countryElement(shape, paint)
+      countryChunks = countryChunks.slice()
+      countryChunks[at] = chunk
+    }
+  }
+
   return (
     <div className="map-canvas" ref={containerRef}>
       <svg
@@ -2022,12 +2281,15 @@ export function MapCanvas() {
          */
         onMouseMove={(event) => {
           if (gesturingRef.current || selectingRef.current) return
+          if ((event.target as Element | null)?.closest?.(`[${OVERLAY_MARKER}]`)) return
           setHovered(pickCountryAt(event))
         }}
         onClick={(event) => {
           // Dragging the legend is not a statement about the selection, so a click
           // that starts and ends on it leaves the selection exactly as it was.
           if ((event.target as Element | null)?.closest?.(`[${LEGEND_MARKER}]`)) return
+          // An overlay tapped or dragged is chosen by the overlay layer, not selected here.
+          if ((event.target as Element | null)?.closest?.(`[${OVERLAY_MARKER}]`)) return
           // A brush press has already selected what it touched — see `useSelectionGestures`.
           if (suppressClickRef.current) {
             suppressClickRef.current = false
@@ -2140,7 +2402,12 @@ export function MapCanvas() {
           straight to the zoomed group without ever having to know a resize happened.
         */}
         <g transform={fitTransform}>
-        <g ref={zoomedRef} transform={`translate(${transform.x},${transform.y}) scale(${transform.k})`}>
+        <g
+          ref={zoomedRef}
+          transform={`translate(${transform.x},${transform.y}) scale(${transform.k})`}
+          // The camera's scale on screen, for the lines drawn in it — see `screenStrokeWidth`.
+          style={{ [MAP_SCALE_VAR]: transform.k * (fitCorrection?.scale ?? 1) } as CSSProperties}
+        >
           {/*
             Outline hierarchy, heaviest first.
 
@@ -2159,9 +2426,8 @@ export function MapCanvas() {
               d={backdrop.sphere}
               fill="none"
               stroke={style.graticule}
-              strokeWidth={1.6}
+              style={{ strokeWidth: screenStrokeWidth(1.6) }}
               strokeOpacity={0.95}
-              vectorEffect="non-scaling-stroke"
             />
           )}
           {style.showGraticule && backdrop.graticule && (
@@ -2169,9 +2435,8 @@ export function MapCanvas() {
               d={backdrop.graticule}
               fill="none"
               stroke={style.graticule}
-              strokeWidth={0.5}
+              style={{ strokeWidth: screenStrokeWidth(0.5) }}
               strokeOpacity={0.65}
-              vectorEffect="non-scaling-stroke"
             />
           )}
           {/*
@@ -2212,33 +2477,9 @@ export function MapCanvas() {
             group stays and its paths update.
           */}
           <g key={land?.geo?.dataset.id ?? 'none'}>
-          {countryPaints.map(({ shape, paint }) => {
-            if (!paint) return null
-            /*
-             * The outline is coast and borders in one stroke, so it is drawn only when both
-             * layers are on. With Borders off the coast is drawn on its own, from the same
-             * paint; with Coastlines off the border network is drawn below. Resolved in
-             * `paintCountry` and handed over as finished attribute values, so the path
-             * itself can bail out of a render it has nothing to do with — see `CountryPath`.
-             */
-            return (
-              <Fragment key={shape.id}>
-                {coastBeside(shape.id, paint.outline, undefined, paint.clipPath, true)}
-                <CountryPath
-                  countryId={shape.id}
-                  d={shape.d}
-                  fill={paint.fill}
-                  fillOpacity={paint.fillOpacity}
-                  stroke={outlineOn ? paint.outline.stroke : 'none'}
-                  strokeWidth={outlineOn ? paint.outline.strokeWidth : 0}
-                  paintOrder={paint.outline.paintOrder}
-                  transform={undefined}
-                  clipPath={paint.clipPath}
-                />
-                {coastBeside(shape.id, paint.outline, undefined, paint.clipPath, false)}
-              </Fragment>
-            )
-          })}
+          {countryChunks.map((elements, index) => (
+            <CountryChunk key={index} elements={elements} />
+          ))}
           </g>
 
           {/*
@@ -2338,12 +2579,9 @@ export function MapCanvas() {
                 d={layer.d}
                 fill="none"
                 stroke={flagsOn ? FLAG_BORDER_COLOR : style.border}
-                strokeWidth={
-                  flagsOn ? boundaryInkWidth(style.borderWidth, zoomK) : style.borderWidth
-                }
+                style={{ strokeWidth: screenStrokeWidth(flagsOn ? boundaryInkWidth(style.borderWidth, zoomK) : style.borderWidth) }}
                 strokeLinejoin="round"
                 strokeLinecap="butt"
-                vectorEffect="non-scaling-stroke"
                 pointerEvents="none"
                 clipPath={layer.clipId ? `url(#map-inset-${layer.clipId})` : undefined}
               />
@@ -2368,10 +2606,9 @@ export function MapCanvas() {
                 d={layer.d}
                 fill="none"
                 stroke={flagsOn ? FLAG_BORDER_COLOR : style.border}
-                strokeWidth={style.borderWidth * NATIONAL_BORDER_SCALE}
+                style={{ strokeWidth: screenStrokeWidth(style.borderWidth * NATIONAL_BORDER_SCALE) }}
                 strokeLinejoin="round"
                 strokeLinecap="butt"
-                vectorEffect="non-scaling-stroke"
                 pointerEvents="none"
                 clipPath={layer.clipId ? `url(#map-inset-${layer.clipId})` : undefined}
               />
@@ -2393,20 +2630,18 @@ export function MapCanvas() {
                   d={layer.d}
                   fill="none"
                   stroke={FLAG_BOUNDARY_EDGE}
-                  strokeWidth={boundaryEdgeWidth(style.borderWidth, zoomK)}
+                  style={{ strokeWidth: screenStrokeWidth(boundaryEdgeWidth(style.borderWidth, zoomK)) }}
                   strokeLinejoin="round"
                   strokeLinecap="butt"
-                  vectorEffect="non-scaling-stroke"
                   pointerEvents="none"
                 />
                 <path
                   d={layer.d}
                   fill="none"
                   stroke={FLAG_BOUNDARY_INK}
-                  strokeWidth={boundaryInkWidth(style.borderWidth, zoomK)}
+                  style={{ strokeWidth: screenStrokeWidth(boundaryInkWidth(style.borderWidth, zoomK)) }}
                   strokeLinejoin="round"
                   strokeLinecap="butt"
-                  vectorEffect="non-scaling-stroke"
                   pointerEvents="none"
                 />
               </g>
@@ -2425,8 +2660,7 @@ export function MapCanvas() {
               d={lakePath}
               fill={style.lake}
               stroke={style.lakeOutline}
-              strokeWidth={0.5}
-              vectorEffect="non-scaling-stroke"
+              style={{ strokeWidth: screenStrokeWidth(0.5) }}
             />
           )}
 
@@ -2447,10 +2681,9 @@ export function MapCanvas() {
               d={riverPath}
               fill="none"
               stroke={style.river}
-              strokeWidth={style.riverWidth}
+              style={{ strokeWidth: screenStrokeWidth(style.riverWidth) }}
               strokeLinecap="round"
               strokeLinejoin="round"
-              vectorEffect="non-scaling-stroke"
               pointerEvents="none"
             />
           )}
@@ -2477,6 +2710,25 @@ export function MapCanvas() {
             moves the names with the land they belong to.
           */}
           {labelsOn && <MapLabels placements={labelsToDraw} labels={labels} />}
+
+          {/*
+            Map overlays, over everything the map draws and inside the camera, so they move with
+            the land and are exported with it — see `MapOverlays`.
+          */}
+          {projection && overlays.length > 0 && (
+            <MapOverlays
+              overlays={overlays}
+              sources={overlaySources}
+              projection={projection}
+              zoomK={zoomK}
+              interactive={overlayMode}
+              activeId={activeOverlayId}
+              accent={style.selectedOutline}
+              zoomedRef={zoomedRef}
+              onSelect={chooseOverlay}
+              onMove={moveOverlay}
+            />
+          )}
         </g>
         </g>
 

@@ -21,6 +21,30 @@
  */
 import { memo } from 'react'
 
+/**
+ * The camera's scale on screen — the zoom times the resize correction — set on the zoomed group.
+ * See `screenStrokeWidth`.
+ */
+export const MAP_SCALE_VAR = '--map-k'
+
+/**
+ * A stroke `px` pixels wide on screen at every zoom, for a path drawn in the camera.
+ *
+ * This is the line `vector-effect: non-scaling-stroke` draws, drawn a cheaper way. The browser
+ * honours non-scaling strokes by transforming every vertex of every path into screen space again
+ * whenever the camera moves — on the Detailed World Map, every vertex of five thousand outlines,
+ * on every frame of a pan. A width in the map's own units, divided by the camera's scale, is the
+ * same line: a uniform scale draws a stroke exactly as it draws the path at the scaled size.
+ *
+ * The scale is set on the zoomed group in the same frame as the camera's transform — by React
+ * when the camera is committed, and by the zoom behaviour on every frame of a gesture — so no
+ * frame draws a line at any width but its own. A pan changes no scale, and restyles nothing.
+ * Exports get the resolved width written onto each path, so no `var()` reaches a file.
+ */
+export function screenStrokeWidth(px: number): string {
+  return `calc(${px}px / var(${MAP_SCALE_VAR}, 1))`
+}
+
 export interface CountryPathProps {
   /** The entity id, published to the DOM so the picker can resolve a hit. */
   countryId: string
@@ -79,7 +103,7 @@ export const CountryPath = memo(function CountryPath({
        * coast.
        */
       stroke={stroke}
-      strokeWidth={strokeWidth}
+      style={{ strokeWidth: screenStrokeWidth(strokeWidth) }}
       /*
        * In flags mode the stroke is painted *under* the fill.
        *
@@ -93,7 +117,6 @@ export const CountryPath = memo(function CountryPath({
        */
       paintOrder={paintOrder}
       strokeLinejoin="round"
-      vectorEffect="non-scaling-stroke"
       className="map-canvas__country"
       data-country-id={countryId}
       data-merge-id={mergeId}
@@ -141,10 +164,9 @@ export const CountryCoast = memo(function CountryCoast({
       d={d}
       fill="none"
       stroke={stroke}
-      strokeWidth={strokeWidth}
+      style={{ strokeWidth: screenStrokeWidth(strokeWidth) }}
       strokeLinejoin="round"
       strokeLinecap="butt"
-      vectorEffect="non-scaling-stroke"
       transform={transform}
       clipPath={clipPath}
       pointerEvents="none"
