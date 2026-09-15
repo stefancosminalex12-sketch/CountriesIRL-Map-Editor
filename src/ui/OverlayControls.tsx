@@ -7,7 +7,7 @@
  * beneath: an overlay copies a shape and never takes it. Overlays answer the pointer only while
  * this panel is open, so everywhere else the map selects exactly as it always has.
  */
-import { useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMapStore } from '../state/mapStore'
 import { playSfx } from '../audio/sfx'
 import { SelectField } from './Select'
@@ -15,6 +15,8 @@ import { useNoun } from '../maps/useNoun'
 import { mergeCountries } from '../geo/merge'
 import { landCentre } from '../render/overlayGeometry'
 import { OVERLAY_SCALE_RANGE, type MapOverlay, type OverlayMode, type OverlayTexture } from '../types/map'
+import { FlagPicker } from './FlagPicker'
+import { entityFlagCode, flagName, flagOptions } from '../flags/flagChoices'
 
 const NO_OVERLAYS: MapOverlay[] = []
 
@@ -30,6 +32,7 @@ const MODES: Array<[OverlayMode, string, string]> = [
 const TEXTURES: Array<[OverlayTexture, string]> = [
   ['hatch', 'Hatching'],
   ['dots', 'Dots'],
+  ['flag', 'Flag'],
   ['none', 'None'],
 ]
 
@@ -70,6 +73,11 @@ export function OverlayControls() {
   const createFromSelection = useMapStore((s) => s.createOverlaysFromSelection)
   const deleteOverlay = useMapStore((s) => s.deleteOverlay)
   const noun = useNoun()
+  const overrides = useMapStore((s) => s.doc.flags.overrides)
+  const flags = useMemo(() => flagOptions(geo?.meta ?? {}), [geo])
+  /* A flag has to be chosen now: the texture became Flag for an entity that flies none. */
+  const [askFlag, setAskFlag] = useState(false)
+  useEffect(() => setAskFlag(false), [activeId])
 
   /*
    * The panel being open is what lets overlays take the pointer — mounted when the section
@@ -83,6 +91,9 @@ export function OverlayControls() {
   const mergeById = new Map(merges.map((m) => [m.id, m]))
   const nameOf = (id: string) =>
     mergeById.get(id)?.name ?? geo?.meta[id]?.name ?? geo?.byId.get(id)?.properties.name ?? id
+  /* The flag an entity flies now: a merged group's own, or the one assigned to it, or its default. */
+  const flagOfEntity = (id: string): string | null =>
+    (mergeById.has(id) ? mergeById.get(id)?.flag : geo ? entityFlagCode(id, overrides, geo.meta) : null) ?? null
   /* What can be copied: selected entities of this map, merged groups included. */
   const copyable = selected.filter((id) => mergeById.has(id) || !!geo?.byId.has(id))
   const active = overlays.find((o) => o.id === activeId) ?? null
@@ -230,13 +241,46 @@ export function OverlayControls() {
             />
           </label>
 
-          <SelectField label="Texture" value={active.texture} onChange={(value) => update({ texture: value as OverlayTexture })}>
+          <SelectField
+            label="Texture"
+            value={active.texture}
+            onChange={(value) => {
+              const texture = value as OverlayTexture
+              // Flag takes the flag the entity flies now, once; without one, the picker below opens to choose.
+              if (texture === 'flag' && !active.flag) {
+                const code = flagOfEntity(active.sourceId)
+                update({ texture, flag: code })
+                setAskFlag(!code)
+              } else {
+                update({ texture })
+              }
+            }}
+          >
             {TEXTURES.map(([id, label]) => (
               <option key={id} value={id}>
                 {label}
               </option>
             ))}
           </SelectField>
+          {active.texture === 'flag' && (
+            <>
+              <FlagPicker
+                label="Overlay flag"
+                value={active.flag ?? null}
+                options={flags}
+                autoOpen={askFlag && !active.flag}
+                onChange={(flag) => {
+                  update({ flag })
+                  setAskFlag(false)
+                }}
+              />
+              <p className="hint">
+                {active.flag
+                  ? `Filled with the flag of ${flagName(active.flag, flags)}. It keeps this flag whatever ${nameOf(active.sourceId)} flies later.`
+                  : `${nameOf(active.sourceId)} flies no flag yet — choose one to fill the overlay.`}
+              </p>
+            </>
+          )}
 
           <p className="hint">
             {active.anchor ? `Centred on ${formatLonLat(active.anchor)}.` : `Over ${nameOf(active.sourceId)}, where it started.`}

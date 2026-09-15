@@ -6,6 +6,7 @@
  * same path serves the UI, the future AI assistant, tests and replay.
  */
 import { MAX_COMPARISON_GROUPS, OVERLAY_SCALE_RANGE } from '../types/map'
+import { hasFlag } from '../flags/flagStore'
 import { BUILT_IN_PALETTES, createCountryEntry, createGroup } from './defaults'
 import { PRESET_IDS } from './presets'
 import {
@@ -248,7 +249,7 @@ export function validateOperation(op: MapOperation, ctx: ExecutionContext = {}):
 }
 
 const OVERLAY_MODES = new Set(['shape', 'projection'])
-const OVERLAY_TEXTURES = new Set(['hatch', 'dots', 'none'])
+const OVERLAY_TEXTURES = new Set(['hatch', 'dots', 'none', 'flag'])
 
 /** Why an overlay's fields are malformed, or `null`. Only the fields present are checked. */
 function overlayFieldsProblem(fields: Record<string, unknown>): string | null {
@@ -256,7 +257,10 @@ function overlayFieldsProblem(fields: Record<string, unknown>): string | null {
     return 'mode must be "shape" or "projection"'
   }
   if (fields.texture !== undefined && !OVERLAY_TEXTURES.has(fields.texture as string)) {
-    return 'texture must be "hatch", "dots" or "none"'
+    return 'texture must be "hatch", "dots", "none" or "flag"'
+  }
+  if (fields.flag !== undefined && fields.flag !== null && !(typeof fields.flag === 'string' && hasFlag(fields.flag))) {
+    return 'flag must be the code of a flag in the library, or null'
   }
   if (fields.opacity !== undefined) {
     const opacity = fields.opacity

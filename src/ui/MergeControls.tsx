@@ -17,8 +17,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useMapStore } from '../state/mapStore'
 import { playSfx } from '../audio/sfx'
 import { SelectField } from './Select'
-import { FLAG_EXTRAS } from '../flags/manifest'
-import { hasFlag } from '../flags/flagStore'
+import { flagOptions as allFlagOptions } from '../flags/flagChoices'
 import { useNoun } from '../maps/useNoun'
 
 /** Sentinel for "no flag": a select cannot carry `null`. */
@@ -145,21 +144,11 @@ export function MergeControls() {
   const nameOf = (id: string) => geo?.meta[id]?.name ?? geo?.byId.get(id)?.properties.name ?? id
 
   /*
-   * Every entity's own flag, plus the historical set, sorted into one alphabet — the point
-   * of offering them together is that the author is choosing a flag, not a category first.
-   * One entry per flag, not per entity: Kosovo is in the dataset as both UNK and XKX, both
-   * carrying `xk`, and two `<option>`s with one React key could lose one.
+   * Every flag there is to choose, sorted into one alphabet — the point of offering them together is
+   * that the author is choosing a flag, not a category first. The one list the Flags panel and the
+   * overlays offer too; see `flagOptions`.
    */
-  const byCode = new Map<string, string>()
-  for (const extra of FLAG_EXTRAS) byCode.set(extra.code, extra.name)
-  for (const meta of Object.values(geo?.meta ?? {})) {
-    if (!hasFlag(meta.iso2)) continue
-    const code = (meta.iso2 as string).toLowerCase()
-    if (!byCode.has(code)) byCode.set(code, meta.name)
-  }
-  const flagOptions = [...byCode]
-    .map(([code, name]) => ({ code, name }))
-    .sort((a, b) => a.name.localeCompare(b.name))
+  const flagOptions = allFlagOptions(geo?.meta ?? {})
 
   return (
     <div className="stack">

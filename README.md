@@ -2086,32 +2086,50 @@ Export carries it for the same reason everything else does — the exporter copi
 SVG. Measured: the world pattern present, **zero** per-country patterns, 506 references
 to it, and a rasterised result with 45k red and 51k white pixels for the Japanese flag.
 
-#### Changing one country's flag
+#### Changing an entity's flag
 
-Select a country in Flags mode and the inspector gains a **Change Flag** picker —
-the same searchable, type-a-name control World Domination uses. Pick Japan while
-Romania is selected and Romania flies the Japanese flag; Japan, France and everyone
-else keep their own.
+Select an entity in Flags mode and the inspector gains a **Change Flag** picker: type a
+flag's name and choose any flag in the library, whatever the selection's own nationality.
+It works for a country, a territory, a region of the administrative map and a merged group,
+and for a whole selection at once, as one undo step. Pick Japan while Romania is selected
+and Romania flies the Japanese flag; Japan, France and everyone else keep their own.
 
-What is stored is **which country's flag to borrow, not which file**. `overrides` is a
-`Record<CountryId, CountryId>`, so the choice resolves through the same `flagCodeFor`
-every other flag goes through. That matters for the awkward cases the library already
-handles: borrow from a territory that flies its parent state's flag and you land on the
-parent's artwork, exactly as that territory does — a stored filename would have had to
-re-derive all of that, and would drift the first time the manifest changed.
+The flags offered are **one list**, `flagOptions` in `src/flags/flagChoices.ts`, which the
+Merge panel and the overlays use too:
 
-Resolution happens in **one place**. `MapCanvas` has a single `flagCodeOf(id)` that
-consults the overrides before falling back to the country's own code, and
-`buildFlagTiles` is handed it instead of a bare `flagCodeFor`. Everything downstream
-follows for free: the maritime codes derive from the tiles, so an island territory's water
-borrows the flag its land does without the maritime layer knowing overrides exist.
+- every entity's own flag;
+- the flags only the territory list knows (Somaliland, Northern Cyprus);
+- the country of each region;
+- the historical set.
 
-Nothing is written to the flag data. `geo.meta.ROU.iso2` is still `RO` and
-`flagCodeFor('ROU', 'RO')` still returns `ro` with an override in force; **Use default
-flag** deletes the entry rather than writing a default back, so a reset country is
-indistinguishable from one that was never changed. The picker offers only countries
-whose artwork exists, since borrowing from one without would leave the country with no
-flag at all.
+That third source is what gives a map of provinces every country's flag to choose from,
+although none of its own units carries a flag.
+
+**Where the choice is stored:**
+
+- A country, a territory or a region gets an entry in `flags.overrides`, naming the artwork.
+  `flagCodeFor` resolves it as it resolves every other flag. Entries from earlier maps that
+  name a country rather than artwork still resolve as before.
+- A merged group's flag is its own `flag` field, the one its row in Merge sets. So the two
+  panels change the same thing and cannot disagree.
+
+**Default and custom are told apart.** The inspector says **Default flag: France**, or
+**Custom flag: Italy. Its default is France.**, or that the entity has no flag of its own yet.
+**Use default flag** deletes the entry rather than writing a default back, so a reset country
+is indistinguishable from one that was never changed; for a merged group it clears the
+group's flag. An entity nobody has changed flies exactly what it always did. The regions of
+the administrative map still show plain land until a flag is chosen for them.
+
+Resolution happens in **one place**: `entityFlagCode`, which `MapCanvas`'s `flagCodeOf`
+calls and the panels share. `buildFlagTiles` is handed it instead of a bare `flagCodeFor`,
+and everything downstream follows:
+
+- the maritime codes derive from the tiles, so an island territory's water flies the flag
+  its land does;
+- exports, labels, selection and the overlays see the same flag.
+
+Nothing is written to the flag data: `geo.meta.ROU.iso2` is still `RO` with an override in
+force.
 
 **World Domination is untouched.** It replaces the *paint* downstream of tile
 construction, so an override survives underneath it: switch domination on and Romania
@@ -2523,17 +2541,36 @@ with the names the chooser searches on.
 A movable copy of an entity's shape, for comparing one place with another: Texas laid over
 France, Greenland dragged to the equator, a historical territory over its modern successor.
 The **Map Overlays** section of the sidebar makes them. Select a country, region, territory or
-merged group on the map, press **Create overlay**, and drag the overlay anywhere. Every
-overlay is listed in the order it was made. Choosing one, from the list or by tapping it,
+merged group on the map, press **Create overlay**, and drag the overlay anywhere. What was
+copied leaves the selection and the new overlay is the one being edited, so it can be dragged at
+once and the original is not left painted in the selection colour under it. Only the selection
+changes, as part of the same edit: one undo takes the overlay away and gives the selection back.
+Every overlay is listed in the order it was made. Choosing one, from the list or by tapping it,
 opens its controls:
 
 - mode, **Shape** or **Projection-aware**;
 - colour;
 - opacity;
-- texture: hatching, dots or none;
+- texture: hatching, dots, **Flag** or none;
 - **Reset position**, which puts it back over the entity it copies;
 - **Move over**, which centres it on the entity selected last;
 - **Delete overlay**.
+
+**Flag texture.** Choosing **Flag** fills the overlay with a flag instead of its tint.
+
+- **Which flag.** The flag the entity flies at that moment: its custom flag, a merged group's
+  own, or its default. If it flies none (a region of the administrative map, or a group with
+  no flag yet), the flag picker opens so any flag can be chosen.
+- **It then belongs to the overlay** (`MapOverlay.flag`) and changes only from the overlay's own
+  picker. Changing the entity's flag later leaves the overlay's alone.
+- **Framing.** The flag is framed exactly as the map frames the entity's own flag: over its
+  dominant landmass, with each detached territory that earns one (French Guiana, Alaska) framed
+  on its own. Framed over all its land at once, France showed a single stripe.
+- **Placement.** The flag sits in the overlay's own coordinates, so it moves, scales and fades
+  with the overlay, is painted only inside its outline, and is exported with it. A
+  Projection-aware overlay's flag is framed again over the land where it has been put.
+- **In Flags mode.** Overlays work as in any other mode: drawn above the flags, and dragged,
+  sized and textured the same way.
 
 **An overlay copies a shape; it never takes it.** It records the entity it copies and where it
 has been put, and nothing else. The document keeps no geometry for it: the outline is worked
@@ -2588,9 +2625,11 @@ reaches the map beneath exactly as before.
 above the names, so it moves with the land and is exported with it. The tint, texture and
 outline are all in the overlay's colour, so it never reads as the land it covers. The texture
 is spaced in screen pixels and the outline does not scale, so neither thickens as the map
-zooms. The chosen overlay's dashed outline and its handle are marked `data-export="none"`, so no
-PNG, JPG or SVG contains them. The handle is what makes an overlay of Vatican City something a
-pointer can take hold of.
+zooms. The chosen overlay has a handle, marked `data-export="none"` so no PNG, JPG or SVG contains
+it. The handle is what makes an overlay of Vatican City something a pointer can take hold of, and
+with the list it shows which overlay is being edited. There is no outline round the chosen
+overlay. One used to be drawn there, dashed, in the selection colour; it lay right over the entity
+just copied and read as a blue box round it.
 
 Verified in the browser:
 
@@ -2607,10 +2646,20 @@ Verified in the browser:
 - **Projection-aware.** On Mercator, Greenland moved to the equator came out at 5.6% of the
   area of its box at home (2,292 against 40,581 px²). In Shape mode the same overlay kept its
   40,581 px².
-- **Export.** The overlay and its texture were in it; the dashed outline and the handle were
-  not.
+- **Export.** The overlay and its texture were in it; the handle was not.
 - **Island water** was unaffected. With overlays on the map, the zones drawn were exactly the
   ones the map's own rules draw.
+- **Create overlay deselects what it copies.** The cases: a country, two countries, Monaco, a
+  merged group and a region of the Detailed World Map. In each the selection was empty afterwards,
+  the new overlay was the one being edited, and the original was back in its own fill. The
+  overlay's handle was the only mark drawn with it. One undo restored the selection and removed the
+  overlays; redo put both back.
+- **Flag texture.**
+  - France's overlay showed the tricolour on the mainland, and French Guiana carried its own.
+  - The United States' overlay showed the whole flag on the lower 48, and Alaska its own.
+  - A Belgium + Netherlands group showed the flag chosen for it.
+  - Changing France's flag afterwards left the overlay's alone.
+  - The export carried the flag pattern with its artwork inline, and no handle.
 - **Section closed.** A point over France hit the overlay while the section was open, and
   France itself once it was closed; a click there reached the map's own picker.
 - **Detailed World Map.** An overlay of the Budjak started as exactly the Budjak's path and

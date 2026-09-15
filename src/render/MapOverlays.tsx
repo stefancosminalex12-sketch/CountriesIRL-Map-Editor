@@ -10,14 +10,25 @@
  * the finger at every zoom. It is shown from local state while it runs — the map is not
  * re-rendered for it — and committed to the document once, on release: one undo step.
  *
- * The chosen overlay's dashed outline and handle are editor furniture, marked `data-export="none"`
- * so no PNG, JPG or SVG contains them. The handle is what makes a speck — an overlay of Monaco —
- * something a pointer can take hold of.
+ * An overlay filled with a flag shows it framed exactly as the map frames the entity's own flag —
+ * over its dominant landmass, with each detached territory that earns one framed on its own — in the
+ * coordinates its outline is drawn in, and painted only inside that outline: every island and
+ * exclave of it, and nowhere else. The flag is the overlay's own (`MapOverlay.flag`).
+ *
+ * The chosen overlay carries a handle: editor furniture, marked `data-export="none"` so no PNG, JPG
+ * or SVG contains it. It is what makes a speck — an overlay of Monaco — something a pointer can
+ * take hold of, and it is the one mark that says which overlay is being edited; the Overlays panel
+ * says so too. There is no outline round the chosen overlay: it was drawn in the selection colour
+ * exactly over the entity the overlay had just been made from, and read as a box round that
+ * entity rather than as anything the overlay needed.
  */
 import { memo, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react'
-import type { GeoProjection } from 'd3-geo'
+import { geoPath, type GeoProjection } from 'd3-geo'
+import type { MultiPolygon } from 'geojson'
 import type { MapOverlay } from '../types/map'
-import { anchorAt, placeOverlay, type OverlayPlacement, type OverlaySource } from './overlayGeometry'
+import { anchorAt, carry, placeOverlay, type OverlayPlacement, type OverlaySource } from './overlayGeometry'
+import { fitFlag, patternGeometry, type FlagFit } from './MapFlags'
+import { flagFraming } from './flagPlacement'
 
 /** Marks overlay elements, so the map's own gestures and clicks leave them to this layer. */
 export const OVERLAY_MARKER = 'data-overlay-id'
@@ -33,6 +44,45 @@ const OUTLINE_PX = 1.6
 const HANDLE_PX = 7
 
 const textureId = (id: string) => `map-overlay-texture-${id}`
+const flagFillId = (id: string) => `map-overlay-flag-${id}`
+
+/** A flag filling an overlay: its main framing, and one for each detached territory that earns its own. */
+interface OverlayFlag {
+  fit: FlagFit
+  territories: Array<{ key: string; fit: FlagFit; d: string }>
+}
+
+/**
+ * How a flag filling an overlay is framed: exactly as the map frames the entity's own flag.
+ *
+ * By `fitFlag` over the dominant landmass cluster, with each detached territory that earns a flag of
+ * its own — French Guiana, Alaska — framed separately and drawn on its own outline, by the map's own
+ * rule (`flagFraming`). Framed over all its land at once, France showed one stripe of the tricolour.
+ * In the coordinates the overlay's outline is drawn in: the entity's own place for a Shape overlay
+ * or one not yet moved, so the flag moves and scales with it, or the land carried to where a
+ * Projection-aware overlay has been put — a rotation of the globe, which keeps every distance, so the
+ * clusters are still the clusters.
+ */
+function overlayFlag(
+  overlay: Pick<MapOverlay, 'mode' | 'anchor'>,
+  source: OverlaySource,
+  projection: GeoProjection,
+): OverlayFlag | null {
+  const { main, territories } = flagFraming(source.geometry)
+  const to = overlay.anchor && overlay.mode === 'projection' ? overlay.anchor : null
+  const drawnWith = to ? projection : source.homeProjection
+  const place = (land: MultiPolygon): MultiPolygon => (to ? (carry(land, source.geoCentre, to) as MultiPolygon) : land)
+  const path = geoPath(drawnWith)
+  const fit = fitFlag(place(main), path, drawnWith)
+  if (!fit) return null
+  const framed = territories.flatMap((land, index) => {
+    const placed = place(land)
+    const territoryFit = fitFlag(placed, path, drawnWith)
+    const d = path(placed)
+    return territoryFit && d ? [{ key: `t${index}`, fit: territoryFit, d }] : []
+  })
+  return { fit, territories: framed }
+}
 
 /** The placement as an SVG transform: a translation and a uniform scale. */
 const transformOf = (place: OverlayPlacement) =>
@@ -46,11 +96,13 @@ export interface MapOverlaysProps {
   /** Whether the Overlays panel is open: only then do overlays take the pointer. */
   interactive: boolean
   activeId: string | null
-  /** The selection colour, for the chosen overlay's outline and handle. */
+  /** The selection colour, for the chosen overlay's handle. */
   accent: string
   zoomedRef: RefObject<SVGGElement>
   onSelect: (id: string) => void
   onMove: (id: string, anchor: [number, number]) => void
+  /** The artwork of each overlay filled with a flag, by overlay id, once it has arrived. */
+  flags: ReadonlyMap<string, string>
 }
 
 interface Drag {
@@ -74,6 +126,7 @@ export const MapOverlays = memo(function MapOverlays({
   zoomedRef,
   onSelect,
   onMove,
+  flags,
 }: MapOverlaysProps) {
   const drag = useRef<Drag | null>(null)
   const [preview, setPreview] = useState<{ id: string; anchor: [number, number] } | null>(null)
@@ -95,21 +148,37 @@ export const MapOverlays = memo(function MapOverlays({
     return out
   }, [overlays, sources, projection])
 
+  /* Where each flag-filled overlay's flag is framed, at rest: worked out with the placements, never per frame. */
+  const restingFits = useMemo(() => {
+    const out = new Map<string, OverlayFlag | null>()
+    for (const overlay of overlays) {
+      if (overlay.texture !== 'flag') continue
+      const source = sources.get(overlay.sourceId)
+      out.set(overlay.id, source ? overlayFlag(overlay, source, projection) : null)
+    }
+    return out
+  }, [overlays, sources, projection])
+
   const placed = useMemo(() => {
-    const out: Array<{ overlay: MapOverlay; place: OverlayPlacement }> = []
+    const out: Array<{ overlay: MapOverlay; place: OverlayPlacement; flag: OverlayFlag | null }> = []
     for (const overlay of overlays) {
       let place = resting.get(overlay.id) ?? null
+      let flag = restingFits.get(overlay.id) ?? null
       // The one being dragged is placed where the pointer has it.
       if (preview?.id === overlay.id) {
         const source = sources.get(overlay.sourceId)
         place = source
           ? placeOverlay({ mode: overlay.mode, anchor: preview.anchor, scale: overlay.scale ?? 1 }, source, projection)
           : null
+        // A Projection-aware overlay is new land wherever it goes, so its flag is framed again; a Shape overlay's moves with it.
+        if (source && overlay.texture === 'flag' && overlay.mode === 'projection') {
+          flag = overlayFlag({ mode: overlay.mode, anchor: preview.anchor }, source, projection)
+        }
       }
-      if (place) out.push({ overlay, place })
+      if (place) out.push({ overlay, place, flag })
     }
     return out
-  }, [overlays, sources, projection, resting, preview])
+  }, [overlays, sources, projection, resting, restingFits, preview])
 
   if (placed.length === 0) return null
 
@@ -177,7 +246,7 @@ export const MapOverlays = memo(function MapOverlays({
     <g className="map-overlays">
       <defs>
         {placed.map(({ overlay, place }) => {
-          if (overlay.texture === 'none') return null
+          if (overlay.texture !== 'hatch' && overlay.texture !== 'dots') return null
           /*
            * The texture lies in the overlay's own coordinates, which the camera and the overlay's
            * scale both enlarge: spaced against both, it stays the same few pixels on screen at
@@ -203,9 +272,47 @@ export const MapOverlays = memo(function MapOverlays({
             </pattern>
           )
         })}
+        {/*
+          Flags, framed by the same `patternGeometry` a country's flag is, in the overlay's own
+          coordinates — so the flag moves and scales with the overlay, and is painted only where its
+          outline is.
+        */}
+        {placed.flatMap(({ overlay, flag }) => {
+          const href = overlay.texture === 'flag' ? flags.get(overlay.id) : undefined
+          if (!href || !flag) return []
+          const framings = [
+            { id: flagFillId(overlay.id), fit: flag.fit },
+            ...flag.territories.map((territory) => ({ id: `${flagFillId(overlay.id)}-${territory.key}`, fit: territory.fit })),
+          ]
+          return framings.flatMap(({ id, fit }) => {
+            const geometry = patternGeometry(fit)
+            if (!geometry) return []
+            return [
+              <pattern
+                key={id}
+                id={id}
+                patternUnits="userSpaceOnUse"
+                x={0}
+                y={0}
+                width={geometry.width}
+                height={geometry.height}
+                patternTransform={geometry.transform}
+              >
+                <image
+                  href={href}
+                  x={geometry.imageX}
+                  y={geometry.imageY}
+                  width={geometry.imageWidth}
+                  height={geometry.imageHeight}
+                  preserveAspectRatio="none"
+                />
+              </pattern>,
+            ]
+          })
+        })}
       </defs>
 
-      {placed.map(({ overlay, place }) => (
+      {placed.map(({ overlay, place, flag }) => (
         <g
           key={overlay.id}
           {...{ [OVERLAY_MARKER]: overlay.id }}
@@ -215,8 +322,21 @@ export const MapOverlays = memo(function MapOverlays({
           style={interactive ? { cursor: 'move', touchAction: 'none' } : undefined}
           {...handlers(overlay, place.centre)}
         >
-          <path d={place.d} fill={overlay.color} fillOpacity={TINT} />
-          {overlay.texture !== 'none' && <path d={place.d} fill={`url(#${textureId(overlay.id)})`} />}
+          {overlay.texture === 'flag' && flag && flags.has(overlay.id) ? (
+            // A flag replaces the tint: the overlay is the flag, clipped to its outline, and each
+            // detached territory carries its own framing on its own land — as the map draws them.
+            <>
+              <path d={place.d} fill={`url(#${flagFillId(overlay.id)})`} />
+              {flag.territories.map((territory) => (
+                <path key={territory.key} d={territory.d} fill={`url(#${flagFillId(overlay.id)}-${territory.key})`} />
+              ))}
+            </>
+          ) : (
+            <path d={place.d} fill={overlay.color} fillOpacity={TINT} />
+          )}
+          {(overlay.texture === 'hatch' || overlay.texture === 'dots') && (
+            <path d={place.d} fill={`url(#${textureId(overlay.id)})`} />
+          )}
           <path
             d={place.d}
             fill="none"
@@ -230,16 +350,6 @@ export const MapOverlays = memo(function MapOverlays({
 
       {chosen && (
         <g data-export="none" {...{ [OVERLAY_MARKER]: chosen.overlay.id }}>
-          <path
-            d={chosen.place.d}
-            transform={transformOf(chosen.place)}
-            fill="none"
-            stroke={accent}
-            strokeWidth={1.4}
-            strokeDasharray="5 4"
-            vectorEffect="non-scaling-stroke"
-            pointerEvents="none"
-          />
           <circle
             cx={chosen.place.centre[0]}
             cy={chosen.place.centre[1]}

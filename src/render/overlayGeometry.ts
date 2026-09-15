@@ -36,6 +36,8 @@ export interface OverlaySource {
   homeCentre: [number, number]
   /** The centre of its main landmass on the globe: the point a Projection-aware overlay turns about. */
   geoCentre: [number, number]
+  /** The projection that drew `homePath`: the map's, or an inset's. */
+  homeProjection: GeoProjection
 }
 
 /** Where an overlay is drawn. */
@@ -109,7 +111,7 @@ export function overlaySource(
   if (!finite(centre)) centre = path.centroid(land)
   const geoCentre = geoCentroid(main)
   if (!finite(centre) || !finite(geoCentre)) return null
-  return { geometry: land, homePath, homeCentre: [centre[0], centre[1]], geoCentre: [geoCentre[0], geoCentre[1]] }
+  return { geometry: land, homePath, homeCentre: [centre[0], centre[1]], geoCentre: [geoCentre[0], geoCentre[1]], homeProjection }
 }
 
 /**

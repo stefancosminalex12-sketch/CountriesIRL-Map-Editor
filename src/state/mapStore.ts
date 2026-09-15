@@ -756,6 +756,12 @@ export const useMapStore = create<MapStore>((set, get) => {
   /**
    * An overlay of each selected entity, exactly over it, in the next colour of the set — faded
    * and hatched, so the map beneath stays legible and the copy never reads as the original.
+   *
+   * What was copied leaves the selection, and the last overlay made becomes the one being edited:
+   * the copy is what the author goes on to drag, and the original, still selected under it, would
+   * be painted in the selection colour beneath the copy for no reason. Only the selection changes —
+   * the entity keeps its colour, geometry and everything else — and it changes as part of the same
+   * edit, so one undo takes the overlays away and gives the selection back.
    */
   createOverlaysFromSelection() {
     const state = get()
@@ -786,6 +792,8 @@ export const useMapStore = create<MapStore>((set, get) => {
     }
     if (overlays.length === 0) return []
     get().dispatch(overlays.map((overlay) => ({ op: 'create_overlay' as const, overlay })))
+    const copied = new Set(overlays.map((o) => o.sourceId))
+    withLastEdit({ selectedCountryIds: get().selectedCountryIds.filter((id) => !copied.has(id)) })
     set({ activeOverlayId: overlays[overlays.length - 1].id })
     return overlays.map((o) => o.id)
   },

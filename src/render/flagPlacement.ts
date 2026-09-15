@@ -281,6 +281,29 @@ export function mainLandCluster(geometry: Polygon | MultiPolygon): MultiPolygon 
  */
 const TERRITORY_SHARE = 0.08
 
+/** The detached clusters that earn a flag of their own, largest first — never the dominant one. */
+function territoriesOf(clusters: Landmass[][]): Landmass[][] {
+  if (clusters.length < 2) return []
+  const main = total(clusters[0])
+  if (!(main > 0)) return []
+  return clusters.slice(1).filter((cluster) => total(cluster) / main >= TERRITORY_SHARE)
+}
+
+/**
+ * How flags are framed over any one geometry: its dominant cluster, and the detached clusters that
+ * earn a flag of their own.
+ *
+ * The answer `flagFootprints` and `flagTerritories` give for an entity of a dataset, for a geometry
+ * that is not one — an overlay's copy of an entity, or a merged group — by the same rule, so a flag
+ * filling an overlay of France is framed over mainland France and French Guiana carries its own,
+ * exactly as on the map.
+ */
+export function flagFraming(geometry: Polygon | MultiPolygon): { main: MultiPolygon; territories: MultiPolygon[] } {
+  const clusters = clustersOf({ type: 'Feature', properties: {}, geometry })
+  if (clusters.length === 0) return { main: mainLandCluster(geometry), territories: [] }
+  return { main: asGeometry(clusters[0]), territories: territoriesOf(clusters).map(asGeometry) }
+}
+
 /**
  * Clusters per dataset, computed once and read by both consumers.
  *
@@ -318,12 +341,7 @@ export function flagTerritories(dataset: LoadedDataset): Map<string, MultiPolygo
 
   const territories = new Map<string, MultiPolygon[]>()
   for (const [id, clusters] of clustersFor(dataset)) {
-    if (clusters.length < 2) continue
-    const main = total(clusters[0])
-    if (!(main > 0)) continue
-    const qualifying = clusters
-      .slice(1)
-      .filter((cluster) => total(cluster) / main >= TERRITORY_SHARE)
+    const qualifying = territoriesOf(clusters)
     if (qualifying.length) territories.set(id, qualifying.map(asGeometry))
   }
   territoryCache.set(key, territories)

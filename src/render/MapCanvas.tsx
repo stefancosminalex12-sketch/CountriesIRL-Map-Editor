@@ -59,7 +59,8 @@ import {
 } from './labelPlacement'
 import { MapLabels } from './MapLabels'
 import { CountryCoast, CountryPath, MAP_SCALE_VAR, screenStrokeWidth } from './CountryPath'
-import { flagCodeFor, hasFlag, useFlagStore } from '../flags/flagStore'
+import { flagCodeFor, useFlagStore } from '../flags/flagStore'
+import { entityFlagCode } from '../flags/flagChoices'
 import { resolveScreen } from './screenFrame'
 import { mergeCountries } from '../geo/merge'
 import { bordersWithout, coastByEntity } from '../geo/datasets'
@@ -1360,24 +1361,8 @@ export function MapCanvas() {
    * untouched and comes back the moment domination is switched off.
    */
   const flagCodeOf = useCallback(
-    (id: string): string | undefined => {
-      if (!geo) return undefined
-      const borrowed = doc.flags.overrides[id]
-      const source = borrowed ?? id
-      const viaEntity = flagCodeFor(source, geo.meta[source]?.iso2)
-      if (viaEntity) return viaEntity
-      /*
-       * An assignment naming artwork directly, rather than another entity.
-       *
-       * On the world map an override is always a country id and resolves above, exactly
-       * as it always did. But a state has no flag of its own and no other state has one
-       * to lend it, so on an atlas like that the assignment names the artwork itself —
-       * `de`, `x-rome` — and this is where that is honoured. Checked against the flag
-       * library rather than assumed, so an id that means nothing stays meaning nothing.
-       */
-      const code = source.toLowerCase()
-      return hasFlag(code) ? code : undefined
-    },
+    // The rule — an assignment naming another entity or artwork, else the entity's own — is `entityFlagCode`, which the panels share.
+    (id: string): string | undefined => (geo ? entityFlagCode(id, doc.flags.overrides, geo.meta) : undefined),
     [geo, doc.flags.overrides],
   )
 
@@ -1770,6 +1755,24 @@ export function MapCanvas() {
     if (dominationCode) requestFlags([dominationCode])
     else if (visibleFlagTiles.length) requestFlags(visibleFlagTiles.map((tile) => tile.iso2))
   }, [dominationCode, visibleFlagTiles, requestFlags])
+
+  /*
+   * Artwork for overlays filled with a flag. They need it whether or not the map is in Flags mode,
+   * so it is asked for here, for the code each overlay chose, from the same store every flag comes
+   * from — and handed to the overlay layer only once it has arrived.
+   */
+  const overlayFlagCodes = useMemo(
+    () => [...new Set(overlays.filter((o) => o.texture === 'flag' && o.flag).map((o) => o.flag as string))],
+    [overlays],
+  )
+  useEffect(() => {
+    if (overlayFlagCodes.length) requestFlags(overlayFlagCodes)
+  }, [overlayFlagCodes, requestFlags])
+  const overlayFlags = useMemo(() => {
+    const out = new Map<string, string>()
+    for (const o of overlays) if (o.texture === 'flag' && o.flag && loadedFlags[o.flag]) out.set(o.id, loadedFlags[o.flag])
+    return out
+  }, [overlays, loadedFlags])
 
   /**
    * Artwork for the water, which the land layer's budget does not cover.
@@ -2727,6 +2730,7 @@ export function MapCanvas() {
               zoomedRef={zoomedRef}
               onSelect={chooseOverlay}
               onMove={moveOverlay}
+              flags={overlayFlags}
             />
           )}
         </g>

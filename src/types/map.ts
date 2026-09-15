@@ -682,8 +682,11 @@ export interface MapCaption {
  */
 export type OverlayMode = 'shape' | 'projection'
 
-/** What an overlay is filled with, over its tint. */
-export type OverlayTexture = 'hatch' | 'dots' | 'none'
+/**
+ * What an overlay is filled with: a texture over its tint, the tint alone, or a flag — which
+ * replaces the tint, framed over the overlay's own outline and clipped to it.
+ */
+export type OverlayTexture = 'hatch' | 'dots' | 'none' | 'flag'
 
 /**
  * A movable copy of an entity's shape, for comparing one place with another.
@@ -711,6 +714,14 @@ export interface MapOverlay {
   /** 0–1, of the whole overlay: tint, texture and outline together. */
   opacity: number
   texture: OverlayTexture
+  /**
+   * The artwork code (`fr`, `x-rome`) a `flag` texture shows, or `null` until one is chosen.
+   *
+   * Taken from the flag the entity flies when the texture is chosen — its assigned flag, a merged
+   * group's own, or its default — and the overlay's own from then on: changing the entity's flag
+   * afterwards leaves the overlay's alone. Absent on overlays made before flags were a texture.
+   */
+  flag?: string | null
   /**
    * Its size, as a multiple of the entity's own — within {@link OVERLAY_SCALE_RANGE}, 1 for as
    * the map draws it. Scaled about its centre, so resizing never moves it.
