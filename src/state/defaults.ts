@@ -199,6 +199,8 @@ export function createMapDocument(
     merges: [],
     // No overlays: the map shows the map until an author puts something over it.
     overlays: [],
+    // No sea is painted. The regions themselves are geography and are not stored here.
+    waters: {},
     /*
      * Off by default: a map says what its author asked it to say, and 250 names is a
      * decision rather than a starting point. The appearance beneath the switch is
@@ -289,6 +291,12 @@ export function createMapDocument(
        * thicken into a ribbon as the map comes closer.
        */
       riverWidth: 0.7,
+      /*
+       * Off. Water Regions adds sixteen selectable entities to the map and a megabyte of
+       * geometry to fetch, and a map of countries is about the countries: it is there for the
+       * asking, one click in Display, and until then the sea is the background it always was.
+       */
+      showWaterRegions: false,
       graticule: '#1e242c',
       showSphere: true,
     },

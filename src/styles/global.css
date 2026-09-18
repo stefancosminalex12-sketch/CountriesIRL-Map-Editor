@@ -269,10 +269,26 @@ body {
   flex: none;
   width: 56px;
   padding: 6px;
-  /* Nine sections fit a normal window; a short one scrolls rather than clipping. */
+  /* Ten sections fit a normal window; a short one scrolls rather than clipping. */
   overflow-y: auto;
   scrollbar-width: none;
-  background: var(--panel);
+  /*
+   * A shadow at whichever end has more sections past it, and none when nothing does.
+   *
+   * The scrollbar is hidden, so on a landscape phone — where ten 44px touch targets do not fit
+   * in 290px — there was nothing to say Settings and AI were below the edge. The two `local`
+   * layers scroll with the content and cover the two `scroll` shadows exactly when the rail is
+   * at that end, so the cue appears only when there is somewhere to scroll to. Pure CSS: no
+   * listener, no measurement, and nothing at all on a window tall enough for the whole rail.
+   */
+  background:
+    linear-gradient(var(--panel) 40%, transparent) center top / 100% 28px no-repeat local,
+    linear-gradient(transparent, var(--panel) 60%) center bottom / 100% 28px no-repeat local,
+    radial-gradient(farthest-side at 50% 0, color-mix(in srgb, var(--text) 26%, transparent), transparent)
+      center top / 100% 10px no-repeat scroll,
+    radial-gradient(farthest-side at 50% 100%, color-mix(in srgb, var(--text) 26%, transparent), transparent)
+      center bottom / 100% 10px no-repeat scroll;
+  background-color: var(--panel);
   border-right: 1px solid var(--line);
 }
 

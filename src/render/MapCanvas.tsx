@@ -30,6 +30,9 @@ import {
 import { MapLegend, LEGEND_MARKER } from './MapLegend'
 import type { GeometryCollection, MultiLineString, MultiPolygon, Position } from 'geojson'
 import { buildMaritimeShapes, MapMaritime, selectIslandZones } from './MapMaritime'
+import { MapWaters, WATER_MARKER, type WaterShape } from './MapWaters'
+import { setLiveProjection } from './liveProjection'
+import { isWaterId, waterName } from '../geo/waters'
 import { dissolveTouching } from '../geo/dissolve'
 import {
   buildFlagTiles,
@@ -105,6 +108,13 @@ const WARM_MAX_FEATURES = 10000
 
 /** Outlines drawn at another size than their own, for the selection tools: none. */
 const NO_FRAMES: ReadonlyMap<string, OutlineFrame> = new Map()
+/** No water regions, as one stable array: the layer is off, or its geometry has not arrived. */
+const NO_WATER: WaterShape[] = []
+/**
+ * How the selection tools see the seas: every one of them drawn, none framed, none clipped.
+ * A sea cannot be hidden, cannot be outside the region scope, and is never put in an inset.
+ */
+const ALL_WATER_DRAWN = { frames: NO_FRAMES, clips: new Map<string, OutlineClip>(), drawn: () => true }
 const NO_OVERLAYS: MapOverlay[] = []
 
 
@@ -316,6 +326,12 @@ export function MapCanvas() {
   const setTransform = useMapStore((s) => s.setTransform)
   const ensureRivers = useMapStore((s) => s.ensureRivers)
   const ensureMaritime = useMapStore((s) => s.ensureMaritime)
+  /* The named oceans and seas: their geometry, what is selected of it, and what is hovered. */
+  const waters = useMapStore((s) => s.waters)
+  const ensureWaters = useMapStore((s) => s.ensureWaters)
+  const selectedWaterIds = useMapStore((s) => s.selectedWaterIds)
+  const hoveredWaterId = useMapStore((s) => s.hoveredWaterId)
+  const setHoveredWater = useMapStore((s) => s.setHoveredWater)
   const selectionTools = useMapStore((s) => s.selectionTools)
   const magnifierOn = useMapStore((s) => s.magnifier)
   const addToSelection = useMapStore((s) => s.addToSelection)
@@ -485,6 +501,13 @@ export function MapCanvas() {
   const insets = land?.insets ?? NO_INSETS
 
   useEffect(() => {
+    /*
+     * Published for the few things outside the canvas that need the live projection — Canvas →
+     * Fit to region measures the region through it. In every build, unlike the window global
+     * below, which is a development aid: reading *that* is why Fit to region did nothing in a
+     * production build.
+     */
+    setLiveProjection(projection)
     // Lets `__mapEditor.project(lon, lat)` report true screen positions in dev.
     if (import.meta.env.DEV && projection) {
       ;(window as unknown as Record<string, unknown>).__mapProjection = projection
@@ -912,6 +935,55 @@ export function MapCanvas() {
   }, [prepareRivers, projection, rivers])
 
   /**
+   * The named oceans and seas, one projected path each.
+   *
+   * One path per region rather than one for the layer, unlike the lakes and the rivers: these
+   * are entities, so each has to be addressable — selected, painted, hit-tested. Sixteen paths
+   * and about 58,000 vertices in all, which is a fraction of any country layer.
+   *
+   * Off by default and latched like every other optional layer, so a map that never switches
+   * Water Regions on fetches nothing and projects nothing; switched on once, the toggle after
+   * that costs a render and no geometry.
+   *
+   * Memoised on the projection alone, so panning, zooming, hovering, selecting and painting a
+   * sea all reproject nothing — the camera moves the group these sit in, exactly as with the
+   * land. Insets are deliberately not consulted: an inset frames the land of Alaska or Hawaii,
+   * and the sea inside one stays the map's background water.
+   */
+  const waterOn = style.showWaterRegions
+  const prepareWaters = useLayerLatch(waterOn)
+  useEffect(() => {
+    if (prepareWaters) ensureWaters()
+  }, [prepareWaters, ensureWaters])
+
+  const waterShapes = useGatedMemo(layersReady, NO_WATER, () => {
+    if (!prepareWaters || !projection || !waters) return NO_WATER
+    const path = geoPath(projection)
+    const shapes: WaterShape[] = []
+    for (const feature of waters.features) {
+      const d = path(feature)
+      if (d) shapes.push({ id: feature.properties.id, name: feature.properties.name, d })
+    }
+    return shapes
+  }, [prepareWaters, projection, waters])
+
+  /** The seas selected, as a set — what {@link MapWaters} paints in the selection colour. */
+  const selectedWaters = useMemo(() => new Set(selectedWaterIds), [selectedWaterIds])
+
+  /**
+   * Which water region is under a point, from the element the pointer is actually on.
+   *
+   * By the element rather than by geometry, which is what keeps land's claim absolute: the
+   * water is drawn before every country, so anything with land on it — a coast, an island, a
+   * microstate's assist catchment — answers first and this is never asked.
+   */
+  const waterAt = useCallback(
+    (target: EventTarget | null): string | null =>
+      waterOn ? ((target as Element | null)?.closest?.(`[${WATER_MARKER}]`)?.getAttribute(WATER_MARKER) ?? null) : null,
+    [waterOn],
+  )
+
+  /**
    * Whether anything on this map actually draws the boundary mesh.
    *
    * Two callers, and both are off in the default document: the borders-without-
@@ -1231,8 +1303,8 @@ export function MapCanvas() {
   }, [insets, shapes, mergedShapes])
 
   /* Read by the gestures when they run, so they always test the outlines on screen. */
-  const selectable = useRef({ shapes, mergedShapes, drawnIds, frames: NO_FRAMES, clips: clipsById })
-  selectable.current = { shapes, mergedShapes, drawnIds, frames: NO_FRAMES, clips: clipsById }
+  const selectable = useRef({ shapes, mergedShapes, drawnIds, frames: NO_FRAMES, clips: clipsById, waters: waterShapes })
+  selectable.current = { shapes, mergedShapes, drawnIds, frames: NO_FRAMES, clips: clipsById, waters: waterShapes }
 
   /* A trackpad pinch zooms the map and never the page — see `usePinchZoom`. */
   usePinchZoom(svgRef)
@@ -1240,12 +1312,22 @@ export function MapCanvas() {
   useSelectionGestures(svgRef, zoomedRef, selectionOverlayRef, {
     rectangle: rectangleOn,
     brush: brushOn,
+    /*
+     * The tools test the outlines the map draws, and with the layer on the seas are among
+     * them — so a rectangle over the Baltic takes the Baltic, and a brush stroke across it
+     * paints it in. They are tested through the same geometry as the land and handed back in
+     * the same list; the store is what keeps the two selections apart (see `addToSelection`).
+     *
+     * `ALL_WATER_DRAWN` because every region is drawn whenever the layer is on: a sea is
+     * never hidden, never outside the scope, and never framed by an inset.
+     */
     inRect: (x0, y0, x1, y1) => {
       const view = selectable.current
       const drawn = { frames: view.frames, clips: view.clips, drawn: (id: string) => view.drawnIds.has(id) }
       return [
         ...outlinesInRect(outlinesOf(view.shapes), x0, y0, x1, y1, drawn),
         ...outlinesInRect(outlinesOf(view.mergedShapes), x0, y0, x1, y1, drawn),
+        ...outlinesInRect(outlinesOf(view.waters), x0, y0, x1, y1, ALL_WATER_DRAWN),
       ]
     },
     alongSegment: (ax, ay, bx, by, radius) => {
@@ -1254,6 +1336,7 @@ export function MapCanvas() {
       return [
         ...outlinesAlongSegment(outlinesOf(view.shapes), ax, ay, bx, by, radius, drawn),
         ...outlinesAlongSegment(outlinesOf(view.mergedShapes), ax, ay, bx, by, radius, drawn),
+        ...outlinesAlongSegment(outlinesOf(view.waters), ax, ay, bx, by, radius, ALL_WATER_DRAWN),
       ]
     },
     pickAt: pickEntityAt,
@@ -1262,6 +1345,8 @@ export function MapCanvas() {
     // In Merge the tools only ever fill the group being edited, so nothing counts as selected.
     isSelected: (id) => {
       const state = useMapStore.getState()
+      // A sea is selected by the water selection, and Merge has nothing to do with it.
+      if (isWaterId(id)) return state.selectedWaterIds.includes(id)
       return !state.mergeMode && state.selectedCountryIds.includes(id)
     },
     finished: (added) => {
@@ -1283,13 +1368,15 @@ export function MapCanvas() {
     const handle = window.setTimeout(() => {
       void prepareOutlines(shapes, () => cancelled).then(() => {
         if (!cancelled) void prepareOutlines(mergedShapes, () => cancelled)
+        // The seas too, when they are on the map: sixteen outlines, read with the rest.
+        if (!cancelled) void prepareOutlines(waterShapes, () => cancelled)
       })
     }, 300)
     return () => {
       cancelled = true
       window.clearTimeout(handle)
     }
-  }, [rectangleOn, brushOn, shapes, mergedShapes])
+  }, [rectangleOn, brushOn, shapes, mergedShapes, waterShapes])
 
   const landTints = useSettingsStore((s) => getTheme(s.themeId).landTints)
   /** The theme's *own* land tone, which the tints above are spaced around. */
@@ -2005,7 +2092,10 @@ export function MapCanvas() {
       ]
         .filter(Boolean)
         .join(', ') || null
-    : null
+    : // A sea under the pointer is named the same way a country is, in the same place.
+      hoveredWaterId
+      ? waterName(hoveredWaterId)
+      : null
 
   /**
    * How a country is painted: its fill, and its outline.
@@ -2274,7 +2364,10 @@ export function MapCanvas() {
         data-screen-y={screen.y}
         data-screen-width={screen.width}
         data-screen-height={screen.height}
-        onMouseLeave={() => setHovered(null)}
+        onMouseLeave={() => {
+          setHovered(null)
+          setHoveredWater(null)
+        }}
         /*
          * Not while the map is being dragged — see `gesturingRef`. The pointer is
          * carrying the map rather than pointing at anything on it, so resolving a
@@ -2283,7 +2376,10 @@ export function MapCanvas() {
         onMouseMove={(event) => {
           if (gesturingRef.current || selectingRef.current) return
           if ((event.target as Element | null)?.closest?.(`[${OVERLAY_MARKER}]`)) return
-          setHovered(pickCountryAt(event))
+          const id = pickCountryAt(event)
+          setHovered(id)
+          // The sea only where no land claims the point, so land's precedence is absolute.
+          if (waterOn || hoveredWaterId) setHoveredWater(id ? null : waterAt(event.target))
         }}
         onClick={(event) => {
           // Dragging the legend is not a statement about the selection, so a click
@@ -2308,7 +2404,18 @@ export function MapCanvas() {
            * and it says so.
            */
           const id = pickCountryAt(event)
-          if (!id) return
+          if (!id) {
+            /*
+             * No land here. With Water Regions on, the sea is an entity too, so the click goes
+             * to whichever region is under the pointer — and in Merge it goes nowhere, because
+             * a merged body is a body of countries and a sea can never be in one.
+             */
+            const water = waterAt(event.target)
+            if (!water || mergeMode) return
+            selectCountry(water)
+            playSfx('tick')
+            return
+          }
           // In Merge a tap builds groups: inside the group being edited it takes out the member under it.
           if (mergeMode) tapInMerge(id, id === activeMergeId ? memberAt(event.clientX, event.clientY, id) : null)
           else selectCountry(id)
@@ -2422,6 +2529,21 @@ export function MapCanvas() {
             inland border needs shared-edge topology, and these are independent closed
             polygons — the only way to fake the distinction would be to invent it.
           */}
+          {/*
+            The named oceans and seas, beneath everything — including the graticule, so the grid
+            still reads over a coloured sea. Rendered only while the layer is on: switched off
+            there is no element, no hit target and no change to the scene at all.
+          */}
+          {waterOn && waterShapes.length > 0 && (
+            <MapWaters
+              shapes={waterShapes}
+              paint={doc.waters ?? {}}
+              selected={selectedWaters}
+              hoveredId={hoveredWaterId}
+              selectedColor={style.selected}
+              hoverColor={style.hover}
+            />
+          )}
           {style.showSphere && backdrop.sphere && (
             <path
               d={backdrop.sphere}
@@ -2791,10 +2913,15 @@ export function MapCanvas() {
 
       {hoveredName && (
         <div className="map-canvas__hover-label">
-          {/* A subdivision's ISO 3166-2 code where it has one — DE-BY rather than DEU-1591. */}
-          <span className="map-canvas__hover-code">
-            {(hoveredCountryId && geo?.meta[hoveredCountryId]?.source?.iso31662) || hoveredCountryId}
-          </span>
+          {/*
+            A subdivision's ISO 3166-2 code where it has one — DE-BY rather than DEU-1591.
+            A water region has no code of that kind, so it is named and nothing more.
+          */}
+          {hoveredCountryId && (
+            <span className="map-canvas__hover-code">
+              {geo?.meta[hoveredCountryId]?.source?.iso31662 || hoveredCountryId}
+            </span>
+          )}
           {hoveredName}
         </div>
       )}

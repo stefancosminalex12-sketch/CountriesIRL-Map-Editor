@@ -221,6 +221,34 @@ export interface LoadedDataset {
  * it goes — whatever the members' countries — while the merge's borders with everything
  * around it stay.
  */
+/**
+ * A supplement's polygons scaled about their own centre, or unchanged for a factor of 1.
+ *
+ * Scaled in longitude and latitude about the shape's mean vertex, which is exact enough at the
+ * one scale this is for — a kilometre-wide state, where a degree of longitude is the same length
+ * across the whole shape — and keeps every vertex in place relative to the others: the outline
+ * is the real outline, larger, and still centred where the state is.
+ */
+function enlarged(polygons: Position[][][], factor: number | undefined): Position[][][] {
+  if (!factor || factor === 1) return polygons
+  let sumX = 0
+  let sumY = 0
+  let n = 0
+  for (const polygon of polygons) {
+    for (const [x, y] of polygon[0] ?? []) {
+      sumX += x
+      sumY += y
+      n++
+    }
+  }
+  if (n === 0) return polygons
+  const cx = sumX / n
+  const cy = sumY / n
+  return polygons.map((polygon) =>
+    polygon.map((ring) => ring.map(([x, y]) => [cx + (x - cx) * factor, cy + (y - cy) * factor])),
+  )
+}
+
 export function bordersWithout(
   loaded: LoadedDataset,
   hidden: ReadonlySet<EntityId>,
@@ -714,7 +742,7 @@ export function loadGeoDataset(id: string): Promise<LoadedDataset> {
       if (supplement.mode === 'fallback' && hasGeometry && !shard) continue
 
       const polygons: MultiPolygon['coordinates'] = []
-      for (const polygon of supplement.polygons) {
+      for (const polygon of enlarged(supplement.polygons, supplement.enlarge)) {
         const repaired = repairPolygon(polygon)
         if (repaired) polygons.push(repaired)
       }

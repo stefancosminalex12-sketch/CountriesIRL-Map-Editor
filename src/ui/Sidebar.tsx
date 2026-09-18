@@ -15,7 +15,16 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { RegionSelector } from './RegionSelector'
 import { MapPicker } from './MapPicker'
-import { MapColorSwatches, MapDisplayToggles, MapScopeSection } from './MapSettings'
+import {
+  GeographicFeatureToggles,
+  HideTerritories,
+  LabelsAndHelpers,
+  LegendVisibilityToggle,
+  MapColorSwatches,
+  MapDetailSettings,
+  OutsideRegionAppearance,
+} from './MapSettings'
+import { HistoryButtons } from './HistoryControls'
 import { DataSources, SelectionHighlight, SoundSettings, ThemePicker } from './SettingsPanel'
 import { DataPalette } from './DataPalette'
 import { LegendControls, LegendSizeControls } from './LegendControls'
@@ -42,7 +51,7 @@ const ICONS: Record<string, ReactNode> = {
     </>
   ),
   // Stacked sheets: the data behind the drawing, and how it is projected.
-  map: (
+  maps: (
     <>
       <path d="M3 6.4 10 3.2l7 3.2-7 3.2z" />
       <path d="M3 10.4 10 13.6l7-3.2" />
@@ -50,17 +59,31 @@ const ICONS: Record<string, ReactNode> = {
     </>
   ),
   // A dashed marquee and the pointer drawing it: taking many things at once.
-  selection: (
+  select: (
     <>
       <rect x="2.8" y="3.4" width="11" height="9" rx="1" strokeDasharray="2.2 1.8" />
       <path d="M11.2 10.4l5 1.9-2.2.8-.8 2.2z" />
     </>
   ),
   // A crop frame: the part of the canvas that is the picture.
-  screen: (
+  canvas: (
     <>
       <rect x="3.2" y="5.4" width="13.6" height="9.2" rx="1.2" />
       <path d="M6.4 2.6v14.8M13.6 2.6v14.8" opacity="0.55" />
+    </>
+  ),
+  // A pencil over a line: changing the map's entities themselves.
+  edit: (
+    <>
+      <path d="M12.6 3.6l3.8 3.8-8.6 8.6H4v-3.8z" />
+      <path d="M10.8 5.4l3.8 3.8" />
+    </>
+  ),
+  // An eye: what the map shows.
+  display: (
+    <>
+      <path d="M2.4 10c2-3.6 4.6-5.4 7.6-5.4s5.6 1.8 7.6 5.4c-2 3.6-4.6 5.4-7.6 5.4S4.4 13.6 2.4 10z" />
+      <circle cx="10" cy="10" r="2.4" />
     </>
   ),
   // A bar chart: the values the map is coloured by.
@@ -110,32 +133,77 @@ interface SidebarSection {
 }
 
 /*
- * Order is an authoring decision rather than a derived one, so it is simply the order
- * of this array: look, then subject, then content, then the preferences.
+ * The sections, top to bottom, in the order the work goes: which map, what is selected, what is
+ * done to it, how the map is drawn, what colours it, what is laid over it, how it is explained,
+ * how it is framed — and then the editor's own preferences, and the assistant still to come.
  *
- * Everything that used to live in a second panel on the right is here. A single
- * sidebar means one place to look for a control instead of two, and it gives the map
- * back the 276px that panel was holding permanently.
+ * Every control below is the component it always was, with the same hooks and the same
+ * operations, referenced exactly once (the one deliberate exception is Show Legend, which is one
+ * switch shown in Display and in Legend — see `LegendVisibilityToggle`). Nothing was rewritten to
+ * be moved: where a component held controls for two sections, it was split along that seam.
  *
- * The rail is two levels deep rather than one. Ten flat sections asked the reader to
- * hold ten unrelated names in mind to find one control; grouping them puts the question
- * first — is this about the map, about the data, or about the editor? — and each group's
- * parts behind a `Disclosure`. That component was already here for the legend's panel
- * size, and it is the right primitive for this: open/closed is local component state,
- * nothing reaches the document, and a closed subsection is *unmounted*, so folding one
- * away stops it reading the document on every render. Nothing below this array changed —
- * every control is the same component with the same props, moved.
+ * Each section's parts sit behind a `Disclosure`: open/closed is local component state, nothing
+ * reaches the document, and a closed subsection is *unmounted*, so folding one away stops it
+ * reading the document on every render. The part a section is usually opened for is open when
+ * the section is.
  */
 const SECTIONS: SidebarSection[] = [
   {
-    id: 'settings',
-    name: 'Settings',
+    id: 'maps',
+    name: 'Maps',
     body: (
       <div className="stack">
-        {/* Open by default, so the section still shows something when it is chosen. */}
-        <Disclosure title="Style" defaultOpen>
+        {/*
+          The map first: which geography this is a map of is the question asked before every
+          other one, since the answer decides what the rest of them mean.
+        */}
+        <Disclosure title="Map" defaultOpen>
+          <MapPicker />
+        </Disclosure>
+        <Disclosure title="Region">
+          <RegionSelector />
+        </Disclosure>
+        <Disclosure title="Map Detail">
+          <MapDetailSettings />
+        </Disclosure>
+        <Disclosure title="Outside Region Appearance">
+          <OutsideRegionAppearance />
+        </Disclosure>
+      </div>
+    ),
+  },
+  {
+    id: 'select',
+    name: 'Select',
+    body: <SelectionControls />,
+  },
+  {
+    /*
+     * Doing things to the map's entities, as opposed to colouring or drawing them. Merge is the
+     * first tool here; it used to be folded under Data, where it read as part of the colouring
+     * modes. It stays folded: opening it is what makes a tap on the map build a group, so it is
+     * opened on purpose rather than by opening the section to undo something.
+     */
+    id: 'edit',
+    name: 'Edit',
+    body: (
+      <div className="stack">
+        <Disclosure title="Merge Groups">
+          <MergeControls />
+        </Disclosure>
+        <Disclosure title="History" defaultOpen>
+          <HistoryButtons />
+        </Disclosure>
+      </div>
+    ),
+  },
+  {
+    id: 'display',
+    name: 'Display',
+    body: (
+      <div className="stack">
+        <Disclosure title="Appearance">
           <div className="stack">
-            <ThemePicker />
             <div className="sidebar__group">
               <span className="sidebar__group-label">Map colours</span>
               <MapColorSwatches />
@@ -146,77 +214,33 @@ const SECTIONS: SidebarSection[] = [
             </div>
           </div>
         </Disclosure>
-        <Disclosure title="Sound">
-          <SoundSettings />
+        <Disclosure title="Geographic Features" defaultOpen>
+          <GeographicFeatureToggles />
         </Disclosure>
-        <Disclosure title="Data sources">
-          <DataSources />
+        <Disclosure title="Labels & Helpers">
+          <LabelsAndHelpers />
         </Disclosure>
-      </div>
-    ),
-  },
-  {
-    id: 'map',
-    name: 'Map',
-    body: (
-      <div className="stack">
-        {/*
-          Maps first: which geography this is a map of is the question asked before every
-          other one in the section, since the answer decides what the rest of them mean.
-        */}
-        <Disclosure title="Maps">
-          <MapPicker />
+        <Disclosure title="Territories">
+          <HideTerritories />
         </Disclosure>
-        {/*
-          Then Region: what area of that map to frame. Collapsed like the two below it,
-          so choosing Map presents four closed subsections rather than one that has
-          already decided which question the author came to answer.
-        */}
-        <Disclosure title="Region">
-          <RegionSelector />
-        </Disclosure>
-        <MapScopeSection />
-        <Disclosure title="Display">
-          <MapDisplayToggles />
+        <Disclosure title="Legend Visibility">
+          <LegendVisibilityToggle />
         </Disclosure>
       </div>
     ),
   },
   {
-    /*
-     * Right after Map, because it is about working on the map itself: choosing many
-     * territories at once. The same section on every map — the tools test whatever outlines
-     * the map draws, so they need nothing from the atlas.
-     */
-    id: 'selection',
-    name: 'Selection',
-    short: 'Select',
-    body: <SelectionControls />,
-  },
-  { id: 'screen', name: 'Screen', body: <ScreenControls /> },
-  {
+    /* The colouring modes — Off, Data, Compare, Flags — and each mode's own workflow. */
     id: 'data',
-    name: 'Data',
-    short: 'Data',
-    body: (
-      <div className="stack">
-        {/*
-          The mode switch and its workflows stay in the open — they are what the section
-          is for. Merge is a separate act on the same selection, so it folds away beneath
-          them rather than competing with the mode the author is actually in.
-        */}
-        <DataPalette />
-        <Disclosure title="Merge">
-          <MergeControls />
-        </Disclosure>
-      </div>
-    ),
+    name: 'Styles & Data',
+    short: 'Styles',
+    body: <DataPalette />,
   },
   /*
-   * Beside Data because it is also about what the map shows, and its own section because an
-   * overlay is not data: it is a picture of one place laid over another.
+   * Its own section because an overlay is not data: it is a picture of one place laid over
+   * another.
    */
-  { id: 'overlays', name: 'Map Overlays', short: 'Overlay', body: <OverlayControls /> },
+  { id: 'overlays', name: 'Overlays', body: <OverlayControls /> },
   {
     id: 'legend',
     name: 'Legend',
@@ -224,29 +248,61 @@ const SECTIONS: SidebarSection[] = [
       <div className="stack">
         <LegendControls />
         {/*
-          Folded away, because the legend's own corner already resizes it by hand — this
-          is the numeric alternative, and the part of the section most often left alone.
-          Folding it is what keeps the section inside the sidebar without scrolling.
+          The panel's size, and where it sits: the legend is dragged into place on the map and
+          resized by its corner, and these are the numeric form of the same size.
         */}
-        <Disclosure title="Panel size">
-          <LegendSizeControls />
+        <Disclosure title="Position & Size">
+          <div className="stack">
+            <LegendSizeControls />
+            <p className="hint">
+              Drag the legend on the map to move it — it snaps to the canvas's edges and centre —
+              and drag its corner to resize it.
+            </p>
+          </div>
+        </Disclosure>
+      </div>
+    ),
+  },
+  /*
+   * Composition and framing only: the part of the canvas that is the picture. Nothing in it
+   * moves the map, zooms it or changes what is drawn.
+   */
+  { id: 'canvas', name: 'Canvas', body: <ScreenControls /> },
+  {
+    /* The editor's own preferences — nothing here is about the map being made. */
+    id: 'settings',
+    name: 'Settings',
+    body: (
+      <div className="stack">
+        <Disclosure title="Appearance" defaultOpen>
+          <div className="sidebar__group">
+            <span className="sidebar__group-label">Theme</span>
+            <ThemePicker />
+          </div>
+        </Disclosure>
+        {/*
+          Open too, because what is in it is a slider: folded away, setting the volume took a
+          click to open the section and then the drag, and the click is not part of what
+          anyone came to do.
+        */}
+        <Disclosure title="Audio" defaultOpen>
+          <SoundSettings />
+        </Disclosure>
+        <Disclosure title="Data Sources">
+          <DataSources />
         </Disclosure>
       </div>
     ),
   },
   {
     id: 'assistant',
-    name: 'AI assistant',
-    short: 'AI',
-    /* Space held for a feature that is architected but not built; see `ReservedSection`. */
+    name: 'AI',
+    /* Space held for a feature that is architected but not built: one line, not a panel of nothing. */
     body: (
-      <div className="stack">
-        <span className="badge">Later</span>
-        <p className="hint">
-          Natural language will be translated into validated map operations and applied
-          through the same pipeline the inspector uses.
-        </p>
-      </div>
+      <p className="hint">
+        <span className="badge">Coming soon</span> Describe a map in words and the assistant will
+        build it through the same operations the editor uses.
+      </p>
     ),
   },
 ]

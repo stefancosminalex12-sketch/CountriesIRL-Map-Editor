@@ -14,6 +14,7 @@
  */
 import { computeDomain } from './colors'
 import { getPreset } from './presets'
+import { waterName, WATER_REGIONS } from '../geo/waters'
 import type { LegendIconId, MapDocument } from '../types/map'
 
 /* ------------------------------------------------------------------ layout */
@@ -149,8 +150,27 @@ export function buildLegendModel(doc: MapDocument): LegendModel | null {
   return built
 }
 
+/**
+ * The coloured seas, as legend rows — in the order the regions are listed rather than the
+ * order they were painted, so the same map always reads the same way.
+ *
+ * Only those actually coloured, and only while Water Regions is on: a row for a colour that is
+ * nowhere on the map explains nothing. Selection is deliberately not in here — a selected sea
+ * is the editor showing the author what they have in hand, not a statement the picture makes,
+ * exactly as a selected country is absent from every legend.
+ */
+function waterRows(doc: MapDocument): LegendRow[] {
+  if (!doc.style.showWaterRegions) return []
+  const painted = doc.waters ?? {}
+  return WATER_REGIONS.flatMap((region) => {
+    const entry = painted[region.id]
+    return entry?.color ? [{ color: entry.color, label: waterName(region.id) }] : []
+  })
+}
+
 function deriveLegendModel(doc: MapDocument): LegendModel | null {
   if (!doc.legend.visible) return null
+  const waters = waterRows(doc)
 
   /*
    * Flags are not a scale, so there is nothing for a legend to explain — a ramp or a
@@ -159,7 +179,18 @@ function deriveLegendModel(doc: MapDocument): LegendModel | null {
    * The author's title and subtitle are left alone, ready for when the data comes
    * back.
    */
-  if (doc.flags.enabled) return null
+  if (doc.flags.enabled) {
+    return waters.length > 0
+      ? {
+          kind: 'rows',
+          title: doc.legend.showTitle ? doc.legend.title || 'Water' : '',
+          subtitle: doc.legend.subtitle,
+          text: doc.legend.text,
+          icon: doc.legend.icon,
+          rows: waters,
+        }
+      : null
+  }
 
   /*
    * An empty title is not a missing one: it means "describe yourself". The fallback
@@ -204,14 +235,15 @@ function deriveLegendModel(doc: MapDocument): LegendModel | null {
       // layout knows that. A cap here would keep eliding "Central and Eastern Europe"
       // on a legend wide enough to spell it out.
       .map((g) => ({ color: g.color, label: g.name }))
-    if (rows.length === 0) return null
+    const withWater = [...rows, ...waters]
+    if (withWater.length === 0) return null
     return {
       kind: 'rows',
       title,
       subtitle,
       text,
       icon,
-      rows,
+      rows: withWater,
     }
   }
 
@@ -231,14 +263,24 @@ function deriveLegendModel(doc: MapDocument): LegendModel | null {
       subtitle,
       text,
       icon,
-      rows: preset.bands.map((band) => ({
-        color: band.color,
-        label: band.label,
-        detail: describeRange(band.min, band.max, preset.unit),
-      })),
+      rows: [
+        ...preset.bands.map((band) => ({
+          color: band.color,
+          label: band.label,
+          detail: describeRange(band.min, band.max, preset.unit),
+        })),
+        ...waters,
+      ],
     }
   }
 
+  /*
+   * Under a numeric scale the legend is a ramp, and a ramp has no rows to add a sea to: the
+   * model is one shape or the other, and drawing a swatch list under a gradient would be a
+   * second legend inside the first. So a coloured sea is not listed there — it is listed in
+   * every other mode, including with colouring off, which is where a map about the seas
+   * actually sits.
+   */
   if (layer.colorScale.mode === 'numeric') {
     const palette = doc.palettes.find((p) => p.id === doc.activePaletteId)
     // No palette is a broken document rather than an empty one; there is no ramp to draw.
@@ -281,6 +323,21 @@ function deriveLegendModel(doc: MapDocument): LegendModel | null {
       minLabel: formatValue(min),
       maxLabel: formatValue(max),
       ...(diverging ? { midLabel: formatValue((min + max) / 2) } : {}),
+    }
+  }
+
+  /*
+   * Colouring off. Nothing about the land to explain — but if the author has painted seas,
+   * that is what this map says, and the legend says it.
+   */
+  if (waters.length > 0) {
+    return {
+      kind: 'rows',
+      title: doc.legend.showTitle ? doc.legend.title || 'Water' : '',
+      subtitle,
+      text,
+      icon,
+      rows: waters,
     }
   }
 

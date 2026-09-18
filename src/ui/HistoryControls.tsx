@@ -82,6 +82,29 @@ const IS_APPLE =
 const UNDO_HINT = IS_APPLE ? 'Undo (⌘Z)' : 'Undo (Ctrl+Z)'
 const REDO_HINT = IS_APPLE ? 'Redo (⇧⌘Z)' : 'Redo (Ctrl+Y or Ctrl+Shift+Z)'
 
+/**
+ * Undo and Redo as labelled buttons, for Edit → History.
+ *
+ * The same {@link undoMapEdit} and {@link redoMapEdit} the header's arrows and the shortcuts
+ * call, over the same store history — so it is one history reached from three places, not a
+ * second one. The shortcuts are registered once, by `HistoryControls` in the header, which is
+ * always mounted; this is only buttons.
+ */
+export function HistoryButtons() {
+  const canUndo = useMapStore((s) => s.past.length > 0)
+  const canRedo = useMapStore((s) => s.future.length > 0)
+  return (
+    <div className="merge-actions">
+      <button type="button" className="btn" disabled={!canUndo} title={UNDO_HINT} onClick={undoMapEdit}>
+        <HistoryArrow direction="undo" /> Undo
+      </button>
+      <button type="button" className="btn" disabled={!canRedo} title={REDO_HINT} onClick={redoMapEdit}>
+        <HistoryArrow direction="redo" /> Redo
+      </button>
+    </div>
+  )
+}
+
 export function HistoryControls() {
   const canUndo = useMapStore((s) => s.past.length > 0)
   const canRedo = useMapStore((s) => s.future.length > 0)

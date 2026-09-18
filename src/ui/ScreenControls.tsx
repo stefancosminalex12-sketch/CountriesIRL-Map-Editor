@@ -12,7 +12,9 @@ import { playSfx } from '../audio/sfx'
 import { SCREEN_ASPECTS, type ScreenAspectId } from '../types/map'
 import { fitAspect, fitRegionScreen, MIN_SCREEN } from '../render/screenFrame'
 import { computeFraming } from '../geo/framing'
+import { getLiveProjection } from '../render/liveProjection'
 import { MapToggle } from './MapToggle'
+import { Disclosure } from './Panels'
 
 function clamp(value: number, min: number, max: number): number {
   return value < min ? min : value > max ? max : value
@@ -80,9 +82,7 @@ export function ScreenControls() {
    * not touched: this measures where the region already is and puts a rectangle round it.
    */
   const fitToRegion = () => {
-    const projection = (
-      window as unknown as { __mapProjection?: (p: [number, number]) => [number, number] | null }
-    ).__mapProjection
+    const projection = getLiveProjection()
     if (!projection || !geo) return
 
     const framing = computeFraming(regionIds, geo)
@@ -134,7 +134,7 @@ export function ScreenControls() {
       <div className="toggles">
         <MapToggle
           icon="legend"
-          label="Screen"
+          label="Canvas Frame"
           checked={screen.enabled}
           onChange={(enabled) =>
             dispatch({
@@ -153,12 +153,14 @@ export function ScreenControls() {
         <p className="hint">Off: the whole map is the picture, and exports are uncropped.</p>
       )}
 
+      <Disclosure title="Aspect Ratio" defaultOpen>
+      <div className="stack">
       <div className="field">
         <span className="field__row">
           <span className="field__label">Aspect</span>
           <span className="field__value">{composed ? (screen.aspect ?? 'Custom') : 'Full'}</span>
         </span>
-        <div className="aspect-grid" role="group" aria-label="Screen aspect ratio">
+        <div className="aspect-grid" role="group" aria-label="Canvas aspect ratio">
           {SCREEN_ASPECTS.map((preset) => {
             /*
              * Selected means *there is a frame* in this ratio, not merely that this ratio
@@ -212,11 +214,11 @@ export function ScreenControls() {
       >
         Freeform
       </button>
+      </div>
+      </Disclosure>
 
-      <button type="button" className="btn" onClick={fitToRegion}>
-        Fit to region
-      </button>
-
+      <Disclosure title="Dimensions">
+      <div className="stack">
       <div className="field">
         <span className="field__row">
           <span className="field__label">Width</span>
@@ -227,7 +229,7 @@ export function ScreenControls() {
             max={width}
             step={1}
             value={Math.round(rect?.width ?? width)}
-            aria-label="Screen width in pixels"
+            aria-label="Canvas width in pixels"
             onChange={(event) => {
               const next = Number(event.target.value)
               if (Number.isFinite(next)) setSize({ width: next })
@@ -246,7 +248,7 @@ export function ScreenControls() {
             max={height}
             step={1}
             value={Math.round(rect?.height ?? height)}
-            aria-label="Screen height in pixels"
+            aria-label="Canvas height in pixels"
             onChange={(event) => {
               const next = Number(event.target.value)
               if (Number.isFinite(next)) setSize({ height: next })
@@ -255,11 +257,26 @@ export function ScreenControls() {
         </span>
       </div>
 
+      </div>
+      </Disclosure>
+
+      {/*
+        Framing: a frame measured off the region as it is drawn now. It only places a rectangle
+        round what is already on screen — the map's zoom, pan, projection and geometry are never
+        touched by anything in this section.
+      */}
+      <Disclosure title="Framing" defaultOpen>
+      <div className="stack">
+      <button type="button" className="btn" onClick={fitToRegion}>
+        Fit to Region
+      </button>
       <p className="hint">
         {composed
           ? 'Everything inside the frame is exported. Drag inside it to move it, or its edges to resize. Press the selected ratio again to remove it.'
-          : 'Choose a ratio, or fit one to the region on screen.'}
+          : 'Choose a ratio, or fit a frame to the region on screen.'}
       </p>
+      </div>
+      </Disclosure>
 
     </div>
   )

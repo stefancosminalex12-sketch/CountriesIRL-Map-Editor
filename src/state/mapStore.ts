@@ -19,6 +19,7 @@ import { loadGeoDataset, type GeoDataset, type LoadedDataset } from '../geo/data
 import { lakeLayerForDetail, loadLakes, type LoadedLakes } from '../geo/lakes'
 import { riverLayerForDetail, loadRivers, type LoadedRivers } from '../geo/rivers'
 import { loadMaritime, type LoadedMaritime } from '../geo/maritime'
+import { isWaterId, loadWaters, partitionByWater, type LoadedWaters } from '../geo/waters'
 import { countriesInRegions, resolveFraming } from '../geo/regions'
 import { getAtlas } from '../maps/atlas'
 import type { CountryId, MapDocument, RegionId } from '../types/map'
@@ -59,6 +60,20 @@ interface HistoryEntry extends HistoryState {
  */
 export interface SelectionState {
   selectedCountryIds: CountryId[]
+  /**
+   * The water regions selected — named oceans and seas — kept apart from the land above it.
+   *
+   * Two lists rather than one, because they are two kinds of thing: everything that reads the
+   * selection reads it to do something to countries (give them a value, group them, merge
+   * them, copy them as an overlay), and a sea can be none of those. Keeping them separate is
+   * what makes "a water region can never enter a country's selection" true by construction
+   * rather than by a filter at each of those call sites — and it is why selecting a sea leaves
+   * the land selection exactly as it was, and the other way round.
+   *
+   * Restored together with the land selection and the document, so undo takes back a sea the
+   * same way it takes back a country.
+   */
+  selectedWaterIds: string[]
 }
 
 /** One restorable moment: the document and the selection as they stood together. */
@@ -99,6 +114,8 @@ interface ParkedMap {
   past: HistoryEntry[]
   future: HistoryState[]
   selectedCountryIds: CountryId[]
+  /** The seas selected on that map. Water is global geography, the selection of it is not. */
+  selectedWaterIds: string[]
 }
 
 /**
@@ -128,13 +145,13 @@ const HISTORY_LIMIT = 100
 export const GESTURE_HISTORY_PREFIX = 'gesture:'
 
 function selectionOf(state: SelectionState): SelectionState {
-  return { selectedCountryIds: state.selectedCountryIds }
+  return { selectedCountryIds: state.selectedCountryIds, selectedWaterIds: state.selectedWaterIds }
 }
 
 function sameSelection(a: SelectionState, b: SelectionState): boolean {
-  const x = a.selectedCountryIds
-  const y = b.selectedCountryIds
-  return x === y || (x.length === y.length && x.every((id, i) => id === y[i]))
+  const same = (x: readonly string[], y: readonly string[]) =>
+    x === y || (x.length === y.length && x.every((id, i) => id === y[i]))
+  return same(a.selectedCountryIds, b.selectedCountryIds) && same(a.selectedWaterIds, b.selectedWaterIds)
 }
 
 /**
@@ -206,8 +223,12 @@ function withCurrentView(restored: MapDocument, current: MapDocument): MapDocume
 }
 
 /** The store fields a restored selection sets. */
-function restoredSelection(selection: SelectionState): Pick<MapStore, 'selectedCountryIds'> {
-  return { selectedCountryIds: selection.selectedCountryIds }
+function restoredSelection(selection: SelectionState): Pick<MapStore, 'selectedCountryIds' | 'selectedWaterIds'> {
+  return {
+    selectedCountryIds: selection.selectedCountryIds,
+    // Absent from a step recorded before water regions existed, which selected none.
+    selectedWaterIds: selection.selectedWaterIds ?? [],
+  }
 }
 
 interface MapStore {
@@ -225,6 +246,11 @@ interface MapStore {
   /** Maritime territory, loaded the same way. Independent of the country dataset. */
   maritime: LoadedMaritime | null
   /**
+   * The named oceans and seas, loaded the same way and just as independent of the country
+   * dataset — one file serves every map. Null until Water Regions is switched on.
+   */
+  waters: LoadedWaters | null
+  /**
    * Whether the layers that are off by default have ever been asked for.
    *
    * Rivers are 2.3MB and maritime territory 1.3MB, and the default document draws
@@ -239,6 +265,7 @@ interface MapStore {
    */
   riversWanted: boolean
   maritimeWanted: boolean
+  watersWanted: boolean
 
   /* view */
   transform: Transform
@@ -248,6 +275,10 @@ interface MapStore {
   /* interaction */
   hoveredCountryId: CountryId | null
   selectedCountryIds: CountryId[]
+  /** The water region under the pointer, or `null`. Separate from the land above it. */
+  hoveredWaterId: string | null
+  /** See {@link SelectionState.selectedWaterIds}. */
+  selectedWaterIds: string[]
   /** See {@link SelectionTools}. */
   selectionTools: SelectionTools
   /**
@@ -343,8 +374,10 @@ interface MapStore {
    */
   ensureRivers: () => void
   ensureMaritime: () => void
+  ensureWaters: () => void
 
   setHovered: (id: CountryId | null) => void
+  setHoveredWater: (id: string | null) => void
   selectCountry: (id: CountryId | null, additive?: boolean) => void
   clearSelection: () => void
   /**
@@ -420,6 +453,14 @@ function loadMaritimeOnce(set: SetState, get: GetState) {
     .catch((error) => console.warn('[geo] maritime territory unavailable', error))
 }
 
+/** The water regions, likewise: one file for every map, fetched the first time they are on. */
+function loadWatersOnce(set: SetState, get: GetState) {
+  if (get().waters) return
+  void loadWaters()
+    .then((waters) => set({ waters }))
+    .catch((error) => console.warn('[geo] water regions unavailable', error))
+}
+
 export const useMapStore = create<MapStore>((set, get) => {
   /**
    * Applies a change to the selection or the merge groups as one undo step — or as part of
@@ -456,14 +497,18 @@ export const useMapStore = create<MapStore>((set, get) => {
   lakes: null,
   rivers: null,
   maritime: null,
+  waters: null,
   riversWanted: false,
   maritimeWanted: false,
+  watersWanted: false,
 
   transform: IDENTITY_TRANSFORM,
   framingEpoch: 0,
 
   hoveredCountryId: null,
   selectedCountryIds: [],
+  hoveredWaterId: null,
+  selectedWaterIds: [],
   selectionTools: { rectangle: true, brush: false },
   magnifier: false,
 
@@ -524,6 +569,8 @@ export const useMapStore = create<MapStore>((set, get) => {
       // Maritime territory the same way, and only once: it is a single global file
       // that does not vary with the country dataset's resolution.
       if (get().maritimeWanted) loadMaritimeOnce(set, get)
+      // And the water regions, for the same reason: one global file, cached for the session.
+      if (get().watersWanted) loadWatersOnce(set, get)
     } catch (error) {
       set({
         geoStatus: 'error',
@@ -545,6 +592,7 @@ export const useMapStore = create<MapStore>((set, get) => {
         past: state.past,
         future: state.future,
         selectedCountryIds: state.selectedCountryIds,
+        selectedWaterIds: state.selectedWaterIds,
       },
     }
 
@@ -556,6 +604,7 @@ export const useMapStore = create<MapStore>((set, get) => {
           past: [] as HistoryEntry[],
           future: [] as HistoryState[],
           selectedCountryIds: [] as CountryId[],
+          selectedWaterIds: [] as string[],
         }
 
     set({
@@ -563,6 +612,8 @@ export const useMapStore = create<MapStore>((set, get) => {
       past: next.past,
       future: next.future,
       selectedCountryIds: next.selectedCountryIds,
+      // The seas this map had selected. A map parked before water regions existed had none.
+      selectedWaterIds: next.selectedWaterIds ?? [],
       activeMergeId: null,
       parked,
       activeOverlayId: null,
@@ -575,6 +626,7 @@ export const useMapStore = create<MapStore>((set, get) => {
       geoStatus: 'loading',
       geoError: null,
       hoveredCountryId: null,
+      hoveredWaterId: null,
       transform: IDENTITY_TRANSFORM,
       framingEpoch: state.framingEpoch + 1,
     })
@@ -879,8 +931,19 @@ export const useMapStore = create<MapStore>((set, get) => {
     loadMaritimeOnce(set, get)
   },
 
+  ensureWaters() {
+    if (get().watersWanted) return
+    set({ watersWanted: true })
+    loadWatersOnce(set, get)
+  },
+
   setHovered(id) {
     if (get().hoveredCountryId !== id) set({ hoveredCountryId: id })
+  },
+
+  /** The sea under the pointer. Not undoable and not part of the selection, like land hover. */
+  setHoveredWater(id) {
+    if (get().hoveredWaterId !== id) set({ hoveredWaterId: id })
   },
 
   /**
@@ -905,6 +968,28 @@ export const useMapStore = create<MapStore>((set, get) => {
       return
     }
     const state = get()
+
+    /*
+     * A sea goes to the water selection and nowhere near the land one — see
+     * {@link SelectionState.selectedWaterIds}. It toggles exactly as a country does, so
+     * tapping seas one after another builds a selection of them and tapping one again takes it
+     * out. In Merge nothing happens at all: a group is a group of countries, and there is no
+     * sensible thing for a tap on the Pacific to do there.
+     */
+    if (isWaterId(id)) {
+      if (state.mergeMode) return
+      const chosen = state.selectedWaterIds
+      const selectedWaterIds = additive
+        ? chosen.includes(id)
+          ? chosen.filter((w) => w !== id)
+          : [...chosen, id]
+        : chosen.length === 1 && chosen[0] === id
+          ? []
+          : [id]
+      commitSelection({ selectedWaterIds }, null)
+      return
+    }
+
     const current = state.selectedCountryIds
     const selectedCountryIds = additive
       ? current.includes(id)
@@ -922,8 +1007,9 @@ export const useMapStore = create<MapStore>((set, get) => {
     commitSelection({ selectedCountryIds }, null)
   },
 
+  /** Clears both selections: one Clear, whatever is selected. */
   clearSelection() {
-    commitSelection({ selectedCountryIds: [] }, null)
+    commitSelection({ selectedCountryIds: [], selectedWaterIds: [] }, null)
   },
 
   clearSelectionWithLastEdit() {
@@ -932,31 +1018,54 @@ export const useMapStore = create<MapStore>((set, get) => {
 
   addToSelection(ids, historyKey = null) {
     const state = get()
-    // While Merge is open the selection tools fill the group being edited.
+    /*
+     * The rectangle and the brush hand over whatever they touched, land and sea together, and
+     * this is where the two part company. Water goes to the water selection; in Merge it is
+     * dropped, because the tools fill the group being edited there and a group is of countries.
+     */
+    const { land, water } = partitionByWater(ids)
     if (state.mergeMode) {
-      get().addToMerge(ids)
+      if (land.length > 0) get().addToMerge(land)
       return
     }
+
+    const patch: Partial<MapStore> = {}
+
     const current = state.selectedCountryIds
     const have = new Set(current)
     const fresh: CountryId[] = []
-    for (const id of ids) {
+    for (const id of land) {
       if (have.has(id)) continue
       have.add(id)
       fresh.push(id)
     }
-    if (fresh.length === 0) return
+    if (fresh.length > 0) patch.selectedCountryIds = [...current, ...fresh]
 
-    commitSelection({ selectedCountryIds: [...current, ...fresh] }, historyKey)
+    const chosen = state.selectedWaterIds
+    const held = new Set(chosen)
+    const freshWater: string[] = []
+    for (const id of water) {
+      if (held.has(id)) continue
+      held.add(id)
+      freshWater.push(id)
+    }
+    if (freshWater.length > 0) patch.selectedWaterIds = [...chosen, ...freshWater]
+
+    if (fresh.length === 0 && freshWater.length === 0) return
+    commitSelection(patch, historyKey)
   },
 
   removeFromSelection(ids, historyKey = null) {
     const state = get()
     if (state.mergeMode) return
     const drop = new Set(ids)
+    const patch: Partial<MapStore> = {}
     const next = state.selectedCountryIds.filter((id) => !drop.has(id))
-    if (next.length === state.selectedCountryIds.length) return
-    commitSelection({ selectedCountryIds: next }, historyKey)
+    if (next.length !== state.selectedCountryIds.length) patch.selectedCountryIds = next
+    const water = state.selectedWaterIds.filter((id) => !drop.has(id))
+    if (water.length !== state.selectedWaterIds.length) patch.selectedWaterIds = water
+    if (patch.selectedCountryIds === undefined && patch.selectedWaterIds === undefined) return
+    commitSelection(patch, historyKey)
   },
 
   setSelectionTool(tool, on) {

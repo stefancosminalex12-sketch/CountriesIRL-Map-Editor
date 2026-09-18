@@ -213,9 +213,16 @@ export function DataPalette() {
               checked={doc.style.showBorders}
               onChange={(showBorders) => dispatch({ op: 'set_style', patch: { showBorders } })}
             />
+            {/*
+              "High-Contrast Borders", where it used to read "International Borders": what it
+              does is draw the lines between countries as black with a pale edge either side,
+              so they read over any flag. Every border it draws is international, but so is
+              every border the plain switch beside it draws — the name said nothing about what
+              changes when it is turned on. Same `flags.internationalBorders`, same drawing.
+            */}
             <MapToggle
               icon="borders"
-              label="International Borders"
+              label="High-Contrast Borders"
               checked={doc.flags.internationalBorders}
               onChange={(internationalBorders) =>
                 dispatch({ op: 'set_flags', patch: { internationalBorders } })

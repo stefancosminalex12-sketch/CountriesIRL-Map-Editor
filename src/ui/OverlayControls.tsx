@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useMapStore } from '../state/mapStore'
 import { playSfx } from '../audio/sfx'
 import { SelectField } from './Select'
+import { Disclosure } from './Panels'
 import { useNoun } from '../maps/useNoun'
 import { mergeCountries } from '../geo/merge'
 import { landCentre } from '../render/overlayGeometry'
@@ -113,225 +114,250 @@ export function OverlayControls() {
     if (centre) update({ anchor: centre })
   }
 
+  /*
+   * Four subsections, in the order the work goes: make and choose an overlay, then how it looks,
+   * then where it is and how big, then how it is projected. The controls are the ones that were
+   * here, with the same handlers — only grouped. The three about the chosen overlay appear once
+   * one is chosen, as they always did.
+   */
   return (
     <div className="stack">
-      <button
-        type="button"
-        className="btn btn--on"
-        disabled={copyable.length === 0}
-        onClick={() => {
-          createFromSelection()
-          playSfx('confirm')
-        }}
-      >
-        {copyable.length === 1
-          ? `Create overlay of ${nameOf(copyable[0])}`
-          : copyable.length > 1
-            ? `Create ${copyable.length} overlays`
-            : 'Create overlay'}
-      </button>
-      <p className="hint">
-        {overlays.length === 0
-          ? `Select a ${noun.one} on the map, then make an overlay of it and drag it anywhere.`
-          : 'Drag an overlay on the map to move it; tap one to choose it.'}
-      </p>
+      <Disclosure title="Overlay Management" defaultOpen>
+        <div className="stack">
+          <button
+            type="button"
+            className="btn btn--on"
+            disabled={copyable.length === 0}
+            onClick={() => {
+              createFromSelection()
+              playSfx('confirm')
+            }}
+          >
+            {copyable.length === 1
+              ? `Create overlay of ${nameOf(copyable[0])}`
+              : copyable.length > 1
+                ? `Create ${copyable.length} overlays`
+                : 'Create overlay'}
+          </button>
+          <p className="hint">
+            {overlays.length === 0
+              ? `Select a ${noun.one} on the map, then make an overlay of it and drag it anywhere.`
+              : 'Drag an overlay on the map to move it; tap one to choose it.'}
+          </p>
 
-      {overlays.length > 0 && (
-        <ul className="overlay-list" aria-label="Overlays">
-          {overlays.map((overlay) => {
-            const on = overlay.id === activeId
-            return (
-              <li key={overlay.id} className={`overlay-row${on ? ' overlay-row--on' : ''}`}>
+          {overlays.length > 0 && (
+            <ul className="overlay-list" aria-label="Overlays">
+              {overlays.map((overlay) => {
+                const on = overlay.id === activeId
+                return (
+                  <li key={overlay.id} className={`overlay-row${on ? ' overlay-row--on' : ''}`}>
+                    <button
+                      type="button"
+                      className="overlay-row__pick"
+                      aria-pressed={on}
+                      onClick={() => {
+                        setActive(on ? null : overlay.id)
+                        playSfx('click')
+                      }}
+                    >
+                      <span className="overlay-row__swatch" style={{ background: overlay.color }} aria-hidden="true" />
+                      <span className="overlay-row__name">{overlay.name}</span>
+                      <span className="overlay-row__mode">{overlay.mode === 'shape' ? 'Shape' : 'Projection'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="overlay-row__drop"
+                      aria-label={`Delete the overlay of ${overlay.name}`}
+                      title="Delete overlay"
+                      onClick={() => {
+                        deleteOverlay(overlay.id)
+                        playSfx('click')
+                      }}
+                    >
+                      ×
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+
+          {active && (
                 <button
                   type="button"
-                  className="overlay-row__pick"
-                  aria-pressed={on}
+                  className="btn btn--ghost"
                   onClick={() => {
-                    setActive(on ? null : overlay.id)
+                    deleteOverlay(active.id)
                     playSfx('click')
                   }}
                 >
-                  <span className="overlay-row__swatch" style={{ background: overlay.color }} aria-hidden="true" />
-                  <span className="overlay-row__name">{overlay.name}</span>
-                  <span className="overlay-row__mode">{overlay.mode === 'shape' ? 'Shape' : 'Projection'}</span>
+                  Delete overlay
                 </button>
-                <button
-                  type="button"
-                  className="overlay-row__drop"
-                  aria-label={`Delete the overlay of ${overlay.name}`}
-                  title="Delete overlay"
-                  onClick={() => {
-                    deleteOverlay(overlay.id)
-                    playSfx('click')
-                  }}
-                >
-                  ×
-                </button>
-              </li>
-            )
-          })}
-        </ul>
-      )}
+          )}
+        </div>
+      </Disclosure>
 
       {active && (
-        <div className="stack">
-          <div className="mode-switch mode-switch--pair" role="group" aria-label="Overlay mode">
-            {MODES.map(([id, label, help]) => (
+        <>
+          <Disclosure title="Overlay Appearance" defaultOpen>
+            <div className="stack">
+              <div className="swatches">
+                <label className="swatch">
+                  <input type="color" value={active.color} onChange={(event) => update({ color: event.target.value })} />
+                  <span>Colour</span>
+                </label>
+              </div>
+
+              <label className="field">
+                <span className="field__row">
+                  <span className="field__label">Opacity</span>
+                  <span className="field__value">{Math.round(active.opacity * 100)}%</span>
+                </span>
+                <input
+                  className="slider"
+                  type="range"
+                  min={0.1}
+                  max={1}
+                  step={0.05}
+                  value={active.opacity}
+                  aria-label="Opacity"
+                  aria-valuetext={`${Math.round(active.opacity * 100)} percent`}
+                  onChange={(event) => update({ opacity: Number(event.target.value) })}
+                />
+              </label>
+
+              <SelectField
+                label="Texture"
+                value={active.texture}
+                onChange={(value) => {
+                  const texture = value as OverlayTexture
+                  // Flag takes the flag the entity flies now, once; without one, the picker below opens to choose.
+                  if (texture === 'flag' && !active.flag) {
+                    const code = flagOfEntity(active.sourceId)
+                    update({ texture, flag: code })
+                    setAskFlag(!code)
+                  } else {
+                    update({ texture })
+                  }
+                }}
+              >
+                {TEXTURES.map(([id, label]) => (
+                  <option key={id} value={id}>
+                    {label}
+                  </option>
+                ))}
+              </SelectField>
+              {active.texture === 'flag' && (
+                <>
+                  <FlagPicker
+                    label="Overlay flag"
+                    value={active.flag ?? null}
+                    options={flags}
+                    autoOpen={askFlag && !active.flag}
+                    onChange={(flag) => {
+                      update({ flag })
+                      setAskFlag(false)
+                    }}
+                  />
+                  <p className="hint">
+                    {active.flag
+                      ? `Filled with the flag of ${flagName(active.flag, flags)}. It keeps this flag whatever ${nameOf(active.sourceId)} flies later.`
+                      : `${nameOf(active.sourceId)} flies no flag yet — choose one to fill the overlay.`}
+                  </p>
+                </>
+              )}
+            </div>
+          </Disclosure>
+
+          <Disclosure title="Overlay Transform" defaultOpen>
+            <div className="stack">
+              {/*
+                Its size, against the entity's own: scaled about its centre, so it grows and shrinks
+                where it is, and independent of everything else here.
+              */}
+              <label className="field">
+                <span className="field__row">
+                  <span className="field__label">Size</span>
+                  <span className="field__value">{Math.round(scale * 100)}%</span>
+                </span>
+                <input
+                  className="slider"
+                  type="range"
+                  min={SIZE_MIN}
+                  max={SIZE_MAX}
+                  step={0.01}
+                  value={Math.log2(scale)}
+                  aria-label="Size"
+                  aria-valuetext={`${Math.round(scale * 100)} percent of its real size`}
+                  onChange={(event) => update({ scale: scaleAt(Number(event.target.value)) })}
+                />
+              </label>
+
+              <p className="hint">
+                {active.anchor ? `Centred on ${formatLonLat(active.anchor)}.` : `Over ${nameOf(active.sourceId)}, where it started.`}
+              </p>
+              <div className="overlay-actions">
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={!active.anchor}
+                  onClick={() => {
+                    update({ anchor: null })
+                    playSfx('click')
+                  }}
+                >
+                  Reset position
+                </button>
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={scale === 1}
+                  onClick={() => {
+                    update({ scale: 1 })
+                    playSfx('click')
+                  }}
+                >
+                  Reset scale
+                </button>
+              </div>
               <button
-                key={id}
                 type="button"
-                className={`chip${active.mode === id ? ' chip--active' : ''}`}
-                aria-pressed={active.mode === id}
-                title={help}
+                className="btn"
+                disabled={!target}
+                title={target ? `Centre the overlay on ${nameOf(target)}` : `Select a ${noun.one} to move the overlay over it`}
                 onClick={() => {
-                  update({ mode: id })
+                  if (target) moveOver(target)
                   playSfx('click')
                 }}
               >
-                {label}
+                {target ? `Move over ${nameOf(target)}` : 'Move over selection'}
               </button>
-            ))}
-          </div>
-          <p className="hint">{MODES.find(([id]) => id === active.mode)?.[2]}</p>
+            </div>
+          </Disclosure>
 
-          {/*
-            Its size, against the entity's own: scaled about its centre, so it grows and shrinks
-            where it is, and independent of everything else here.
-          */}
-          <label className="field">
-            <span className="field__row">
-              <span className="field__label">Size</span>
-              <span className="field__value">{Math.round(scale * 100)}%</span>
-            </span>
-            <input
-              className="slider"
-              type="range"
-              min={SIZE_MIN}
-              max={SIZE_MAX}
-              step={0.01}
-              value={Math.log2(scale)}
-              aria-label="Size"
-              aria-valuetext={`${Math.round(scale * 100)} percent of its real size`}
-              onChange={(event) => update({ scale: scaleAt(Number(event.target.value)) })}
-            />
-          </label>
-
-          <div className="swatches">
-            <label className="swatch">
-              <input type="color" value={active.color} onChange={(event) => update({ color: event.target.value })} />
-              <span>Colour</span>
-            </label>
-          </div>
-
-          <label className="field">
-            <span className="field__row">
-              <span className="field__label">Opacity</span>
-              <span className="field__value">{Math.round(active.opacity * 100)}%</span>
-            </span>
-            <input
-              className="slider"
-              type="range"
-              min={0.1}
-              max={1}
-              step={0.05}
-              value={active.opacity}
-              aria-label="Opacity"
-              aria-valuetext={`${Math.round(active.opacity * 100)} percent`}
-              onChange={(event) => update({ opacity: Number(event.target.value) })}
-            />
-          </label>
-
-          <SelectField
-            label="Texture"
-            value={active.texture}
-            onChange={(value) => {
-              const texture = value as OverlayTexture
-              // Flag takes the flag the entity flies now, once; without one, the picker below opens to choose.
-              if (texture === 'flag' && !active.flag) {
-                const code = flagOfEntity(active.sourceId)
-                update({ texture, flag: code })
-                setAskFlag(!code)
-              } else {
-                update({ texture })
-              }
-            }}
-          >
-            {TEXTURES.map(([id, label]) => (
-              <option key={id} value={id}>
-                {label}
-              </option>
-            ))}
-          </SelectField>
-          {active.texture === 'flag' && (
-            <>
-              <FlagPicker
-                label="Overlay flag"
-                value={active.flag ?? null}
-                options={flags}
-                autoOpen={askFlag && !active.flag}
-                onChange={(flag) => {
-                  update({ flag })
-                  setAskFlag(false)
-                }}
-              />
-              <p className="hint">
-                {active.flag
-                  ? `Filled with the flag of ${flagName(active.flag, flags)}. It keeps this flag whatever ${nameOf(active.sourceId)} flies later.`
-                  : `${nameOf(active.sourceId)} flies no flag yet — choose one to fill the overlay.`}
-              </p>
-            </>
-          )}
-
-          <p className="hint">
-            {active.anchor ? `Centred on ${formatLonLat(active.anchor)}.` : `Over ${nameOf(active.sourceId)}, where it started.`}
-          </p>
-          <div className="overlay-actions">
-            <button
-              type="button"
-              className="btn"
-              disabled={!active.anchor}
-              onClick={() => {
-                update({ anchor: null })
-                playSfx('click')
-              }}
-            >
-              Reset position
-            </button>
-            <button
-              type="button"
-              className="btn"
-              disabled={scale === 1}
-              onClick={() => {
-                update({ scale: 1 })
-                playSfx('click')
-              }}
-            >
-              Reset size
-            </button>
-          </div>
-          <button
-            type="button"
-            className="btn"
-            disabled={!target}
-            title={target ? `Centre the overlay on ${nameOf(target)}` : `Select a ${noun.one} to move the overlay over it`}
-            onClick={() => {
-              if (target) moveOver(target)
-              playSfx('click')
-            }}
-          >
-            {target ? `Move over ${nameOf(target)}` : 'Move over selection'}
-          </button>
-          <button
-            type="button"
-            className="btn btn--ghost"
-            onClick={() => {
-              deleteOverlay(active.id)
-              playSfx('click')
-            }}
-          >
-            Delete overlay
-          </button>
-        </div>
+          <Disclosure title="Overlay Mode">
+            <div className="stack">
+              <div className="mode-switch mode-switch--pair" role="group" aria-label="Overlay mode">
+                {MODES.map(([id, label, help]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    className={`chip${active.mode === id ? ' chip--active' : ''}`}
+                    aria-pressed={active.mode === id}
+                    title={help}
+                    onClick={() => {
+                      update({ mode: id })
+                      playSfx('click')
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p className="hint">{MODES.find(([id]) => id === active.mode)?.[2]}</p>
+            </div>
+          </Disclosure>
+        </>
       )}
     </div>
   )

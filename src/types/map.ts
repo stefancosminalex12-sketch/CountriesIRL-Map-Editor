@@ -584,6 +584,16 @@ export interface MapStyle {
   showRivers: boolean
   river: string
   riverWidth: number
+  /**
+   * Whether the named oceans and seas are on the map as selectable entities.
+   *
+   * Off by default, and off it changes nothing at all: no geometry is fetched, nothing is
+   * drawn, the sea is the background it always was, and a click on it picks nothing. On, each
+   * region answers the pointer and can be selected and coloured like a country — under the
+   * land, which is what keeps every coast, island and channel exactly as it was. See
+   * `geo/waters.ts` and `render/MapWaters.tsx`.
+   */
+  showWaterRegions: boolean
   graticule: string
   showSphere: boolean
 }
@@ -732,6 +742,34 @@ export interface MapOverlay {
 /** How far an overlay can be shrunk and grown: from a tenth of its size to five times it. */
 export const OVERLAY_SCALE_RANGE = { min: 0.1, max: 5 } as const
 
+/* ------------------------------------------------------------------- waters */
+
+/**
+ * What an author has done to one water region — a named ocean or sea.
+ *
+ * Only paint. A water region's geometry, name and extent are geography (see `geo/waters.ts`)
+ * and nothing in the document can change them; what is authored is whether the sea is
+ * coloured and how strongly.
+ *
+ * Deliberately its own map on the document rather than an entry in `countries`. A sea is not
+ * a country, it holds no data value, it belongs to no group, it cannot be merged and it is
+ * not what the colouring modes read — keeping it beside the countries is what makes all of
+ * that true by construction instead of by a check in every code path. Regions an author has
+ * never touched are simply absent, so a map with no coloured water carries nothing here and
+ * exports exactly as it did before the feature existed.
+ */
+export interface WaterEntry {
+  /** The water region's id — always `water-…`. See `isWaterId`. */
+  id: string
+  /** `#rrggbb`, or `null` for the map's own background water. */
+  color: string | null
+  /** 0–1, over the colour. 1 unless the author says otherwise. */
+  opacity: number
+}
+
+/** What an author may set a water region's opacity to. */
+export const WATER_OPACITY = { min: 0.1, max: 1, step: 0.05, default: 1 } as const
+
 /* ----------------------------------------------------------------- document */
 
 export interface MapDocument {
@@ -761,6 +799,12 @@ export interface MapDocument {
   merges: MergedEntity[]
   /** Movable copies of entities' shapes, drawn over the map. See {@link MapOverlay}. */
   overlays: MapOverlay[]
+  /**
+   * Paint on the named oceans and seas, by water region id. See {@link WaterEntry}.
+   *
+   * Empty until an author colours one, and read only when `style.showWaterRegions` is on.
+   */
+  waters: Record<string, WaterEntry>
   /** Names drawn on the map. See {@link CountryLabels}. */
   labels: CountryLabels
   /** A headline across the top of the composition. See {@link MapCaption}. */

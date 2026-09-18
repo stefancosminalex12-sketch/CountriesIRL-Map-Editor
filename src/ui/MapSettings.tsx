@@ -5,8 +5,8 @@ import { AUTO_PROJECTION_ID, PROJECTIONS } from '../geo/projections'
 import { useMapStore } from '../state/mapStore'
 import { playSfx } from '../audio/sfx'
 import { MapToggle } from './MapToggle'
+import { waterName } from '../geo/waters'
 import { SelectField } from './Select'
-import { Disclosure } from './Panels'
 import {
   CAPTION_OUTLINE,
   CAPTION_SIZE,
@@ -14,6 +14,7 @@ import {
   LABEL_FONTS,
   LABEL_OUTLINE,
   LABEL_SIZE,
+  WATER_OPACITY,
   type CountryLabels,
   type LabelFontId,
   type MapCaption,
@@ -22,40 +23,21 @@ import {
 } from '../types/map'
 
 /**
- * The section the scope settings sit in, titled for the map that is open.
+ * **Map Detail**: which data the map is drawn from, and how it is projected.
  *
- * "World" on the country and states maps, as it has always read. On a map whose datasets are
- * levels of detail — the administrative world — the first thing in it is the Detail selector,
- * and a section called "World" is not where anyone would look for it.
+ * The two questions that decide what the geometry *is*, which is why they are in Maps beside
+ * the map and the region rather than among the layer switches in Display. The dataset selector
+ * is the resolution on the World map (10m, 50m, 110m) and the level of detail on a map whose
+ * datasets are levels — the atlas names it (`datasetLabel`), so one control serves both.
  */
-export function MapScopeSection() {
-  const atlasId = useMapStore((s) => s.doc.scope.atlasId)
-  const atlas = getAtlas(atlasId)
-  return (
-    <Disclosure title={atlas.datasetLabel ? `${atlas.datasetLabel} and projection` : 'World'}>
-      <MapScopeSettings />
-    </Disclosure>
-  )
-}
-
-/**
- * What the map is *of*: which data, drawn how, and what to do with everything outside
- * the chosen region.
- *
- * Split from the display switches and the colour wells below so the sidebar can file
- * them under different headings. Same hooks and the same operations — the only thing
- * that changed is which section each control appears in.
- */
-export function MapScopeSettings() {
+export function MapDetailSettings() {
   const scope = useMapStore((s) => s.doc.scope)
   // Only the datasets belonging to the map that is open: offering the world's 110m
   // countries while a states map is on screen would be offering to break it.
   const datasets = datasetsForAtlas(scope.atlasId)
   const atlas = getAtlas(scope.atlasId)
   const current = datasets.find((d) => d.id === scope.datasetId)
-  const style = useMapStore((s) => s.doc.style)
   const dispatch = useMapStore((s) => s.dispatch)
-  const setStyle = (patch: Partial<MapStyle>) => dispatch({ op: 'set_style', patch })
 
   /** Changing how the map is drawn gets a short click; colours stay silent. */
   const tick = () => playSfx('click')
@@ -63,7 +45,7 @@ export function MapScopeSettings() {
   return (
     <div className="stack">
       <SelectField
-        label={atlas.datasetLabel ?? 'Dataset'}
+        label={atlas.datasetLabel ?? 'Resolution'}
         value={scope.datasetId}
         onChange={(datasetId) => {
           dispatch({ op: 'set_scope_dataset', datasetId })
@@ -98,19 +80,44 @@ export function MapScopeSettings() {
           </option>
         ))}
       </SelectField>
+    </div>
+  )
+}
 
+/**
+ * **Outside Region Appearance**: how the land beyond the framed region is drawn.
+ *
+ * The same `style.outsideScope` and the same three values it always had — only the names have
+ * changed. It read "Outside the region: Muted / Hidden / Same as in-region", where the field
+ * asked a question its options did not answer and the third option described a comparison
+ * rather than a treatment. Now the field says what it governs and each option says what the
+ * land looks like: **Normal** is that third value, drawn exactly as the region is.
+ */
+export function OutsideRegionAppearance() {
+  const style = useMapStore((s) => s.doc.style)
+  const dispatch = useMapStore((s) => s.dispatch)
+
+  return (
+    <div className="stack">
       <SelectField
-        label="Outside the region"
+        label="Outside Region Appearance"
         value={style.outsideScope}
         onChange={(value) => {
-          setStyle({ outsideScope: value as MapStyle['outsideScope'] })
-          tick()
+          dispatch({ op: 'set_style', patch: { outsideScope: value as MapStyle['outsideScope'] } })
+          playSfx('click')
         }}
       >
         <option value="muted">Muted</option>
         <option value="hidden">Hidden</option>
-        <option value="normal">Same as in-region</option>
+        <option value="normal">Normal (match region style)</option>
       </SelectField>
+      <p className="hint">
+        {style.outsideScope === 'hidden'
+          ? 'Land outside the region is not drawn at all.'
+          : style.outsideScope === 'muted'
+            ? 'Land outside the region is drawn in a quieter tone, so the region reads first.'
+            : 'Land outside the region is drawn exactly as the land inside it.'}
+      </p>
     </div>
   )
 }
@@ -136,7 +143,7 @@ export function MapScopeSettings() {
  * France is the other one — and in between, France is still a country every other part
  * of the editor can work with.
  */
-function HideTerritories() {
+export function HideTerritories() {
   const dispatch = useMapStore((s) => s.dispatch)
   const selected = useMapStore((s) => s.selectedCountryIds)
   const countries = useMapStore((s) => s.doc.countries)
@@ -190,17 +197,19 @@ function HideTerritories() {
   )
 }
 
-export function MapDisplayToggles() {
+/**
+ * **Geographic Features**: the layers the map draws, as switches.
+ *
+ * All of them go through the same `set_style` operation. Split from the labels and helpers
+ * below because they answer different questions — what geography is drawn, against what the
+ * editor draws over it — and the sidebar files them under separate headings.
+ */
+export function GeographicFeatureToggles() {
   const style = useMapStore((s) => s.doc.style)
-  const legendVisible = useMapStore((s) => s.doc.legend.visible)
-  const labels = useMapStore((s) => s.doc.labels)
-  const caption = useMapStore((s) => s.doc.caption)
-  const magnifier = useMapStore((s) => s.magnifier)
-  const setMagnifier = useMapStore((s) => s.setMagnifier)
   const dispatch = useMapStore((s) => s.dispatch)
   const setStyle = (patch: Partial<MapStyle>) => dispatch({ op: 'set_style', patch })
 
-  // `MapToggle` owns the sound, so all five behave alike.
+  // `MapToggle` owns the sound, so all of them behave alike.
   return (
     <div className="stack">
       <div className="toggles">
@@ -238,6 +247,21 @@ export function MapDisplayToggles() {
           checked={style.showRivers}
           onChange={(showRivers) => setStyle({ showRivers })}
         />
+        {/*
+          The named oceans and seas, as entities rather than as background.
+
+          Beside the lakes and the rivers because it is the third water layer, and last of
+          the three because it is the one that changes what the map *does*: with it on, a
+          click on the sea selects the sea. Off by default, and off nothing is fetched,
+          nothing is drawn and every click behaves exactly as it did before — see
+          `MapStyle.showWaterRegions`.
+        */}
+        <MapToggle
+          icon="waters"
+          label="Water Regions"
+          checked={style.showWaterRegions}
+          onChange={(showWaterRegions) => setStyle({ showWaterRegions })}
+        />
         <MapToggle
           icon="graticule"
           label="Graticule"
@@ -246,29 +270,65 @@ export function MapDisplayToggles() {
         />
         <MapToggle
           icon="globe"
-          label="Globe outline"
+          label="Globe Outline"
           checked={style.showSphere}
           onChange={(showSphere) => setStyle({ showSphere })}
         />
+      </div>
+      {style.showWaterRegions && <WaterRegionPaint />}
+    </div>
+  )
+}
+
+/**
+ * **Legend Visibility**: whether the legend is drawn at all.
+ *
+ * Visibility only, and the same `legend.visible` the Legend section's own switch writes — one
+ * control shown in two places rather than two that can disagree. What the legend *says* follows
+ * the colouring mode and is derived in `buildLegendModel`, so switching modes never needs this
+ * touched, and everything about what it looks like is in Legend.
+ */
+export function LegendVisibilityToggle() {
+  const legendVisible = useMapStore((s) => s.doc.legend.visible)
+  const dispatch = useMapStore((s) => s.dispatch)
+  return (
+    <div className="toggles">
+      <MapToggle
+        icon="legend"
+        label="Show Legend"
+        checked={legendVisible}
+        onChange={(visible) => dispatch({ op: 'set_legend', patch: { visible } })}
+      />
+    </div>
+  )
+}
+
+/**
+ * **Labels & Helpers**: what the editor draws *over* the geography.
+ *
+ * The names and the caption are part of the picture and are exported with it; the magnifying
+ * glass is an editor aid and never is. They are together because they are all things the map
+ * shows rather than geography it draws, and each brings its own settings with it when it is
+ * switched on.
+ */
+export function LabelsAndHelpers() {
+  const labels = useMapStore((s) => s.doc.labels)
+  const caption = useMapStore((s) => s.doc.caption)
+  const magnifier = useMapStore((s) => s.magnifier)
+  const setMagnifier = useMapStore((s) => s.setMagnifier)
+  const dispatch = useMapStore((s) => s.dispatch)
+
+  return (
+    <div className="stack">
+      <div className="toggles">
         {/*
-          Visibility only. What the legend *says* follows the colouring mode and is
-          derived in `buildLegendModel`; this decides whether any of it is drawn, so
-          switching modes never needs the toggle touched.
-        */}
-        <MapToggle
-          icon="legend"
-          label="Legend"
-          checked={legendVisible}
-          onChange={(visible) => dispatch({ op: 'set_legend', patch: { visible } })}
-        />
-        {/*
-          Names on the territories. A layer switch like the five above it, in the same
-          grid, because that is what it is — what it draws is decided by the map's own
-          entities, so there is nothing to choose before turning it on.
+          Names on the territories. A layer switch like the geographic ones, because that is
+          what it is — what it draws is decided by the map's own entities, so there is nothing
+          to choose before turning it on.
         */}
         <MapToggle
           icon="names"
-          label="Country Names"
+          label="Region Names"
           checked={labels.enabled}
           onChange={(enabled) => dispatch({ op: 'set_labels', patch: { enabled } })}
         />
@@ -304,9 +364,103 @@ export function MapDisplayToggles() {
         appear when a switch is turned on ask nothing of anyone who leaves it alone.
       */}
       {labels.enabled && <CountryNameStyle labels={labels} />}
-
-      <HideTerritories />
       {caption.enabled && <TopCaptionStyle caption={caption} />}
+    </div>
+  )
+}
+
+/**
+ * The selected seas, and the paint on them.
+ *
+ * Appears with the switch, like the country names' controls: it is one feature's settings and
+ * it means nothing while the feature is off.
+ *
+ * Only paint, because paint is all a water region has. A sea holds no data value, joins no
+ * group and is in no comparison — the colouring modes have nothing to say about it (see the
+ * `set_water_paint` operation) — so a colour and an opacity is the whole of what can be
+ * decided about one, and it is decided for whichever seas are selected on the map.
+ */
+function WaterRegionPaint() {
+  const selectedWaterIds = useMapStore((s) => s.selectedWaterIds)
+  /* `?? {}` because a document parked before water regions existed carries no map. */
+  const waters = useMapStore((s) => s.doc.waters ?? {})
+  const lake = useMapStore((s) => s.doc.style.lake)
+  const dispatch = useMapStore((s) => s.dispatch)
+  const clearSelection = useMapStore((s) => s.clearSelection)
+
+  const chosen = selectedWaterIds.map((id) => waters[id]).filter((entry) => entry !== undefined)
+  /* What the wells show: the first painted sea in the selection, or the map's own water. */
+  const color = chosen.find((entry) => entry.color)?.color ?? lake
+  const opacity = chosen.find((entry) => entry.color)?.opacity ?? WATER_OPACITY.default
+  const painted = Object.values(waters).filter((entry) => entry.color).length
+
+  const paint = (patch: { color?: string | null; opacity?: number }) => {
+    if (selectedWaterIds.length === 0) return
+    dispatch({ op: 'set_water_paint', waterIds: selectedWaterIds, patch })
+  }
+
+  if (selectedWaterIds.length === 0) {
+    return (
+      <p className="hint">
+        <strong>Water Regions</strong>: the sixteen major oceans and seas are on the map as
+        entities. Click one to select it, tap more to add them, or take them with the rectangle
+        and the brush like any country — then colour them here. They stay under the land, so
+        every coast, island and channel is drawn exactly as before.
+        {painted > 0 ? ` ${painted} coloured so far.` : ''}
+      </p>
+    )
+  }
+
+  return (
+    <div className="stack">
+      <div className="selection-summary">
+        <span>
+          {selectedWaterIds.length === 1
+            ? waterName(selectedWaterIds[0])
+            : `${selectedWaterIds.length} water regions selected`}
+        </span>
+        <button
+          type="button"
+          className="btn btn--ghost"
+          onClick={() => {
+            clearSelection()
+            playSfx('click')
+          }}
+        >
+          Clear
+        </button>
+      </div>
+
+      <div className="swatches">
+        <label className="swatch">
+          <input type="color" value={color} onChange={(event) => paint({ color: event.target.value })} />
+          <span>Colour</span>
+        </label>
+      </div>
+
+      <ScaleField
+        label="Opacity"
+        value={opacity}
+        range={WATER_OPACITY}
+        onChange={(next) => paint({ opacity: next })}
+      />
+
+      {/*
+        Back to background water: the regions leave the document entirely rather than keeping a
+        colour nobody can see, so a map with nothing painted carries nothing and exports as it
+        always did. The selection stays, because the author is still working on those seas.
+      */}
+      <button
+        type="button"
+        className="btn btn--ghost"
+        disabled={chosen.every((entry) => !entry.color)}
+        onClick={() => {
+          dispatch({ op: 'clear_water_paint', waterIds: selectedWaterIds })
+          playSfx('click')
+        }}
+      >
+        Use the map's own water
+      </button>
     </div>
   )
 }

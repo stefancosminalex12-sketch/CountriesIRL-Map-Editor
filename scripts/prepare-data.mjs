@@ -34,6 +34,12 @@ const CURATED = [
   'lakes-50m.geojson',
   'rivers-10m.geojson',
   'rivers-50m.geojson',
+  /*
+   * The named oceans and seas, one file for every map — `scripts/build-waters.mjs`. Copied
+   * like the rest even though the layer is off by default, so a clean checkout has it and the
+   * app can fetch it the moment somebody switches Water Regions on.
+   */
+  'waters.geojson',
 ]
 const missing = []
 for (const file of CURATED) {

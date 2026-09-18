@@ -93,8 +93,10 @@ src/
    from the Natural Earth files, in one of two modes.
 
    `fallback` fills a gap: used only where the dataset produced no usable polygon, so
-   nothing is ever drawn twice. Vatican City comes from the supplement at 110m and
-   10m, and from the dataset at 50m.
+   nothing is ever drawn twice. Vatican City is the one `replace` entry: Natural Earth's
+   own Vatican is a seven-point placeholder a tenth of the state's width, so the traced
+   outline is used at every resolution and on both world maps — see *Vatican City* under
+   *No minimum rendered size*.
 
    Most gaps are not about quantisation but about editorial scope: world-atlas ships
    the same countries at three resolutions and the coarser two leave out whatever is
@@ -372,8 +374,9 @@ so it used to be the one subdivision the map dropped. It is supplied exactly as 
 map supplies it: the country's supplemental outline (`geo/supplemental.ts`) becomes its
 only subdivision's, a rule that applies to any country that is a single entity on this map
 and never to one divided into several. From there it is an ordinary small entity — its real
-shape at its real position, painted after Rome, drawn at its true size and given an assisted
-catchment, so it can be hit at any zoom without anything around it changing.
+shape at its real position, painted after Rome, drawn six times its true size (the one
+entity that is — see *No minimum rendered size*) and given an assisted catchment, so it can
+be seen and hit without anything around it changing.
 
 **Every subdivision knows its country.** `prepare-data.mjs` builds the entity table from
 the source's own fields and resolves each subdivision's parent against the world map's
@@ -626,6 +629,12 @@ data pipeline, not the renderer — and not, mostly, in Natural Earth:
 - **Rivers** are every 10m river and branch, the whole Europe supplement and the North
   America supplement's major rank (its lower ranks are creeks at this scale).
 
+The named oceans and seas are prepared the same way and kept beside it, by
+`scripts/build-waters.mjs` (`npm run build-waters`) into `data/natural-earth/waters.geojson`
+— a separate script because it reads a different Natural Earth layer (the 1:50m marine
+geography) and answers a different question: not what the land is, but where one sea ends and
+the next begins. See *Water Regions*.
+
 Many famous lagoons and estuaries were never the problem: Razim and Sinoe, Sasyk, the
 Dnieper–Bug estuary, the Oosterschelde, the Wadden Sea, the Venice and Curonian lagoons,
 the Nile delta lakes, Chesapeake Bay and Lake Maracaibo are open water in Natural Earth's
@@ -678,8 +687,8 @@ classifications are drawn from. That guard is what keeps the Cyprus buffer zone 
 count that suits blobs.
 
 The result is 76 generated entities, 619 polygons, 3,538 points, from 9,703 in the
-source. Vatican City stays hand-maintained, since no layer at any resolution can
-supply it. Every coordinate is a real Natural Earth lon/lat carried over from a
+source. Vatican City stays hand-maintained, since no layer at any resolution supplies its
+real outline. Every coordinate is a real Natural Earth lon/lat carried over from a
 source ring: simplification only removes points, and nothing is drawn, invented,
 moved, scaled or merged. Polygon counts match the 10m dataset exactly — the Maldives
 keep all 175 atolls at 110m, French Polynesia its 88 islands, Kiribati its 35.
@@ -705,7 +714,7 @@ user to zoom, and they are deliberately independent of one another:
   islands, so a speck or a scattered archipelago can be hit;
 - **the magnifier** — an enlarged copy of a selected feature's own outline, so a
   selected speck is visible. Optional, and off until turned on: *Magnifying Glass* in
-  Map → Display, one switch for every map, session state rather than document content.
+  Display → Labels & Helpers, one switch for every map, session state rather than document content.
   It used to have no switch at all, so selecting any small entity summoned a lens.
 
 Nothing draws a small entity larger than it is — see *No minimum rendered size* below.
@@ -872,27 +881,67 @@ The sections are a plain array in `Sidebar.tsx`: an icon and a body. Adding one 
 entry, not new markup or new styling, and it inherits the animation, the active state
 and the keyboard behaviour with everything else.
 
-**The rail is two levels deep.** Ten flat sections asked the reader to hold ten unrelated
-names in mind to find one control; grouping them puts the question first — is this about
-the map, about the data, or about the editor? — and each group's parts sit behind a
-`Disclosure`, the same component the legend's panel size already used. Six top-level
-sections now:
+**The rail is two levels deep**, ten sections in the order the work goes — which map, what is
+selected, what is done to it, how it is drawn, what colours it, what is laid over it, how it is
+explained, how it is framed — then the editor's own preferences and the assistant to come. Each
+section's parts sit behind a `Disclosure`:
 
 ```
-Settings   Style · Sound
-Map        Region · World · Display
-Screen
-Data       [modes and their workflows] · Merge
-Legend
-AI
+Maps            Map · Region · Map Detail · Outside Region Appearance
+Select          [Normal / Rectangle / Brush] · How the tools work · Entities Selected
+Edit            Merge Groups · History
+Display         Appearance · Geographic Features · Labels & Helpers · Territories · Legend Visibility
+Styles & Data   [Off / Data / Compare / Flags and each mode's workflow]
+Overlays        Overlay Management · Overlay Appearance · Overlay Transform · Overlay Mode
+Legend          Visibility · Content · Appearance · Layout · Position & Size
+Canvas          Aspect Ratio · Dimensions · Framing
+Settings        Appearance (theme) · Audio · Data Sources
+AI              one line: coming soon
 ```
 
-**Region**, **World** and **Display** are in the order a map gets made: what area, then
-which data and which projection, then which layers are drawn. The first subsection of a
-group is open when the group is chosen, so opening Map still lands on Region exactly as
-the flat rail did. `Screen` is deliberately still top-level: it is a composition and
-export frame rather than a property of the map, and folding it into Map would have put a
-fourth thing in a group whose three parts are about what the map *is*.
+Every control is the component it was, with the same hooks and the same operation — moved, not
+rebuilt. Where one component held controls for two sections it was split along that seam:
+`MapSettings` now exports the map's own settings (`MapDetailSettings`,
+`OutsideRegionAppearance`) for Maps and the layer switches (`GeographicFeatureToggles`,
+`LabelsAndHelpers`, `HideTerritories`, `LegendVisibilityToggle`) for Display; the legend and
+overlay editors wrap their existing blocks in subsections inside the same component, so their
+local state — the overlay's pending flag choice, the legend's patch helper — did not have to
+move. Two things appear in two places on purpose and are one control each: **Show Legend**
+(Display and Legend write the same `legend.visible`) and **Undo/Redo** (Edit → History and the
+header's arrows call the same `undoMapEdit`/`redoMapEdit`; the shortcuts are registered once).
+
+What changed besides position:
+
+- **Outside Region Appearance** is the old "Outside the region" select, and **Normal (match
+  region style)** is its old "Same as in-region" — the same three `outsideScope` values, named
+  for what the land looks like, with a line under it saying so.
+- **Map Detail**'s dataset picker is labelled **Resolution** on the World map (10m, 50m, 110m)
+  and keeps the atlas's own label — **Detail** — on a map whose datasets are levels.
+- **Select** shows three tools. **Normal Selection** is on whenever neither Rectangle nor Brush
+  is, and choosing it turns both off; a click selects and deselects exactly as before whichever
+  is on. The three paragraphs of help fold under *How the tools work*. The count reads
+  **Entities Selected: N** and includes water regions, because countries, subdivisions,
+  territories, merged groups and seas are all selectable.
+- **Merge** moved from under Data to **Edit → Merge Groups**. It stays folded when Edit opens:
+  opening it is what makes a tap on the map build a group, so it is opened on purpose rather than
+  by opening the section to undo something. Closing it leaves Merge Mode, as before.
+- **High-Contrast Borders** is Flags mode's old "International Borders" — the same
+  `flags.internationalBorders` and the same black line with a pale edge either side. Every border
+  the plain switch draws is international too, so the old name said nothing about what changes.
+- In **Legend**, the title's decorative mark is now **Title Mark**, so that "icons" means what
+  the items are — each colour indicator and its text, sized by **Item Icons**. With the legend
+  hidden, the editor stays usable and says the legend is hidden.
+- **Settings** holds only the editor's preferences: theme, sound (open, so the volume is one drag
+  away) and the data-source credits. Map Colours and Selection Highlight moved to Display →
+  Appearance.
+- **Canvas** is the old Screen. Its **Fit to Region** did nothing in a production build: it read
+  the live projection from `window.__mapProjection`, which the canvas publishes only in
+  development. The canvas now publishes it through `render/liveProjection.ts` in every build, and
+  the button frames the region as drawn — wide for Europe, tall for Africa — without touching the
+  camera, the projection or the geometry.
+- On a landscape phone the ten rail items do not fit in 290px of height, so the rail scrolls, as
+  it already did with nine. A shadow now appears at whichever end has more sections past it — pure
+  CSS, and nothing at all on a window tall enough for the whole rail.
 
 **The Maps list is grouped by what a map is of.** Two groups sit at the top, **World** and
 **USA**, and each is a disclosure that opens onto its maps:
@@ -1299,6 +1348,195 @@ Lakes keep pointer events but carry no `data-country-id`, so hovering or clickin
 picks nothing rather than picking the country underneath, while a microstate's assist
 zone still wins over the water.
 
+### Water Regions
+
+**Display → Geographic Features → Water Regions** puts the sixteen major oceans and seas on the map as entities:
+things that can be hovered, selected, coloured, put in the legend and exported, the way a
+country can. Off by default, and off it changes nothing at all — no geometry is fetched,
+nothing is drawn, the sea is the background colour it always was, and a click on the water
+picks exactly what it picked before, which is usually nothing.
+
+The regions are the Pacific, Atlantic, Indian, Southern and Arctic oceans, and the
+Caribbean, Mediterranean, Black, Baltic, North, Red, Arabian, South China, East China,
+Japan and Caspian seas. Sixteen, deliberately: Natural Earth's marine layer names 118
+features, and a hundred selectable bays would be a hundred things to click past on the way
+to the Mediterranean.
+
+#### The geometry is real
+
+One shared dataset, `data/natural-earth/waters.geojson`, built once by
+`scripts/build-waters.mjs` and committed like every other curated layer — so an ordinary
+build only copies it and stays offline. The source is Natural Earth's 1:50m marine
+geography: real marine polygons whose outlines follow the coast, with a hole for every
+island the source cuts out. Nothing is a circle, a rectangle, a bounding box or a
+screen-space mask, and nothing was drawn by hand.
+
+Three things are done to it, each of which is a fact about the source rather than a
+liberty taken with it:
+
+1. **The parts of a region are unioned into one shape.** Natural Earth splits the Pacific
+   and the Atlantic at the equator, and cuts every marginal sea and gulf out of the ocean
+   around it — so sixteen features on their own would leave the Pacific full of holes where
+   the Philippine, Coral, Bering and thirty other seas had been. Each of those features is
+   folded into the region it belongs to, following the IHO's *Limits of Oceans and Seas*
+   where it settles the question: the Norwegian Sea is Atlantic, the Greenland Sea is
+   Arctic, the Gulf of Bothnia is Baltic. `PARENT` in the build script is that table, one
+   line per feature, and a feature a future edition adds that the table does not name stops
+   the build rather than vanishing from the map.
+2. **The water the layer names nowhere is given to the region beside it.** Natural Earth's
+   marine layer is a layer of *named areas*, not a partition of the ocean: the western
+   Aegean, the Sea of Azov, the Sea of Marmara and the pockets behind a hundred coasts
+   belong to no feature in it — about 1% of the sea, all of it against a coast, which is
+   exactly where somebody zooms in. Those gaps are cut from the ocean itself (the world
+   minus Natural Earth's 50m land, so their edges are real coastline with a hole for every
+   island) and each joins the region it shares a boundary with, or the nearest one within
+   25 km where clipping left it sharing no vertex. Which is also what settles the lakes:
+   Superior, Victoria and the Aral are hundreds of kilometres from any sea, nothing claims
+   them, and no ocean is ever painted across a lake.
+3. **Everything is cut at 60°S**, the Southern Ocean's defined northern limit. This is the
+   one place the source has two features over the same water — its `SOUTHERN OCEAN` is a
+   narrow label polygon hugging Antarctica while the Indian, Pacific and Atlantic sheets run
+   down to the continent — and the parallel is the definition rather than an approximation
+   of anything.
+
+The result is sixteen regions covering 363.5 of the world's 363.4 million km² of sea and
+lake, with no overlap; the excess is two coastal lagoons the lake layer draws over anyway.
+The build refuses to write a file that fails its own checks: every marine feature placed,
+every region non-empty, no two regions overlapping (sampled), and a total between the marine
+layer's own area and the area of water there is. Measured against the published figures the
+regions come out where they should — the Mediterranean at 2.52M km² against 2.5M, the
+Caspian at 0.40M against 0.37M, the Southern Ocean at 21.9M against 20.3M.
+
+At 1 MB it is the third-largest layer the editor loads, after the rivers and the maritime
+zones, and like them it is fetched the first time the switch is turned on and never before.
+50m rather than 10m for a reason: the water is drawn *under* the land, so its landward edge
+is covered by whichever coastline the map is drawing, and what this layer has to get right
+is the extent — where the Mediterranean ends and the Atlantic begins — which the 50m edition
+states as well as the 10m one in a file a phone can hold.
+
+#### Water is not land, and the ids say so
+
+A water region is not a country, a province, a territory or an administrative unit, and the
+separation is structural rather than a matter of care at each call site:
+
+- every id begins `water-` — `water-baltic-sea` — which no country (`FRA`, `X..`),
+  subdivision (`US-CA`, `DEU-3488`), merged body (`merge-…`) or overlay (`overlay-…`) id
+  can look like, so `isWaterId` is a total answer to "is this a sea?" wherever an id turns up;
+- the selection keeps them apart: `selectedWaterIds` beside `selectedCountryIds`, and the
+  store's own selection actions route by that prefix. Everything that reads the land
+  selection reads it to do something to countries — give them a value, group them, merge
+  them, copy them as an overlay — and a sea can be none of those, so it is never in that
+  list. Selecting a sea leaves the land selection exactly as it was, and the other way round;
+- the paint lives in `doc.waters`, beside `doc.countries` rather than in it, and holds only
+  a colour and an opacity: a region's geometry, name and extent are geography and nothing in
+  the document can change them;
+- the operation vocabulary refuses a sea wherever land is named. `create_merge`,
+  `update_merge`, `add_to_group`, `add_to_comparison`, `set_country_value` and every other
+  operation carrying a `countryId`, `countryIds` or a merge's `members` rejects a `water-`
+  id with a reason rather than filtering it out silently — *"Pacific Ocean" is a water
+  region, and water is never land: it cannot be used here*. The two water operations refuse
+  the opposite mistake: `set_water_paint` with a country id is an error, not a no-op;
+- **Merge Mode ignores water outright.** A tap on the sea while the panel is open does
+  nothing — no group is created, nothing is added, and nothing is selected — because a merged
+  body is a body of countries and a sea can never be in one.
+
+`set_water_paint` is the only operation in the vocabulary that sets a colour directly, and
+that is the same argument as the one ruling out `set_country_color` reaching a different
+answer: the modes that colour the land read values, groups and countries, and none of them
+has anything to say about the Mediterranean, so there is no mode for the paint to outrank.
+
+#### Drawn under the land
+
+The layer is the first thing inside the camera, beneath the graticule, the flags' island
+water, every country path and the lakes. That ordering is the whole of the containment rule
+— the same one the maritime layer relies on — and it is what keeps every coastline, island,
+narrow channel and lake exactly as it was: they are painted over the water afterwards. It is
+also why a selected sea is not lifted above the land. Lifting it would bury the islands
+inside it, which is the opposite of respecting the coastline; under the land it reads
+correctly already, because the water is only ever visible where there is water.
+
+An ordinary sea draws nothing: no fill, no outline, no border, no halo. What the shape
+carries is `pointer-events: all` — which is what makes a region something the pointer can
+find before it has any colour — and a `<title>` with its name, so a sea names itself in the
+hover read-out and the status bar the way a country does. Paint resolves in the order a
+country's fill resolves: selection first, because selection *is* a fill on this map, then the
+author's colour at its opacity, then hover, which only ever tints what nothing else has
+coloured. Hover on the sea is deliberately lighter than the land's: a hover on the Pacific
+covers a third of the map, and at full strength the whole picture flashes as the pointer
+crosses it.
+
+Sixteen paths and about 58,000 vertices — a fraction of any country layer — projected once
+per projection change and never again: panning, zooming, hovering, selecting and painting a
+sea reproject nothing, because the camera moves the group they sit in exactly as it moves the
+land. Insets are deliberately not consulted: an inset frames the land of Alaska or Hawaii,
+and the sea inside one stays the map's background water.
+
+#### Selecting a sea
+
+Everything that selects a country selects a sea: a click or a tap (which toggles, so tapping
+seas one after another builds a selection and tapping one again takes it out), Shift-click,
+the rectangle, and Brush Mode, which paints them in as it passes over them. The two
+selections are counted separately in the status bar — *3 selected, 2 water*.
+
+**Land wins every point it covers.** A click asks for a country first, through exactly the
+path it always used — visible land, then a microstate's assist catchment — and only a point
+that no land claims reaches the water. So a click on Italy selects Italy even though the
+Mediterranean's polygon runs underneath it, and a click a few pixels off Malta still selects
+Malta. Measured on a phone, on identical points inside a sea, the entity a tap on land
+resolves to is byte-identical with the layer on and with it off.
+
+The cost of that rule is that the catchments, which reach 22 screen pixels past a speck of
+an island, hold the water around them: on a 400px-wide phone at world zoom about half the
+Pacific answers a tap and very little of the island-strewn Atlantic does — St Helena,
+Ascension and Tristan da Cunha alone cover most of the South Atlantic at that size. Three
+zoom steps in, 21 of 24 sampled points in the Atlantic answer. This is the existing
+precedence rather than anything new: before this layer those same taps selected those same
+island nations, and the remedy is the one the map already offers — zoom in, or take the sea
+with the brush, which tests the outlines as geometry and never consults a catchment.
+
+#### Colour, legend and export
+
+The controls appear under the switch in Display while seas are selected, like the country
+names' controls above them: a colour well, an opacity slider, and *Use the map's own water*,
+which takes the paint off entirely — the regions leave the document rather than keeping a
+colour nobody can see, so a map with nothing painted carries nothing and exports as it always
+did. Painting is one operation on the whole selection and one undo step, and dragging the
+well or the slider coalesces into that one step.
+
+A coloured sea appears in the legend as a row of its own, in the regions' own order, in every
+mode that has rows — colouring off, a threshold scale, a comparison, and flags, where it is
+the only thing the legend has to explain. A numeric scale is the exception: its legend is a
+ramp, and a ramp has no rows to add to, so a swatch list under a gradient would be a second
+legend inside the first. Selection is deliberately not in the legend, exactly as a selected
+country is not: it is the editor showing what is in hand, not a statement the picture makes.
+
+Exports carry the water because the layer is part of the map's own SVG — PNG, JPG and SVG
+alike, at any scale, with the colour and opacity as drawn.
+
+#### What was checked
+
+On the World map, the administrative world (3,153 units), the USA States map and the
+Official USA Administrative Map; in the automatic, Mercator, orthographic, Equal Earth and
+Robinson projections; at world zoom, 3× and 12×; framed to the world and to Europe; and at
+desktop (1280), MacBook (1440@2) and phone (390@3, real touch input) sizes.
+
+- Off by default: nothing fetched, nothing rendered, and a click on the sea selects nothing.
+- On: sixteen regions drawn, every one with geometry, every one before the first country path
+  in the document, and not one stroke anywhere in the layer.
+- A tap selects a sea and no land; a second sea joins it; a third tap takes it out again.
+- A click on land selects land and leaves the water selection untouched, and the entity a
+  land click resolves to is identical with the layer on and off.
+- The rectangle took the Black Sea together with the six countries around it; a brush stroke
+  took four seas across the Indian Ocean.
+- Colour and opacity applied to the selection, survived deselection, and undid in one step.
+- The legend listed *Mediterranean Sea* with colouring off and among a threshold scale's
+  bands; the export SVG carried the painted Atlantic.
+- Merge: a tap on the Pacific in Merge Mode created nothing and selected nothing, and the
+  five malformed operations above were each refused with their reason.
+- Navigation on the phone profile with the densest dataset (4,030 admin units at zoom 7.3):
+  pan, pinch and two-finger pan all within noise of the same run with the layer off — 49 more
+  DOM nodes and no measurable change to any frame statistic.
+
 ### No minimum rendered size
 
 Every entity is drawn at its true size, through the same zoom transform as the land
@@ -1313,6 +1551,36 @@ proportions were wrong at every zoom but one. Both floors are gone. A speck is d
 speck it is (its outline stroke keeps it a visible dot), the pointer finds it through its
 assist catchment, which is sized in screen pixels and draws nothing, and the magnifier
 shows a selected one enlarged in a lens beside it — an overlay, never the map.
+
+**Vatican City is the one exception, and it is a constant factor, not a floor.** At its true
+size — about a kilometre across — it is 1.4 px on a desktop window even at the map's deepest
+zoom (40×), so there was no zoom at which it could be seen or aimed at, and it read as missing
+from both world maps. It is now drawn six times its true size about its own centre, on the
+Modern World map at every resolution and on the administrative world: the smallest whole factor
+that makes its outline a target of more than 8 px at that deepest zoom (8.6 × 6.5 px). Everywhere
+else it stays as small as it can be — 0.2 px at world zoom, 1.7 px with Italy filling the window,
+3.4 px at 16× — and 16 km² as drawn, still smaller than San Marino and a quarter of the Rome
+district it sits in. It does outdraw Monaco, which is drawn at its true 2 km².
+
+Because the factor is on the geometry rather than on the screen, it has none of the old floor's
+faults: it grows and shrinks with the camera exactly as Rome does, and every consumer sees one
+outline — the path, hit-testing, the assist catchment, flag framing, labels, overlays, merges and
+every export. It is the real traced outline (`geo/supplemental.ts`, `enlarge: 6`), not a circle,
+box or marker, and it sits where the state is: its centre is 12.4558°E, 41.9039°N against the
+real 12.4534°E, 41.9029°N. Paint order is by area, so it is drawn over Rome at any size, and the
+assist catchment that reaches past every speck still supplies the full touch target — on a phone,
+where the same deepest zoom draws it at under 3 px, that catchment is what a finger lands on.
+
+Merged, it keeps that outline. A merge dissolves its members' topology arcs, and Vatican's arcs
+are Natural Earth's placeholder — or nothing at all on the 110m map — so a supplemented member
+is now carried into the group as it is drawn, the way an island that shares no arc with anything
+is. That also means a supplemented speck on the 110m map no longer drops out of a group.
+
+Checked on both maps: drawn after its host at 1×, 8×, 16× and 40×; a click on its own shape at
+40× selects it; a value colours it; merged with Italy (or with Rome, on the administrative map)
+it becomes one body; its flag fills it in Flags mode on the World map; its name is set from 16×,
+as Monaco's and San Marino's are; and its outline is in the SVG export. Present at 10m, 50m and
+110m.
 
 ### Manual editing
 
@@ -2646,7 +2914,8 @@ Verified in the browser:
 - **Undo and redo** took the move back and put it again; **Reset position** returned the
   overlay to its home.
 - **Merged group.** An overlay of an Iberia group had all 49 subpaths of the merged body.
-- **Micro-nation.** Vatican City was drawn at its true 0.004 px.
+- **Micro-nation.** Vatican City was drawn at its size on the map — then its true 0.004 px,
+  now six times that (see *No minimum rendered size*).
 - **Projection-aware.** On Mercator, Greenland moved to the equator came out at 5.6% of the
   area of its box at home (2,292 against 40,581 px²). In Shape mode the same overlay kept its
   40,581 px².

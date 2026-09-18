@@ -14,6 +14,7 @@
     "generate-sfx": "node scripts/generate-sfx.mjs",
     "prepare-assets": "npm run prepare-data && npm run prepare-flags && npm run generate-sfx",
     "build-geography": "node --max-old-space-size=8192 scripts/build-geography.mjs",
+    "build-waters": "node scripts/build-waters.mjs",
     "build-usa": "node --max-old-space-size=12000 scripts/usa/build-usa.mjs",
     "prepare-flags": "node scripts/prepare-flags.mjs",
     "fetch-eez": "node scripts/fetch-eez.mjs"

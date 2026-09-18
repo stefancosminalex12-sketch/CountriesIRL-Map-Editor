@@ -21,6 +21,8 @@
 import { buildLegendModel, defaultLegendTitle, LEGEND_WIDTH, TITLE_PRESETS } from '../state/legend'
 import { useMapStore } from '../state/mapStore'
 import { SelectField } from './Select'
+import { Disclosure } from './Panels'
+import { LegendVisibilityToggle } from './MapSettings'
 import { LEGEND_STYLES, LEGEND_STYLE_IDS } from '../state/legendStyles'
 import { LEGEND_ICON_IDS, LEGEND_ICONS } from '../state/legendIcons'
 import { naturalLegendSize } from '../state/legendLayout'
@@ -77,6 +79,25 @@ export function LegendControls() {
    */
   return (
     <>
+      {/*
+        Visibility: the same `legend.visible` as Display → Legend Visibility, one switch shown
+        in both places. The editor below stays open and usable while the legend is hidden —
+        the notice says so, so nobody edits a legend wondering why nothing changes.
+      */}
+      <Disclosure title="Visibility" defaultOpen>
+        <div className="stack">
+          <LegendVisibilityToggle />
+          {!legend.visible && (
+            <p className="hint">
+              The legend is hidden. Everything below still edits it, and it reappears as set the
+              moment it is shown.
+            </p>
+          )}
+        </div>
+      </Disclosure>
+
+      <Disclosure title="Content" defaultOpen>
+      <div className="stack">
       {/*
         The switch sits above the field it governs, so the field reads as belonging to
         it. Turning it off leaves the text alone — the author's words, and whichever
@@ -169,7 +190,7 @@ export function LegendControls() {
       />
 
       <SelectField
-        label="Icon"
+        label="Title Mark"
         value={icon ?? NO_ICON}
         onChange={(next) => {
           patch({ icon: next === NO_ICON ? null : next })
@@ -186,7 +207,7 @@ export function LegendControls() {
       {/* Only once there is an icon to size: a control over nothing is noise. */}
       {icon && (
         <SizeSlider
-          label="Icon size"
+          label="Title Mark size"
           value={sizes.icon}
           onChange={(value) => setSize('icon', value)}
         />
@@ -201,12 +222,19 @@ export function LegendControls() {
         by the input it sits under.
       */}
       <SizeSlider
-        label="Symbol size"
+        label="Item Icons"
         value={sizes.items}
         onChange={(value) => setSize('items', value)}
       />
-      <p className="hint">Colour swatches and the labels beside them.</p>
+      <p className="hint">
+        The items themselves — each colour indicator and the text beside it — come from the active
+        colouring mode: the palette's bands, the comparison's groups, the coloured seas.
+      </p>
+      </div>
+      </Disclosure>
 
+      <Disclosure title="Appearance">
+      <div className="stack">
       {/*
         The look, kept apart from the wording above: what the legend says and how it is
         set are different decisions, and Classic is the default so an existing map opens
@@ -278,6 +306,11 @@ export function LegendControls() {
         range={LEGEND_BORDER}
         onChange={(borderWidth) => patch({ borderWidth })}
       />
+      </div>
+      </Disclosure>
+
+      <Disclosure title="Layout">
+      <div className="stack">
 
       {/*
         Everything about the panel's size is derived from its padding and the gaps
@@ -306,7 +339,8 @@ export function LegendControls() {
           </option>
         ))}
       </SelectField>
-
+      </div>
+      </Disclosure>
     </>
   )
 }

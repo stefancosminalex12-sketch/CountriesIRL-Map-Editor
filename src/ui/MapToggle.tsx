@@ -21,12 +21,14 @@ export type MapToggleIcon =
   | 'coastline'
   | 'lakes'
   | 'rivers'
+  | 'waters'
   | 'graticule'
   | 'globe'
   | 'legend'
   | 'names'
   | 'caption'
   | 'rectangle'
+  | 'pointer'
   | 'brush'
   | 'magnifier'
 
@@ -35,6 +37,7 @@ export type MapToggleIcon =
  *
  *   borders   — a territory divided by an emphasised edge
  *   lakes     — water, as two ripples
+ *   waters    — a named sea: a coast, with the water beside it ruled in as an area
  *   rivers    — one winding course with a tributary joining it
  *   graticule — a ruled grid, deliberately square so it cannot be confused with…
  *   globe     — …the sphere's outline, deliberately round for the same reason
@@ -69,6 +72,17 @@ const ICON_PATHS: Record<MapToggleIcon, JSX.Element> = {
     <>
       <path d="M2.6 6.1c1.1-1 2.2-1 3.3 0s2.2 1 3.3 0 2.2-1 3.3 0" />
       <path d="M2.6 9.9c1.1-1 2.2-1 3.3 0s2.2 1 3.3 0 2.2-1 3.3 0" />
+    </>
+  ),
+  waters: (
+    <>
+      {/*
+        A sea against a coast: the shore as one edge, and the water beside it ruled in so it
+        reads as an *area*. That is the distinction this control makes — lakes and coastline
+        are lines drawn on water, this is water you can take hold of.
+      */}
+      <path d="M12.9 2.6c-2 1.5-2.9 3-2.9 4.8 0 2.2 1.3 3.5 1.3 5.9" />
+      <path d="M2.6 4.8h5.8M2.6 7.6h5.2M2.6 10.4h5.9M2.6 13.2h7.3" strokeOpacity="0.7" />
     </>
   ),
   rivers: (
@@ -108,6 +122,12 @@ const ICON_PATHS: Record<MapToggleIcon, JSX.Element> = {
       <path d="M4.1 10.8 8 3.6l3.9 7.2" />
       <path d="M5.7 8.4h4.6" />
       <path d="M2.6 13.4h10.8" />
+    </>
+  ),
+  pointer: (
+    <>
+      {/* The arrow itself: select by pointing, no tool armed. */}
+      <path d="M4.2 2.8v9.6l2.7-2.5 1.8 4 1.7-.8-1.8-3.9h3.7z" />
     </>
   ),
   rectangle: (

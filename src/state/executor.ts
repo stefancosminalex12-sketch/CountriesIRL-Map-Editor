@@ -5,7 +5,7 @@
  * document plus a per-operation result. No React, no store, no side effects, so the
  * same path serves the UI, the future AI assistant, tests and replay.
  */
-import { MAX_COMPARISON_GROUPS, OVERLAY_SCALE_RANGE } from '../types/map'
+import { MAX_COMPARISON_GROUPS, OVERLAY_SCALE_RANGE, WATER_OPACITY } from '../types/map'
 import { hasFlag } from '../flags/flagStore'
 import { BUILT_IN_PALETTES, createCountryEntry, createGroup } from './defaults'
 import { PRESET_IDS } from './presets'
@@ -16,6 +16,7 @@ import {
   type OperationResult,
 } from './operations'
 import { REGIONS } from '../geo/regions'
+import { isKnownWaterId, isWaterId, waterName } from '../geo/waters'
 import { ALL_DATASETS } from '../maps/atlas'
 import { PROJECTIONS } from '../geo/projections'
 import type {
@@ -99,6 +100,33 @@ export function validateOperation(op: MapOperation, ctx: ExecutionContext = {}):
     }
   }
 
+  /*
+   * A sea is not a country, and this is where that is enforced for the whole vocabulary.
+   *
+   * Every operation that names land names it as `countryId`, `countryIds` or a merge's
+   * `members`, and a water region's id can never be one: it would mean a group of countries
+   * containing the Pacific, or a data value on the Baltic. Refused with a reason rather than
+   * filtered out silently, so a mistake in the UI or in a future assistant's operations shows
+   * up as an error instead of as a missing member. Water has its own operations —
+   * `set_water_paint`, `clear_water_paint` — and they accept nothing but water.
+   */
+  const landIds = [
+    ...('countryId' in op ? [op.countryId] : []),
+    ...('countryIds' in op && Array.isArray(op.countryIds) ? op.countryIds : []),
+    ...(op.op === 'create_merge' && Array.isArray(op.members) ? op.members : []),
+    ...(op.op === 'update_merge' && Array.isArray(op.patch?.members) ? op.patch.members : []),
+  ]
+  const sea = landIds.find((id) => typeof id === 'string' && isWaterId(id))
+  if (sea) return `"${waterName(sea)}" is a water region, and water is never land: it cannot be used here`
+
+  if (op.op === 'set_water_paint' || op.op === 'clear_water_paint') {
+    if (!Array.isArray(op.waterIds) || op.waterIds.length === 0) return 'waterIds must be a non-empty array'
+    const notWater = op.waterIds.find((id) => typeof id !== 'string' || !isWaterId(id))
+    if (notWater !== undefined) return `"${String(notWater)}" is not a water region id`
+    const unknown = op.waterIds.find((id) => !isKnownWaterId(id))
+    if (unknown) return `Unknown water region "${unknown}"`
+  }
+
   switch (op.op) {
     case 'create_group':
       if (typeof op.groupId !== 'string' || !op.groupId.trim()) return 'groupId is required'
@@ -167,6 +195,22 @@ export function validateOperation(op: MapOperation, ctx: ExecutionContext = {}):
     }
     case 'delete_overlay':
       return op.id ? null : 'an overlay needs an id'
+    case 'set_water_paint': {
+      const patch = op.patch as Record<string, unknown> | undefined
+      if (!patch || typeof patch !== 'object') return 'patch must be an object'
+      if (patch.color !== undefined && patch.color !== null && !(typeof patch.color === 'string' && /^#[0-9a-f]{6}$/i.test(patch.color))) {
+        return 'color must be a #rrggbb colour, or null for the map’s own water'
+      }
+      if (patch.opacity !== undefined) {
+        const { min, max } = WATER_OPACITY
+        if (typeof patch.opacity !== 'number' || !(patch.opacity >= min && patch.opacity <= max)) {
+          return `opacity must be a number from ${min} to ${max}`
+        }
+      }
+      return null
+    }
+    case 'clear_water_paint':
+      return null
 
     case 'set_screen': {
       if (!op.patch || typeof op.patch !== 'object') return 'patch must be an object'
@@ -470,6 +514,25 @@ function applyOperation(doc: MapDocument, op: MapOperation): MapDocument {
       return { ...doc, overlays: (doc.overlays ?? []).map((o) => (o.id === op.id ? { ...o, ...op.patch } : o)) }
     case 'delete_overlay':
       return { ...doc, overlays: (doc.overlays ?? []).filter((o) => o.id !== op.id) }
+
+    /*
+     * Water paint. A region an author has never touched has no entry, so painting one creates
+     * it with the default opacity and clearing it removes the entry outright — a document with
+     * no coloured sea carries nothing here, and exports exactly as it did before.
+     */
+    case 'set_water_paint': {
+      const waters = { ...(doc.waters ?? {}) }
+      for (const id of op.waterIds) {
+        const current = waters[id] ?? { id, color: null, opacity: WATER_OPACITY.default }
+        waters[id] = { ...current, ...op.patch, id }
+      }
+      return { ...doc, waters }
+    }
+    case 'clear_water_paint': {
+      const waters = { ...(doc.waters ?? {}) }
+      for (const id of op.waterIds) delete waters[id]
+      return { ...doc, waters }
+    }
 
     case 'set_screen':
       return { ...doc, screen: { ...doc.screen, ...(op.patch as Partial<MapDocument['screen']>) } }

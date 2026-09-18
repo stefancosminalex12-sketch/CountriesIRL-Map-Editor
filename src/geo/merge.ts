@@ -50,16 +50,29 @@ export function mergeCountries(
   dataset: LoadedDataset | null,
   members: CountryId[],
 ): MultiPolygon | null {
-  if (!dataset?.topology || members.length === 0) return null
+  if (!dataset || members.length === 0) return null
+  // Without a topology only supplemented members can be merged, as they are drawn.
+  if (!dataset.topology && !members.some((id) => dataset.supplemented.includes(id))) return null
 
   const key = keyFor(dataset, members)
   const cached = cache.get(key)
   if (cached !== undefined) return cached
 
-  const geometries = members.flatMap((id) => dataset.topoById.get(id) ?? [])
+  /*
+   * A member drawn from supplemental geometry is merged *as it is drawn*. Its arcs in the
+   * topology are not its shape — they are the source's placeholder, or nothing at all where the
+   * layer omits it — so dissolving them would give the group a Vatican a tenth the size of the
+   * one on the map, and would drop a supplemented speck from a 110m group altogether. Its own
+   * polygons are carried into the group instead, exactly as an island that shares no arc with
+   * anything is carried: one entity, geographically where it is, with nothing invented.
+   */
+  const supplemented = new Set(dataset.supplemented)
+  const dissolved = members.filter((id) => !supplemented.has(id))
+  const carried = members.filter((id) => supplemented.has(id))
+  const geometries = dissolved.flatMap((id) => dataset.topoById.get(id) ?? [])
 
   let result: MultiPolygon | null = null
-  if (geometries.length > 0) {
+  if (geometries.length > 0 && dataset.topology) {
     try {
       const merged = mergeArcs(
         dataset.topology,
@@ -69,6 +82,16 @@ export function mergeCountries(
     } catch {
       // A malformed or partial topology: leave the countries alone rather than guess.
       result = null
+    }
+  }
+  if (carried.length > 0) {
+    const polygons: MultiPolygon['coordinates'] = carried.flatMap((id) => {
+      const geometry = dataset.byId.get(id)?.geometry
+      if (!geometry) return []
+      return geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.coordinates
+    })
+    if (polygons.length > 0) {
+      result = { type: 'MultiPolygon', coordinates: [...(result?.coordinates ?? []), ...polygons] }
     }
   }
 

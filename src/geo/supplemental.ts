@@ -69,6 +69,19 @@ export interface SupplementalCountry {
    * nine-point neighbours. Omit to apply everywhere.
    */
   appliesToDetail?: ('110m' | '50m' | '10m')[]
+  /**
+   * Drawn this many times its true size, about its own centre, or absent for true size.
+   *
+   * For an entity too small to be seen or clicked at any zoom the map offers, and for nothing
+   * else: every other entity on the map is drawn at its real size, and this is the one
+   * deliberate exception to that. A constant factor on the geometry itself, not a floor on
+   * screen size — so it grows and shrinks with the camera exactly like its neighbours, it is
+   * the same shape in every export, and hit-testing, flags, labels, overlays and merges all
+   * see one outline. The old zoom-dependent floor (`minimumSizeTransform`) was removed because
+   * a speck held at a constant screen size grew against its neighbours as the camera zoomed
+   * out; a constant geographic factor cannot do that.
+   */
+  enlarge?: number
   /** Why this entry exists, so it can be retired when a dataset covers it. */
   note: string
 }
@@ -76,11 +89,29 @@ export interface SupplementalCountry {
 /**
  * Simplified boundary of Vatican City (~0.49 km²), traced from its real extent:
  * roughly 12.4457–12.4583°E, 41.9002–41.9075°N.
+ *
+ * **`replace`, on every map.** Natural Earth's own 10m Vatican is a seven-point placeholder
+ * 0.11 × 0.13 km — a tenth of the real state's width, sitting in its north-east corner — and
+ * its admin-1 Vatican is a 0.012 km² shard. This outline is the real one, so it wins wherever
+ * it is offered: the World map at every resolution and the administrative world's single
+ * Vatican unit. It used to be a fallback, which left the World map drawing the placeholder.
+ *
+ * **Drawn six times its true size.** Vatican City is about 1 km across; on a 1,280 px window
+ * the whole world is 1,224 px, so even at the map's deepest zoom (40×) the state is 1.4 px — a
+ * dot nobody can see, never mind aim at. Six times is the smallest whole factor that makes its
+ * outline a target of more than 8 px at that zoom (8.6 px), which is where anyone looking for
+ * it ends up. It stays small everywhere else: 0.2 px at world zoom, 1.7 px with Italy filling
+ * the window. The assist catchment that already reaches past every speck still supplies the
+ * full touch target — on a phone, where the same zoom draws it at under 3 px, that catchment
+ * is what a finger lands on — so nothing here tries to be a touch target by itself. 16 km² as
+ * drawn, still smaller than San Marino and a quarter the size of the Rome district it sits in;
+ * the only neighbour it now outdraws is Monaco, which is drawn at its true 2 km².
  */
 const VATICAN_CITY: SupplementalCountry = {
   id: 'VAT',
   name: 'Vatican City',
-  mode: 'fallback',
+  mode: 'replace',
+  enlarge: 6,
   polygons: [
     [
       [
@@ -96,7 +127,9 @@ const VATICAN_CITY: SupplementalCountry = {
       ],
     ],
   ],
-  note: 'Absent at 110m and collapsed to two corners at 10m by TopoJSON quantisation.',
+  note:
+    'Absent at 110m, a seven-point placeholder a tenth of its width at 10m, and a shard on the ' +
+    'administrative map: the real outline, drawn six times its size so it can be seen and clicked.',
 }
 
 /*

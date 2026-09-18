@@ -14,6 +14,10 @@
  * the data palette or the comparison — and an operation that set a country's colour
  * would outrank whichever mode is on, which is exactly the ambiguity the mode system
  * exists to remove. To colour a country, give it a value or put it in a group.
+ *
+ * A water region is painted directly (`set_water_paint`), and that is not an exception to the
+ * rule above but the same rule reaching a different answer: no mode colours the sea, so there
+ * is nothing for the paint to outrank. See that operation.
  */
 import type {
   CountryId,
@@ -108,6 +112,23 @@ export type MapOperation =
   | { op: 'create_overlay'; overlay: MapOverlay }
   | { op: 'update_overlay'; id: string; patch: Partial<Omit<MapOverlay, 'id' | 'sourceId'>> }
   | { op: 'delete_overlay'; id: string }
+  /*
+   * Water regions: paint on a named ocean or sea.
+   *
+   * The one place in this vocabulary where a colour is set directly, and the exception is
+   * deliberate. The modes that colour the land — the data scale, the comparison, the flags —
+   * read values, groups and countries, and none of them has anything to say about the
+   * Mediterranean; a sea is coloured because an author wants that sea coloured. So there is
+   * no mode for this to outrank and nothing ambiguous about it, which is exactly the argument
+   * that rules a `set_country_color` out.
+   *
+   * Plural, because it is applied to a selection of seas. `color: null` hands a region back
+   * to the map's own background water. Water ids only — `water-…`, see `geo/waters.ts` — and
+   * a country id here is refused rather than quietly painted.
+   */
+  | { op: 'set_water_paint'; waterIds: string[]; patch: { color?: string | null; opacity?: number } }
+  /** Takes the paint off entirely: the regions leave the document and are background again. */
+  | { op: 'clear_water_paint'; waterIds: string[] }
   /** Turns the flag overlay on or off. Deletes nothing when it goes off. */
   | {
       op: 'set_flags'
@@ -176,6 +197,8 @@ const IMPLEMENTED: Record<MapOperationType, true> = {
   create_overlay: true,
   update_overlay: true,
   delete_overlay: true,
+  set_water_paint: true,
+  clear_water_paint: true,
   set_flags: true,
   set_comparison: true,
   set_comparison_group: true,
@@ -223,6 +246,8 @@ export const UNDOABLE_OPERATIONS = new Set<MapOperationType>([
   'create_overlay',
   'update_overlay',
   'delete_overlay',
+  'set_water_paint',
+  'clear_water_paint',
   'set_flags',
   'set_comparison',
   'set_comparison_group',
@@ -275,6 +300,13 @@ export function coalesceKey(ops: MapOperation[]): string | null {
     // A colour or opacity dragged, or an overlay moved twice in a moment, is one edit.
     case 'update_overlay':
       return `update_overlay:${first.id}`
+    /*
+     * A sea's colour or opacity dragged. Keyed on the regions it is applied to, so dragging
+     * the well is one step however many frames it fires over — and painting a different
+     * selection afterwards is a step of its own.
+     */
+    case 'set_water_paint':
+      return `set_water_paint:${first.waterIds.join(',')}`
     default:
       return null
   }
