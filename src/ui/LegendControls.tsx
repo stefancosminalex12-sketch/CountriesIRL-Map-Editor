@@ -84,7 +84,7 @@ export function LegendControls() {
         in both places. The editor below stays open and usable while the legend is hidden —
         the notice says so, so nobody edits a legend wondering why nothing changes.
       */}
-      <Disclosure title="Visibility" defaultOpen>
+      <Disclosure title="Visibility">
         <div className="stack">
           <LegendVisibilityToggle />
           {!legend.visible && (
@@ -96,7 +96,7 @@ export function LegendControls() {
         </div>
       </Disclosure>
 
-      <Disclosure title="Content" defaultOpen>
+      <Disclosure title="Content">
       <div className="stack">
       {/*
         The switch sits above the field it governs, so the field reads as belonging to

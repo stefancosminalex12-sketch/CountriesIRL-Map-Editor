@@ -131,6 +131,25 @@ writeFileSync(
   }
 }
 
+/* --------------------------------------------------------------------- Europe */
+
+/**
+ * Written whole by `scripts/europe/build-europe.mjs` from EuroGlobalMap — the Europe Countries
+ * topologies, the Europe Administrative presets, their entity tables and EuroGlobalMap's lakes —
+ * so this only copies it.
+ */
+{
+  const src = resolve(root, 'data/europe')
+  const dest = resolve(outDir, 'europe')
+  if (existsSync(resolve(src, 'countries-meta.json'))) {
+    rmSync(dest, { recursive: true, force: true })
+    cpSync(src, dest, { recursive: true, filter: (path) => !path.endsWith('report.json') })
+    console.log(`[prepare-data] Europe maps -> public/geo/europe/`)
+  } else {
+    console.warn('[prepare-data] missing data/europe/ - run: npm run build-europe')
+  }
+}
+
 console.log(
   `[prepare-data] ${CURATED.length - missing.length} of ${CURATED.length} curated layers copied, ` +
     `${Object.keys(byId).length} countries indexed -> public/geo/`,

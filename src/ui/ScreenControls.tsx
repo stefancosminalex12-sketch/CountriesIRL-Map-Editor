@@ -153,7 +153,7 @@ export function ScreenControls() {
         <p className="hint">Off: the whole map is the picture, and exports are uncropped.</p>
       )}
 
-      <Disclosure title="Aspect Ratio" defaultOpen>
+      <Disclosure title="Aspect Ratio">
       <div className="stack">
       <div className="field">
         <span className="field__row">
@@ -265,7 +265,7 @@ export function ScreenControls() {
         round what is already on screen — the map's zoom, pan, projection and geometry are never
         touched by anything in this section.
       */}
-      <Disclosure title="Framing" defaultOpen>
+      <Disclosure title="Framing">
       <div className="stack">
       <button type="button" className="btn" onClick={fitToRegion}>
         Fit to Region

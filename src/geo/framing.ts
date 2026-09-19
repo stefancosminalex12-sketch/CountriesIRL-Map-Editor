@@ -24,6 +24,7 @@ import type { MultiPoint, Position } from 'geojson'
 import type { LoadedDataset } from './datasets'
 import {
   countriesInRegions,
+  memberDomain,
   resolveFraming,
   type BBox,
   type ExcludedArea,
@@ -55,6 +56,10 @@ interface PolygonExtent {
    * but these must always survive or the fit would quietly clip the extremes.
    */
   extremes: [number, number][]
+  /** The box this polygon's vertices were tested against: the scope's, or its part's. */
+  domain: BBox
+  /** Framed whatever its size or distance: a named member's main landmass. */
+  anchor?: boolean
 }
 
 export interface ResolvedFraming extends ScopeFraming {
@@ -130,16 +135,21 @@ function isExcluded(
 function collectExtents(
   memberIds: Set<string>,
   dataset: LoadedDataset,
-  domain: BBox,
+  scopeDomain: BBox,
   excluded: ExcludedArea[],
+  domainFor: (id: string) => BBox | null = () => null,
+  explicitMembers = false,
 ): PolygonExtent[] {
-  const [dw, ds, de, dn] = domain
-  const centerLon = (dw + de) / 2
+  const centerLon = (scopeDomain[0] + scopeDomain[2]) / 2
   const out: PolygonExtent[] = []
 
   for (const id of memberIds) {
     const feature = dataset.byId.get(id)
     if (!feature) continue
+    // A member held only in part (the United States in New England) is tested against its
+    // part's extent, brought into the same longitude frame as everything else.
+    const domain = alignDomain(domainFor(id) ?? scopeDomain, centerLon)
+    const [dw, ds, de, dn] = domain
 
     const polygons =
       feature.geometry.type === 'Polygon'
@@ -151,9 +161,10 @@ function collectExtents(
      */
     const islands = dataset.metrics.get(id)?.islands
     const measured = islands && islands.length === polygons.length ? islands : null
+    const firstOfMember = out.length
 
     for (let k = 0; k < polygons.length; k++) {
-      const polygon = polygons[k]
+      let polygon = polygons[k]
       // Full extent, used for the exclusion test.
       let fullWest = Infinity
       let fullSouth = Infinity
@@ -205,21 +216,109 @@ function collectExtents(
       if (inside === 0) continue
       if (isExcluded(fullWest, fullSouth, fullEast, fullNorth, excluded)) continue
 
+      /*
+       * Cut by the domain: frame the part inside it, edges included. Only the polygon's own
+       * vertices would otherwise be seen, and inland there are none, so the American
+       * Southwest, whose northern edge runs across the middle of the United States, would be
+       * framed only as far north as the Mexican border reaches.
+       */
       // Scale the polygon's area by the share of it that lies inside the domain, so
       // a country straddling the edge (Russia across Europe/Asia) contributes only
       // its in-domain mass to the outlier budget.
       const polygonArea = measured
         ? measured[k].area
         : geoArea({ type: 'Polygon', coordinates: polygon })
-      const area = polygonArea * (inside / total)
+      let share = inside / total
+
+      const partial = inside < total
+      if (explicitMembers && partial) {
+        const clipped = clipRing(polygon[0], domain, centerLon)
+        if (clipped.length < 3) continue
+        // The share by area, not by vertex count: a coast is drawn in far more vertices
+        // than a straight inland edge, so counting them would make the cut side weigh nothing.
+        const whole = planarArea(polygon[0].map(([lon, lat]) => [normaliseLon(lon, centerLon), lat]))
+        share = whole > 0 ? Math.min(1, planarArea(clipped) / whole) : share
+        polygon = [clipped]
+        inside = clipped.length
+        west = south = Infinity
+        east = north = -Infinity
+        for (const point of clipped) {
+          const [x, lat] = point
+          if (x < west) (west = x), (atWest = point)
+          if (x > east) (east = x), (atEast = point)
+          if (lat < south) (south = lat), (atSouth = point)
+          if (lat > north) (north = lat), (atNorth = point)
+        }
+      }
+
+      const area = polygonArea * share
       const extremes = [atWest, atEast, atSouth, atNorth].filter(
         (p): p is [number, number] => p !== null,
       )
-      out.push({ west, south, east, north, weight: area, polygon, inside, extremes })
+      out.push({ west, south, east, north, weight: area, polygon, inside, extremes, domain })
+    }
+
+    if (explicitMembers && out.length > firstOfMember) {
+      let main = out[firstOfMember]
+      for (let i = firstOfMember + 1; i < out.length; i++) if (out[i].weight > main.weight) main = out[i]
+      main.anchor = true
     }
   }
 
   return out
+}
+
+/**
+ * A ring clipped to a lon/lat box (Sutherland–Hodgman, one box edge at a time), in the
+ * longitude frame centred on `centerLon`. The points on the box's edges are exactly on
+ * them, so the domain test downstream keeps them.
+ */
+function clipRing(ring: Position[], box: BBox, centerLon: number): [number, number][] {
+  let points: [number, number][] = ring.map(([lon, lat]) => [normaliseLon(lon, centerLon), lat])
+  const [w, s, e, n] = box
+  const edges: [(p: [number, number]) => boolean, (a: [number, number], b: [number, number]) => [number, number]][] = [
+    [(p) => p[0] >= w, (a, b) => [w, a[1] + ((b[1] - a[1]) * (w - a[0])) / (b[0] - a[0])]],
+    [(p) => p[0] <= e, (a, b) => [e, a[1] + ((b[1] - a[1]) * (e - a[0])) / (b[0] - a[0])]],
+    [(p) => p[1] >= s, (a, b) => [a[0] + ((b[0] - a[0]) * (s - a[1])) / (b[1] - a[1]), s]],
+    [(p) => p[1] <= n, (a, b) => [a[0] + ((b[0] - a[0]) * (n - a[1])) / (b[1] - a[1]), n]],
+  ]
+  for (const [inside, cross] of edges) {
+    if (points.length === 0) break
+    const next: [number, number][] = []
+    for (let i = 0; i < points.length; i++) {
+      const current = points[i]
+      const previous = points[(i + points.length - 1) % points.length]
+      if (inside(current)) {
+        if (!inside(previous)) next.push(cross(previous, current))
+        next.push(current)
+      } else if (inside(previous)) {
+        next.push(cross(previous, current))
+      }
+    }
+    points = next
+  }
+  return points
+}
+
+/** Unsigned shoelace area of a ring in plain degrees: only ever compared with another. */
+function planarArea(ring: number[][]): number {
+  let sum = 0
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) sum += (ring[j][0] - ring[i][0]) * (ring[j][1] + ring[i][1])
+  return Math.abs(sum) / 2
+}
+
+/** A box shifted by whole turns so its centre sits within 180° of `centerLon`. */
+function alignDomain(box: BBox, centerLon: number): BBox {
+  let [w, s, e, n] = box
+  while ((w + e) / 2 - centerLon > 180) {
+    w -= 360
+    e -= 360
+  }
+  while (centerLon - (w + e) / 2 > 180) {
+    w += 360
+    e += 360
+  }
+  return [w, s, e, n]
 }
 
 /** Union of polygon extents. */
@@ -276,13 +375,14 @@ function selectFramedPolygons(
   if (coreAreaFraction <= 0 || !Number.isFinite(maxDetachmentDegrees)) return extents
 
   const threshold = coreAreaFraction * totalWeight
-  let accepted = extents.filter((e) => e.weight >= threshold)
+  const isCore = (e: PolygonExtent) => e.weight >= threshold || e.anchor === true
+  let accepted = extents.filter(isCore)
 
   // Nothing dominant enough to anchor the region (a scatter of small islands):
   // fall back to framing everything rather than picking an arbitrary anchor.
   if (accepted.length === 0) return extents
 
-  let pending = extents.filter((e) => e.weight < threshold)
+  let pending = extents.filter((e) => !isCore(e))
   const index = nearIndex(maxDetachmentDegrees)
   for (const extent of accepted) index.add(extent)
 
@@ -369,7 +469,7 @@ interface FitTarget {
   anchors: [number, number][]
 }
 
-function buildFitTarget(framed: PolygonExtent[], bbox: BBox, domain: BBox): FitTarget {
+function buildFitTarget(framed: PolygonExtent[], bbox: BBox, scopeDomain: BBox): FitTarget {
   let keptCount = 0
   for (const extent of framed) keptCount += extent.inside
 
@@ -396,8 +496,7 @@ function buildFitTarget(framed: PolygonExtent[], bbox: BBox, domain: BBox): FitT
    * exactly the vertices a list of all of them would have been sampled down to.
    */
   const stride = Math.ceil(keptCount / MAX_FIT_POINTS)
-  const [dw, ds, de, dn] = domain
-  const centerLon = (dw + de) / 2
+  const centerLon = (scopeDomain[0] + scopeDomain[2]) / 2
   const sampled: [number, number][] = []
   const sampledWeights: number[] = []
   const extremes: [number, number][] = []
@@ -408,6 +507,7 @@ function buildFitTarget(framed: PolygonExtent[], bbox: BBox, domain: BBox): FitT
     // The polygon's area, shared equally across the vertices that represent it, so a
     // large landmass outweighs a reef no matter how finely either is drawn.
     const perPoint = extent.inside > 0 ? extent.weight / extent.inside : 0
+    const [dw, ds, de, dn] = extent.domain
     for (const ring of extent.polygon) {
       for (const [lon, lat] of ring) {
         const x = normaliseLon(lon, centerLon)
@@ -458,6 +558,12 @@ function fallbackTarget(bbox: BBox, steps = 24): MultiPoint {
   return { type: 'MultiPoint', coordinates }
 }
 
+/** Albers' rule of thumb: standard parallels one sixth in from each edge of the extent. */
+function sixthParallels([, south, , north]: BBox): [number, number] {
+  const band = (north - south) / 6
+  return [south + band, north - band]
+}
+
 const cache = new Map<string, ResolvedFraming>()
 
 /**
@@ -494,6 +600,11 @@ export function computeFraming(
     dataset,
     scope.framing.domain,
     scope.excludedAreas,
+    (id) => {
+      const meta = dataset.meta[id]
+      return memberDomain(scope.regionIds, meta?.parent?.id ?? id, meta)
+    },
+    scope.explicitMembers,
   )
 
   let resolved: ResolvedFraming
@@ -532,6 +643,7 @@ export function computeFraming(
       margin: scope.framing.margin,
       centerLon: (fitBBox[0] + fitBBox[2]) / 2,
       centerLat: (fitBBox[1] + fitBBox[3]) / 2,
+      parallels: scope.autoParallels ? sixthParallels(fitBBox) : scope.parallels,
       source: 'geometry',
     }
   }

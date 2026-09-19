@@ -20,11 +20,11 @@
  * written against `US-CA` can never be mistaken for one written against a country.
  */
 import type { GeoDataset } from '../geo/datasets'
-import { USGS_LAKES } from '../geo/lakes'
-import { USGS_RIVERS } from '../geo/rivers'
+import { EGM_LAKES, USGS_LAKES } from '../geo/lakes'
+import { RIVER_LAYERS, USGS_RIVERS } from '../geo/rivers'
 import type { RegionId } from '../types/map'
 
-export type AtlasId = 'world' | 'admin-world' | 'usa-states' | 'usa-official'
+export type AtlasId = 'world' | 'admin-world' | 'europe-countries' | 'europe-admin' | 'usa-states' | 'usa-official'
 
 /**
  * Geography drawn away from where it actually is.
@@ -98,6 +98,7 @@ export interface MapInset {
 /** The groups of the Maps list, in order: what a map is of. */
 export const ATLAS_FAMILIES = [
   { id: 'world', name: 'World' },
+  { id: 'europe', name: 'Europe' },
   { id: 'usa', name: 'USA' },
 ] as const
 
@@ -325,6 +326,90 @@ const USA_OFFICIAL_DATASETS: GeoDataset[] = [
   },
 ]
 
+/**
+ * Europe from EuroGlobalMap: the national mapping agencies' own 1:1,000,000 data, harmonised by
+ * EuroGeographics so neighbouring countries meet exactly. Built by `scripts/europe/build-europe.mjs`
+ * (sources, licence and the reconciliation of borders are described there).
+ *
+ * Separate from the World and Modern Administrative World maps, which stay Natural Earth's and
+ * unchanged. Lakes are EuroGlobalMap's own, drawn at the scale of its coastlines; rivers are the
+ * World map's Natural Earth rivers.
+ */
+const EUROPE_BASE = {
+  name: 'Europe',
+  era: 'modern',
+  year: 2026,
+  detail: '10m',
+  objectName: 'units',
+  // The build stamps every unit with its id.
+  identify: 'feature-id',
+  water: { lakes: EGM_LAKES, rivers: RIVER_LAYERS[0] },
+} as const
+
+const EUROPE_COUNTRY_DATASETS: GeoDataset[] = [
+  {
+    ...EUROPE_BASE,
+    atlasId: 'europe-countries',
+    id: 'europe-countries-full',
+    label: 'Full Detail (1:1M)',
+    description: 'EuroGlobalMap’s full 1:1,000,000 coastlines, islands and borders.',
+    url: 'geo/europe/countries-full.json',
+    metaUrl: 'geo/europe/countries-meta.json',
+    progressive: true,
+  },
+  {
+    ...EUROPE_BASE,
+    atlasId: 'europe-countries',
+    id: 'europe-countries-standard',
+    label: 'Standard',
+    description: 'Generalised to about 120 m: every island and border kept, lighter to draw.',
+    url: 'geo/europe/countries-standard.json',
+    metaUrl: 'geo/europe/countries-meta.json',
+  },
+  {
+    ...EUROPE_BASE,
+    atlasId: 'europe-countries',
+    id: 'europe-countries-light',
+    label: 'Light',
+    description: 'Generalised to about 600 m, for the whole continent at a glance.',
+    url: 'geo/europe/countries-light.json',
+    metaUrl: 'geo/europe/countries-meta.json',
+  },
+]
+
+const EUROPE_ADMIN_DATASETS: GeoDataset[] = [
+  {
+    ...EUROPE_BASE,
+    atlasId: 'europe-admin',
+    id: 'europe-admin-regions',
+    label: 'Regions',
+    description: 'First-order divisions: French régions, German Länder, Spanish autonomous communities, Polish voivodeships.',
+    url: 'geo/europe/admin-regions.json',
+    metaUrl: 'geo/europe/admin-regions-meta.json',
+    progressive: true,
+  },
+  {
+    ...EUROPE_BASE,
+    atlasId: 'europe-admin',
+    id: 'europe-admin-standard',
+    label: 'Standard',
+    description: 'Each country’s own recognised level: départements, Kreise, provinces, powiats, județe, oblasti.',
+    url: 'geo/europe/admin-standard.json',
+    metaUrl: 'geo/europe/admin-standard-meta.json',
+    progressive: true,
+  },
+  {
+    ...EUROPE_BASE,
+    atlasId: 'europe-admin',
+    id: 'europe-admin-detailed',
+    label: 'Detailed',
+    description: 'The finest official level available: Bosnia’s municipalities, Belgium’s arrondissements, Slovenia’s municipalities.',
+    url: 'geo/europe/admin-detailed.json',
+    metaUrl: 'geo/europe/admin-detailed-meta.json',
+    progressive: true,
+  },
+]
+
 export const ATLASES: Atlas[] = [
   {
     id: 'world',
@@ -360,6 +445,39 @@ export const ATLASES: Atlas[] = [
      * country codes. Flags mode works here as it does on the states map — any subdivision
      * can be assigned a flag, and a merged body can fly one.
      */
+    ownFlags: false,
+  },
+  {
+    id: 'europe-countries',
+    name: 'Europe Countries',
+    family: 'europe',
+    noun: { one: 'country', many: 'countries' },
+    datasets: EUROPE_COUNTRY_DATASETS,
+    defaultDatasetId: 'europe-countries-full',
+    datasetLabel: 'Detail',
+    note: 'Countries and territories · EuroGlobalMap 1:1M',
+    /*
+     * Europe and its subregions. The countries around it (North Africa, the Middle East,
+     * Kazakhstan, Russia beyond 51°E) are on the map as context, outside the region.
+     */
+    regionIds: ['europe'],
+    defaultRegionIds: ['europe'],
+    insets: [],
+    ownFlags: true,
+  },
+  {
+    id: 'europe-admin',
+    name: 'Europe Administrative',
+    family: 'europe',
+    noun: { one: 'subdivision', many: 'subdivisions' },
+    datasets: EUROPE_ADMIN_DATASETS,
+    defaultDatasetId: 'europe-admin-standard',
+    datasetLabel: 'Detail',
+    note: 'Each country’s own subdivisions · EuroGlobalMap 1:1M',
+    regionIds: ['europe'],
+    defaultRegionIds: ['europe'],
+    insets: [],
+    // Subdivisions have no artwork of their own; any unit can be assigned a flag.
     ownFlags: false,
   },
   {

@@ -275,8 +275,13 @@ export function createMapDocument(
       outsideScope: 'muted',
       outsideScopeColor: '#1c2128',
       showBorders: true,
-      // On, so the map looks exactly as it always has until someone turns it off.
-      showCoastlines: true,
+      /*
+       * Off. A fresh map draws its borders and leaves the coast to the land's own edge;
+       * the coastline is one click away in Display → Geographic Features. The World
+       * Domination template turns it on, because it turns borders off and the land needs
+       * some outline.
+       */
+      showCoastlines: false,
       showGraticule: false,
       showLakes: true,
       lake: '#22303d',

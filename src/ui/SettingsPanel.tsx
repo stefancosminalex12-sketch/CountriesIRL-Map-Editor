@@ -223,6 +223,31 @@ export function DataSources() {
         shorelines from 30 m Landsat imagery, with Esri and UNEP-WCMC. Public domain. Credit:
         U.S. Geological Survey.
       </p>
+      {/* The Europe Countries and Europe Administrative maps (`scripts/europe/build-europe.mjs`). */}
+      <p className="hint">
+        <strong>EuroGeographics</strong> — Europe Countries and Europe Administrative: EuroGlobalMap
+        2026, 1:1,000,000, with the EuroBoundaryMap hierarchy of administrative units and
+        EuroGlobalMap’s lakes. © EuroGeographics. Owned by the national mapping and cadastral
+        agencies of Europe, whose individual attributions are listed at
+        www.mapsforeurope.org/attributions. EuroGeographics Open Data Licence (commercial use
+        permitted with attribution). NUTS 3 regions for Greece and Slovenia: Eurostat, via
+        EuroGlobalMap. Around Europe, and Russia east of 51°E: Natural Earth.
+      </p>
+      {/* The figures behind Templates → Predefined Data (`data/predefinedData.ts`). */}
+      <p className="hint">
+        <strong>UNDP</strong> — Human Development Index, 2022: Human Development Report 2023/24,
+        composite indices time series, hdr.undp.org.
+      </p>
+      <p className="hint">
+        <strong>World Bank</strong> — GDP per capita (current US$), inflation (consumer prices,
+        annual %) and population: World Development Indicators, each country’s most recent
+        published year, data.worldbank.org. CC BY 4.0. The GDP per capita thresholds are the World
+        Bank’s FY2025 income-group thresholds, which it sets on GNI per capita.
+      </p>
+      <p className="hint">
+        <strong>U.S. Census Bureau</strong> — population of the states, the District of Columbia,
+        Puerto Rico and every county: Vintage 2023 population estimates, census.gov. Public domain.
+      </p>
     </div>
   )
 }

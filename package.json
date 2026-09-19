@@ -16,6 +16,7 @@
     "build-geography": "node --max-old-space-size=8192 scripts/build-geography.mjs",
     "build-waters": "node scripts/build-waters.mjs",
     "build-usa": "node --max-old-space-size=12000 scripts/usa/build-usa.mjs",
+    "build-europe": "node --max-old-space-size=14000 scripts/europe/build-europe.mjs",
     "prepare-flags": "node scripts/prepare-flags.mjs",
     "fetch-eez": "node scripts/fetch-eez.mjs"
   },

@@ -9,3 +9,6 @@ public/flags/
 
 # Local preview-server config, not part of the project
 .claude/
+
+# EuroGlobalMap source download (about 1 GB): the build reads it, and it is never committed.
+/euro-global-map-GPKG/

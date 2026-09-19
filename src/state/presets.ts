@@ -84,7 +84,115 @@ const HDI: ThresholdPreset = {
   ],
 }
 
-export const THRESHOLD_PRESETS: ThresholdPreset[] = [HDI]
+/**
+ * GDP per capita, current US$.
+ *
+ * The World Bank's income-group thresholds for fiscal year 2025 — low income up to $1,145, lower
+ * middle to $4,515, upper middle to $14,005, high above — the one published set of cut-offs for
+ * "how rich is a country per person". The Bank sets them on GNI per capita (Atlas method); applied
+ * here to GDP per capita, the indicator the dataset carries, which is close to it for most
+ * economies. The source line says so. Colours: ColorBrewer YlGnBu, four classes.
+ */
+const GDP_PER_CAPITA: ThresholdPreset = {
+  id: 'gdp-per-capita',
+  name: 'GDP per capita',
+  description: 'Current US dollars, in the World Bank’s income groups',
+  unit: '',
+  source: 'World Bank income-group thresholds, FY2025 (set on GNI per capita)',
+  bands: [
+    { min: -Infinity, max: 1146, label: 'Low (< $1,146)', color: '#edf8b1' },
+    { min: 1146, max: 4516, label: 'Lower middle ($1,146–4,515)', color: '#7fcdbb' },
+    { min: 4516, max: 14006, label: 'Upper middle ($4,516–14,005)', color: '#2c7fb8' },
+    { min: 14006, max: Infinity, label: 'High (> $14,005)', color: '#253494' },
+  ],
+}
+
+/**
+ * Inflation, consumer prices, annual %.
+ *
+ * There is no official banding, so these are stated as the editor's own: falling prices, then the
+ * ranges around the 2% target most central banks set, then high and very high. Diverging colours,
+ * because deflation and high inflation are both departures from the middle: blue below zero, red
+ * rising above the target (ColorBrewer RdYlBu, six classes).
+ */
+const INFLATION: ThresholdPreset = {
+  id: 'inflation',
+  name: 'Inflation',
+  description: 'Consumer prices, annual % change',
+  unit: '%',
+  source: 'Editor-defined ranges around the 2% target common to central banks',
+  bands: [
+    { min: -Infinity, max: 0, label: 'Deflation', color: '#4575b4' },
+    { min: 0, max: 2, label: 'Low', color: '#91bfdb' },
+    { min: 2, max: 5, label: 'Moderate', color: '#fee090' },
+    { min: 5, max: 10, label: 'High', color: '#fc8d59' },
+    { min: 10, max: 25, label: 'Very high', color: '#d73027' },
+    { min: 25, max: Infinity, label: 'Extreme', color: '#a50026' },
+  ],
+}
+
+/*
+ * Population, three ways. One number, but a country, a US state and a US county live orders of
+ * magnitude apart, and bands that separate countries would put every county in the first one — so
+ * each level has its own, and a predefined dataset picks the one for the map it is applied to.
+ * No official banding exists for any of them; these are round orders of magnitude, stated as the
+ * editor's own. Colours: ColorBrewer YlOrRd.
+ */
+const POPULATION: ThresholdPreset = {
+  id: 'population',
+  name: 'Population',
+  description: 'People, countries',
+  unit: '',
+  source: 'Editor-defined orders of magnitude',
+  bands: [
+    { min: -Infinity, max: 1e6, label: 'Under 1 million', color: '#ffffb2' },
+    { min: 1e6, max: 1e7, label: '1–10 million', color: '#fed976' },
+    { min: 1e7, max: 5e7, label: '10–50 million', color: '#feb24c' },
+    { min: 5e7, max: 1e8, label: '50–100 million', color: '#fd8d3c' },
+    { min: 1e8, max: 1e9, label: '100 million–1 billion', color: '#f03b20' },
+    { min: 1e9, max: Infinity, label: 'Over 1 billion', color: '#bd0026' },
+  ],
+}
+
+const POPULATION_US_STATES: ThresholdPreset = {
+  id: 'population-us-states',
+  name: 'Population (US states)',
+  description: 'People, US states',
+  unit: '',
+  source: 'Editor-defined orders of magnitude',
+  bands: [
+    { min: -Infinity, max: 1e6, label: 'Under 1 million', color: '#ffffb2' },
+    { min: 1e6, max: 5e6, label: '1–5 million', color: '#fecc5c' },
+    { min: 5e6, max: 1e7, label: '5–10 million', color: '#fd8d3c' },
+    { min: 1e7, max: 2e7, label: '10–20 million', color: '#f03b20' },
+    { min: 2e7, max: Infinity, label: 'Over 20 million', color: '#bd0026' },
+  ],
+}
+
+const POPULATION_US_COUNTIES: ThresholdPreset = {
+  id: 'population-us-counties',
+  name: 'Population (US counties)',
+  description: 'People, US counties',
+  unit: '',
+  source: 'Editor-defined orders of magnitude',
+  bands: [
+    { min: -Infinity, max: 1e4, label: 'Under 10,000', color: '#ffffb2' },
+    { min: 1e4, max: 5e4, label: '10,000–50,000', color: '#fed976' },
+    { min: 5e4, max: 1e5, label: '50,000–100,000', color: '#feb24c' },
+    { min: 1e5, max: 5e5, label: '100,000–500,000', color: '#fd8d3c' },
+    { min: 5e5, max: 1e6, label: '500,000–1 million', color: '#f03b20' },
+    { min: 1e6, max: Infinity, label: 'Over 1 million', color: '#bd0026' },
+  ],
+}
+
+export const THRESHOLD_PRESETS: ThresholdPreset[] = [
+  HDI,
+  GDP_PER_CAPITA,
+  INFLATION,
+  POPULATION,
+  POPULATION_US_STATES,
+  POPULATION_US_COUNTIES,
+]
 
 export const DEFAULT_PRESET_ID = HDI.id
 

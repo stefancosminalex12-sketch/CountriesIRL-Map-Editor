@@ -431,7 +431,7 @@ const BOUNDARY_CELL = 0.01
  * A lookup of which pieces' boundaries pass through a point: every boundary segment of every
  * piece, filed in the cells it crosses.
  */
-function boundaryIndex(parts) {
+export function boundaryIndex(parts) {
   const cellOf = (x, y) => `${Math.floor(x / BOUNDARY_CELL)},${Math.floor(y / BOUNDARY_CELL)}`
   const cells = new Map()
   parts.forEach((part, index) => {
@@ -480,7 +480,7 @@ function distanceToSegment(p, a, b) {
   return Math.hypot(a[0] + t * dx - p[0], a[1] + t * dy - p[1])
 }
 
-function nearestPart(parts, polygon) {
+export function nearestPart(parts, polygon) {
   const [x, y] = polygon[0][0]
   let best = 0
   let bestKm = Infinity

@@ -78,10 +78,12 @@ function MapFamily({
 export function MapPicker() {
   const atlasId = useMapStore((s) => s.doc.scope.atlasId)
   const setAtlas = useMapStore((s) => s.setAtlas)
-  /* Open to begin with: the group holding the map in use. */
-  const [open, setOpen] = useState<ReadonlySet<AtlasFamilyId>>(
-    () => new Set(ATLASES.filter((atlas) => atlas.id === atlasId).map((atlas) => atlas.family)),
-  )
+  /*
+   * Every group closed to begin with, like every other collapsible in the sidebar. The map in use
+   * is still named on its group's header, in the accent, so which one is current reads without
+   * opening anything.
+   */
+  const [open, setOpen] = useState<ReadonlySet<AtlasFamilyId>>(() => new Set())
 
   const toggle = (id: AtlasFamilyId) => {
     const next = new Set(open)

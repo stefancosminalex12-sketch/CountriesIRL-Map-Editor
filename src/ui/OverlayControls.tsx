@@ -122,7 +122,7 @@ export function OverlayControls() {
    */
   return (
     <div className="stack">
-      <Disclosure title="Overlay Management" defaultOpen>
+      <Disclosure title="Overlay Management">
         <div className="stack">
           <button
             type="button"
@@ -199,7 +199,7 @@ export function OverlayControls() {
 
       {active && (
         <>
-          <Disclosure title="Overlay Appearance" defaultOpen>
+          <Disclosure title="Overlay Appearance">
             <div className="stack">
               <div className="swatches">
                 <label className="swatch">
@@ -269,7 +269,7 @@ export function OverlayControls() {
             </div>
           </Disclosure>
 
-          <Disclosure title="Overlay Transform" defaultOpen>
+          <Disclosure title="Overlay Transform">
             <div className="stack">
               {/*
                 Its size, against the entity's own: scaled about its centre, so it grows and shrinks

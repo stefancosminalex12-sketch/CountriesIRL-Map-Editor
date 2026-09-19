@@ -493,6 +493,8 @@ export type RegionId =
   | 'oceania'
   /** The USA States atlas. Region ids are unique across atlases — see `maps/atlas.ts`. */
   | 'usa'
+  /** A continent's subregion, `continent/slug` — see `geo/subregions.ts`. */
+  | `${'europe' | 'asia' | 'africa' | 'north-america' | 'south-america' | 'oceania'}/${string}`
 
 export type ProjectionId =
   | 'equalEarth'

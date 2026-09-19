@@ -82,6 +82,7 @@ import {
 } from './smallEntities'
 import { anchorsOf, assistOf, useProjectedLand } from './projectedLand'
 import { useGatedMemo } from './useGatedMemo'
+import { hiddenFootprint } from './hiddenMask'
 import { useSelectionGestures } from './selectionGestures'
 import { usePinchZoom } from './pinchZoom'
 import { MapOverlays, OVERLAY_MARKER } from './MapOverlays'
@@ -753,6 +754,20 @@ export function MapCanvas() {
    */
   const hiddenIds = useKeyed(rawHiddenIds, Array.from(rawHiddenIds).sort().join('\u0001'))
 
+  /**
+   * The overlays still on the map: an overlay is a copy of a territory, so it goes with the
+   * territory it copies. A merged group's overlay goes when every member is hidden. The overlay
+   * itself is kept, listed and editable, and comes back when its territory is shown again.
+   */
+  const visibleOverlays = useMemo(() => {
+    if (hiddenIds.size === 0) return overlays
+    const membersOf = new Map(mergeGeometry.map((merge) => [merge.id, merge.members]))
+    return overlays.filter((overlay) => {
+      const members = membersOf.get(overlay.sourceId)
+      return members ? !members.every((id) => hiddenIds.has(id)) : !hiddenIds.has(overlay.sourceId)
+    })
+  }, [overlays, hiddenIds, mergeGeometry])
+
   /*
    * Every territory's shape, hidden or not: measuring one is the costly part, so hiding a
    * territory filters the list below rather than measuring every other territory again.
@@ -983,6 +998,26 @@ export function MapCanvas() {
   }, [prepareRivers, projection, rivers])
 
   /**
+   * Hide Territories, for the lakes and the rivers.
+   *
+   * Both are one path for the whole map, so a hidden territory cannot be left out of them the
+   * way it is left out of every per-entity layer. They are clipped instead: the clip is the
+   * whole plane with the hidden territories' footprints cut out of it (even-odd), so a lake
+   * or a river inside a hidden territory goes, down to the part of a shared lake on its side of
+   * the border, and nothing outside it is touched. See `hiddenMask.ts` for what the footprint
+   * includes. Built from the same projection as the two layers, so it lines up exactly, and only
+   * while something is hidden and one of them is drawn.
+   */
+  const hiddenWaterClip = useMemo(() => {
+    if (hiddenIds.size === 0 || !projection || !geo) return ''
+    if (!(style.showLakes && lakePath) && !(style.showRivers && riverPath)) return ''
+    const footprint = hiddenFootprint(geo, hiddenIds, lakes)
+    if (!footprint) return ''
+    const d = geoPath(projection)(footprint) ?? ''
+    return d ? `M-1e6,-1e6H1e6V1e6H-1e6Z${d}` : ''
+  }, [hiddenIds, projection, geo, lakes, style.showLakes, style.showRivers, lakePath, riverPath])
+
+  /**
    * The named oceans and seas, one projected path each.
    *
    * One path per region rather than one for the layer, unlike the lakes and the rivers: these
@@ -1034,11 +1069,11 @@ export function MapCanvas() {
   /**
    * Whether anything on this map actually draws the boundary mesh.
    *
-   * Two callers, and both are off in the default document: the borders-without-
-   * coastlines layer, and the flag mode's international boundaries. The mesh is
-   * otherwise carried by the country paths' own outlines, so building it — and, when a
-   * territory is hidden, rebuilding it arc by arc — was a megabyte of path string
-   * nothing referenced.
+   * Two callers: the borders-without-coastlines layer, which a fresh document draws
+   * (Coastlines are off by default), and the flag mode's international boundaries. With
+   * Coastlines on, the mesh is carried by the country paths' own outlines, so building
+   * it — and, when a territory is hidden, rebuilding it arc by arc — would be a
+   * megabyte of path string nothing referenced.
    */
   const bordersNeeded =
     style.showBorders &&
@@ -2826,12 +2861,18 @@ export function MapCanvas() {
             It carries no `data-country-id`, so `pickCountryAt` finds nothing on it and
             falls through — which still lets a microstate's assist zone win over a lake.
           */}
+          {hiddenWaterClip && (
+            <clipPath id="map-hidden-territories" clipPathUnits="userSpaceOnUse">
+              <path d={hiddenWaterClip} clipRule="evenodd" fillRule="evenodd" />
+            </clipPath>
+          )}
           {style.showLakes && lakePath && (
             <path
               d={lakePath}
               fill={style.lake}
               stroke={style.lakeOutline}
               style={{ strokeWidth: screenStrokeWidth(0.5) }}
+              clipPath={hiddenWaterClip ? 'url(#map-hidden-territories)' : undefined}
             />
           )}
 
@@ -2856,6 +2897,7 @@ export function MapCanvas() {
               strokeLinecap="round"
               strokeLinejoin="round"
               pointerEvents="none"
+              clipPath={hiddenWaterClip ? 'url(#map-hidden-territories)' : undefined}
             />
           )}
 
@@ -2886,9 +2928,9 @@ export function MapCanvas() {
             Map overlays, over everything the map draws and inside the camera, so they move with
             the land and are exported with it — see `MapOverlays`.
           */}
-          {projection && overlays.length > 0 && (
+          {projection && visibleOverlays.length > 0 && (
             <MapOverlays
-              overlays={overlays}
+              overlays={visibleOverlays}
               sources={overlaySources}
               projection={projection}
               zoomK={zoomK}

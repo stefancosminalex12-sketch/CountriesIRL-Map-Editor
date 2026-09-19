@@ -43,10 +43,17 @@ export interface LakeLayer {
  */
 export const USGS_LAKES: LakeLayer = { id: 'usgs-lakes-1m', detail: '10m', url: 'geo/usa-official/lakes.geojson' }
 
+/**
+ * EuroGlobalMap's lakes and reservoirs, 1:1,000,000, for the Europe maps — drawn at the scale of
+ * their coastlines and borders, and cut by the same national data. See `scripts/europe/build-europe.mjs`.
+ */
+export const EGM_LAKES: LakeLayer = { id: 'egm-lakes-1m', detail: '10m', url: 'geo/europe/lakes.geojson' }
+
 export const LAKE_LAYERS: LakeLayer[] = [
   { id: 'lakes-10m', detail: '10m', url: 'geo/lakes-10m.geojson' },
   { id: 'lakes-50m', detail: '50m', url: 'geo/lakes-50m.geojson' },
   USGS_LAKES,
+  EGM_LAKES,
 ]
 
 /**

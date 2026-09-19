@@ -17,6 +17,8 @@
 import { getAtlas } from '../maps/atlas'
 import type { EntityMeta } from './countryMeta'
 import type { ProjectionId, RegionId } from '../types/map'
+import { SUBREGIONS, type ContinentId, type SubregionDef } from './subregions'
+import SUBREGION_PARTS from './subregionParts.json'
 
 /** [west, south, east, north] in degrees. `east` may exceed 180 to cross the antimeridian. */
 export type BBox = [number, number, number, number]
@@ -52,6 +54,30 @@ export interface RegionPreset {
   projectionId: ProjectionId
   /** Standard parallels for conic projections. */
   parallels?: [number, number]
+  /** The continent a subregion sits under in the selector; absent for a top-level region. */
+  parentId?: RegionId
+  /** A subregion's stated definition — see `geo/subregions.ts`. */
+  definition?: string
+  /**
+   * Members that belong only in part, and the part's extent: country id → the lon/lat box
+   * the camera may consider for that country instead of the region's `domain`. New England
+   * frames the six states' extent inside the United States, not Alaska to Florida.
+   */
+  memberDomains?: Record<string, BBox>
+  /**
+   * Standard parallels read off the framed geometry rather than declared: one sixth of the way
+   * in from each edge of the fitted extent, the rule of thumb for an Albers map of any area.
+   * Used by subregions, which are too many to tune by hand.
+   */
+  autoParallels?: boolean
+  /**
+   * The members are named one by one, so each is part of the composition: every member's
+   * largest landmass is framed however small it is (Cyprus in the European Mediterranean,
+   * Cape Verde in West Africa), and a member cut by the domain is clipped to it, so the frame
+   * reaches the region's real edge inland rather than stopping at the last coastline inside.
+   * Subregions only; the continents keep the outlier policy they were tuned with.
+   */
+  explicitMembers?: boolean
 }
 
 /**
@@ -333,6 +359,95 @@ export const REGIONS: RegionPreset[] = [
   },
 ]
 
+/* ------------------------------------------------------------- Subregions */
+
+const PARTS = SUBREGION_PARTS as unknown as Record<string, BBox>
+
+/**
+ * A hair around each part's measured extent, so a coastline drawn at 1:110m, whose vertices
+ * sit a little off the 1:10m admin-1 lines the extent was measured on, is not cut.
+ */
+const PART_PAD = 0.15
+
+/** Union of two boxes, the second shifted by whole turns to sit next to the first. */
+function unionBBox(a: BBox | null, b: BBox): BBox {
+  if (!a) return b
+  const c = alignBBox(b, lonCenter(a))
+  return [Math.min(a[0], c[0]), Math.min(a[1], c[1]), Math.max(a[2], c[2]), Math.max(a[3], c[3])]
+}
+
+/** The extent of a country's listed units, padded; null if none of the codes is known. */
+function partsExtent(codes: string[]): BBox | null {
+  let box: BBox | null = null
+  for (const code of codes) {
+    const unit = PARTS[code]
+    if (!unit) {
+      if (import.meta.env?.DEV) console.warn(`[regions] no extent for ${code}; run scripts/build-subregion-parts.mjs`)
+      continue
+    }
+    box = unionBBox(box, unit)
+  }
+  return box && [box[0] - PART_PAD, Math.max(-90, box[1] - PART_PAD), box[2] + PART_PAD, Math.min(90, box[3] + PART_PAD)]
+}
+
+/**
+ * A subregion as a region preset.
+ *
+ * It borrows its continent's camera policy (the outlier trim, the margin, the excluded areas)
+ * so a subregion of Europe drops Svalbard and the Azores just as Europe does. Only the domain
+ * changes: the feature's own extent when the definition gives one, otherwise the continent's,
+ * widened to take in any part-members. Each part-member is held to its own units' extent.
+ * No keep box: that is a statement about one composition, and Europe's would crop the Baltic.
+ */
+function subregionPreset(parent: RegionPreset, def: SubregionDef): RegionPreset {
+  const whole = new Set(def.countries ?? [])
+  const memberDomains: Record<string, BBox> = {}
+  for (const [country, codes] of Object.entries(def.parts ?? {})) {
+    const box = partsExtent(codes)
+    if (box) memberDomains[country] = box
+  }
+  const partBoxes = Object.values(memberDomains)
+  const members = new Set([...whole, ...Object.keys(memberDomains)])
+
+  let domain: BBox | null = def.domain ?? (whole.size > 0 ? parent.framing.domain : null)
+  for (const box of partBoxes) domain = unionBBox(domain, box)
+  const window = domain ?? parent.bbox
+  const [, south, , north] = window
+  const band = (north - south) / 6
+
+  return {
+    id: `${parent.id}/${def.slug}` as RegionId,
+    name: def.name,
+    parentId: parent.id,
+    definition: def.definition,
+    includes: (m) => members.has(m.id) || (m.parent != null && members.has(m.parent.id)),
+    excludedAreas: def.excludedAreas ?? parent.excludedAreas,
+    memberDomains: partBoxes.length ? memberDomains : undefined,
+    framing: {
+      domain: window,
+      trim: parent.framing.trim,
+      margin: 0.02,
+      fill: { amount: parent.framing.fill.amount },
+    },
+    // Only the first paint before any geometry: the framing reads the real extent after.
+    bbox: def.domain ?? (partBoxes.length && whole.size === 0 ? window : parent.bbox),
+    projectionId: 'conicEqualArea',
+    parallels: [south + band, north - band],
+    autoParallels: true,
+    explicitMembers: true,
+  }
+}
+
+for (const [continent, defs] of Object.entries(SUBREGIONS) as [ContinentId, SubregionDef[]][]) {
+  const parent = REGIONS.find((r) => r.id === continent)!
+  for (const def of defs) REGIONS.push(subregionPreset(parent, def))
+}
+
+/** The subregions listed under one continent, in the order they are declared. */
+export function subregionsOf(id: RegionId): RegionPreset[] {
+  return REGIONS.filter((r) => r.parentId === id)
+}
+
 export function getRegion(id: RegionId): RegionPreset {
   return REGIONS.find((r) => r.id === id) ?? REGIONS[0]
 }
@@ -351,9 +466,15 @@ export interface ScopeFraming {
   /** Longitude the projection is rotated to. */
   centerLon: number
   centerLat: number
+  /** Parallels to read off the framed extent rather than use as given. */
+  autoParallels?: boolean
+  /** See `RegionPreset.explicitMembers`. */
+  explicitMembers?: boolean
 }
 
-const lonCenter = (b: BBox) => (b[0] + b[2]) / 2
+function lonCenter(b: BBox) {
+  return (b[0] + b[2]) / 2
+}
 
 /**
  * Shifts a bbox by whole turns so it sits closest to `referenceLon`. This is what
@@ -467,6 +588,8 @@ export function resolveFraming(regionIds: RegionId[]): ScopeFraming {
     // since a conic tuned for one region distorts badly across a wider window.
     projectionId: single ? single.projectionId : 'equalEarth',
     parallels: single?.parallels,
+    autoParallels: single?.autoParallels,
+    explicitMembers: presets.every((p) => p.explicitMembers),
     centerLon: (west + east) / 2,
     centerLat: (south + north) / 2,
   }
@@ -491,6 +614,25 @@ export function countriesInRegions(
     for (const id of p.alsoInclude ?? []) out.add(id)
   }
   return out
+}
+
+/**
+ * The camera domain for one member of a scope: its own part's extent when every selected
+ * region that has it holds it only in part, otherwise null for "the scope's domain".
+ *
+ * `countryId` is the entity's country: itself for a country, its parent for a subdivision.
+ * A country that any selected region takes whole is taken whole, so Europe + New England
+ * frames all of the United States' in-domain geometry, not only its north-east.
+ */
+export function memberDomain(regionIds: RegionId[], countryId: string, meta: EntityMeta | undefined): BBox | null {
+  let box: BBox | null = null
+  for (const id of regionIds) {
+    const preset = getRegion(id)
+    const part = preset.memberDomains?.[countryId]
+    if (part) box = unionBBox(box, part)
+    else if (meta && (preset.includes(meta) || preset.alsoInclude?.includes(countryId))) return null
+  }
+  return box
 }
 
 /** The regions one atlas offers, in the order it declares them. */

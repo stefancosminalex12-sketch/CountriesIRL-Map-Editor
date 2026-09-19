@@ -24,6 +24,7 @@
  */
 import { computeDomain, countValued } from '../state/colors'
 import { formatDataValue } from '../state/legend'
+import { colourModeOps } from '../state/colourMode'
 import { useMapStore } from '../state/mapStore'
 import { MapToggle } from './MapToggle'
 import {
@@ -91,23 +92,9 @@ export function DataPalette() {
    */
   const setMode = (next: ColorMode) => {
     if (next === mode) return
-    const scaleMode =
-      next === 'data'
-        ? scale === 'predefined'
-          ? 'threshold'
-          : scale === 'imported'
-            ? 'categorical'
-            : 'numeric'
-        : 'none'
-    dispatch([
-      {
-        op: 'set_layer',
-        layerId: layer.id,
-        patch: { colorScale: { ...layer.colorScale, mode: scaleMode } },
-      },
-      { op: 'set_comparison', patch: { enabled: next === 'comparison' } },
-      { op: 'set_flags', patch: { enabled: next === 'flags' } },
-    ])
+    // The same move the built-in templates make — see `state/colourMode.ts`.
+    const resume = scale === 'predefined' ? 'threshold' : scale === 'imported' ? 'categorical' : 'numeric'
+    dispatch(colourModeOps(doc, next, resume))
     playSfx('click')
   }
 

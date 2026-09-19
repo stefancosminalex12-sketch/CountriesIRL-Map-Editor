@@ -1,0 +1,1797 @@
+{
+ "generatedAt": "2026-09-19T16:25:23.647Z",
+ "problems": [
+  "countries: 95 unshared borders inside the land (308.23 km)",
+  "admin regions: 130 unshared borders inside the land (1708.91 km)",
+  "admin standard: 151 unshared borders inside the land (1710.43 km)",
+  "admin detailed: 152 unshared borders inside the land (1710.43 km)"
+ ],
+ "atoms": {
+  "count": 3895,
+  "overlaps": {
+   "areas": 3895,
+   "trimmed": 1606,
+   "trimmedKm2": 9.511,
+   "emptied": [],
+   "failures": []
+  },
+  "gaps": {
+   "holes": 8356,
+   "filled": 8299,
+   "filledKm2": 36.807,
+   "water": 0,
+   "large": [
+    {
+     "km2": 26.3
+    }
+   ],
+   "orphan": 0,
+   "degenerate": 56
+  },
+  "noded": {
+   "first": {
+    "created": 7526,
+    "snapped": 478,
+    "placed": 7049,
+    "inserted": 8153
+   },
+   "second": {
+    "created": 24,
+    "snapped": 5,
+    "placed": 17,
+    "inserted": 21
+   }
+  },
+  "disputes": {
+   "kept": [
+    "MK#RS (3 pieces)",
+    "FR#IT (5 pieces)",
+    "HR#SI (23 pieces)",
+    "HR#RS (12 pieces)"
+   ],
+   "atSea": [
+    "HR#SI (1 of 24 pieces)",
+    "DE#NL (1 of 1 pieces)"
+   ]
+  }
+ },
+ "pinched": {
+  "atoms": 6,
+  "countries": 11,
+  "final": 48,
+  "tidy": 33,
+  "admin": 5
+ },
+ "waterAtoms": [
+  {
+   "icc": "AL",
+   "km2": 3.7
+  },
+  {
+   "icc": "AL",
+   "km2": 5.4
+  },
+  {
+   "icc": "AL",
+   "km2": 5.9
+  },
+  {
+   "icc": "AL",
+   "km2": 29.1
+  },
+  {
+   "icc": "AL",
+   "km2": 1.5
+  },
+  {
+   "icc": "AL",
+   "km2": 2.2
+  },
+  {
+   "icc": "AL",
+   "km2": 6.8
+  },
+  {
+   "icc": "AL",
+   "km2": 18
+  },
+  {
+   "icc": "AL",
+   "km2": 41.4
+  },
+  {
+   "icc": "AL",
+   "km2": 44.8
+  },
+  {
+   "icc": "AL",
+   "km2": 109.2
+  },
+  {
+   "icc": "AL",
+   "km2": 153.4
+  },
+  {
+   "icc": "DE",
+   "km2": 401.4
+  },
+  {
+   "icc": "EE",
+   "km2": 1862
+  },
+  {
+   "icc": "GR",
+   "km2": 335.7
+  }
+ ],
+ "russia": {
+  "eastOf51Km2": 14009880
+ },
+ "context": [
+  {
+   "id": "USA",
+   "touchesEurope": true
+  },
+  {
+   "id": "KAZ",
+   "touchesEurope": true
+  },
+  {
+   "id": "DZA",
+   "touchesEurope": true
+  },
+  {
+   "id": "SAU",
+   "touchesEurope": false
+  },
+  {
+   "id": "SDN",
+   "touchesEurope": false
+  },
+  {
+   "id": "LBY",
+   "touchesEurope": false
+  },
+  {
+   "id": "IRN",
+   "touchesEurope": true
+  },
+  {
+   "id": "TCD",
+   "touchesEurope": false
+  },
+  {
+   "id": "MLI",
+   "touchesEurope": false
+  },
+  {
+   "id": "NER",
+   "touchesEurope": false
+  },
+  {
+   "id": "MRT",
+   "touchesEurope": true
+  },
+  {
+   "id": "EGY",
+   "touchesEurope": false
+  },
+  {
+   "id": "MAR",
+   "touchesEurope": true
+  },
+  {
+   "id": "TKM",
+   "touchesEurope": true
+  },
+  {
+   "id": "YEM",
+   "touchesEurope": false
+  },
+  {
+   "id": "UZB",
+   "touchesEurope": true
+  },
+  {
+   "id": "IRQ",
+   "touchesEurope": true
+  },
+  {
+   "id": "OMN",
+   "touchesEurope": false
+  },
+  {
+   "id": "SYR",
+   "touchesEurope": true
+  },
+  {
+   "id": "TUN",
+   "touchesEurope": true
+  },
+  {
+   "id": "ERI",
+   "touchesEurope": false
+  },
+  {
+   "id": "ESH",
+   "touchesEurope": true
+  },
+  {
+   "id": "JOR",
+   "touchesEurope": false
+  },
+  {
+   "id": "ARE",
+   "touchesEurope": false
+  },
+  {
+   "id": "ISR",
+   "touchesEurope": false
+  },
+  {
+   "id": "KWT",
+   "touchesEurope": false
+  },
+  {
+   "id": "QAT",
+   "touchesEurope": false
+  },
+  {
+   "id": "LBN",
+   "touchesEurope": true
+  },
+  {
+   "id": "PSE",
+   "touchesEurope": false
+  },
+  {
+   "id": "CPV",
+   "touchesEurope": false
+  },
+  {
+   "id": "XBT",
+   "touchesEurope": false
+  },
+  {
+   "id": "ALA",
+   "touchesEurope": true
+  },
+  {
+   "id": "BHR",
+   "touchesEurope": false
+  },
+  {
+   "id": "UMI",
+   "touchesEurope": true
+  }
+ ],
+ "countries": {
+  "units": 95,
+  "noded": {
+   "created": 936,
+   "snapped": 10,
+   "placed": 843,
+   "inserted": 1065
+  },
+  "clean": {
+   "droppedPolygons": 0,
+   "droppedHoles": 3,
+   "turned": 2,
+   "emptied": []
+  },
+  "gaps": {
+   "arcs": 95,
+   "km": 308.23,
+   "samples": [
+    [
+     11.0162,
+     46.7702
+    ],
+    [
+     10.6792,
+     46.8704
+    ],
+    [
+     13.0557,
+     47.0195
+    ],
+    [
+     16.1781,
+     47.6009
+    ],
+    [
+     16.4613,
+     47.7921
+    ],
+    [
+     16.1328,
+     44.4541
+    ],
+    [
+     18.4638,
+     43.844
+    ],
+    [
+     18.8773,
+     43.7674
+    ],
+    [
+     17.2685,
+     44.4459
+    ],
+    [
+     4.3895,
+     51.4112
+    ]
+   ],
+   "byOwner": {
+    "AU": {
+     "arcs": 5,
+     "km": 1.98,
+     "at": [
+      11.016,
+      46.77
+     ]
+    },
+    "BI": {
+     "arcs": 4,
+     "km": 1.09,
+     "at": [
+      16.133,
+      44.454
+     ]
+    },
+    "BE": {
+     "arcs": 2,
+     "km": 1.54,
+     "at": [
+      4.389,
+      51.411
+     ]
+    },
+    "CH": {
+     "arcs": 12,
+     "km": 4.13,
+     "at": [
+      8.808,
+      47.731
+     ]
+    },
+    "CZ": {
+     "arcs": 1,
+     "km": 0.1,
+     "at": [
+      12.338,
+      50.04
+     ]
+    },
+    "DE": {
+     "arcs": 9,
+     "km": 2.65,
+     "at": [
+      12.338,
+      50.04
+     ]
+    },
+    "ES": {
+     "arcs": 3,
+     "km": 0.78,
+     "at": [
+      26.961,
+      59.435
+     ]
+    },
+    "FI": {
+     "arcs": 6,
+     "km": 9.44,
+     "at": [
+      30.294,
+      64.325
+     ]
+    },
+    "FR": {
+     "arcs": 4,
+     "km": 2.4,
+     "at": [
+      6.949,
+      47.273
+     ]
+    },
+    "GB": {
+     "arcs": 2,
+     "km": 0.66,
+     "at": [
+      -0.038,
+      50.8
+     ]
+    },
+    "HR": {
+     "arcs": 3,
+     "km": 0.73,
+     "at": [
+      16.316,
+      46.525
+     ]
+    },
+    "HU": {
+     "arcs": 2,
+     "km": 0.36,
+     "at": [
+      21.499,
+      46.695
+     ]
+    },
+    "IS": {
+     "arcs": 4,
+     "km": 74.11,
+     "at": [
+      -21.746,
+      64.165
+     ]
+    },
+    "IT": {
+     "arcs": 5,
+     "km": 2.33,
+     "at": [
+      8.917,
+      45.914
+     ]
+    },
+    "XK": {
+     "arcs": 2,
+     "km": 2.32,
+     "at": [
+      21.685,
+      42.5
+     ]
+    },
+    "LT": {
+     "arcs": 3,
+     "km": 3.07,
+     "at": [
+      25.063,
+      56.226
+     ]
+    },
+    "LV": {
+     "arcs": 1,
+     "km": 0.1,
+     "at": [
+      25.064,
+      56.226
+     ]
+    },
+    "MD": {
+     "arcs": 3,
+     "km": 2.02,
+     "at": [
+      27.375,
+      48.436
+     ]
+    },
+    "ML": {
+     "arcs": 2,
+     "km": 0.38,
+     "at": [
+      14.231,
+      36.022
+     ]
+    },
+    "NL": {
+     "arcs": 2,
+     "km": 1.54,
+     "at": [
+      4.647,
+      51.423
+     ]
+    },
+    "NO": {
+     "arcs": 4,
+     "km": 3.01,
+     "at": [
+      11.5,
+      58.889
+     ]
+    },
+    "PO": {
+     "arcs": 1,
+     "km": 0.27,
+     "at": [
+      14.617,
+      53.773
+     ]
+    },
+    "PR": {
+     "arcs": 1,
+     "km": 0.31,
+     "at": [
+      -9.34,
+      39.292
+     ]
+    },
+    "RO": {
+     "arcs": 1,
+     "km": 0.22,
+     "at": [
+      21.498,
+      46.694
+     ]
+    },
+    "SR": {
+     "arcs": 1,
+     "km": 1.14,
+     "at": [
+      21.684,
+      42.5
+     ]
+    },
+    "RU": {
+     "arcs": 2,
+     "km": 72.52,
+     "at": [
+      30.302,
+      64.32
+     ]
+    },
+    "SW": {
+     "arcs": 2,
+     "km": 0.05,
+     "at": [
+      11.5,
+      58.889
+     ]
+    },
+    "SV": {
+     "arcs": 1,
+     "km": 0.41,
+     "at": [
+      16.318,
+      46.526
+     ]
+    },
+    "UK": {
+     "arcs": 3,
+     "km": 2.02,
+     "at": [
+      29.213,
+      47.886
+     ]
+    },
+    "EG": {
+     "arcs": 1,
+     "km": 114.78,
+     "at": [
+      35.279,
+      22.844
+     ]
+    },
+    "AL": {
+     "arcs": 3,
+     "km": 1.74,
+     "at": [
+      20.852,
+      60.266
+     ]
+    }
+   }
+  },
+  "detail": {
+   "full": {
+    "points": 1804441,
+    "size": "16.71 MB"
+   },
+   "standard": {
+    "points": 504188,
+    "size": "5.63 MB"
+   },
+   "light": {
+    "points": 202965,
+    "size": "2.65 MB"
+   }
+  },
+  "clean-standard": {
+   "droppedPolygons": 0,
+   "droppedHoles": 0,
+   "turned": 16,
+   "emptied": []
+  },
+  "clean-light": {
+   "droppedPolygons": 0,
+   "droppedHoles": 0,
+   "turned": 191,
+   "emptied": []
+  }
+ },
+ "admin": {
+  "regions": {
+   "units": 1170,
+   "noded": {
+    "created": 22081,
+    "snapped": 1650,
+    "placed": 2786,
+    "inserted": 6302
+   },
+   "clean": {
+    "base": {
+     "droppedPolygons": 11,
+     "droppedHoles": 0,
+     "turned": 7,
+     "emptied": []
+    },
+    "simplified": {
+     "droppedPolygons": 0,
+     "droppedHoles": 0,
+     "turned": 0,
+     "emptied": []
+    }
+   },
+   "gaps": {
+    "arcs": 130,
+    "km": 1708.91,
+    "samples": [
+     [
+      16.4613,
+      47.7921
+     ],
+     [
+      13.0558,
+      47.0194
+     ],
+     [
+      16.1786,
+      47.5998
+     ],
+     [
+      13.0563,
+      47.0191
+     ],
+     [
+      11.0162,
+      46.7702
+     ],
+     [
+      10.6792,
+      46.8704
+     ],
+     [
+      17.268,
+      44.4465
+     ],
+     [
+      18.4638,
+      43.8439
+     ],
+     [
+      18.8771,
+      43.7673
+     ],
+     [
+      16.1328,
+      44.4541
+     ]
+    ],
+    "byOwner": {
+     "AT": {
+      "arcs": 6,
+      "km": 1.99,
+      "at": [
+       16.461,
+       47.792
+      ]
+     },
+     "BA": {
+      "arcs": 7,
+      "km": 1.1,
+      "at": [
+       17.268,
+       44.446
+      ]
+     },
+     "BE": {
+      "arcs": 2,
+      "km": 1.54,
+      "at": [
+       4.389,
+       51.411
+      ]
+     },
+     "CH": {
+      "arcs": 15,
+      "km": 4.14,
+      "at": [
+       6.895,
+       46.509
+      ]
+     },
+     "CZ": {
+      "arcs": 1,
+      "km": 0.1,
+      "at": [
+       12.338,
+       50.04
+      ]
+     },
+     "DE": {
+      "arcs": 15,
+      "km": 3.29,
+      "at": [
+       10.064,
+       51.42
+      ]
+     },
+     "EE": {
+      "arcs": 6,
+      "km": 0.78,
+      "at": [
+       24.354,
+       59.053
+      ]
+     },
+     "FI": {
+      "arcs": 5,
+      "km": 9.25,
+      "at": [
+       20.84,
+       63.052
+      ]
+     },
+     "FR": {
+      "arcs": 4,
+      "km": 2.4,
+      "at": [
+       6.949,
+       47.273
+      ]
+     },
+     "GB": {
+      "arcs": 2,
+      "km": 0.66,
+      "at": [
+       -0.038,
+       50.8
+      ]
+     },
+     "HR": {
+      "arcs": 4,
+      "km": 0.73,
+      "at": [
+       16.132,
+       44.455
+      ]
+     },
+     "HU": {
+      "arcs": 2,
+      "km": 0.36,
+      "at": [
+       16.835,
+       46.366
+      ]
+     },
+     "IS": {
+      "arcs": 6,
+      "km": 10.72,
+      "at": [
+       -21.747,
+       64.165
+      ]
+     },
+     "IT": {
+      "arcs": 5,
+      "km": 2.33,
+      "at": [
+       8.917,
+       45.914
+      ]
+     },
+     "KS": {
+      "arcs": 5,
+      "km": 2.32,
+      "at": [
+       21.685,
+       42.5
+      ]
+     },
+     "LT": {
+      "arcs": 4,
+      "km": 3.07,
+      "at": [
+       21.835,
+       55.5
+      ]
+     },
+     "LV": {
+      "arcs": 1,
+      "km": 0.1,
+      "at": [
+       25.064,
+       56.226
+      ]
+     },
+     "MD": {
+      "arcs": 3,
+      "km": 2.02,
+      "at": [
+       27.375,
+       48.436
+      ]
+     },
+     "MN": {
+      "arcs": 1,
+      "km": 0.17,
+      "at": [
+       18.686,
+       42.478
+      ]
+     },
+     "MT": {
+      "arcs": 4,
+      "km": 0.38,
+      "at": [
+       14.213,
+       36.032
+      ]
+     },
+     "NL": {
+      "arcs": 2,
+      "km": 1.54,
+      "at": [
+       4.647,
+       51.423
+      ]
+     },
+     "NO": {
+      "arcs": 3,
+      "km": 8.32,
+      "at": [
+       5.279,
+       59.488
+      ]
+     },
+     "PL": {
+      "arcs": 2,
+      "km": 0.39,
+      "at": [
+       19.648,
+       54.453
+      ]
+     },
+     "PT": {
+      "arcs": 2,
+      "km": 0.32,
+      "at": [
+       -9.34,
+       39.292
+      ]
+     },
+     "RO": {
+      "arcs": 1,
+      "km": 0.22,
+      "at": [
+       21.498,
+       46.694
+      ]
+     },
+     "RS": {
+      "arcs": 1,
+      "km": 1.14,
+      "at": [
+       21.684,
+       42.5
+      ]
+     },
+     "RU": {
+      "arcs": 9,
+      "km": 1417.74,
+      "at": [
+       27.543,
+       58.879
+      ]
+     },
+     "SE": {
+      "arcs": 1,
+      "km": 0.03,
+      "at": [
+       11.5,
+       58.889
+      ]
+     },
+     "SI": {
+      "arcs": 1,
+      "km": 0.41,
+      "at": [
+       16.318,
+       46.526
+      ]
+     },
+     "TU": {
+      "arcs": 2,
+      "km": 0.27,
+      "at": [
+       36.66,
+       36.827
+      ]
+     },
+     "UA": {
+      "arcs": 3,
+      "km": 2.02,
+      "at": [
+       28.847,
+       48.116
+      ]
+     },
+     "EG": {
+      "arcs": 2,
+      "km": 227.34,
+      "at": [
+       35.321,
+       22.882
+      ]
+     },
+     "AL": {
+      "arcs": 3,
+      "km": 1.74,
+      "at": [
+       20.852,
+       60.266
+      ]
+     }
+    }
+   },
+   "points": 962799,
+   "size": "10.18 MB"
+  },
+  "standard": {
+   "units": 2659,
+   "noded": {
+    "created": 23626,
+    "snapped": 1921,
+    "placed": 2916,
+    "inserted": 6488
+   },
+   "clean": {
+    "base": {
+     "droppedPolygons": 12,
+     "droppedHoles": 0,
+     "turned": 11,
+     "emptied": []
+    },
+    "simplified": {
+     "droppedPolygons": 0,
+     "droppedHoles": 0,
+     "turned": 0,
+     "emptied": []
+    }
+   },
+   "gaps": {
+    "arcs": 151,
+    "km": 1710.43,
+    "samples": [
+     [
+      16.4623,
+      47.7912
+     ],
+     [
+      16.4614,
+      47.7921
+     ],
+     [
+      13.0558,
+      47.0194
+     ],
+     [
+      16.1782,
+      47.6008
+     ],
+     [
+      16.1786,
+      47.5998
+     ],
+     [
+      13.0563,
+      47.0191
+     ],
+     [
+      11.0162,
+      46.7702
+     ],
+     [
+      10.6792,
+      46.8704
+     ],
+     [
+      16.1328,
+      44.4541
+     ],
+     [
+      18.8771,
+      43.7673
+     ]
+    ],
+    "byOwner": {
+     "AT": {
+      "arcs": 8,
+      "km": 2,
+      "at": [
+       16.462,
+       47.791
+      ]
+     },
+     "BA": {
+      "arcs": 7,
+      "km": 1.1,
+      "at": [
+       16.133,
+       44.454
+      ]
+     },
+     "BE": {
+      "arcs": 2,
+      "km": 1.54,
+      "at": [
+       4.389,
+       51.411
+      ]
+     },
+     "CH": {
+      "arcs": 15,
+      "km": 4.14,
+      "at": [
+       6.895,
+       46.509
+      ]
+     },
+     "CZ": {
+      "arcs": 1,
+      "km": 0.1,
+      "at": [
+       12.338,
+       50.04
+      ]
+     },
+     "DE": {
+      "arcs": 15,
+      "km": 2.65,
+      "at": [
+       10.064,
+       51.42
+      ]
+     },
+     "EE": {
+      "arcs": 6,
+      "km": 0.78,
+      "at": [
+       24.354,
+       59.053
+      ]
+     },
+     "FI": {
+      "arcs": 5,
+      "km": 9.25,
+      "at": [
+       20.84,
+       63.052
+      ]
+     },
+     "FR": {
+      "arcs": 4,
+      "km": 2.4,
+      "at": [
+       6.949,
+       47.273
+      ]
+     },
+     "GB": {
+      "arcs": 4,
+      "km": 0.66,
+      "at": [
+       -2.728,
+       51.499
+      ]
+     },
+     "EL": {
+      "arcs": 14,
+      "km": 2.29,
+      "at": [
+       22.508,
+       39.957
+      ]
+     },
+     "HR": {
+      "arcs": 4,
+      "km": 0.73,
+      "at": [
+       16.132,
+       44.455
+      ]
+     },
+     "HU": {
+      "arcs": 2,
+      "km": 0.36,
+      "at": [
+       16.835,
+       46.366
+      ]
+     },
+     "IS": {
+      "arcs": 6,
+      "km": 10.72,
+      "at": [
+       -21.747,
+       64.165
+      ]
+     },
+     "IT": {
+      "arcs": 6,
+      "km": 2.33,
+      "at": [
+       8.917,
+       45.914
+      ]
+     },
+     "KS": {
+      "arcs": 5,
+      "km": 2.32,
+      "at": [
+       21.685,
+       42.5
+      ]
+     },
+     "LT": {
+      "arcs": 6,
+      "km": 3.06,
+      "at": [
+       21.835,
+       55.5
+      ]
+     },
+     "LV": {
+      "arcs": 1,
+      "km": 0.1,
+      "at": [
+       25.064,
+       56.226
+      ]
+     },
+     "MD": {
+      "arcs": 3,
+      "km": 2.02,
+      "at": [
+       27.375,
+       48.436
+      ]
+     },
+     "MN": {
+      "arcs": 1,
+      "km": 0.17,
+      "at": [
+       18.686,
+       42.478
+      ]
+     },
+     "MT": {
+      "arcs": 4,
+      "km": 0.38,
+      "at": [
+       14.213,
+       36.032
+      ]
+     },
+     "NL": {
+      "arcs": 2,
+      "km": 1.54,
+      "at": [
+       4.647,
+       51.423
+      ]
+     },
+     "NO": {
+      "arcs": 3,
+      "km": 8.32,
+      "at": [
+       5.279,
+       59.488
+      ]
+     },
+     "PL": {
+      "arcs": 2,
+      "km": 0.25,
+      "at": [
+       19.648,
+       54.453
+      ]
+     },
+     "PT": {
+      "arcs": 2,
+      "km": 0.32,
+      "at": [
+       -9.34,
+       39.292
+      ]
+     },
+     "RO": {
+      "arcs": 1,
+      "km": 0.22,
+      "at": [
+       21.498,
+       46.694
+      ]
+     },
+     "RS": {
+      "arcs": 1,
+      "km": 1.14,
+      "at": [
+       21.684,
+       42.5
+      ]
+     },
+     "RU": {
+      "arcs": 9,
+      "km": 1417.74,
+      "at": [
+       27.543,
+       58.879
+      ]
+     },
+     "SE": {
+      "arcs": 1,
+      "km": 0.03,
+      "at": [
+       11.5,
+       58.889
+      ]
+     },
+     "SI": {
+      "arcs": 1,
+      "km": 0.41,
+      "at": [
+       16.318,
+       46.526
+      ]
+     },
+     "TU": {
+      "arcs": 2,
+      "km": 0.27,
+      "at": [
+       36.66,
+       36.827
+      ]
+     },
+     "UA": {
+      "arcs": 3,
+      "km": 2.02,
+      "at": [
+       28.847,
+       48.116
+      ]
+     },
+     "EG": {
+      "arcs": 2,
+      "km": 227.34,
+      "at": [
+       35.321,
+       22.882
+      ]
+     },
+     "AL": {
+      "arcs": 3,
+      "km": 1.74,
+      "at": [
+       20.852,
+       60.266
+      ]
+     }
+    }
+   },
+   "points": 1187519,
+   "size": "12.57 MB"
+  },
+  "detailed": {
+   "units": 3022,
+   "noded": {
+    "created": 23626,
+    "snapped": 1921,
+    "placed": 2916,
+    "inserted": 6488
+   },
+   "clean": {
+    "base": {
+     "droppedPolygons": 13,
+     "droppedHoles": 0,
+     "turned": 11,
+     "emptied": []
+    },
+    "simplified": {
+     "droppedPolygons": 0,
+     "droppedHoles": 0,
+     "turned": 0,
+     "emptied": []
+    }
+   },
+   "gaps": {
+    "arcs": 152,
+    "km": 1710.43,
+    "samples": [
+     [
+      16.4623,
+      47.7912
+     ],
+     [
+      16.4614,
+      47.7921
+     ],
+     [
+      13.0558,
+      47.0194
+     ],
+     [
+      16.1782,
+      47.6008
+     ],
+     [
+      16.1786,
+      47.5998
+     ],
+     [
+      13.0563,
+      47.0191
+     ],
+     [
+      11.0162,
+      46.7702
+     ],
+     [
+      10.6792,
+      46.8704
+     ],
+     [
+      16.1328,
+      44.4541
+     ],
+     [
+      18.8771,
+      43.7673
+     ]
+    ],
+    "byOwner": {
+     "AT": {
+      "arcs": 8,
+      "km": 2,
+      "at": [
+       16.462,
+       47.791
+      ]
+     },
+     "BA": {
+      "arcs": 8,
+      "km": 1.1,
+      "at": [
+       16.133,
+       44.454
+      ]
+     },
+     "BE": {
+      "arcs": 2,
+      "km": 1.54,
+      "at": [
+       4.389,
+       51.411
+      ]
+     },
+     "CH": {
+      "arcs": 15,
+      "km": 4.14,
+      "at": [
+       6.895,
+       46.509
+      ]
+     },
+     "CZ": {
+      "arcs": 1,
+      "km": 0.1,
+      "at": [
+       12.338,
+       50.04
+      ]
+     },
+     "DE": {
+      "arcs": 15,
+      "km": 2.65,
+      "at": [
+       10.064,
+       51.42
+      ]
+     },
+     "EE": {
+      "arcs": 6,
+      "km": 0.78,
+      "at": [
+       24.354,
+       59.053
+      ]
+     },
+     "FI": {
+      "arcs": 5,
+      "km": 9.25,
+      "at": [
+       20.84,
+       63.052
+      ]
+     },
+     "FR": {
+      "arcs": 4,
+      "km": 2.4,
+      "at": [
+       6.949,
+       47.273
+      ]
+     },
+     "GB": {
+      "arcs": 4,
+      "km": 0.66,
+      "at": [
+       -2.728,
+       51.499
+      ]
+     },
+     "EL": {
+      "arcs": 14,
+      "km": 2.29,
+      "at": [
+       22.508,
+       39.957
+      ]
+     },
+     "HR": {
+      "arcs": 4,
+      "km": 0.73,
+      "at": [
+       16.132,
+       44.455
+      ]
+     },
+     "HU": {
+      "arcs": 2,
+      "km": 0.36,
+      "at": [
+       16.835,
+       46.366
+      ]
+     },
+     "IS": {
+      "arcs": 6,
+      "km": 10.72,
+      "at": [
+       -21.747,
+       64.165
+      ]
+     },
+     "IT": {
+      "arcs": 6,
+      "km": 2.33,
+      "at": [
+       8.917,
+       45.914
+      ]
+     },
+     "KS": {
+      "arcs": 5,
+      "km": 2.32,
+      "at": [
+       21.685,
+       42.5
+      ]
+     },
+     "LT": {
+      "arcs": 6,
+      "km": 3.06,
+      "at": [
+       21.835,
+       55.5
+      ]
+     },
+     "LV": {
+      "arcs": 1,
+      "km": 0.1,
+      "at": [
+       25.064,
+       56.226
+      ]
+     },
+     "MD": {
+      "arcs": 3,
+      "km": 2.02,
+      "at": [
+       27.375,
+       48.436
+      ]
+     },
+     "MN": {
+      "arcs": 1,
+      "km": 0.17,
+      "at": [
+       18.686,
+       42.478
+      ]
+     },
+     "MT": {
+      "arcs": 4,
+      "km": 0.38,
+      "at": [
+       14.213,
+       36.032
+      ]
+     },
+     "NL": {
+      "arcs": 2,
+      "km": 1.54,
+      "at": [
+       4.647,
+       51.423
+      ]
+     },
+     "NO": {
+      "arcs": 3,
+      "km": 8.32,
+      "at": [
+       5.279,
+       59.488
+      ]
+     },
+     "PL": {
+      "arcs": 2,
+      "km": 0.25,
+      "at": [
+       19.648,
+       54.453
+      ]
+     },
+     "PT": {
+      "arcs": 2,
+      "km": 0.32,
+      "at": [
+       -9.34,
+       39.292
+      ]
+     },
+     "RO": {
+      "arcs": 1,
+      "km": 0.22,
+      "at": [
+       21.498,
+       46.694
+      ]
+     },
+     "RS": {
+      "arcs": 1,
+      "km": 1.14,
+      "at": [
+       21.684,
+       42.5
+      ]
+     },
+     "RU": {
+      "arcs": 9,
+      "km": 1417.74,
+      "at": [
+       27.543,
+       58.879
+      ]
+     },
+     "SE": {
+      "arcs": 1,
+      "km": 0.03,
+      "at": [
+       11.5,
+       58.889
+      ]
+     },
+     "SI": {
+      "arcs": 1,
+      "km": 0.41,
+      "at": [
+       16.318,
+       46.526
+      ]
+     },
+     "TU": {
+      "arcs": 2,
+      "km": 0.27,
+      "at": [
+       36.66,
+       36.827
+      ]
+     },
+     "UA": {
+      "arcs": 3,
+      "km": 2.02,
+      "at": [
+       28.847,
+       48.116
+      ]
+     },
+     "EG": {
+      "arcs": 2,
+      "km": 227.34,
+      "at": [
+       35.321,
+       22.882
+      ]
+     },
+     "AL": {
+      "arcs": 3,
+      "km": 1.74,
+      "at": [
+       20.852,
+       60.266
+      ]
+     }
+    }
+   },
+   "points": 1204816,
+   "size": "12.79 MB"
+  }
+ },
+ "split-regions-AM": {
+  "sources": 11,
+  "unassigned": 0,
+  "reconciledKm2": 890.686,
+  "failures": 0
+ },
+ "split-regions-AZ": {
+  "sources": 78,
+  "unassigned": 0,
+  "reconciledKm2": 1595.412,
+  "failures": 0
+ },
+ "split-regions-BY": {
+  "sources": 7,
+  "unassigned": 0,
+  "reconciledKm2": 1603.488,
+  "failures": 0
+ },
+ "split-regions-GE": {
+  "sources": 12,
+  "unassigned": 0,
+  "reconciledKm2": 1122.507,
+  "failures": 0
+ },
+ "split-regions-ME": {
+  "sources": 21,
+  "unassigned": 0,
+  "reconciledKm2": 511.675,
+  "failures": 0
+ },
+ "split-regions-RU": {
+  "sources": 86,
+  "unassigned": 2,
+  "reconciledKm2": 7444.926,
+  "failures": 0
+ },
+ "split-regions-TR": {
+  "sources": 81,
+  "unassigned": 0,
+  "reconciledKm2": 2926.182,
+  "failures": 0
+ },
+ "split-standard-AM": {
+  "sources": 11,
+  "unassigned": 0,
+  "reconciledKm2": 890.686,
+  "failures": 0
+ },
+ "split-standard-AZ": {
+  "sources": 78,
+  "unassigned": 0,
+  "reconciledKm2": 1595.412,
+  "failures": 0
+ },
+ "split-standard-BY": {
+  "sources": 7,
+  "unassigned": 0,
+  "reconciledKm2": 1603.488,
+  "failures": 0
+ },
+ "split-standard-GE": {
+  "sources": 12,
+  "unassigned": 0,
+  "reconciledKm2": 1122.507,
+  "failures": 0
+ },
+ "split-standard-GR": {
+  "unassigned": 1,
+  "reconciledKm2": 53.377,
+  "failures": 0
+ },
+ "split-standard-IE": {
+  "sources": 34,
+  "unassigned": 0,
+  "reconciledKm2": 1423.596,
+  "failures": 0
+ },
+ "split-standard-ME": {
+  "sources": 21,
+  "unassigned": 0,
+  "reconciledKm2": 511.675,
+  "failures": 0
+ },
+ "split-standard-RU": {
+  "sources": 86,
+  "unassigned": 2,
+  "reconciledKm2": 7444.926,
+  "failures": 0
+ },
+ "split-standard-TR": {
+  "sources": 81,
+  "unassigned": 0,
+  "reconciledKm2": 2926.182,
+  "failures": 0
+ },
+ "split-detailed-AM": {
+  "sources": 11,
+  "unassigned": 0,
+  "reconciledKm2": 890.686,
+  "failures": 0
+ },
+ "split-detailed-AZ": {
+  "sources": 78,
+  "unassigned": 0,
+  "reconciledKm2": 1595.412,
+  "failures": 0
+ },
+ "split-detailed-BY": {
+  "sources": 7,
+  "unassigned": 0,
+  "reconciledKm2": 1603.488,
+  "failures": 0
+ },
+ "split-detailed-GE": {
+  "sources": 12,
+  "unassigned": 0,
+  "reconciledKm2": 1122.507,
+  "failures": 0
+ },
+ "split-detailed-GR": {
+  "unassigned": 1,
+  "reconciledKm2": 53.377,
+  "failures": 0
+ },
+ "split-detailed-IE": {
+  "sources": 34,
+  "unassigned": 0,
+  "reconciledKm2": 1423.596,
+  "failures": 0
+ },
+ "split-detailed-ME": {
+  "sources": 21,
+  "unassigned": 0,
+  "reconciledKm2": 511.675,
+  "failures": 0
+ },
+ "split-detailed-RU": {
+  "sources": 86,
+  "unassigned": 2,
+  "reconciledKm2": 7444.926,
+  "failures": 0
+ },
+ "split-detailed-TR": {
+  "sources": 81,
+  "unassigned": 0,
+  "reconciledKm2": 2926.182,
+  "failures": 0
+ },
+ "lakes": 4813,
+ "outputs": {
+  "countries-full.json": "16.71 MB",
+  "countries-standard.json": "5.63 MB",
+  "countries-light.json": "2.65 MB",
+  "countries-meta.json": "0.02 MB",
+  "admin-regions.json": "10.18 MB",
+  "admin-regions-meta.json": "0.36 MB",
+  "admin-standard.json": "12.57 MB",
+  "admin-standard-meta.json": "0.85 MB",
+  "admin-detailed.json": "12.79 MB",
+  "admin-detailed-meta.json": "0.96 MB",
+  "lakes.geojson": "7.53 MB",
+  "sources.json": "0.00 MB"
+ }
+}

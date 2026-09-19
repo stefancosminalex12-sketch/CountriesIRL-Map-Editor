@@ -26,6 +26,8 @@ import {
 } from './MapSettings'
 import { HistoryButtons } from './HistoryControls'
 import { SvgExchange } from './SvgExchange'
+import { TemplatePicker } from './TemplatePicker'
+import { onOpenSidebarSection } from './sidebarEvents'
 import { DataSources, SelectionHighlight, SoundSettings, ThemePicker } from './SettingsPanel'
 import { DataPalette } from './DataPalette'
 import { LegendControls, LegendSizeControls } from './LegendControls'
@@ -57,6 +59,14 @@ const ICONS: Record<string, ReactNode> = {
       <path d="M3 6.4 10 3.2l7 3.2-7 3.2z" />
       <path d="M3 10.4 10 13.6l7-3.2" />
       <path d="M3 14.1 10 17.3l7-3.2" />
+    </>
+  ),
+  // Two stacked cards, the top one filled in: a ready-made setup to start from.
+  templates: (
+    <>
+      <rect x="5.2" y="2.8" width="11.6" height="9.4" rx="1.4" opacity="0.55" />
+      <rect x="3.2" y="6.4" width="11.6" height="10.8" rx="1.4" />
+      <path d="M5.8 10.4h6.4M5.8 13.2h4.2" />
     </>
   ),
   // A dashed marquee and the pointer drawing it: taking many things at once.
@@ -153,8 +163,12 @@ interface SidebarSection {
  *
  * Each section's parts sit behind a `Disclosure`: open/closed is local component state, nothing
  * reaches the document, and a closed subsection is *unmounted*, so folding one away stops it
- * reading the document on every render. The part a section is usually opened for is open when
- * the section is.
+ * reading the document on every render.
+ *
+ * **Every subsection starts closed**, in every section, on every device. Opening a section opens
+ * that section and nothing inside it: the reader sees the list of what is there and chooses, rather
+ * than finding one part already unfolded and the rest to scroll past. Closing a section unmounts
+ * its body, so opening it again starts closed again.
  */
 const SECTIONS: SidebarSection[] = [
   {
@@ -166,7 +180,7 @@ const SECTIONS: SidebarSection[] = [
           The map first: which geography this is a map of is the question asked before every
           other one, since the answer decides what the rest of them mean.
         */}
-        <Disclosure title="Map" defaultOpen>
+        <Disclosure title="Map">
           <MapPicker />
         </Disclosure>
         <Disclosure title="Region">
@@ -180,6 +194,16 @@ const SECTIONS: SidebarSection[] = [
         </Disclosure>
       </div>
     ),
+  },
+  {
+    /*
+     * Built-in presets, right after the map: the second question a map starts with is what kind
+     * of map it is. Each sets a handful of existing settings in one click — see `state/templates.ts`.
+     */
+    id: 'templates',
+    name: 'Templates',
+    short: 'Presets',
+    body: <TemplatePicker />,
   },
   {
     id: 'select',
@@ -200,7 +224,7 @@ const SECTIONS: SidebarSection[] = [
         <Disclosure title="Merge Groups">
           <MergeControls />
         </Disclosure>
-        <Disclosure title="History" defaultOpen>
+        <Disclosure title="History">
           <HistoryButtons />
         </Disclosure>
       </div>
@@ -223,7 +247,7 @@ const SECTIONS: SidebarSection[] = [
             </div>
           </div>
         </Disclosure>
-        <Disclosure title="Geographic Features" defaultOpen>
+        <Disclosure title="Geographic Features">
           <GeographicFeatureToggles />
         </Disclosure>
         <Disclosure title="Labels & Helpers">
@@ -283,18 +307,13 @@ const SECTIONS: SidebarSection[] = [
     name: 'Settings',
     body: (
       <div className="stack">
-        <Disclosure title="Appearance" defaultOpen>
+        <Disclosure title="Appearance">
           <div className="sidebar__group">
             <span className="sidebar__group-label">Theme</span>
             <ThemePicker />
           </div>
         </Disclosure>
-        {/*
-          Open too, because what is in it is a slider: folded away, setting the volume took a
-          click to open the section and then the drag, and the click is not part of what
-          anyone came to do.
-        */}
-        <Disclosure title="Audio" defaultOpen>
+        <Disclosure title="Audio">
           <SoundSettings />
         </Disclosure>
         <Disclosure title="Data Sources">
@@ -359,6 +378,15 @@ export function Sidebar() {
       if (timer.current) window.clearTimeout(timer.current)
     }
   }, [openId])
+
+  /* Anything may ask for a section to open — a template opens the one its work continues in. */
+  useEffect(
+    () =>
+      onOpenSidebarSection((id) => {
+        if (SECTIONS.some((section) => section.id === id)) setOpenId(id)
+      }),
+    [],
+  )
 
   const open = SECTIONS.find((section) => section.id === openId) ?? null
   const rendered = SECTIONS.find((section) => section.id === renderedId) ?? null

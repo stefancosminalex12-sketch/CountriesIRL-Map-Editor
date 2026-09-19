@@ -497,6 +497,151 @@ reported, separated into shores of inland water and gaps.
 
 Rebuilding: `npm run build-usa` (downloads the Census and USGS files into `.cache/` once).
 
+#### Europe Countries and Europe Administrative
+
+Two atlases under a **Europe** group in the Maps list, separate from the World and Modern
+Administrative World maps (which stay Natural Earth's and unchanged). Built from official
+national data rather than cropped from the world datasets.
+
+**Source: EuroGlobalMap 2026** (EuroGeographics, 1:1,000,000, 47 countries and 13
+territories). The national mapping and cadastral agencies' own data, harmonised across
+borders by EuroGeographics. Its administrative areas carry EuroBoundaryMap's hierarchy (the
+`SHN0`…`SHN4` codes with names and designations in `EBM_NAM` / `EBM_ISN`), which is what
+lets each country be drawn at its own level.
+
+- **Licence:** the EuroGeographics Open Data Licence, which permits commercial use with
+  attribution. Attribution: "© EuroGeographics", plus the owning agencies listed at
+  https://www.mapsforeurope.org/attributions. The credit is in Settings → Data sources.
+- **Why not EuroBoundaryMap itself:** it was checked on 2026-09-19. EuroBoundaryMap (1:100k)
+  is a paid product licensed by coverage, number of users and rights, and not open data.
+  EuroGlobalMap carries its hierarchy and codes under the open licence. The unit ids below are
+  EuroBoundaryMap's own numbers, so licensed EuroBoundaryMap geometry could replace the
+  1:1M geometry later without changing an id.
+- **Supplement: Natural Earth (public domain):**
+  - the countries around Europe;
+  - Russia east of 51°E, where EuroGlobalMap stops;
+  - admin-1 units for the countries EuroGlobalMap describes only as a whole: Russia, Belarus,
+    Türkiye, Georgia, Armenia, Azerbaijan, Montenegro, and Ireland's counties.
+
+  geoBoundaries' layers for Russia, Türkiye, Azerbaijan, Montenegro and Luxembourg are
+  OpenStreetMap-derived under ODbL or CC BY-SA. Those are share-alike, so they are not used
+  for geometry.
+- **Where the file goes:** request the GeoPackage at https://www.mapsforeurope.org (email and
+  licence acceptance). Extract it into `.cache/egm/`, or leave the `euro-global-map-GPKG`
+  folder in the project root, which is git-ignored. It is about 1 GB and never committed.
+  Rebuild with `npm run build-europe`, which writes `data/europe/`.
+
+**Europe is** every country and territory EuroGlobalMap covers there:
+
+- Kosovo is its own country, from EuroGlobalMap's `optionKS` layer, as on the World map.
+- Northern Ireland is part of the United Kingdom.
+- Svalbard, the Faroes, Greenland, the Channel Islands and the Isle of Man are their own
+  entities.
+- The French overseas regions and collectivities, and Sint Maarten, are not in Europe and are
+  left out.
+- The land around Europe (North Africa, the Middle East, the Caucasus's southern neighbours,
+  Kazakhstan, and Russia beyond 51°E) is on the map as context, outside the Europe region.
+- Areas EuroGlobalMap marks as in dispute between two countries are entities of their own,
+  held by neither: Croatia–Slovenia, Croatia–Serbia (the Danube islands), North
+  Macedonia–Serbia. A disputed area that is water (the Ems–Dollart estuary) stays water.
+
+**Borders are made to meet exactly.** EuroGlobalMap stores each area as its own polygon, and
+neighbours draw their common border independently. Over Europe, 12,400 border segments are
+held by one side only, the two copies typically 1–100 m apart. So the build
+(`scripts/europe/atoms.mjs`, `resolve.mjs`) reconciles them before anything else:
+
+1. Areas are placed in a fixed order, and each keeps only the ground no earlier area holds.
+   1,602 areas lost a sliver, 9.5 km² in all.
+2. The borders are noded, so both sides hold the same points.
+3. The strips nobody covers (the holes of the land's union, found by merging the noded areas
+   as one topology) join the area sharing most of their edge: 8,289 strips, 43 km² in all.
+   Lakes stay water.
+4. Every join (a country from its areas, a Land from its Kreise) is a Clipper union of
+   unpinched rings. A TopoJSON merge drew chords across the land wherever a ring touched
+   itself.
+
+The build reports every border edge that no neighbour shares inside the land
+(`data/europe/report.json`).
+
+**Europe Countries: three levels of geometric detail** (Map → Detail), each simplified arc by
+arc so borders stay shared (`simplify.mjs`):
+
+| Level | Generalisation | Points | File |
+|---|---|---|---|
+| Full Detail (1:1M), the default | none | 1,804,441 | 16.71 MB |
+| Standard | about 120 m | 504,188 | 5.63 MB |
+| Light | about 600 m | 202,965 | 2.65 MB |
+
+95 entities: EuroGlobalMap's countries and territories, 4 disputed areas and 34 neighbouring countries.
+
+**Europe Administrative: three presets** (Map → Detail). Each country is drawn at the level it
+is actually administered by, never one universal level. The table is `scripts/europe/levels.mjs`:
+
+| Preset | Units | Points | File |
+|---|---|---|---|
+| Regions | 1,170 | 962,799 | 10.18 MB |
+| Standard (default) | 2,659 | 1,187,519 | 12.57 MB |
+| Detailed | 3,022 | 1,204,816 | 12.79 MB |
+
+Unit counts include the 4 disputed areas and the 34 neighbouring countries, which are whole on every preset. Every preset is generalised to about 60 m, arc by arc.
+
+Standard, for example: France 96, Germany 400, Spain 52, Italy 107, Poland 380, Romania 42, Bulgaria 28, Greece 52, the United Kingdom 186 (Northern Ireland's 11 districts included), Türkiye 81, Russia 84, Ireland 34, Ukraine 27, Serbia 25, Kosovo 38. Detailed adds Belgium's 43 arrondissements, Bosnia and Herzegovina's 143 municipalities and Slovenia's 212.
+
+Examples of the Standard level:
+
+- **France:** départements.
+- **Germany:** Landkreise and kreisfreie Städte.
+- **Spain:** provinces, with Ceuta and Melilla.
+- **Italy:** provinces and metropolitan cities.
+- **Poland:** powiats.
+- **Romania:** județe and Bucharest.
+- **Bulgaria:** oblasti.
+- **Greece:** regional units, as Eurostat's NUTS 3, since EuroBoundaryMap's Greek hierarchy
+  stops at the 13 regions.
+- **Slovenia:** its 12 statistical regions, as NUTS 3. The 212 municipalities are the
+  Detailed level.
+- **Ukraine:** oblasts. EuroGlobalMap's raions predate the 2020 reform.
+- **Luxembourg:** whole. Its only open subdivision layer is the three districts abolished in
+  2015.
+
+Where an area has no unit at a country's level (Vienna has no Bezirk, Ceuta no province), it
+is drawn with the nearest level it has. Lakes that the national data keeps outside every
+municipality (Ohrid, Prespa, Bodensee, Peipus) are water, not units.
+
+**Ids:**
+
+| Entity | Id format | Example |
+|---|---|---|
+| Country | ISO 3166-1 alpha-3, the World map's own | `FRA` |
+| Disputed area | `eu-dispute-HR-SI` | |
+| EuroBoundaryMap unit | `eu-ebm-<SHN>` (stable across releases) | |
+| NUTS 3 region | `eu-nuts-<code>` | |
+| Natural Earth unit | `eu-ne-<adm1_code>` | |
+
+Every unit names its country as its parent. Its designation (`kind`) is EuroBoundaryMap's,
+and the coarser units of its own country that hold it (its Land, its Regierungsbezirk) are
+selectable groups. Lakes are EuroGlobalMap's own, 3 km² and up (4,813). Rivers are the World
+map's Natural Earth rivers.
+
+**What remains unshared.** The build reports every border edge that no neighbour shares inside the land. On Europe Countries at full detail it is 308.23 km in 95 pieces, and none of it is a gap between two countries:
+
+- sub-10 m disagreements EuroGlobalMap's two copies of a border leave, a few kilometres per country (the largest a single vertex 3 m off the Swiss–German line);
+- rings inside one country, with that country on both sides: Icelandic lake shores, Russia's New Siberian Islands, Egypt's Halaib line in Natural Earth's context data.
+
+Generalising adds crossings where a thin spit's two shores run a few hundred metres apart, almost all on Russia's Arctic coast. The Russian figure rises from 72 km at Full to 475 km at Standard and 905 km at Light, always inside one unit.
+
+**Tested** in the editor (`.cache/check-europe*.js`) on desktop and mobile:
+
+- **All six datasets:** load and draw every entity; ids are unique; every entity has its table entry; every unit names its country.
+- **The Maps list:** shows the Europe group; Map Detail lists the presets; region presets frame the Balkans, Iberia, the Baltic States, the British Isles and the Nordic countries.
+- **Clicks select the right entity:** Ostalbkreis, Cantal, Piotrkowski, Cluj; Poland, France, Romania, Slovenia.
+- **The other features work:** Data mode, Compare groups, labels, Flags mode, Hide Territories (hidden and restored), overlays, Water Regions, PNG, JPG and SVG export, and the blank SVG.
+- **The hard places resolve correctly:** Llívia (Spain, in Girona), Büsingen, Campione d'Italia, the Vatican, San Marino, Monaco, Liechtenstein, Kaliningrad, Treviño (Burgos, inside Álava) and Berlin.
+- **The existing maps are unchanged:** switching back to the World and USA maps leaves their geometry byte for byte as it was.
+
+The data files are committed like the Official USA map's: about 68 MB in `data/europe/`.
+
+
 ### How region framing works
 
 The camera is fitted to real polygons, not to a lat/lon rectangle, so it adapts to
@@ -591,6 +736,89 @@ because Norway had already stretched the box's latitude range over it.
 Nothing here is a hardcoded camera position: change the dataset and the bounds are
 recomputed from that dataset's geometry. `__mapEditor.framing()` prints what the
 camera resolved to.
+
+#### Subregions
+
+Each continent on the world maps has subregions under it: 22 in Europe, 20 in Asia, 14 in
+Africa, 20 in North America, 13 in South America and 9 in Oceania. The Region list shows World
+and the continents first. A **Subregions** button beside each continent opens its list
+underneath, and only one continent is open at a time. A closed continent shows how many of its
+subregions are on ("2 on"). Subregions combine like continents do, so Balkans + Baltic States
+frames both. They are framing presets only. Choosing one moves the camera and marks what is
+inside. It creates no dataset, group or merge, and never touches the geometry.
+
+The definitions are in `geo/subregions.ts`, one line each, and each chip shows its definition
+as a tooltip. They follow one rule per kind of region:
+
+- **Compass-point regions** (Western Europe, East Africa, Central America, Micronesia…) are the
+  UN M49 subregions, with the exceptions stated in each definition. For example, Saint Helena
+  is left out of West Africa and the Chagos out of East Africa.
+- **Physical regions** are the countries on them. When a feature covers only part of those
+  countries, a `domain` box gives the feature's own extent: the Alps (the Alpine Convention's
+  perimeter), the Carpathians, the Amazon basin, the Gran Chaco, the Sahel belt (11–20°N) and
+  the Coral Sea.
+- **Parts of countries** (New England, Siberia, Patagonia, the IBGE macro-regions of Brazil,
+  Anatolia) are listed by ISO 3166-2 code, following whoever defines them: the US Census
+  Bureau, the IBGE, Russia's federal districts and economic regions. The world maps draw
+  whole countries, so a part cannot be drawn on its own. Instead the member's
+  `memberDomains` entry holds the camera to the listed units' real extent, which
+  `scripts/build-subregion-parts.mjs` measures from Natural Earth's 1:10m admin-1 boundaries
+  into `geo/subregionParts.json`. The country is still drawn whole and counts as inside the
+  region, so on a map of New England the rest of the United States is not dimmed.
+
+Overlaps are deliberate. Scandinavia is inside the Nordic countries, and Indochina is inside
+Mainland Southeast Asia. Each preset is a framing, not a partition.
+
+Framing uses the same pipeline as the continents, with the continent's trim, margin and
+excluded areas (a subregion of Europe drops Svalbard and the Azores too). Subregions add two
+things, and neither changes a continent's frame. Both are gated by `explicitMembers`, and a
+check against the committed framing code found the World, every continent and the
+compositions identical on 10m, 50m, 110m and the administrative world:
+
+- **Every named member is framed.** Its largest landmass anchors the core however small it is,
+  so Cyprus stays in the European Mediterranean and Cape Verde stays in West Africa.
+- **A member cut by the domain is clipped to it** (Sutherland–Hodgman). Otherwise only the
+  polygon's own vertices would count, and inland there are none: the American Southwest was
+  framed only up to 34°N, the latitude of the Mexican border's northernmost point, instead of
+  reaching 42°N.
+
+Albers' standard parallels come from the framed extent, one sixth in from each edge. Under
+Auto (Equal Earth) the projection turns to the region's longitude, as it does for continents.
+
+Checked by `.cache/check-subregions.js` for all 98 presets on 10m, 50m, 110m and the
+administrative world, under all nine projections, at a desktop canvas and a phone canvas:
+
+- every preset frames real geometry;
+- at least 97% of its framed points and landmark anchors are on the canvas (on Mercator, not
+  counting what lies beyond its 80° clamp);
+- it fills at least 80% of the canvas on its binding axis;
+- the geometry hash is unchanged afterwards.
+
+The only differences between detail levels are islands the coarser data leaves out (Shetland,
+the Ryukyus, the Chathams at 110m).
+
+**Adding a subregion** is adding an entry to its continent's list. If it names ISO 3166-2 codes
+from a country not yet in the build script's `COUNTRIES`, add the country there and rerun:
+
+```bash
+node scripts/build-subregion-parts.mjs
+```
+
+### Hide Territories
+
+Hiding a territory removes it from the map completely, not just its land. Nothing drawn for it, or inside it, stays visible:
+
+- **Drawn per territory, so each layer skips hidden ones:** land, coastline, its share of the border network, flag, island water, labels (names, data values, group values), magnifier, click targets.
+- **Overlays:** an overlay copied from a hidden territory is hidden with it. A merged group's overlay is hidden once every member is hidden. The overlay itself is kept in the list and returns when the territory is shown again.
+- **Lakes and rivers:** each is one path for the whole map, so they are clipped (`render/hiddenMask.ts`). The clip is the plane with the hidden territories' footprints cut out, using the same projection as the two layers. A shared lake loses exactly its hidden side, down to the border: hiding Uganda removes its part of Lake Victoria and leaves Kenya's and Tanzania's. A lake cut out of a territory as a hole (the Census Bureau's boundaries do this, and Natural Earth does for a few) is still inside that territory, so holes containing a lake are filled. Any other hole belongs to someone else's land and stays visible: hiding South Africa leaves Lesotho's rivers alone.
+
+Nothing is deleted and the geometry is untouched. Showing the territory brings everything back, and exports carry the clip because they copy the live SVG.
+
+Tested by `.cache/check-hide.js` on the world maps (10m, 50m, 110m), the administrative world, USA States, and the Official USA map (states and counties):
+
+- lakes: every one inside a hidden territory is hidden, every one outside stays;
+- rivers: tens of thousands of sampled points agree. The few that disagree lie exactly on the hidden territory's edge (0 px away), where a river forms the border;
+- hidden land, labels and overlays are gone, neighbours are untouched, and everything returns on unhide.
 
 ### The geographic foundation
 
@@ -931,8 +1159,7 @@ What changed besides position:
 - In **Legend**, the title's decorative mark is now **Title Mark**, so that "icons" means what
   the items are — each colour indicator and its text, sized by **Item Icons**. With the legend
   hidden, the editor stays usable and says the legend is hidden.
-- **Settings** holds only the editor's preferences: theme, sound (open, so the volume is one drag
-  away) and the data-source credits. Map Colours and Selection Highlight moved to Display →
+- **Settings** holds only the editor's preferences: theme, sound and the data-source credits. Map Colours and Selection Highlight moved to Display →
   Appearance.
 - **Canvas** is the old Screen. Its **Fit to Region** did nothing in a production build: it read
   the live projection from `window.__mapProjection`, which the canvas publishes only in
@@ -943,15 +1170,23 @@ What changed besides position:
   it already did with nine. A shadow now appears at whichever end has more sections past it — pure
   CSS, and nothing at all on a window tall enough for the whole rail.
 
+**Nothing is open by default.** A fresh editor has no section open, and opening a section opens
+that section and nothing inside it: every subsection, and the Maps list's two groups, start closed,
+on every device. Closing a section unmounts its body, so opening it again starts closed again — and
+a template that opens a section when it is applied opens that section alone. Checked by opening
+every section on a desktop window and on a phone, with an overlay chosen and a merge group present
+so the subsections that only appear then were there too: nothing inside any of them was expanded,
+on first opening or on reopening after everything had been expanded by hand.
+
 **The Maps list is grouped by what a map is of.** Two groups sit at the top, **World** and
 **USA**, and each is a disclosure that opens onto its maps:
 
 - World holds **Modern World** and **Modern Administrative World**;
 - USA holds **USA States** and **USA Administrative Map**.
 
-The group holding the map in use opens with the section, and the map in use is marked in
-its group and named in the accent on the group's header, so it shows even while the group is
-closed. The two groups open and close independently.
+Both groups start closed, like every collapsible in the sidebar; the map in use is marked in
+its group and named in the accent on the group's header, so it shows while the group is closed.
+The two groups open and close independently.
 
 The group each map belongs to is data on the atlas: `family` in `atlas.ts`, the groups
 themselves in `ATLAS_FAMILIES`. The list's own label is `menuName`, used where the group makes
@@ -1768,6 +2003,8 @@ two line colours, and which one appears is a legible consequence of how dark the
 country is. On the dark theme the ink carries about four fills in five.
 
 #### Coastlines and borders are one stroke
+
+**Coastlines are off by default.** A fresh editor, and a fresh document on any map, draws borders without the coast, and the land meets the water at its own fill. Switching to another map keeps the current style, so a map where the author turned Coastlines on keeps it. Display → Geographic Features → **Coastlines** turns it on. No map, dataset, projection or region preset changes it. Of the templates, only World Domination turns it on, because it turns borders off and the land would otherwise have no outline at all. Predefined Data leaves it alone. Load times on the densest maps (US counties about 0.9 s, US county subdivisions about 3.5 s) are the same with Coastlines on or off.
 
 A country path is stroked once, and that single stroke is both things at once: its coast
 where it meets water, and its share of a boundary where it meets a neighbour — each of
@@ -3155,6 +3392,79 @@ the aspect that was composed rather than the browser window's. The frame is publ
 the `<svg>` as data attributes and read back by the exporter, so every existing export
 path - PNG, JPG, SVG - is cropped without being changed.
 
+
+### Templates
+
+**Templates**, the second section of the sidebar — right after Maps — lists built-in presets. Click
+one and the editor is set up for that kind of map at once, instead of switching half a dozen
+controls by hand. They are part of the application: no accounts, no saving, no creating your own,
+nothing stored anywhere.
+
+Each template is a constant in `state/templates.ts`, keyed by the document's own settings — the
+colouring mode, `flags`, `style`, `labels` — never by a panel or a control, so rearranging the
+sidebar cannot break one. Applying it builds fresh operations from it and dispatches them through
+the store like any other edit: validated, one step, and every setting it wrote can be changed by hand
+afterwards. Only the settings a template names change; the map's data, groups, merges, overlays,
+flag assignments, region and projection are left as they are. The templates are deep-frozen, so
+nothing — another template, a manual change, an undo — can alter a preset, and applying one twice
+sets the same thing twice. A template may name the section to open afterwards, where the work it
+sets up is done.
+
+Choosing the colouring mode is shared with the mode chips in Styles & Data (`state/colourMode.ts`),
+so a template turns Flags on exactly as clicking **Flags** does — the layer's scale set aside, the
+comparison off — rather than a second copy of that rule.
+
+**World Domination** — a map of flags where countries take each other's:
+
+- Flags mode on, with the World Domination override armed but no dominating country chosen, so
+  every country keeps its own flag until one is picked;
+- Borders off, so a country that has taken its neighbours reads as one territory; Coastlines on;
+  High-Contrast Borders and Island Water Coverage off;
+- Region names, data values and Compare group values off, and Water Regions off, so a click on
+  the sea never gets in the way of picking countries;
+- then it opens Styles & Data on Flags: select countries and use **Change Flag** to give them
+  another country's flag, or pick one flag in **Choose flag** to cover the whole world.
+
+**Predefined Data**: published figures on the map, with nothing typed in. It is one template for
+every dataset. Click it and the datasets open under it: **HDI**, **GDP per capita**,
+**Inflation** and **Population**. Choose one and, in one edit:
+
+- the dataset's values go onto every entity of the open map that has one, after the active layer's
+  old values are cleared so nothing stale is left;
+- Data mode turns on with the **Predefined** scale and the dataset's own fixed thresholds;
+- the layer takes the dataset's name and unit ("$", "%"), so **Data Values** print "$90,027";
+- the legend is shown, with the source and year as its subtitle;
+- Styles & Data opens on Data.
+
+The map on screen decides which values are used. `levelOf` reads the loaded entities' ids and
+works out whether they are countries (ISO 3166-1 alpha-3), US states (`US-CA` on USA States,
+`state-06` on the Official map) or US counties (`county-06037`). A world map gets the countries'
+values whatever region is framed. A map of Europe shows Europe's values, and reframing it to the
+world shows everyone's without applying anything again. The USA maps get the Census Bureau's
+state or county populations.
+
+If a dataset has no figures at the map's level, the list greys it out and says why: HDI, GDP per
+capita and inflation are "Not published for US states". The administrative world's provinces and
+the US county subdivisions get no values at all, rather than values that belong to something else.
+
+| Dataset | Countries | US states / counties | Thresholds |
+|---|---|---|---|
+| HDI | UNDP HDR 2023/24, 2022 (193) | — | UNDP's four tiers |
+| GDP per capita | World Bank WDI, latest year (213) | — | World Bank FY2025 income groups (set on GNI per capita) |
+| Inflation | World Bank WDI, latest year (193) | — | Editor-defined: below 0, 2, 5, 10, 25 % |
+| Population | World Bank WDI, latest year (216) | Census Vintage 2023 (52 / 3,144) | Editor-defined, per level |
+
+The figures are JSON files in `src/data/predefined/`, rebuilt from the publishers' releases by
+`node scripts/build-predefined-data.mjs`. Each file is imported only when its dataset is chosen,
+so the page never loads data nobody asked for. **To add a dataset**, add it to the build script,
+add its threshold scale(s) to `state/presets.ts` and add an entry to `PREDEFINED_DATASETS` in
+`data/predefinedData.ts`. The template and the panel list whatever is there and need no change.
+
+This is not the Palette. **Data → Palette**, where the author types values and the colours follow
+their range, is untouched and one chip away. **Data → Predefined**, which picks a threshold scale
+for values already on the map, is still there on its own. The new scales appear in its list too.
+
+Adding a template is adding an entry to `TEMPLATES`.
 
 ### SVG round trip
 
