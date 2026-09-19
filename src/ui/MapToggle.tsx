@@ -26,6 +26,8 @@ export type MapToggleIcon =
   | 'globe'
   | 'legend'
   | 'names'
+  | 'values'
+  | 'compare'
   | 'caption'
   | 'rectangle'
   | 'pointer'
@@ -128,6 +130,22 @@ const ICON_PATHS: Record<MapToggleIcon, JSX.Element> = {
     <>
       {/* The arrow itself: select by pointing, no tool armed. */}
       <path d="M4.2 2.8v9.6l2.7-2.5 1.8 4 1.7-.8-1.8-3.9h3.7z" />
+    </>
+  ),
+  values: (
+    <>
+      {/* A number standing on the ground it is drawn on: the value on the land, as names are. */}
+      <path d="M4.2 5.2 5.9 3.8v6.6" />
+      <path d="M8.3 5.1c.3-.9 1-1.4 1.9-1.4 1.1 0 1.8.7 1.8 1.6 0 1.6-3.7 3.2-3.7 5.1h3.8" />
+      <path d="M2.6 13.4h10.8" />
+    </>
+  ),
+  compare: (
+    <>
+      {/* Two groups side by side, one number over both: a group's value on its members. */}
+      <circle cx="5.2" cy="10.6" r="2.4" />
+      <circle cx="10.8" cy="10.6" r="2.4" />
+      <path d="M6.6 2.8 7.8 2v4.4M9.6 3c.2-.6.7-1 1.3-1 .7 0 1.2.5 1.2 1.1 0 1.1-2.5 2.1-2.5 3.3h2.6" />
     </>
   ),
   rectangle: (

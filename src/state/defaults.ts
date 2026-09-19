@@ -209,6 +209,9 @@ export function createMapDocument(
      */
     labels: {
       enabled: false,
+      // Off, like the names: a value on every country is something an author asks for.
+      values: false,
+      compareValues: false,
       color: '#ffffff',
       outlineColor: '#000000',
       font: 'system',

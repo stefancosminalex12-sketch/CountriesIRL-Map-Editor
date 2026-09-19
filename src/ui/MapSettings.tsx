@@ -333,6 +333,29 @@ export function LabelsAndHelpers() {
           onChange={(enabled) => dispatch({ op: 'set_labels', patch: { enabled } })}
         />
         {/*
+          Each entity's value, set on the map where its name goes — under the name with both on,
+          in its place with names off. Independent of Region Names, and separate from the legend:
+          the legend explains the scale, this prints each value. Placed by the same layout as the
+          names, so it moves, scales and exports with them. See `CountryLabels.values`.
+        */}
+        <MapToggle
+          icon="values"
+          label="Data Values"
+          checked={labels.values ?? false}
+          onChange={(values) => dispatch({ op: 'set_labels', patch: { values } })}
+        />
+        {/*
+          Each Compare group's value on every member of the group — the value set on the group in
+          Styles & Data → Compare. Its own switch, independent of the names and of the entities'
+          own data values, and nothing to do with Merge Groups. See `CountryLabels.compareValues`.
+        */}
+        <MapToggle
+          icon="compare"
+          label="Compare Group Values"
+          checked={labels.compareValues ?? false}
+          onChange={(compareValues) => dispatch({ op: 'set_labels', patch: { compareValues } })}
+        />
+        {/*
           A headline for the picture. In this grid with the other layers because that is
           what it is — something the map draws or does not draw — even though what it
           says comes from the author rather than from the geography.
@@ -363,7 +386,8 @@ export function LabelsAndHelpers() {
         settings, they are meaningless with the feature off, and five controls that
         appear when a switch is turned on ask nothing of anyone who leaves it alone.
       */}
-      {labels.enabled && <CountryNameStyle labels={labels} />}
+      {/* One face, colour and outline for names and values alike, so either switch brings them. */}
+      {(labels.enabled || labels.values || labels.compareValues) && <CountryNameStyle labels={labels} />}
       {caption.enabled && <TopCaptionStyle caption={caption} />}
     </div>
   )

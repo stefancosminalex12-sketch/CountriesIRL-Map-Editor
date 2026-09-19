@@ -13,6 +13,7 @@
  * region read that global and therefore did nothing at all in production.
  */
 import type { GeoProjection } from 'd3-geo'
+import type { ProjectedLand } from './projectedLand'
 
 let live: GeoProjection | null = null
 
@@ -24,4 +25,23 @@ export function setLiveProjection(projection: GeoProjection | null): void {
 /** The projection on screen, or `null` before the first map has been drawn. */
 export function getLiveProjection(): GeoProjection | null {
   return live
+}
+
+/*
+ * The land as the canvas drew it: every entity's projected outline, the insets' frames and the
+ * size it was fitted to. For Maps → SVG, whose blank map is exactly this geography — every entity
+ * of the map in its drawn place, including ones a merge or Hide is keeping off the screen right
+ * now — without reprojecting a thing. The same "handle, not state" reasoning as the projection's.
+ */
+
+let liveLand: ProjectedLand | null = null
+
+/** Published by `MapCanvas` whenever the land is reprojected. */
+export function setLiveLand(land: ProjectedLand | null): void {
+  liveLand = land
+}
+
+/** The land on screen, or `null` before the first map has been drawn. */
+export function getLiveLand(): ProjectedLand | null {
+  return liveLand
 }

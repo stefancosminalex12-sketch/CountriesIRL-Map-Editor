@@ -31,7 +31,7 @@ import { MapLegend, LEGEND_MARKER } from './MapLegend'
 import type { GeometryCollection, MultiLineString, MultiPolygon, Position } from 'geojson'
 import { buildMaritimeShapes, MapMaritime, selectIslandZones } from './MapMaritime'
 import { MapWaters, WATER_MARKER, type WaterShape } from './MapWaters'
-import { setLiveProjection } from './liveProjection'
+import { setLiveLand, setLiveProjection } from './liveProjection'
 import { isWaterId, waterName } from '../geo/waters'
 import { dissolveTouching } from '../geo/dissolve'
 import {
@@ -55,6 +55,7 @@ import {
 import { flagFootprints, flagTerritories } from './flagPlacement'
 import {
   buildLabelShape,
+  LABEL_LINE_BREAK,
   layoutLabels,
   MAX_MAP_ZOOM,
   visibleLabels,
@@ -70,6 +71,7 @@ import { bordersWithout, coastByEntity } from '../geo/datasets'
 import { MapScreen } from './MapScreen'
 import { MapCaption } from './MapCaption'
 import { getPreset } from '../state/presets'
+import { formatDataValue } from '../state/legend'
 import { useMapStore } from '../state/mapStore'
 import { useSettingsStore } from '../state/settingsStore'
 import { getTheme } from '../theme/themes'
@@ -508,11 +510,13 @@ export function MapCanvas() {
      * production build.
      */
     setLiveProjection(projection)
+    // And the land it drew, for Maps -> SVG's blank map.
+    setLiveLand(land && land.geo ? land : null)
     // Lets `__mapEditor.project(lon, lat)` report true screen positions in dev.
     if (import.meta.env.DEV && projection) {
       ;(window as unknown as Record<string, unknown>).__mapProjection = projection
     }
-  }, [projection])
+  }, [projection, land])
 
   /**
    * Whether the layers drawn over the land are drawn yet.
@@ -683,6 +687,14 @@ export function MapCanvas() {
 
   const labels = doc.labels
   const labelsOn = labels.enabled
+  /*
+   * Data Values: each entity's value, set by the same layout as the names. Either switch puts
+   * text on the map; `textOn` is "is anything to be set", and `labelsOn` keeps meaning names.
+   */
+  const valuesOn = labels.values ?? false
+  // Compare Group Values: each Compare group's value, on every member. Its own switch.
+  const compareValuesOn = labels.compareValues ?? false
+  const textOn = labelsOn || valuesOn || compareValuesOn
 
   /**
    * Whether the label geometry should be kept ready.
@@ -695,9 +707,9 @@ export function MapCanvas() {
    */
   const [labelsPrepared, setLabelsPrepared] = useState(false)
   useEffect(() => {
-    if (labelsOn) setLabelsPrepared(true)
-  }, [labelsOn])
-  const prepareLabels = labelsOn || labelsPrepared
+    if (textOn) setLabelsPrepared(true)
+  }, [textOn])
+  const prepareLabels = textOn || labelsPrepared
 
   /**
    * Where every name goes, and how much room it has.
@@ -791,17 +803,53 @@ export function MapCanvas() {
    * label is not a new opinion about what a place is called; it is the existing one,
    * drawn on the map.
    */
+  /*
+   * And, with Data Values on, what each is worth — the active layer's value, printed with the
+   * active scale's unit — as a line of its own under the name, or on its own with names off. An
+   * entity with no value gets no line, and with names off no label at all.
+   */
+  const dataLayer = doc.layers.find((l) => l.id === doc.activeLayerId) ?? doc.layers[0]
+  const valueUnit =
+    dataLayer?.colorScale.mode === 'threshold'
+      ? dataLayer.unit || (getPreset(doc.activePresetId)?.unit ?? '')
+      : (dataLayer?.unit ?? '')
+  /*
+   * Each member's Compare group value: the first group in play that holds it and has a value —
+   * the same first-group-wins rule that decides its colour — so a member never shows one
+   * group's colour and another group's value.
+   */
+  const compareValueById = useMemo(() => {
+    const byId = new Map<string, string>()
+    if (!compareValuesOn) return byId
+    for (const group of doc.comparison.groups.slice(0, doc.comparison.groupCount)) {
+      const text = formatDataValue(group.value ?? null)
+      for (const id of group.members) {
+        if (byId.has(id)) continue
+        // A member of an earlier group with no value is still that group's: it shows nothing.
+        byId.set(id, text ?? '')
+      }
+    }
+    return byId
+  }, [compareValuesOn, doc.comparison])
+
   const rawLabelNames = useMemo(() => {
     const names = new Map<string, string>()
     if (!prepareLabels || !geo) return names
     for (const shape of labelShapes) {
       const override = doc.countries[shape.id]?.label
       const merged = doc.merges.find((m) => m.id === shape.id)?.name
-      const name = override ?? merged ?? geo.meta[shape.id]?.name ?? null
-      if (name) names.set(shape.id, name)
+      const name = labelsOn ? (override ?? merged ?? geo.meta[shape.id]?.name ?? null) : null
+      const value =
+        valuesOn && dataLayer
+          ? formatDataValue(doc.countries[shape.id]?.properties[dataLayer.dataKey] ?? null, valueUnit)
+          : null
+      const groupValue = compareValueById.get(shape.id) || null
+      // Name, then its data value, then its group's value — each a line of its own.
+      const text = [name, value, groupValue].filter(Boolean).join(LABEL_LINE_BREAK)
+      if (text) names.set(shape.id, text)
     }
     return names
-  }, [prepareLabels, geo, labelShapes, doc.countries, doc.merges])
+  }, [prepareLabels, geo, labelShapes, doc.countries, doc.merges, labelsOn, valuesOn, dataLayer, valueUnit, compareValueById])
   /*
    * Held steady while the names themselves are unchanged. `doc.countries` is replaced by
    * every edit — a value typed into the inspector included — and the layout below keys on
@@ -865,7 +913,7 @@ export function MapCanvas() {
     placements: ReturnType<typeof layoutLabels>
   } | null>(null)
   const labelPlacements = useMemo(() => {
-    if (!labelsOn) return []
+    if (!textOn) return []
     const last = lastLayout.current
     if (last && last.shapes === labelShapes && last.names === labelNames && last.style === labelStyle) {
       return last.placements
@@ -873,7 +921,7 @@ export function MapCanvas() {
     const placements = layoutLabels(labelShapes, labelNames, labelStyle)
     lastLayout.current = { shapes: labelShapes, names: labelNames, style: labelStyle, placements }
     return placements
-  }, [labelsOn, labelShapes, labelNames, labelStyle])
+  }, [textOn, labelShapes, labelNames, labelStyle])
 
   /**
    * The labels this zoom draws: every placed name large enough on screen to read, each at
@@ -885,8 +933,8 @@ export function MapCanvas() {
    * it does is one comparison per name. Nothing here can move or resize a label.
    */
   const labelsToDraw = useMemo(
-    () => (labelsOn ? visibleLabels(labelPlacements, labelZoomStep) : []),
-    [labelsOn, labelPlacements, labelZoomStep],
+    () => (textOn ? visibleLabels(labelPlacements, labelZoomStep) : []),
+    [textOn, labelPlacements, labelZoomStep],
   )
 
   /**
@@ -2832,7 +2880,7 @@ export function MapCanvas() {
             border, a lake or a selection outline — and still inside it, so the camera
             moves the names with the land they belong to.
           */}
-          {labelsOn && <MapLabels placements={labelsToDraw} labels={labels} />}
+          {textOn && <MapLabels placements={labelsToDraw} labels={labels} />}
 
           {/*
             Map overlays, over everything the map draws and inside the camera, so they move with

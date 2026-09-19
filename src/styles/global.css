@@ -543,6 +543,57 @@ body {
   font-size: 12px;
 }
 
+/* A hint that reports something went wrong: the same size, in the text colour, not a shout. */
+.hint--warn {
+  color: var(--text);
+}
+
+/*
+ * The SVG section's drop box: the whole box is the target, for a file dragged onto it and for a
+ * click or a tap that opens the file picker. Dashed while waiting, filled in the accent while a
+ * file is over it, so it is plain which of the two it is doing.
+ */
+.svg-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 96px;
+  padding: 14px 12px;
+  border: 1.5px dashed var(--line-strong, var(--line));
+  border-radius: var(--radius);
+  color: var(--text-dim);
+  text-align: center;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.svg-drop:hover,
+.svg-drop:focus-visible {
+  border-color: var(--accent);
+  color: var(--text);
+  outline: none;
+}
+
+.svg-drop--over {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  border-style: solid;
+  color: var(--text);
+}
+
+.svg-drop--busy {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+.svg-drop__text {
+  max-width: 22ch;
+  line-height: 1.35;
+}
+
 /* ---------------------------------------------------------------- controls */
 
 /**
@@ -1369,6 +1420,32 @@ body {
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.08em;
+}
+
+/* A group's value in its row: small, tabular, and quieter than its name. */
+.compare-group__value {
+  flex: none;
+  max-width: 7ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The value field, on its own line under the active group's two buttons. */
+.compare-group__value-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-basis: 100%;
+  margin-top: 2px;
+}
+
+.compare-group__value-field .input {
+  flex: 1;
+  min-width: 0;
 }
 
 /**

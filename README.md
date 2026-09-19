@@ -2414,6 +2414,63 @@ still on their own flags; unchanged under Winkel Tripel, Mercator and Nell–Ham
 low, medium and high dataset resolution, and at 4× zoom with the map panned; and the
 borrowed flag present in the serialized SVG export.
 
+### Data values on the map
+
+**Display → Labels & Helpers → Data Values** prints each entity's value on the map, where its name
+goes. It is independent of **Region Names**: names, values, both or neither. With both on, the value
+is a line of its own under the name ("France / $44,408"); with names off, it stands where the name
+would. An entity with no value in the active layer gets no value — and, with names off, no label.
+It is kept apart from the legend: the legend explains the scale, this prints each value. One
+switch, in that one place; the setting is `labels.values` on the document, so it is undoable and
+travels with the map.
+
+**Placed by the names' own layout.** A label is a name and, optionally, lines under it
+(`LABEL_LINE_BREAK` in `render/labelPlacement.ts`), and the whole block goes through the same
+fitting as a name: position inside the territory, collision repair against its neighbours, an
+outside caption for a speck, and the zoom at which it is worth drawing. So values stay on their
+land while zooming, panning and changing projection, and are in every PNG, JPG and SVG export,
+exactly as names are. They share the names' face, colour, outline and size controls, which appear
+whenever either switch is on.
+
+**A value never changes its name.** The name's size, its wrapping and whether it fits inside are
+decided from the name alone, exactly as before values existed; the value line only widens and
+deepens the block, which is what neighbours keep clear of. Measured with every country on the World
+map given a value — the most crowded case — no name was lost at 1×, 2× or 4× (two more fitted at
+world zoom), and the only difference was five long names wrapped at a different point where a
+neighbour's value needed the room ("Central African / Republic").
+
+**Formatting** is `formatDataValue` in `state/legend.ts`: grouped thousands below a million
+("45,200"), compact above it ("1.2M", "$2.9T"), up to four significant figures below a thousand
+("0.7341"), and text values as they are. The unit is the active scale's — the layer's own `unit`,
+or the fixed preset's when Predefined is the scale in use — placed where it is read: a currency
+symbol before the number ("$45,200"), anything else after it ("42%", "78.2 years").
+
+### Compare group values on the map
+
+**Display → Labels & Helpers → Compare Group Values** prints each Compare group's value on every
+country or region in that group: a group holding France, Germany, Italy and Spain with the value 50
+puts "50" on all four. Its own switch, independent of **Region Names** and **Data Values** — any of
+the three, or none — and nothing to do with Merge Groups.
+
+The value is set on the group itself: under the active group in **Styles & Data → Compare**, a
+**Group value** field, written on Enter or when the field is left, as one undo step. A number is
+stored as a number ("50", "1,200"), anything else as the text typed ("High"), and an empty field
+removes it; each group's value is shown in its row beside the member count. It is `value` on the
+group (`ComparisonGroup.value`), optional and only ever displayed — Compare still colours by the
+group's colour and reads no values, so a comparison with no values is exactly what it was.
+
+A country in no group shows no group value, and a group with no value shows nothing on its
+members. A country in two groups shows the first group's value — the same first-group-wins rule
+that decides its colour — so it never wears one group's colour and another's value.
+
+The value is a line of the label, like a data value: under the name, and under the data value when
+that is on too ("France / $44,408 / 50"); on its own with the others off. So it is placed, sized,
+de-conflicted, held back at a zoom where it would be unreadable, carried by the camera and
+exported exactly as names are. Measured on twelve European members of one group: from 2× every
+member shows the value in every combination of switches; at world zoom six of the twelve do —
+where names alone show three — because Belgium or Switzerland are a few pixels wide there, and the
+names' readability rule holds text back rather than print it too small to read.
+
 ### Legend
 
 Drawn **inside the map's `<svg>`**, in screen space, outside the zoomed group. That is
@@ -3098,6 +3155,56 @@ the aspect that was composed rather than the browser window's. The frame is publ
 the `<svg>` as data attributes and read back by the exporter, so every existing export
 path - PNG, JPG, SVG - is cropped without being changed.
 
+
+### SVG round trip
+
+**SVG**, the last section of the sidebar, takes the selected map out as a blank SVG and an edited
+one back in. The workflow is the whole design: pick a map, **Download SVG**, have something else —
+ChatGPT, a drawing program, a script — add data to the file, and drop it into the box under the
+button (or click the box to choose it). No categories to pick, nothing to map: the file is read
+and what was added to it is applied to the open map, as one undo step. See `io/svgExchange.ts`.
+
+**The blank map** is geography only — no data, palette, legend, flags or other customisation. It is
+the land the canvas projected for the selected map, dataset and projection, insets included, so it
+costs no reprojection. Every entity is one `<path>` in `<g id="entities">`, identified in every way
+an outside editor is likely to keep or recognise: `data-id` (the editor's own id), `id` where that
+id is a valid XML name, `data-name`, `data-iso2`, `data-iso3`, `data-iso3166-2` and `data-country`
+on the administrative map, and a `<title>` with the name. Entities a merge or Hide keeps off the
+screen are in it too. Paths are rounded to a tenth of a pixel — invisible, and a third of the size —
+except where rounding would collapse one to a point, which keeps full precision: Vatican City is in
+the file as its drawn shape. A `<desc>` tells whoever edits it the conventions: `fill` for a colour,
+`data-value` (or any named `data-*` number) for a value, `<g id="legend">` with a swatch and a label
+per item, `<text id="title">` for a title. Sizes: 0.2 MB at 110m, 1.1 MB at 50m, 6.5 MB at 10m and
+15 MB for the administrative world (3,153 units, built in under a second).
+
+**Reading it back** matches each element to an entity by `data-id` or `id`, then ISO 3166-2, ISO
+alpha-3, ISO alpha-2 and name — a key two entities share identifies neither and is skipped — so a
+file whose ids an editor stripped still matches by name. From each it takes its own fill (attribute
+or inline style, any CSS colour, never an inherited one; the blank fill counts as none) and its
+value. Then, in one batch:
+
+- **Values** become the active layer's values — real numbers, which the editor can re-colour later.
+- **Colours** are kept exactly: each value is pinned to the colour it was given through the
+  categorical scale's `categoryColors`, so the map looks the way the file does. The Data panel shows
+  this as a third scale, **Imported**; Palette or Predefined colour the same values with the editor's
+  ramps. An entity coloured without a number gets its legend label (or its colour) as its value.
+- **The legend** is the file's own — `legend.source: 'manual'` and its `entries`, fields the document
+  already had and nothing read, now shown while the Imported scale is in use — in the file's order,
+  with its title. A file with colours and no legend gets one built from them, each colour labelled
+  with the range of values it covers.
+- Numbers **without** colours are coloured by the editor's own palette, with the usual ramp legend.
+- A `title` becomes the caption, and names written onto the map turn the names layer on.
+
+The layer's previous values are cleared first, so the map shows what the file says, and one undo
+takes the whole import back. A file that matches nothing, a file with nothing added, and a file
+that is not SVG each get a sentence saying so and change nothing.
+
+Checked on the Modern World map (10m, 50m, 110m) and the administrative world: a file edited the way
+ChatGPT edits — fills as attributes, inline styles and `rgb()`, `data-gdp` numbers, a legend group
+with a title, a title text, one country with its ids stripped — dropped on the box came back with
+every colour exact, every value real, the legend's four rows in order under its title, the caption
+set, and one undo step; on the administrative map, units matched by id, by ISO 3166-2 alone and by
+name alone, Vatican City among them.
 
 ### Export
 

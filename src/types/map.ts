@@ -306,6 +306,15 @@ export interface ComparisonGroup {
   name: string
   color: string
   members: CountryId[]
+  /**
+   * A value the author gives the group — "50", "High" — or absent for none.
+   *
+   * Only ever displayed: Display → Compare Group Values prints it on every member of the group.
+   * It colours nothing and changes nothing about what the group is — Compare still reads no
+   * values and paints by the group's colour — so a comparison with no values is exactly the
+   * comparison it always was. Absent on groups made before it existed.
+   */
+  value?: MapValue
 }
 
 /**
@@ -628,7 +637,26 @@ export const LABEL_OUTLINE = { min: 0, max: 0.32, step: 0.01, default: 0.14 }
  * recomputes no geometry at all.
  */
 export interface CountryLabels {
+  /** Names on the territories: Display → Labels & Helpers → Region Names. */
   enabled: boolean
+  /**
+   * Each Compare group's value, set on every member: Display → Labels & Helpers → Compare Group
+   * Values. Independent of the names and of the entities' own data values — any of the three,
+   * or none. A member of more than one group shows the first group's value, the same group
+   * whose colour it takes. Absent on documents made before it existed, which read as off.
+   */
+  compareValues?: boolean
+  /**
+   * Each entity's data value, set on the map: Display → Labels & Helpers → Data Values.
+   *
+   * Independent of `enabled` — names, values, both or neither. With both on, the value is a line
+   * of its own under the name; with only this on, the value stands where the name would. Either
+   * way it is placed, sized, de-conflicted and shown or held back by zoom through the same layout
+   * as the names (see `LABEL_LINE_BREAK`), and it uses the same face, colour and outline. Only
+   * entities that have a value in the active layer get one. Absent on documents made before it
+   * existed, which read as off.
+   */
+  values?: boolean
   color: string
   outlineColor: string
   font: LabelFontId

@@ -80,6 +80,25 @@ const LINE_BOX = 1.2
 const MAX_LINES = 3
 
 /**
+ * What separates a name from the lines set beneath it.
+ *
+ * A label is a name, and optionally lines under it — the entity's data value (Display → Data
+ * Values) and its Compare group's value (Display → Compare Group Values). The name is wrapped
+ * exactly as it always was, and each line under it is its own line, never broken and never run
+ * into the name: "Bosnia and / Herzegovina / 3.2K", not "Bosnia and / Herzegovina 3.2K".
+ * Everything else — the position, the de-confliction against neighbours, the zoom at which it is
+ * worth drawing — is decided for the whole block, so a value is placed by exactly the system
+ * that places names.
+ */
+export const LABEL_LINE_BREAK = '\n'
+
+/** A label's name and the lines under it, if it has any. */
+function splitLabel(text: string): { name: string; tail: string[] } {
+  const [name, ...rest] = text.split(LABEL_LINE_BREAK)
+  return { name, tail: rest.map((line) => line.trim()).filter(Boolean) }
+}
+
+/**
  * The narrowest a line may be, as a share of the widest in its block.
  *
  * Balanced wrapping minimises the widest line, and on its own it will happily strand a
@@ -1423,6 +1442,7 @@ function interiorOptions(
   sizing: Sizing,
   span: { width: number; height: number },
   mode: 'land' | 'group',
+  tail: string[] = [],
 ): Option[] {
   if (words.length === 0 || spots.length === 0) return []
   const options: Option[] = []
@@ -1430,10 +1450,19 @@ function interiorOptions(
 
   spots.forEach((spot, spotIndex) => {
     for (let count = 1; count <= Math.min(MAX_LINES, words.length); count++) {
-      const lines = wrapInto(words, count, width)
-      if (!lines) continue
-      const blockWidth = widestLine(lines, width)
-      if (blockWidth <= 0) continue
+      const wrapped = wrapInto(words, count, width)
+      if (!wrapped) continue
+      const nameWidth = widestLine(wrapped, width)
+      if (nameWidth <= 0) continue
+      /*
+       * The lines under the name, when there are any, ride on every wrapping of it — and decide
+       * nothing about the name. The size, whether it fits inside and whether it is wrapped are
+       * all measured on the name alone, exactly as they were before values existed, so turning
+       * a value on never shrinks a name, re-wraps it or holds it back to a deeper zoom. The
+       * values only widen and deepen the block, which is what neighbours keep clear of.
+       */
+      const lines = tail.length > 0 ? [...wrapped, ...tail] : wrapped
+      const blockWidth = tail.reduce((widest, line) => Math.max(widest, width(line)), nameWidth)
       /*
        * An arrangement that does not fit inside the shape at all is still an arrangement.
        * Since a name may overhang, not fitting is not disqualifying — it means the space
@@ -1444,7 +1473,7 @@ function interiorOptions(
        * area law. Nothing downstream — not the zoom, not the viewport, not a neighbour's
        * name — changes it.
        */
-      const raw = sizeAtSpot(spot, lines, blockWidth)
+      const raw = sizeAtSpot(spot, wrapped, nameWidth)
       const fontSize = Math.min(Math.max(raw.size, sizing.spaceFloor), sizing.ceiling)
       if (!(fontSize > 0)) continue
       options.push({
@@ -1471,8 +1500,8 @@ function interiorOptions(
          * single line ever would have to either side.
          */
         overWide:
-          blockWidth * sizing.spaceFloor > span.width * WRAP_WIDTH_LIMIT ||
-          blockEms(lines.length) * sizing.spaceFloor > span.height * WRAP_WIDTH_LIMIT,
+          nameWidth * sizing.spaceFloor > span.width * WRAP_WIDTH_LIMIT ||
+          blockEms(wrapped.length) * sizing.spaceFloor > span.height * WRAP_WIDTH_LIMIT,
       })
     }
   })
@@ -1802,6 +1831,7 @@ function externalOptions(
   name: string,
   width: (text: string) => number,
   size: number,
+  tail: string[] = [],
 ): Option[] {
   const words = name.split(/\s+/).filter(Boolean)
   /*
@@ -1811,7 +1841,8 @@ function externalOptions(
    * caption on whatever it happens to cross. Two lines halve that.
    */
   const wanted = width(name) > 6 ? Math.min(2, words.length) : 1
-  const lines = wrapInto(words, wanted, width) ?? [name]
+  const wrapped = wrapInto(words, wanted, width) ?? [name]
+  const lines = tail.length > 0 ? [...wrapped, ...tail] : wrapped
   const blockWidth = widestLine(lines, width)
 
   const cx = (shape.minX + shape.maxX) / 2
@@ -1976,15 +2007,16 @@ export function layoutLabels(
   }
 
   for (const shape of ordered) {
-    const name = names.get(shape.id)
-    if (!name) continue
+    const text = names.get(shape.id)
+    if (!text) continue
+    const { name, tail } = splitLabel(text)
     const words = name.split(/\s+/).filter(Boolean)
     if (words.length === 0) continue
 
     const extent = Math.max(shape.maxX - shape.minX, shape.maxY - shape.minY)
     const span = { width: shape.maxX - shape.minX, height: shape.maxY - shape.minY }
     const sizing = sizingFor(shape.area, shape.unit)
-    const land = interiorOptions(shape.spots, words, width, sizing, span, 'land')
+    const land = interiorOptions(shape.spots, words, width, sizing, span, 'land', tail)
 
     /*
      * On the island, or across the islands — see `GROUP_DWARF`. A position over the group
@@ -1996,7 +2028,7 @@ export function layoutLabels(
       bestLand !== null && shape.mainArea > 0 && blockArea(bestLand) > GROUP_DWARF * shape.mainArea
     const group =
       shape.groupSpots.length > 0 && (bestLand === null || dwarfed)
-        ? interiorOptions(shape.groupSpots, words, width, sizing, span, 'group').filter(
+        ? interiorOptions(shape.groupSpots, words, width, sizing, span, 'group', tail).filter(
             (option) => !onForeignLand(option.x, option.y, shape.id, lands),
           )
         : []
@@ -2016,7 +2048,7 @@ export function layoutLabels(
     const captionFirst = best === null || swamped
     /* A caption is a remedy for a territory smaller than its own name, and for nothing else. */
     const outgrows = best !== null && best.blockWidth * best.fontSize > extent
-    const captions = externalOptions(shape, name, width, sizing.caption)
+    const captions = externalOptions(shape, name, width, sizing.caption, tail)
 
     const candidates: Option[] = []
     if (captionFirst) candidates.push(...captions)

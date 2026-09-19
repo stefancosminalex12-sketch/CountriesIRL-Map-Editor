@@ -149,7 +149,7 @@ export type MapOperation =
    * Membership changes carry the whole selection, so assigning twelve countries is one
    * operation and one undo step rather than twelve.
    */
-  | { op: 'set_comparison_group'; index: number; patch: { name?: string; color?: string } }
+  | { op: 'set_comparison_group'; index: number; patch: { name?: string; color?: string; value?: MapValue } }
   | { op: 'add_to_comparison'; index: number; countryIds: CountryId[] }
   | { op: 'remove_from_comparison'; index: number; countryIds: CountryId[] }
 

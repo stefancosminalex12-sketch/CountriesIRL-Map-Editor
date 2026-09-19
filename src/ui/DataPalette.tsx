@@ -23,6 +23,7 @@
  * reach the same settings the same way.
  */
 import { computeDomain, countValued } from '../state/colors'
+import { formatDataValue } from '../state/legend'
 import { useMapStore } from '../state/mapStore'
 import { MapToggle } from './MapToggle'
 import {
@@ -42,8 +43,8 @@ import { SelectField } from './Select'
 import { playSfx } from '../audio/sfx'
 
 type ColorMode = 'none' | 'data' | 'comparison' | 'flags'
-/** Which shape the data scale takes. Mirrors `ColorScale.mode`'s two numeric values. */
-type DataScale = 'palette' | 'predefined'
+/** Which shape the data scale takes. Mirrors `ColorScale.mode`: numeric, threshold, categorical. */
+type DataScale = 'palette' | 'predefined' | 'imported'
 
 export function DataPalette() {
   const doc = useMapStore((s) => s.doc)
@@ -62,11 +63,23 @@ export function DataPalette() {
     ? 'flags'
     : doc.comparison.enabled
       ? 'comparison'
-      : layer?.colorScale.mode === 'numeric' || layer?.colorScale.mode === 'threshold'
+      : layer?.colorScale.mode === 'numeric' ||
+          layer?.colorScale.mode === 'threshold' ||
+          layer?.colorScale.mode === 'categorical'
         ? 'data'
         : 'none'
 
-  const scale: DataScale = layer?.colorScale.mode === 'threshold' ? 'predefined' : 'palette'
+  /*
+   * `imported` is the categorical scale an imported SVG leaves: every value pinned to the colour
+   * the file gave it. Shown as a third chip only while it is the scale in use — the other two
+   * re-colour the same values with the editor's own ramps, and undo brings the file's back.
+   */
+  const scale: DataScale =
+    layer?.colorScale.mode === 'threshold'
+      ? 'predefined'
+      : layer?.colorScale.mode === 'categorical'
+        ? 'imported'
+        : 'palette'
 
   /**
    * All three settings move together, so the four modes stay exclusive.
@@ -78,7 +91,14 @@ export function DataPalette() {
    */
   const setMode = (next: ColorMode) => {
     if (next === mode) return
-    const scaleMode = next === 'data' ? (scale === 'predefined' ? 'threshold' : 'numeric') : 'none'
+    const scaleMode =
+      next === 'data'
+        ? scale === 'predefined'
+          ? 'threshold'
+          : scale === 'imported'
+            ? 'categorical'
+            : 'numeric'
+        : 'none'
     dispatch([
       {
         op: 'set_layer',
@@ -131,6 +151,7 @@ export function DataPalette() {
             {([
               ['palette', 'Palette'],
               ['predefined', 'Predefined'],
+              ...(scale === 'imported' ? [['imported', 'Imported']] : []),
             ] as [DataScale, string][]).map(([id, label]) => (
               <button
                 key={id}
@@ -144,7 +165,16 @@ export function DataPalette() {
             ))}
           </div>
 
-          {scale === 'palette' ? <PaletteControls dataKey={key} /> : <PresetControls dataKey={key} />}
+          {scale === 'palette' ? (
+            <PaletteControls dataKey={key} />
+          ) : scale === 'predefined' ? (
+            <PresetControls dataKey={key} />
+          ) : (
+            <p className="hint">
+              Colours from an imported SVG, exactly as the file gave them. Choose Palette or Predefined
+              to colour the same values with the editor&rsquo;s own scales.
+            </p>
+          )}
 
           {/*
             The selection, under the scale it feeds.
@@ -589,6 +619,11 @@ function ComparisonControls() {
                       {group.name}
                     </span>
                     {isActive && <span className="compare-group__state">ACTIVE</span>}
+                    {formatDataValue(group.value ?? null) && (
+                      <span className="compare-group__value" title="Group value">
+                        {formatDataValue(group.value ?? null)}
+                      </span>
+                    )}
                     <span className="group-row__count">{group.members.length}</span>
                   </button>
                 )}
@@ -660,6 +695,15 @@ function ComparisonControls() {
                   >
                     Remove selected
                   </button>
+                  <GroupValueField
+                    key={group.id}
+                    value={group.value ?? null}
+                    label={`${group.name} value`}
+                    onCommit={(value) => {
+                      dispatch({ op: 'set_comparison_group', index, patch: { value } })
+                      playSfx('click')
+                    }}
+                  />
                 </div>
               )}
 
@@ -674,5 +718,63 @@ function ComparisonControls() {
           : 'Countries in no group stay neutral. Where a country is in more than one, the first group wins.'}
       </p>
     </>
+  )
+}
+
+/**
+ * A Compare group's value: typed, and written once on Enter or when the field is left.
+ *
+ * The value is only ever displayed — Display → Compare Group Values prints it on every member —
+ * so this changes nothing about how the group colours the map. A number is stored as a number
+ * ("50", "1,200", "3.5"), anything else as the text typed ("High"), and an empty field removes
+ * the value. One operation per commit, so one undo step however it was typed.
+ */
+function GroupValueField({
+  value,
+  label,
+  onCommit,
+}: {
+  value: string | number | boolean | null
+  label: string
+  onCommit: (value: string | number | null) => void
+}) {
+  const shown = value === null || value === undefined ? '' : String(value)
+  const [draft, setDraft] = useState(shown)
+  const cancelled = useRef(false)
+  const commit = () => {
+    if (cancelled.current) {
+      cancelled.current = false
+      setDraft(shown)
+      return
+    }
+    const text = draft.trim()
+    const plain = text.replace(/,/g, '')
+    const next = text === '' ? null : /^-?\d*\.?\d+(e[-+]?\d+)?$/i.test(plain) ? Number(plain) : text
+    if (next !== (value ?? null)) onCommit(next)
+  }
+  return (
+    <label className="compare-group__value-field">
+      <span className="field__label">Group value</span>
+      <input
+        className="input input--compact"
+        type="text"
+        inputMode="decimal"
+        value={draft}
+        placeholder="e.g. 50"
+        aria-label={label}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault()
+            event.currentTarget.blur()
+          } else if (event.key === 'Escape') {
+            event.preventDefault()
+            cancelled.current = true
+            event.currentTarget.blur()
+          }
+        }}
+      />
+    </label>
   )
 }

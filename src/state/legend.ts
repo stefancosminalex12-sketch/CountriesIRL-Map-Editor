@@ -12,10 +12,10 @@
  * width and a row-counted height give an exact answer with no measurement pass, and
  * keep the SVG the exporter serialises identical to the one on screen.
  */
-import { computeDomain } from './colors'
+import { computeCategories, computeDomain } from './colors'
 import { getPreset } from './presets'
 import { waterName, WATER_REGIONS } from '../geo/waters'
-import type { LegendIconId, MapDocument } from '../types/map'
+import type { LegendIconId, MapDocument, MapValue } from '../types/map'
 
 /* ------------------------------------------------------------------ layout */
 
@@ -275,6 +275,29 @@ function deriveLegendModel(doc: MapDocument): LegendModel | null {
   }
 
   /*
+   * The categorical scale: one colour per value, which is how an imported SVG keeps the exact
+   * colours it was given (see `io/svgExchange.ts`). Its rows are the legend that came with the
+   * file — `legend.source: 'manual'`, in the file's order and wording — or, without one, each
+   * category in use beside its colour.
+   */
+  if (layer.colorScale.mode === 'categorical') {
+    const manual = doc.legend.source === 'manual' && doc.legend.entries.length > 0
+    const palette = doc.palettes.find((p) => p.id === doc.activePaletteId)
+    const rows: LegendRow[] = manual
+      ? doc.legend.entries.map((entry) => ({ color: entry.color, label: entry.label }))
+      : computeCategories(doc.countries, layer.dataKey).map((category, index) => ({
+          color:
+            layer.colorScale.categoryColors[category] ??
+            palette?.colors[index % Math.max(1, palette.colors.length)] ??
+            doc.style.land,
+          label: category,
+        }))
+    const all = [...rows, ...waters]
+    if (all.length === 0) return null
+    return { kind: 'rows', title, subtitle, text, icon, rows: all }
+  }
+
+  /*
    * Under a numeric scale the legend is a ramp, and a ramp has no rows to add a sea to: the
    * model is one shape or the other, and drawing a swatch list under a gradient would be a
    * second legend inside the first. So a coloured sea is not listed there — it is listed in
@@ -342,6 +365,35 @@ function deriveLegendModel(doc: MapDocument): LegendModel | null {
   }
 
   return null
+}
+
+/**
+ * A data value as the map prints it: "45,200", "1.2M", "0.734", "$45,200", "42%".
+ *
+ * Grouped thousands below a million and compact above it, so a value set inside a country
+ * stays short enough to fit there; small numbers keep up to four significant figures, as the
+ * legend's do. The unit is the active scale's — the layer's own (`MapLayer.unit`), or the
+ * fixed preset's when that is the scale in use — and goes where it is read: a currency symbol
+ * before the number, anything else ("%", " years") after it. Text values are printed as they
+ * are.
+ */
+export function formatDataValue(value: MapValue, unit = ''): string | null {
+  if (value === null || value === undefined) return null
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  if (typeof value === 'string') return value.trim() || null
+  if (!Number.isFinite(value)) return null
+  const abs = Math.abs(value)
+  const number =
+    abs >= 1e6
+      ? new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(value)
+      : abs >= 1000
+        ? new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value)
+        : Number.isInteger(value)
+          ? String(value)
+          : String(Number(value.toPrecision(4)))
+  const u = unit ?? ''
+  if (!u) return number
+  return /^[$€£¥₹₩₽¢]/.test(u.trim()) ? `${u.trim()}${number}` : `${number}${u}`
 }
 
 /** Band range as the legend prints it: `below 0.55`, `0.55 – 0.7`, `0.8 and above`. */

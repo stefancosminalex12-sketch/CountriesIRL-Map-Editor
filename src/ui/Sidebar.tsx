@@ -25,6 +25,7 @@ import {
   OutsideRegionAppearance,
 } from './MapSettings'
 import { HistoryButtons } from './HistoryControls'
+import { SvgExchange } from './SvgExchange'
 import { DataSources, SelectionHighlight, SoundSettings, ThemePicker } from './SettingsPanel'
 import { DataPalette } from './DataPalette'
 import { LegendControls, LegendSizeControls } from './LegendControls'
@@ -107,6 +108,14 @@ const ICONS: Record<string, ReactNode> = {
       <rect x="5.4" y="7" width="2.4" height="2.4" rx="0.5" />
       <rect x="5.4" y="11.2" width="2.4" height="2.4" rx="0.5" />
       <path d="M10 8.2h4.2M10 12.4h4.2" />
+    </>
+  ),
+  // A page with a folded corner and an arrow through it: the map as a file, out and back in.
+  svg: (
+    <>
+      <path d="M5 2.8h6.4l3.6 3.6v10.8H5z" />
+      <path d="M11.4 2.8v3.6H15" />
+      <path d="M10 8.6v5.4M7.8 11.8 10 14l2.2-2.2" />
     </>
   ),
   // A spark: the assistant that will translate language into operations.
@@ -304,6 +313,15 @@ const SECTIONS: SidebarSection[] = [
         build it through the same operations the editor uses.
       </p>
     ),
+  },
+  {
+    /*
+     * At the bottom: the map out as a blank SVG to edit anywhere, and the edited file back in.
+     * See `SvgExchange` — two controls and no choices.
+     */
+    id: 'svg',
+    name: 'SVG',
+    body: <SvgExchange />,
   },
 ]
 
