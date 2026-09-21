@@ -9,7 +9,6 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useMapStore } from '../state/mapStore'
-import { playSfx } from '../audio/sfx'
 import { SelectField } from './Select'
 import { Disclosure } from './Panels'
 import { useNoun } from '../maps/useNoun'
@@ -130,7 +129,6 @@ export function OverlayControls() {
             disabled={copyable.length === 0}
             onClick={() => {
               createFromSelection()
-              playSfx('confirm')
             }}
           >
             {copyable.length === 1
@@ -157,7 +155,6 @@ export function OverlayControls() {
                       aria-pressed={on}
                       onClick={() => {
                         setActive(on ? null : overlay.id)
-                        playSfx('click')
                       }}
                     >
                       <span className="overlay-row__swatch" style={{ background: overlay.color }} aria-hidden="true" />
@@ -171,7 +168,6 @@ export function OverlayControls() {
                       title="Delete overlay"
                       onClick={() => {
                         deleteOverlay(overlay.id)
-                        playSfx('click')
                       }}
                     >
                       ×
@@ -188,7 +184,6 @@ export function OverlayControls() {
                   className="btn btn--ghost"
                   onClick={() => {
                     deleteOverlay(active.id)
-                    playSfx('click')
                   }}
                 >
                   Delete overlay
@@ -303,7 +298,6 @@ export function OverlayControls() {
                   disabled={!active.anchor}
                   onClick={() => {
                     update({ anchor: null })
-                    playSfx('click')
                   }}
                 >
                   Reset position
@@ -314,7 +308,6 @@ export function OverlayControls() {
                   disabled={scale === 1}
                   onClick={() => {
                     update({ scale: 1 })
-                    playSfx('click')
                   }}
                 >
                   Reset scale
@@ -327,7 +320,6 @@ export function OverlayControls() {
                 title={target ? `Centre the overlay on ${nameOf(target)}` : `Select a ${noun.one} to move the overlay over it`}
                 onClick={() => {
                   if (target) moveOver(target)
-                  playSfx('click')
                 }}
               >
                 {target ? `Move over ${nameOf(target)}` : 'Move over selection'}
@@ -347,7 +339,6 @@ export function OverlayControls() {
                     title={help}
                     onClick={() => {
                       update({ mode: id })
-                      playSfx('click')
                     }}
                   >
                     {label}

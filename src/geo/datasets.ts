@@ -249,6 +249,43 @@ function enlarged(polygons: Position[][][], factor: number | undefined): Positio
   )
 }
 
+/**
+ * The rule that decides whether the arc two geometries share is a line of this network.
+ *
+ * One rule, used by both the stitched network below and the arc-index one beside it, so the
+ * lines drawn from projected arcs and the lines drawn through `geoPath` can never disagree
+ * about what a border is.
+ */
+function borderRule(
+  loaded: LoadedDataset,
+  hidden: ReadonlySet<EntityId>,
+  include?: (id: EntityId) => boolean,
+  nationalOnly = false,
+  groupOf?: ReadonlyMap<EntityId, string>,
+) {
+  const grouped = groupOf !== undefined && groupOf.size > 0
+  /* The same resolution the network was built with, so the two cannot disagree. */
+  const idOf = new Map<unknown, EntityId>()
+  for (const [id, geometries] of loaded.topoById) for (const g of geometries) idOf.set(g, id)
+  return (a: unknown, b: unknown): boolean => {
+    if (a === b) return false
+    const left = idOf.get(a)
+    const right = idOf.get(b)
+    if (!left || !right || left === right) return false
+    if (grouped) {
+      const group = groupOf.get(left)
+      if (group !== undefined && group === groupOf.get(right)) return false
+    }
+    if (nationalOnly) {
+      const leftCountry = loaded.meta[left]?.parent?.id
+      const rightCountry = loaded.meta[right]?.parent?.id
+      if (!leftCountry || !rightCountry || leftCountry === rightCountry) return false
+    }
+    if (include && !(include(left) && include(right))) return false
+    return !hidden.has(left) && !hidden.has(right)
+  }
+}
+
 export function bordersWithout(
   loaded: LoadedDataset,
   hidden: ReadonlySet<EntityId>,
@@ -264,31 +301,48 @@ export function bordersWithout(
   const object = loaded.topology.objects[loaded.dataset.objectName] as GeometryCollection
   if (!object) return whole
 
-  /* The same resolution the network was built with, so the two cannot disagree. */
-  const idOf = new Map<unknown, EntityId>()
-  for (const [id, geometries] of loaded.topoById) for (const g of geometries) idOf.set(g, id)
-
   try {
-    const network = mesh(loaded.topology, object, (a, b) => {
-      if (a === b) return false
-      const left = idOf.get(a)
-      const right = idOf.get(b)
-      if (!left || !right || left === right) return false
-      if (grouped) {
-        const group = groupOf.get(left)
-        if (group !== undefined && group === groupOf.get(right)) return false
-      }
-      if (nationalOnly) {
-        const leftCountry = loaded.meta[left]?.parent?.id
-        const rightCountry = loaded.meta[right]?.parent?.id
-        if (!leftCountry || !rightCountry || leftCountry === rightCountry) return false
-      }
-      if (include && !(include(left) && include(right))) return false
-      return !hidden.has(left) && !hidden.has(right)
-    })
+    const network = mesh(loaded.topology, object, borderRule(loaded, hidden, include, nationalOnly, groupOf))
     return network && network.coordinates.length > 0 ? network : null
   } catch {
     return whole
+  }
+}
+
+/**
+ * The same network as arc indexes, for drawing from arcs already projected.
+ *
+ * `mesh` materialises every border's coordinates and the canvas then projects them — a second
+ * pass over points the land has already been through, since a border *is* an arc two entities
+ * share. This returns the arcs instead, so the canvas can stitch the border from the very
+ * points its outlines are drawn with (`arcPaths.ts`): a second of work at every projection on
+ * Europe Administrative, and borders that lie on the outlines by construction rather than by
+ * both sides doing the same arithmetic.
+ *
+ * `null` when the dataset has no topology to take arcs from; the caller then draws the
+ * stitched network through `geoPath`, exactly as before.
+ */
+export function borderArcsWithout(
+  loaded: LoadedDataset,
+  hidden: ReadonlySet<EntityId>,
+  include?: (id: EntityId) => boolean,
+  nationalOnly = false,
+  groupOf?: ReadonlyMap<EntityId, string>,
+): number[][] | null {
+  if (!loaded.topology) return null
+  if (nationalOnly && !loaded.nationalBorders) return null
+  const object = loaded.topology.objects[loaded.dataset.objectName] as GeometryCollection
+  if (!object) return null
+  try {
+    const network = meshArcs(
+      loaded.topology,
+      object,
+      borderRule(loaded, hidden, include, nationalOnly, groupOf),
+    )
+    const arcs = (network.arcs ?? []) as number[][]
+    return arcs.length > 0 ? arcs : null
+  } catch {
+    return null
   }
 }
 

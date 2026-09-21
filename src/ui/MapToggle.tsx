@@ -14,7 +14,6 @@
  * inherit whatever the state and theme have decided. They exist to make the four
  * controls scannable, not to decorate them.
  */
-import { playSfx } from '../audio/sfx'
 
 export type MapToggleIcon =
   | 'borders'
@@ -200,7 +199,6 @@ export function MapToggle({ icon, label, checked, onChange, disabled }: MapToggl
         onChange(!checked)
         // Turning something on and turning it off are the same gesture with opposite
         // meaning, so they get the same sound at two weights rather than two sounds.
-        playSfx(checked ? 'toggleOff' : 'toggleOn')
       }}
     >
       <span className="map-toggle__rail" aria-hidden="true" />

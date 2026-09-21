@@ -17,7 +17,6 @@
  */
 import { useMemo } from 'react'
 import { useMapStore } from '../state/mapStore'
-import { playSfx } from '../audio/sfx'
 import { FlagPicker } from './FlagPicker'
 import { defaultFlagCode, entityFlagCode, flagName, flagOptions } from '../flags/flagChoices'
 import type { MapOperation } from '../state/operations'
@@ -81,13 +80,11 @@ export function FlagOverrideControls() {
   /* Any flag, for the whole selection at once — one step, the way every other edit treats a multi-selection. */
   const assign = (code: string) => {
     apply(() => code)
-    playSfx('confirm')
   }
 
   /* Back to the default: the assignment removed, and a merged group's own flag cleared. */
   const reset = () => {
     apply(() => null)
-    playSfx('click')
   }
 
   const status = (() => {

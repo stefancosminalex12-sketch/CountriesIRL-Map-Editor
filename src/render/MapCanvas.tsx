@@ -7,7 +7,7 @@
  * real DOM node so per-country styling and interaction stay trivial.
  */
 import { Fragment, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactElement, memo } from 'react'
-import { geoCentroid, geoContains, geoDistance, geoGraticule10, geoPath } from 'd3-geo'
+import { geoGraticule10, geoPath } from 'd3-geo'
 import { select } from 'd3-selection'
 import { zoom, zoomIdentity, type ZoomBehavior } from 'd3-zoom'
 import { useElementSize, type Size } from './useElementSize'
@@ -52,7 +52,7 @@ import {
   fitFlag,
   patternGeometry,
 } from './MapFlags'
-import { flagFootprints, flagTerritories } from './flagPlacement'
+import { flagFootprints, flagTerritories, warmEntityClusters } from './flagPlacement'
 import {
   buildLabelShape,
   LABEL_LINE_BREAK,
@@ -67,7 +67,7 @@ import { flagCodeFor, useFlagStore } from '../flags/flagStore'
 import { entityFlagCode } from '../flags/flagChoices'
 import { resolveScreen } from './screenFrame'
 import { mergeCountries } from '../geo/merge'
-import { bordersWithout, coastByEntity } from '../geo/datasets'
+import { borderArcsWithout, bordersWithout, coastByEntity } from '../geo/datasets'
 import { MapScreen } from './MapScreen'
 import { MapCaption } from './MapCaption'
 import { getPreset } from '../state/presets'
@@ -75,19 +75,19 @@ import { formatDataValue } from '../state/legend'
 import { useMapStore } from '../state/mapStore'
 import { useSettingsStore } from '../state/settingsStore'
 import { getTheme } from '../theme/themes'
-import { playSfx } from '../audio/sfx'
 import {
   EMPTY_ASSIST_INDEX,
   pickAssistedCountryAt,
 } from './smallEntities'
 import { anchorsOf, assistOf, useProjectedLand } from './projectedLand'
+import { reportDrawnTolerance, toleranceForZoom, useFullDetail } from './landDetail'
 import { useGatedMemo } from './useGatedMemo'
 import { hiddenFootprint } from './hiddenMask'
 import { useSelectionGestures } from './selectionGestures'
 import { usePinchZoom } from './pinchZoom'
 import { MapOverlays, OVERLAY_MARKER } from './MapOverlays'
 import { overlaySource, type OverlaySource } from './overlayGeometry'
-import type { MapOverlay } from '../types/map'
+import type { MapDocument, MapOverlay } from '../types/map'
 import {
   outlinesAlongSegment,
   outlinesInRect,
@@ -290,6 +290,59 @@ function useSettledSize(live: Size): Size {
   return settled
 }
 
+/** The selection colour over one entity, in the selection layer. See `selectionPaths`. */
+const SELECTION_LAYER_STYLE: CSSProperties = { willChange: 'opacity' }
+
+/** How long the selection layer is kept after the last entity leaves it. See `layerHeld`. */
+const SELECTION_LAYER_HOLD_MS = 1500
+
+const SelectedShape = memo(function SelectedShape({
+  entityId,
+  d,
+  fill,
+  stroke,
+  strokeWidth,
+  paintOrder,
+  clipPath,
+  coast,
+}: {
+  entityId: string
+  d: string
+  fill: string
+  stroke: string
+  strokeWidth: number
+  paintOrder: string | undefined
+  clipPath: string | undefined
+  coast: string | undefined
+}) {
+  return (
+    <>
+      <path
+        d={d}
+        fill={fill}
+        stroke={stroke}
+        /* The map's own way of holding a line at its screen width — see `screenStrokeWidth`. */
+        style={{ strokeWidth: screenStrokeWidth(strokeWidth) }}
+        paintOrder={paintOrder}
+        strokeLinejoin="round"
+        clipPath={clipPath}
+      />
+      {/* With Coastlines on and Borders off the coast is the entity's only line: the same
+          component the land layer draws it with, in the ink selection gives it. */}
+      {coast !== undefined && (
+        <CountryCoast
+          entityId={entityId}
+          d={coast}
+          stroke={stroke}
+          strokeWidth={strokeWidth}
+          transform={undefined}
+          clipPath={clipPath}
+        />
+      )}
+    </>
+  )
+})
+
 export function MapCanvas() {
   const containerRef = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
@@ -339,9 +392,6 @@ export function MapCanvas() {
   const magnifierOn = useMapStore((s) => s.magnifier)
   const addToSelection = useMapStore((s) => s.addToSelection)
   const removeFromSelection = useMapStore((s) => s.removeFromSelection)
-  const mergeMode = useMapStore((s) => s.mergeMode)
-  const activeMergeId = useMapStore((s) => s.activeMergeId)
-  const tapInMerge = useMapStore((s) => s.tapInMerge)
   /**
    * The zoomed group, so a gesture can move the map without re-rendering it.
    *
@@ -349,11 +399,94 @@ export function MapCanvas() {
    * straight onto this element, and React is only told once the gesture ends.
    */
   const zoomedRef = useRef<SVGGElement>(null)
+  /** The scale a gesture started at: while it is unchanged the camera is only translating. */
+  const panScale = useRef(1)
+  /** Set while the camera is being moved, and released a moment after it stops. */
+  const navigatingRef = useRef(false)
+  const navigatingTimer = useRef<number | null>(null)
+  /** Whether the compositor is currently carrying the map, and whether this gesture zooms. */
+  const carryingRef = useRef(false)
+  const zoomingRef = useRef(false)
+
+  /**
+   * What the map does differently while the camera is being moved.
+   *
+   * Two things, both set straight on the DOM like the camera itself, so a gesture never goes
+   * through React:
+   *
+   * **It stops answering the pointer.** Every pointer event over the map is hit-tested against
+   * the outlines under it, and on a dense map that is the most expensive thing in a gesture —
+   * 5.8 s of a two-second pinch on Europe Administrative, more than the drawing. While the
+   * camera moves that answer is never used: there is no hover to show and no click to resolve.
+   *
+   * **The compositor may carry it, but only while the scale is unchanged.** A pan moves the
+   * picture without changing it, so letting the compositor carry the layer draws every frame
+   * from the same raster the main thread would have made — the same pixels, the same crisp
+   * borders, at a twelfth of the cost (Europe Administrative: a pan of 12.9 s at 208 ms a frame
+   * became 1.4 s at 4 ms). The moment the scale changes it is taken back and the map is drawn
+   * again at the new scale, because a *scaled* raster would be a picture of the map rather than
+   * the map — which is the one thing navigation here must never do.
+   *
+   * A wheel notch is a gesture of its own, so this is turned on by each event and released
+   * shortly after the last one rather than at the end of any single one.
+   */
+  const navigating = useCallback((on: boolean) => {
+    const group = zoomedRef.current
+    if (navigatingTimer.current !== null) {
+      window.clearTimeout(navigatingTimer.current)
+      navigatingTimer.current = null
+    }
+    if (on) {
+      if (navigatingRef.current || !group) return
+      navigatingRef.current = true
+      group.style.pointerEvents = 'none'
+      return
+    }
+    navigatingTimer.current = window.setTimeout(() => {
+      navigatingTimer.current = null
+      navigatingRef.current = false
+      carryingRef.current = false
+      const current = zoomedRef.current
+      if (!current) return
+      current.style.pointerEvents = ''
+      current.style.willChange = ''
+    }, 120)
+  }, [])
+
+  /**
+   * Hands the layer to the compositor, or takes it back.
+   *
+   * Asked for only once a gesture has actually moved the camera without changing its scale,
+   * and dropped for the rest of a gesture as soon as the scale does change: a pinch that
+   * turned this on and off at every notch spent more on making and discarding layers than it
+   * saved, so once a gesture is a zoom it stays drawn the ordinary way.
+   */
+  const carry = useCallback((on: boolean) => {
+    const group = zoomedRef.current
+    if (!group) return
+    if (on) {
+      if (!carryingRef.current) {
+        carryingRef.current = true
+        group.style.willChange = 'transform'
+      }
+      return
+    }
+    carryingRef.current = false
+    zoomingRef.current = true
+    if (group.style.willChange) group.style.willChange = ''
+  }, [])
   /** Each country's element from the last build of the layer — see `countryLayer`. */
   const countryElementCache = useRef(new Map<string, CachedCountryElement>())
   /** The chunks of the layer's last build, and the paints it was made from. */
   const countryChunkCache = useRef<ReactElement[][]>([])
-  const countryPaintCache = useRef<{ inputs: readonly unknown[]; selected: ReadonlySet<string>; paints: PaintedShape[] } | null>(null)
+  const countryPaintCache = useRef<{
+    inputs: readonly unknown[]
+    /** What was selected when these were painted — read only where the land carries it. */
+    selected: ReadonlySet<string>
+    /** The entries the paints were made from, compared entity by entity on the next pass. */
+    countries: MapDocument['countries']
+    paints: PaintedShape[]
+  } | null>(null)
   /**
    * The magnifiers, which live in screen space outside the zoomed group — so a gesture
    * that moves the group directly has to move them directly too. See `MapLenses`.
@@ -383,7 +516,21 @@ export function MapCanvas() {
     const t = liveCamera.current
     const group = zoomedRef.current
     if (!t || !group) return
-    group.setAttribute('transform', `translate(${t.x},${t.y}) scale(${t.k})`)
+    /*
+     * While the compositor is carrying the layer, the camera moves in whole device pixels.
+     *
+     * A layer translated by a whole pixel is copied texel for texel: every frame of the pan
+     * holds the very pixels the map was drawn with, which is the only form of carrying that
+     * is allowed here. Translated by part of a pixel it would be *resampled* instead — the
+     * same picture smeared across a new grid, with the borders softening as it moves, which
+     * is precisely the thing this map must never do. Half a pixel of the drag is held back
+     * until the gesture ends and the map is drawn again at the exact camera.
+     */
+    const carrying = carryingRef.current
+    const unit = carrying ? window.devicePixelRatio || 1 : 0
+    const x = carrying ? Math.round(t.x * unit) / unit : t.x
+    const y = carrying ? Math.round(t.y * unit) / unit : t.y
+    group.setAttribute('transform', `translate(${x},${y}) scale(${t.k})`)
     // The lines' screen width follows the camera in the same frame; a pan leaves it as it is.
     const scale = String(t.k * fitScaleRef.current)
     if (group.style.getPropertyValue(MAP_SCALE_VAR) !== scale) group.style.setProperty(MAP_SCALE_VAR, scale)
@@ -490,7 +637,41 @@ export function MapCanvas() {
    * outlines actually on screen instead of running ahead of them.
    */
   const progressive = !!geo?.dataset.progressive
-  const landKey = `${[...scope.regionIds].sort().join('+')}|${scope.projectionId}|${scope.padding}|${fit.width}x${fit.height}`
+  /*
+   * How finely to draw: a tolerance from the camera's zoom, in steps, or every point while an
+   * export is holding full detail (`landDetail.ts`). It is part of the key, so the view at one
+   * detail is never handed back for another, and crossing a step reprojects in the background
+   * exactly as a new region does — what is on screen stays until the finer land is ready.
+   */
+  const fullDetail = useFullDetail()
+  /*
+   * The zoom the detail follows, which is the camera's own zoom once it has stopped moving.
+   *
+   * Crossing a step reprojects the dataset, and doing that in the middle of a pinch is the
+   * worst possible moment for it: the frames that are already the most expensive ones get a
+   * reprojection and a full rebuild of the layer on top of them (Europe Administrative: a
+   * pinch of 26 s became 33 s). The geometry on screen during the gesture is the real
+   * geometry either way — only at the detail the view before the gesture asked for — so
+   * the step is taken a moment after the camera settles instead, in the background, exactly
+   * as a new region is.
+   */
+  const [settledK, setSettledK] = useState(transform.k)
+  useEffect(() => {
+    if (transform.k === settledK) return
+    let timer = 0
+    const settle = () => {
+      // A wheel zoom is a burst of separate gestures: wait for the last of them.
+      if (navigatingRef.current) {
+        timer = window.setTimeout(settle, 100)
+        return
+      }
+      setSettledK(transform.k)
+    }
+    timer = window.setTimeout(settle, 150)
+    return () => window.clearTimeout(timer)
+  }, [transform.k, settledK])
+  const landTolerance = fullDetail ? 0 : toleranceForZoom(settledK)
+  const landKey = `${[...scope.regionIds].sort().join('+')}|${scope.projectionId}|${scope.padding}|${fit.width}x${fit.height}|t${landTolerance}`
   const land = useProjectedLand(
     geo,
     targetProjection,
@@ -499,6 +680,7 @@ export function MapCanvas() {
     fit.width,
     fit.height,
     progressive,
+    landTolerance,
   )
   const projection = land?.projection ?? null
   const insets = land?.insets ?? NO_INSETS
@@ -511,10 +693,12 @@ export function MapCanvas() {
      * production build.
      */
     setLiveProjection(projection)
+    // What detail the land on screen has, so an export can wait for all of it.
+    reportDrawnTolerance(land ? (land.tolerance ?? 0) : null)
     // And the land it drew, for Maps -> SVG's blank map.
     setLiveLand(land && land.geo ? land : null)
-    // Lets `__mapEditor.project(lon, lat)` report true screen positions in dev.
-    if (import.meta.env.DEV && projection) {
+    // Lets `__mapEditor.project(lon, lat)` report true screen positions in dev and bridge builds.
+    if ((import.meta.env.DEV || import.meta.env.VITE_BRIDGE) && projection) {
       ;(window as unknown as Record<string, unknown>).__mapProjection = projection
     }
   }, [projection, land])
@@ -574,13 +758,19 @@ export function MapCanvas() {
    * work happens; the name still updates, because the components that show it read it
    * from the document directly.
    */
+  /*
+   * Only the groups that have been merged. A group still being assembled is a list in the
+   * Merge panel and nothing here: its members are drawn as themselves, with every border
+   * between them, until the author presses Merge.
+   */
+  const mergedGroups = doc.merges.filter((m) => m.merged)
   const mergeGeometry = useKeyed(
-    doc.merges,
-    doc.merges.map((m) => `${m.id} ${m.members.join(',')}`).join('|'),
+    mergedGroups,
+    mergedGroups.map((m) => `${m.id} ${m.members.join(',')}`).join('|'),
   )
   const mergePaint = useKeyed(
-    doc.merges,
-    doc.merges.map((m) => `${m.id} ${m.flag ?? ''} ${m.members.join(',')}`).join('|'),
+    mergedGroups,
+    mergedGroups.map((m) => `${m.id} ${m.flag ?? ''} ${m.members.join(',')}`).join('|'),
   )
 
   /**
@@ -1119,12 +1309,38 @@ export function MapCanvas() {
     for (const resolved of insets) for (const id of resolved.members) insetMembers.add(id)
     const onMain = insets.length > 0 ? (id: string) => !insetMembers.has(id) : undefined
 
+    /*
+     * The main network from the arcs the outlines were drawn from, when the dataset has a
+     * topology to take them from: a border is an arc two entities share, so stitching it from
+     * those very points costs no projecting at all and puts the line on the outline by
+     * construction. An arc that had to be clipped has no projected form — `line` says so — and
+     * that whole network falls back to the stitched one through `geoPath`, as before.
+     */
+    const fromArcs = (
+      buildArcs: (include?: (id: string) => boolean) => number[][] | null,
+      include?: (id: string) => boolean,
+    ): string | null => {
+      const arcs = land?.arcs
+      if (!arcs || arcs.projection !== projection) return null
+      const lines = buildArcs(include)
+      if (!lines) return null
+      let d = ''
+      for (const indexes of lines) {
+        const part = arcs.line(indexes)
+        if (part === null) return null
+        d += part
+      }
+      return d === '' ? null : d
+    }
+
     const split = (
       build: (include?: (id: string) => boolean) => MultiLineString | null,
+      buildArcs: (include?: (id: string) => boolean) => number[][] | null,
     ): Array<{ d: string; clipId: string | null }> => {
       const out: Array<{ d: string; clipId: string | null }> = []
-      const main = build(onMain)
-      const mainPath = main ? (geoPath(projection)(main) ?? '') : ''
+      const quick = fromArcs(buildArcs, onMain)
+      const main = quick === null ? build(onMain) : null
+      const mainPath = quick ?? (main ? (geoPath(projection)(main) ?? '') : '')
       if (mainPath) out.push({ d: mainPath, clipId: null })
       for (const resolved of insets) {
         const own = build((id) => resolved.members.has(id))
@@ -1142,12 +1358,20 @@ export function MapCanvas() {
     const groupOf = new Map<string, string>()
     for (const merge of mergeGeometry) for (const id of merge.members) groupOf.set(id, merge.id)
 
-    if (prepareBorders) layers.borders = split((include) => bordersWithout(geo, hiddenIds, include, false, groupOf))
+    if (prepareBorders) {
+      layers.borders = split(
+        (include) => bordersWithout(geo, hiddenIds, include, false, groupOf),
+        (include) => borderArcsWithout(geo, hiddenIds, include, false, groupOf),
+      )
+    }
     if (prepareNational) {
-      layers.national = split((include) => bordersWithout(geo, hiddenIds, include, true, groupOf))
+      layers.national = split(
+        (include) => bordersWithout(geo, hiddenIds, include, true, groupOf),
+        (include) => borderArcsWithout(geo, hiddenIds, include, true, groupOf),
+      )
     }
     return layers
-  }, [projection, geo, hiddenIds, insets, prepareBorders, prepareNational, mergeGeometry])
+  }, [projection, geo, hiddenIds, insets, prepareBorders, prepareNational, mergeGeometry, land])
 
   /**
    * Each entity's coast on its own, through the projection that draws the entity.
@@ -1293,42 +1517,6 @@ export function MapCanvas() {
   const pickCountryAt = (event: ReactMouseEvent) =>
     pickEntityAt(event.clientX, event.clientY, event.target as Element | null)
 
-  /**
-   * Which member of a group is under a tap — what a tap inside the group being edited takes
-   * out. The group is drawn as one body, so the answer comes from the members' own land: the
-   * one containing the point, or, for a speck of an island the tap cannot land on, the one
-   * with a piece of land nearest the tap. Nearest by the pieces themselves, not by a member's
-   * bounding box: Portugal's box runs out to the Azores and Spain's to the Canaries, and a
-   * tap in the sea between them is inside both.
-   */
-  const memberAt = (clientX: number, clientY: number, mergeId: string): string | null => {
-    const merge = doc.merges.find((m) => m.id === mergeId)
-    const matrix = zoomedRef.current?.getScreenCTM()
-    if (!merge || !matrix || !geo || !projection) return null
-    const point = new DOMPoint(clientX, clientY).matrixTransform(matrix.inverse())
-    let nearest: string | null = null
-    let nearestDistance = Infinity
-    for (const member of merge.members) {
-      const feature = geo.byId.get(member)
-      if (!feature) continue
-      const drawnWith = insets.find((inset) => inset.members.has(member))?.projection ?? projection
-      const lonLat = drawnWith.invert?.([point.x, point.y])
-      if (!lonLat || !Number.isFinite(lonLat[0]) || !Number.isFinite(lonLat[1])) continue
-      if (geoContains(feature, lonLat)) return member
-      const geometry = feature.geometry
-      const pieces =
-        geometry?.type === 'Polygon' ? [geometry.coordinates] : geometry?.type === 'MultiPolygon' ? geometry.coordinates : []
-      for (const piece of pieces) {
-        const distance = geoDistance(lonLat, geoCentroid({ type: 'Polygon', coordinates: piece }))
-        if (distance < nearestDistance) {
-          nearestDistance = distance
-          nearest = member
-        }
-      }
-    }
-    return nearest
-  }
-
   /*
    * No entity is drawn larger than it is. A country too small to see at this zoom is drawn at
    * its real size like everything around it — it grows as the camera zooms in and shrinks as
@@ -1425,15 +1613,11 @@ export function MapCanvas() {
     pickAt: pickEntityAt,
     add: addToSelection,
     remove: removeFromSelection,
-    // In Merge the tools only ever fill the group being edited, so nothing counts as selected.
     isSelected: (id) => {
       const state = useMapStore.getState()
-      // A sea is selected by the water selection, and Merge has nothing to do with it.
+      // A sea is selected by the water selection, land by the land one.
       if (isWaterId(id)) return state.selectedWaterIds.includes(id)
-      return !state.mergeMode && state.selectedCountryIds.includes(id)
-    },
-    finished: (added) => {
-      if (added > 0) playSfx('tick')
+      return state.selectedCountryIds.includes(id)
     },
     selecting: selectingRef,
     suppressClick: suppressClickRef,
@@ -1576,20 +1760,68 @@ export function MapCanvas() {
      */
     if (!geo || geo.features.length > WARM_MAX_FEATURES) return
     let cancelled = false
-    const warm = () => {
+    let handle: number | null = null
+    const idle = (window as unknown as { requestIdleCallback?: typeof setTimeout })
+      .requestIdleCallback
+    const cancelIdle = (window as unknown as { cancelIdleCallback?: (h: number) => void })
+      .cancelIdleCallback
+    const features = geo.features
+    let at = 0
+    /*
+     * A few entities at a time, in whatever the browser says is left of an idle moment.
+     *
+     * Two things matter here and they pull in the same direction. Doing the whole dataset in
+     * one callback held the main thread for 2.2 s on Europe Countries — idle work that long is
+     * a freeze like any other, since nothing can interrupt it once it has started. And a
+     * *deadline* is asked for rather than assumed: this used to take a fixed 8 ms slice and ask
+     * for it with `{ timeout: 3000 }`, which is an instruction to run the slice within three
+     * seconds *whether or not the browser is idle*. On Europe Administrative there are 2,659
+     * entities to cluster, so those forced slices went on arriving for minutes, landing in the
+     * middle of whatever the author was doing: a selection frame competing with a slice of
+     * coastline clustering is one of the ways this editor felt heavier the longer it was open.
+     *
+     * With no timeout the browser runs this only when there is genuinely nothing else to do,
+     * and `timeRemaining` says how much of the gap to use. The work is the same and the answer
+     * is the same; it simply never takes time from the author. The clustering is memoised per
+     * entity, so stopping between entities costs nothing, and the mode still finds everything
+     * done when it opens — or does the rest itself, as it always did.
+     */
+    /*
+     * The longest one entity has taken so far, kept so none is started in a gap too short to
+     * hold it. Clustering cannot be interrupted once an entity is begun, and on a phone the
+     * worst of them runs into tens of milliseconds: without this the browser's idle time was
+     * spent, the callback overran the frame it was given, and the map stuttered while nobody
+     * was doing anything. Decayed a little each time, so one unusual entity does not stop the
+     * rest for ever.
+     */
+    let worst = 1
+    const step = (deadline?: { timeRemaining: () => number }) => {
+      handle = null
       if (cancelled) return
+      const until = performance.now() + Math.min(8, deadline ? deadline.timeRemaining() : 4)
+      while (at < features.length) {
+        const started = performance.now()
+        if (started + worst > until) break
+        warmEntityClusters(geo, features[at].properties.countryId)
+        worst = Math.max(worst * 0.9, performance.now() - started)
+        at++
+      }
+      if (at < features.length) {
+        schedule()
+        return
+      }
       flagFootprints(geo)
       flagTerritories(geo)
     }
-    const idle = (window as unknown as { requestIdleCallback?: typeof setTimeout })
-      .requestIdleCallback
-    const handle = idle ? idle(warm, { timeout: 3000 } as never) : window.setTimeout(warm, 400)
+    const schedule = () => {
+      handle = (idle ? idle(step) : window.setTimeout(step, 50)) as unknown as number
+    }
+    schedule()
     return () => {
       cancelled = true
-      const cancelIdle = (window as unknown as { cancelIdleCallback?: (h: number) => void })
-        .cancelIdleCallback
-      if (idle && cancelIdle) cancelIdle(handle as unknown as number)
-      else window.clearTimeout(handle as unknown as number)
+      if (handle === null) return
+      if (idle && cancelIdle) cancelIdle(handle)
+      else window.clearTimeout(handle)
     }
   }, [geo])
 
@@ -2090,11 +2322,29 @@ export function MapCanvas() {
       .on('start', (event) => {
         // Only a real gesture. A programmatic transform has no source event and moves
         // the camera without anyone's pointer being involved.
-        if (event.sourceEvent) gesturingRef.current = true
+        if (!event.sourceEvent) return
+        gesturingRef.current = true
+        panScale.current = event.transform.k
+        zoomingRef.current = false
+        navigating(true)
       })
       .on('zoom', (event) => {
         const t = event.transform
         if (zoomedRef.current && event.sourceEvent) {
+          /*
+           * A wheel notch and a trackpad pinch are each their own little gesture, so this keeps
+           * the map in the navigating state and pushes its release out past the last of them.
+           */
+          navigating(true)
+          /*
+           * The compositor may carry the map only while the scale is unchanged, and only for a
+           * drag: a wheel or a pinch is a zoom, and each notch of one arrives as its own little
+           * gesture, so asking for a layer at the start of each would spend more on making and
+           * discarding layers than carrying ever saves. See `carry`.
+           */
+          const moving = event.sourceEvent?.type !== 'wheel'
+          if (t.k !== panScale.current || !moving) carry(false)
+          else if (!zoomingRef.current) carry(true)
           liveCamera.current = t
           if (!cameraFrame.current) cameraFrame.current = requestAnimationFrame(placeCamera)
           return
@@ -2111,6 +2361,7 @@ export function MapCanvas() {
           placeCamera()
         }
         gesturingRef.current = false
+        navigating(false)
         const t = event.transform
         setTransform({ k: t.k, x: t.x, y: t.y })
       })
@@ -2195,7 +2446,20 @@ export function MapCanvas() {
    * and in the data modes it lost the tone chosen against the country's fill. One decision
    * leaves nothing to disagree about.
    */
-  const paintCountry = (shape: (typeof shapes)[number], hovered = false) => {
+  /*
+   * Whether the selection is drawn in its own layer.
+   *
+   * It is, except in the one state where the entities' only line is their own coast —
+   * Coastlines on with Borders off. There the coast is drawn beside each entity's path and
+   * takes the ink its fill gives it, so a selected coast drawn in the layer *and* an
+   * unselected one drawn under it are two coincident strokes whose edges blend. Rather than
+   * approximate, that state keeps the older behaviour exactly: selection is the entity's own
+   * fill, and costs what it always did. Every other state — including the default — gets
+   * the layer.
+   */
+  const selectionInLayer = !(style.showCoastlines && !style.showBorders)
+
+  const paintCountry = (shape: (typeof shapes)[number], hovered = false, asSelected = false) => {
     const inScope = scopeCountryIds.has(shape.id)
     if (!inScope && style.outsideScope === 'hidden') return null
     const entry = doc.countries[shape.id]
@@ -2205,7 +2469,12 @@ export function MapCanvas() {
       ...fillContext,
       inScope,
       hovered,
-      selected: selected.has(shape.id),
+      /*
+       * The land is not painted selected while the layer is drawing the selection over it —
+       * see `selectionPaths`. `asSelected` is how that layer asks for the very paint this
+       * function would otherwise have produced.
+       */
+      selected: asSelected || (!selectionInLayer && selected.has(shape.id)),
       landTint: landTintById?.get(shape.id) ?? null,
     }
 
@@ -2251,12 +2520,12 @@ export function MapCanvas() {
    * they take is an entity id and a value, and a merge has both. Anything added to that
    * pipeline later reaches merges without knowing they exist.
    */
-  const paintMerge = (shape: (typeof mergedShapes)[number]) => {
+  const paintMerge = (shape: (typeof mergedShapes)[number], asSelected = false) => {
     const ctx: FillContext = {
       ...fillContext,
       inScope: true,
       hovered: hoveredCountryId === shape.id,
-      selected: selected.has(shape.id),
+      selected: asSelected || (!selectionInLayer && selected.has(shape.id)),
       landTint: null,
     }
     const entry = doc.countries[shape.id]
@@ -2275,6 +2544,7 @@ export function MapCanvas() {
   }
 
   const mergedPaints = mergedShapes.map((shape) => ({ shape, paint: paintMerge(shape) }))
+
 
   /** The outline — coast and borders in one stroke — only while both layers are on. */
   const outlineOn = style.showBorders && style.showCoastlines
@@ -2339,26 +2609,133 @@ export function MapCanvas() {
    * nothing.
    */
   const paintZoom = flagFillById.size > 0 ? zoomK : 0
-  const paintInputs = [shapes, scopeCountryIds, style, doc.countries, fillContext, landTintById, flagFillById, flagTileById, paintZoom] as const
+  /*
+   * Everything but the countries' own entries, which are compared one by one below.
+   */
+  const paintInputs = [shapes, scopeCountryIds, style, fillContext, landTintById, flagFillById, flagTileById, paintZoom, selectionInLayer] as const
   const countryPaints = useMemo((): PaintedShape[] => {
     const previous = countryPaintCache.current
-    // Only the selection changed — a click, a brush frame, a rectangle: repaint what it touched.
-    if (previous && previous.inputs.length === paintInputs.length && previous.inputs.every((input, i) => input === paintInputs[i])) {
+    const sameInputs =
+      previous && previous.inputs.length === paintInputs.length && previous.inputs.every((input, i) => input === paintInputs[i])
+    if (previous && sameInputs) {
       const changed = new Set<string>()
-      for (const id of selected) if (!previous.selected.has(id)) changed.add(id)
-      for (const id of previous.selected) if (!selected.has(id)) changed.add(id)
+      /*
+       * In the one state that still paints selection into the land, a click repaints what it
+       * touched, as it always did.
+       */
+      if (!selectionInLayer) {
+        for (const id of selected) if (!previous.selected.has(id)) changed.add(id)
+        for (const id of previous.selected) if (!selected.has(id)) changed.add(id)
+      }
+      /*
+       * And whichever entities' own entries changed — a value typed, a label, a colour, a
+       * country joining a comparison group. The scale those are read through is in
+       * `fillContext`, which is above: when it is the same object, one entity's new value
+       * cannot have changed what any other entity is painted, so the rest keep their paint.
+       * Giving 50 countries a value used to repaint all 2,659 of Europe Administrative, which
+       * is the whole map's paint for an edit to one fiftieth of it.
+       */
+      if (previous.countries !== doc.countries) {
+        for (const id in doc.countries) {
+          if (doc.countries[id] !== previous.countries[id]) changed.add(id)
+        }
+        for (const id in previous.countries) {
+          if (doc.countries[id] !== previous.countries[id]) changed.add(id)
+        }
+      }
       const paints =
         changed.size === 0
           ? previous.paints
           : previous.paints.map((entry) => (changed.has(entry.shape.id) ? { shape: entry.shape, paint: paintCountry(entry.shape) } : entry))
-      countryPaintCache.current = { inputs: paintInputs, selected, paints }
+      countryPaintCache.current = { inputs: paintInputs, selected, countries: doc.countries, paints }
       return paints
     }
     const paints = shapes.map((shape) => ({ shape, paint: paintCountry(shape) }))
-    countryPaintCache.current = { inputs: paintInputs, selected, paints }
+    countryPaintCache.current = { inputs: paintInputs, selected, countries: doc.countries, paints }
     return paints
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [...paintInputs, selected])
+  }, [...paintInputs, doc.countries, selectionInLayer ? null : selected])
+  /**
+   * What "selected" looks like, drawn in a layer of its own.
+   *
+   * Selection is a fill and nothing else (`resolveCountryFill`), and it used to be *the*
+   * entity's fill: clicking repainted that path inside the map's one layer. The browser then
+   * had to raster every path overlapping the damaged region again — on Europe
+   * Administrative, one click cost 45 ms of rasterising whether the app rebuilt one element or
+   * a thousand, and no amount of care in React could make it cheaper, because the work was not
+   * React's. Measured with the DOM alone, outside the app: 45.7 ms to change one `fill`
+   * attribute in that layer.
+   *
+   * Here the land keeps its own paint for ever and the selection is a copy of the entity's
+   * path, filled the selection colour, in a group the compositor holds by itself. Changing it
+   * touches that group's raster and nothing else: 4.4 ms for the same click, and it no longer
+   * grows with the map's density. The copies are the same geometry, the same clip and the same
+   * border ink the entity would have been painted with, so what is on screen is what was on
+   * screen before — within the antialiasing of a hairline where a neighbour's stroke used to
+   * cross a selected edge.
+   *
+   * It sits directly above the land and below everything drawn over the land — the flag
+   * territories, the border networks, the lakes, the names — which is exactly where a
+   * selected country's fill sat when it was the country's fill. It never takes the pointer:
+   * hit-testing reads the land beneath it, as it always has.
+   */
+  /*
+   * Whether the selection layer is still being held after emptying.
+   *
+   * The layer costs one promotion to create, and a click that empties the selection would
+   * otherwise drop it and the next click build it again — 97 ms a click on Europe
+   * Administrative for someone tapping one entity on and off. It is held for a moment
+   * instead, so that pattern costs nothing; and once the moment passes with nothing selected
+   * the layer goes, and the map is again the map it was before any of this, to the pixel.
+   */
+  const [layerHeld, setLayerHeld] = useState(false)
+
+  const selectionPaths = useMemo(() => {
+    if (!selectionInLayer || selected.size === 0) return []
+    const out: Array<{ id: string; d: string; fill: string; stroke: string; strokeWidth: number; paintOrder: string | undefined; clipPath: string | undefined; coast: string | undefined }> = []
+    for (const shape of shapes) {
+      if (!selected.has(shape.id)) continue
+      const paint = paintCountry(shape, hoveredCountryId === shape.id, true)
+      if (!paint) continue
+      out.push({
+        id: shape.id,
+        d: shape.d,
+        fill: paint.fill,
+        stroke: paint.outline.stroke,
+        strokeWidth: paint.outline.strokeWidth,
+        paintOrder: paint.outline.paintOrder,
+        clipPath: paint.clipPath,
+        coast: coastAlone ? coastPaths.get(shape.id) : undefined,
+      })
+    }
+    for (const shape of mergedShapes) {
+      if (!selected.has(shape.id)) continue
+      const paint = paintMerge(shape, true)
+      out.push({
+        id: shape.id,
+        d: shape.d,
+        fill: paint.fill,
+        stroke: paint.outline.stroke,
+        strokeWidth: paint.outline.strokeWidth,
+        paintOrder: paint.outline.paintOrder,
+        clipPath: paint.clipPath,
+        coast: coastAlone ? coastPaths.get(shape.id) : undefined,
+      })
+    }
+    return out
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, selectionInLayer, shapes, mergedShapes, hoveredCountryId, coastAlone, coastPaths, ...paintInputs, doc.countries])
+
+  const anySelected = selectionPaths.length > 0
+  useEffect(() => {
+    if (anySelected) {
+      setLayerHeld(true)
+      return
+    }
+    const timer = window.setTimeout(() => setLayerHeld(false), SELECTION_LAYER_HOLD_MS)
+    return () => window.clearTimeout(timer)
+  }, [anySelected])
+
   const countryElement = (shape: (typeof shapes)[number], paint: NonNullable<ReturnType<typeof paintCountry>>) => (
     /*
      * The outline is coast and borders in one stroke, so it is drawn only when both layers
@@ -2490,19 +2867,20 @@ export function MapCanvas() {
           if (!id) {
             /*
              * No land here. With Water Regions on, the sea is an entity too, so the click goes
-             * to whichever region is under the pointer — and in Merge it goes nowhere, because
-             * a merged body is a body of countries and a sea can never be in one.
+             * to whichever region is under the pointer.
              */
             const water = waterAt(event.target)
-            if (!water || mergeMode) return
+            if (!water) return
             selectCountry(water)
-            playSfx('tick')
             return
           }
-          // In Merge a tap builds groups: inside the group being edited it takes out the member under it.
-          if (mergeMode) tapInMerge(id, id === activeMergeId ? memberAt(event.clientX, event.clientY, id) : null)
-          else selectCountry(id)
-          playSfx('tick')
+          /*
+           * A tap selects, whichever panel is open. It used to build merge groups while the
+           * Merge panel was open, so the map answered differently depending on what was open
+           * beside it and a selection could never be looked at before it went into a group.
+           * Merge works from the selection now, like every other tool here.
+           */
+          selectCountry(id)
         }}
       >
         {/*
@@ -2714,6 +3092,59 @@ export function MapCanvas() {
               {coastBeside(shape.id, paint.outline, undefined, paint.clipPath, false)}
             </Fragment>
           ))}
+
+          {/*
+            The selection, over the land and under everything drawn on the land.
+
+            Its own compositor layer (`will-change`), which is the whole point: a click
+            re-rasters this group alone instead of every path overlapping the one it touched.
+            See `selectionPaths`. `pointer-events: none` keeps hit-testing on the land itself.
+          */}
+          <g
+            className="map-selection"
+            /*
+             * Asked for only while something is selected. A layer held over the map for ever
+             * changes, very slightly, how the map under it is rasterised — 410 pixels of a
+             * 900,000-pixel frame, along edges — and a map with nothing selected should be the
+             * map it always was, to the pixel. With nothing selected there is nothing here to
+             * carry, so there is nothing to promote either.
+             */
+            style={anySelected || layerHeld ? SELECTION_LAYER_STYLE : undefined}
+            pointerEvents="none"
+          >
+            {/*
+              Bounds that do not move while a selection lives.
+
+              The layer's size follows its contents, and a layer that changes size is built
+              again: selecting one entity after another, each of a different size, rebuilt it
+              every time — 99 ms a click on Europe Administrative. This rectangle paints
+              nothing and covers the map, so the layer is made once, at one size, and every
+              change after that is a repaint of it alone: 4.6 ms.
+            */}
+            {(anySelected || layerHeld) && (
+              <rect
+                x={-width}
+                y={-height}
+                width={width * 3}
+                height={height * 3}
+                fill="#000"
+                fillOpacity={0}
+              />
+            )}
+            {selectionPaths.map((entry) => (
+              <SelectedShape
+                key={entry.id}
+                entityId={entry.id}
+                d={entry.d}
+                fill={entry.fill}
+                stroke={outlineOn ? entry.stroke : 'none'}
+                strokeWidth={outlineOn ? entry.strokeWidth : 0}
+                paintOrder={entry.paintOrder}
+                clipPath={entry.clipPath}
+                coast={entry.coast}
+              />
+            ))}
+          </g>
 
           {/*
             Second flags, over the territories that earned one.

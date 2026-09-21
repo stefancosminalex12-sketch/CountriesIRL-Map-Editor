@@ -41,7 +41,6 @@ import { Inspector } from './Inspector'
 import { FlagOverrideControls } from './FlagOverrideControls'
 import { useRef, useState } from 'react'
 import { SelectField } from './Select'
-import { playSfx } from '../audio/sfx'
 
 type ColorMode = 'none' | 'data' | 'comparison' | 'flags'
 /** Which shape the data scale takes. Mirrors `ColorScale.mode`: numeric, threshold, categorical. */
@@ -50,7 +49,6 @@ type DataScale = 'palette' | 'predefined' | 'imported'
 export function DataPalette() {
   const doc = useMapStore((s) => s.doc)
   const dispatch = useMapStore((s) => s.dispatch)
-  const mergeMode = useMapStore((s) => s.mergeMode)
 
   const layer = doc.layers.find((l) => l.id === doc.activeLayerId) ?? doc.layers[0]
   const key = layer?.dataKey ?? 'value'
@@ -95,7 +93,6 @@ export function DataPalette() {
     // The same move the built-in templates make — see `state/colourMode.ts`.
     const resume = scale === 'predefined' ? 'threshold' : scale === 'imported' ? 'categorical' : 'numeric'
     dispatch(colourModeOps(doc, next, resume))
-    playSfx('click')
   }
 
   /** Switches which kind of scale reads the values. Never touches the values. */
@@ -108,7 +105,6 @@ export function DataPalette() {
         colorScale: { ...layer.colorScale, mode: next === 'predefined' ? 'threshold' : 'numeric' },
       },
     })
-    playSfx('click')
   }
 
   return (
@@ -178,19 +174,11 @@ export function DataPalette() {
           {/*
             Bounded, so a large selection scrolls here instead of pushing everything
             below it — the Merge panel in particular — down the section.
-
-            Hidden entirely while Merge is open. There the group being edited *is* the
-            read-out, with its members listed, and a second list of the same entities above
-            it is duplication that grows and shrinks with every tap.
           */}
-          {!mergeMode && (
-            <>
-              <hr className="rule" />
-              <div className="selection-scroll">
-                <Inspector />
-              </div>
-            </>
-          )}
+                      <hr className="rule" />
+            <div className="selection-scroll">
+              <Inspector />
+            </div>
         </>
       )}
 
@@ -291,21 +279,12 @@ export function DataPalette() {
             The same country panel the Data section shows, so selecting a country in
             Flags mode reports the same information it does everywhere else — with the
             one control that is specific to this mode underneath it.
-
-            Both are gone in Merge mode, together, because both are the selection — and
-            in Merge mode the selection means something else: the group being edited and
-            what is waiting to be added to it, not a set of countries being edited. A group
-            gets its flag from its own row in Merge.
           */}
-          {!mergeMode && (
-            <>
-              <hr className="rule" />
-              <div className="selection-scroll">
-                <Inspector />
-              </div>
-              <FlagOverrideControls />
-            </>
-          )}
+                      <hr className="rule" />
+            <div className="selection-scroll">
+              <Inspector />
+            </div>
+            <FlagOverrideControls />
         </>
       )}
 
@@ -350,7 +329,6 @@ function PaletteControls({ dataKey }: { dataKey: string }) {
             op: 'set_active_palette',
             paletteId: paletteId(family as PaletteFamilyId, chosen.steps),
           })
-          playSfx('click')
         }}
       >
         {PALETTE_FAMILIES.map((family) => (
@@ -371,7 +349,6 @@ function PaletteControls({ dataKey }: { dataKey: string }) {
               aria-pressed={chosen.steps === steps}
               onClick={() => {
                 dispatch({ op: 'set_active_palette', paletteId: paletteId(chosen.family, steps) })
-                playSfx('click')
               }}
             >
               {steps}
@@ -427,7 +404,6 @@ function PresetControls({ dataKey }: { dataKey: string }) {
         value={preset.id}
         onChange={(presetId) => {
           dispatch({ op: 'set_active_preset', presetId })
-          playSfx('click')
         }}
       >
         {THRESHOLD_PRESETS.map((p) => (
@@ -519,7 +495,6 @@ function ComparisonControls() {
   const setCount = (groupCount: number) => {
     dispatch({ op: 'set_comparison', patch: { groupCount } })
     if (activeIndex > groupCount - 1) setActiveIndex(0)
-    playSfx('tick')
   }
 
   return (
@@ -582,7 +557,6 @@ function ComparisonControls() {
                     aria-pressed={isActive}
                     onClick={() => {
                       setActiveIndex(index)
-                      playSfx('tick')
                     }}
                   >
                     {/*
@@ -666,7 +640,6 @@ function ComparisonControls() {
                       // one undo step rather than twelve.
                       dispatch({ op: 'add_to_comparison', index, countryIds: selected })
                       clearSelectionWithLastEdit()
-                      playSfx('confirm')
                     }}
                   >
                     {selected.length > 0 ? `Add ${selected.length} selected` : 'Add selected'}
@@ -677,7 +650,6 @@ function ComparisonControls() {
                     disabled={selected.length === 0}
                     onClick={() => {
                       dispatch({ op: 'remove_from_comparison', index, countryIds: selected })
-                      playSfx('click')
                     }}
                   >
                     Remove selected
@@ -688,7 +660,6 @@ function ComparisonControls() {
                     label={`${group.name} value`}
                     onCommit={(value) => {
                       dispatch({ op: 'set_comparison_group', index, patch: { value } })
-                      playSfx('click')
                     }}
                   />
                 </div>

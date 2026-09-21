@@ -14,7 +14,6 @@ import { useState } from 'react'
 import { regionsForAtlas, subregionsOf, type RegionPreset } from '../geo/regions'
 import { useMapStore } from '../state/mapStore'
 import type { RegionId } from '../types/map'
-import { playSfx } from '../audio/sfx'
 
 function RegionChip({ region, active, onToggle }: { region: RegionPreset; active: boolean; onToggle: (id: RegionId) => void }) {
   return (
@@ -64,7 +63,6 @@ export function RegionSelector() {
   const toggle = (id: RegionId) => {
     toggleRegion(id)
     // Recomposing the map is the one action that gets the heavier sound.
-    playSfx('transition')
   }
 
   const hasTree = regions.some((r) => subregionsOf(r.id).length > 0)
@@ -100,7 +98,6 @@ export function RegionSelector() {
                   aria-label={`${open ? 'Hide' : 'Show'} ${region.name} subregions`}
                   onClick={() => {
                     setExpanded(open ? null : region.id)
-                    playSfx(open ? 'toggleOff' : 'toggleOn')
                   }}
                 >
                   {onCount > 0 && <span className="region-tree__count">{onCount} on</span>}

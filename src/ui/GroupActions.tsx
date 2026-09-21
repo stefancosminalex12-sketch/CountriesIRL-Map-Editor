@@ -9,7 +9,6 @@
  */
 import { useMapStore } from '../state/mapStore'
 import { membersOf } from '../geo/groups'
-import { playSfx } from '../audio/sfx'
 import type { EntityMeta } from '../geo/countryMeta'
 
 export function GroupActions({ meta }: { meta: EntityMeta }) {
@@ -37,7 +36,6 @@ export function GroupActions({ meta }: { meta: EntityMeta }) {
             title={`${group.scheme}: ${group.name}${group.approximate ? ' (approximated by whole units)' : ''}`}
             onClick={() => {
               addToSelection(group.members)
-              playSfx('click')
             }}
           >
             <span className="group-actions__scheme">{group.scheme}</span>

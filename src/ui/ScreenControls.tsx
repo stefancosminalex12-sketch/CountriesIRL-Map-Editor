@@ -8,7 +8,6 @@
  */
 import { useMapStore } from '../state/mapStore'
 import { MAP_SVG_ID } from '../render/MapCanvas'
-import { playSfx } from '../audio/sfx'
 import { SCREEN_ASPECTS, type ScreenAspectId } from '../types/map'
 import { fitAspect, fitRegionScreen, MIN_SCREEN } from '../render/screenFrame'
 import { computeFraming } from '../geo/framing'
@@ -50,7 +49,6 @@ export function ScreenControls() {
    */
   const remove = () => {
     dispatch({ op: 'set_screen', patch: { enabled: false, rect: null, aspect: null } })
-    playSfx('toggleOff')
   }
 
   /**
@@ -70,7 +68,6 @@ export function ScreenControls() {
       op: 'set_screen',
       patch: { enabled: true, rect: fitAspect(ratio, width, height), aspect: id },
     })
-    playSfx('confirm')
   }
 
   /*
@@ -95,7 +92,6 @@ export function ScreenControls() {
     const next = fitRegionScreen(points, transform, width, height)
     if (!next) return
     dispatch({ op: 'set_screen', patch: { enabled: true, rect: next, aspect: 'freeform' } })
-    playSfx('confirm')
   }
 
   /*
@@ -209,7 +205,6 @@ export function ScreenControls() {
               rect: screen.rect ?? fitAspect(16 / 9, width, height),
             },
           })
-          playSfx('click')
         }}
       >
         Freeform

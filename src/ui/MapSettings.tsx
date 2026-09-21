@@ -3,7 +3,6 @@ import { datasetsForAtlas } from '../geo/datasets'
 import { getAtlas } from '../maps/atlas'
 import { AUTO_PROJECTION_ID, PROJECTIONS } from '../geo/projections'
 import { useMapStore } from '../state/mapStore'
-import { playSfx } from '../audio/sfx'
 import { MapToggle } from './MapToggle'
 import { waterName } from '../geo/waters'
 import { SelectField } from './Select'
@@ -39,9 +38,6 @@ export function MapDetailSettings() {
   const current = datasets.find((d) => d.id === scope.datasetId)
   const dispatch = useMapStore((s) => s.dispatch)
 
-  /** Changing how the map is drawn gets a short click; colours stay silent. */
-  const tick = () => playSfx('click')
-
   return (
     <div className="stack">
       <SelectField
@@ -49,7 +45,6 @@ export function MapDetailSettings() {
         value={scope.datasetId}
         onChange={(datasetId) => {
           dispatch({ op: 'set_scope_dataset', datasetId })
-          tick()
         }}
       >
         {datasets.map((d) => (
@@ -68,7 +63,6 @@ export function MapDetailSettings() {
             op: 'set_scope_projection',
             projectionId: value as ProjectionId | 'auto',
           })
-          tick()
         }}
       >
         <option value="auto">
@@ -104,7 +98,6 @@ export function OutsideRegionAppearance() {
         value={style.outsideScope}
         onChange={(value) => {
           dispatch({ op: 'set_style', patch: { outsideScope: value as MapStyle['outsideScope'] } })
-          playSfx('click')
         }}
       >
         <option value="muted">Muted</option>
@@ -162,7 +155,6 @@ export function HideTerritories() {
 
   const apply = (ids: string[], hidden: boolean) => {
     if (ids.length === 0) return
-    playSfx('click')
     dispatch({ op: 'set_countries_hidden', countryIds: ids, hidden })
   }
 
@@ -448,7 +440,6 @@ function WaterRegionPaint() {
           className="btn btn--ghost"
           onClick={() => {
             clearSelection()
-            playSfx('click')
           }}
         >
           Clear
@@ -480,7 +471,6 @@ function WaterRegionPaint() {
         disabled={chosen.every((entry) => !entry.color)}
         onClick={() => {
           dispatch({ op: 'clear_water_paint', waterIds: selectedWaterIds })
-          playSfx('click')
         }}
       >
         Use the map's own water
@@ -538,7 +528,6 @@ function TopCaptionStyle({ caption }: { caption: MapCaption }) {
         value={caption.font}
         onChange={(value) => {
           set({ font: value as LabelFontId })
-          playSfx('click')
         }}
       >
         {LABEL_FONTS.map((font) => (
@@ -553,7 +542,6 @@ function TopCaptionStyle({ caption }: { caption: MapCaption }) {
         value={String(caption.weight)}
         onChange={(value) => {
           set({ weight: Number(value) })
-          playSfx('click')
         }}
       >
         {CAPTION_WEIGHTS.map((weight) => (
@@ -653,7 +641,6 @@ function CountryNameStyle({ labels }: { labels: CountryLabels }) {
         value={labels.font}
         onChange={(value) => {
           set({ font: value as LabelFontId })
-          playSfx('click')
         }}
       >
         {LABEL_FONTS.map((font) => (

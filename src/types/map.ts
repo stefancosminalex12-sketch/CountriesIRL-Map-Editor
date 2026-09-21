@@ -413,10 +413,18 @@ export interface FlagMode {
 /* -------------------------------------------------------------------- merge */
 
 /**
- * A custom entity made by dissolving the borders between existing countries.
+ * A group of entities, and — once it is merged — the single entity they are drawn as.
+ *
+ * **A group and a merge are two states of the same record.** A group is a container: the
+ * author collects entities in it, adds more later, takes some out, and nothing about the map
+ * changes while they do. Merging it is a separate, explicit act (`merged`), and only then are
+ * the members drawn as one body with the borders between them dissolved. Collecting and
+ * merging were once the same thing — a group existed only as a merge, so the first entity
+ * put in one was merged the moment it was added, and there was no way to assemble a group and
+ * look at it before committing to it.
  *
  * Derived, never destructive: the members are recorded by id and the source dataset is
- * untouched, so deleting a merge restores exactly the countries it was made from. The
+ * untouched, so deleting a group restores exactly the countries it was made from. The
  * geometry is not stored — it is computed from the topology on demand and cached, which
  * is what keeps a merge correct across dataset resolutions rather than pinned to the one
  * it happened to be created in.
@@ -428,6 +436,15 @@ export interface MergedEntity {
   members: CountryId[]
   /** Artwork code for Flags mode, or `null` to render as plain land. */
   flag: string | null
+  /**
+   * Whether the members are drawn as one entity.
+   *
+   * False while the group is being assembled: the members stay themselves, with every border
+   * between them, and the group is a list in the panel and nothing on the map. True once the
+   * author has merged it, which is the only thing that turns a group into an entity of the
+   * map — selectable, colourable, labelled, flagged and exported as one.
+   */
+  merged: boolean
 }
 
 /* ------------------------------------------------------------------- screen */

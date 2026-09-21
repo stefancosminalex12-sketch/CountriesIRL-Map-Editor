@@ -6,7 +6,7 @@
  * would drift from the document the moment an edit arrived from anywhere else, which the
  * assistant is going to do shortly.
  *
- * The buttons and the shortcuts call the same two functions, {@link undoMapEdit} and
+ * The header's two arrows and the shortcuts call the same two functions, {@link undoMapEdit} and
  * {@link redoMapEdit}, so there is one behaviour to reason about. The shortcuts are the
  * standard ones — Ctrl+Z undoes, Ctrl+Y redoes, and Ctrl+Shift+Z redoes too — and they are the
  * map's only while nothing is being typed: inside a text field Ctrl+Z belongs to the field,
@@ -15,14 +15,12 @@
  */
 import { useEffect } from 'react'
 import { useMapStore } from '../state/mapStore'
-import { playSfx } from '../audio/sfx'
 
 /** Takes back the last edit. Returns whether there was one to take back. */
 export function undoMapEdit(): boolean {
   const store = useMapStore.getState()
   if (store.past.length === 0) return false
   store.undo()
-  playSfx('tick')
   return true
 }
 
@@ -31,7 +29,6 @@ export function redoMapEdit(): boolean {
   const store = useMapStore.getState()
   if (store.future.length === 0) return false
   store.redo()
-  playSfx('tick')
   return true
 }
 
@@ -81,29 +78,6 @@ const IS_APPLE =
   typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent)
 const UNDO_HINT = IS_APPLE ? 'Undo (⌘Z)' : 'Undo (Ctrl+Z)'
 const REDO_HINT = IS_APPLE ? 'Redo (⇧⌘Z)' : 'Redo (Ctrl+Y or Ctrl+Shift+Z)'
-
-/**
- * Undo and Redo as labelled buttons, for Edit → History.
- *
- * The same {@link undoMapEdit} and {@link redoMapEdit} the header's arrows and the shortcuts
- * call, over the same store history — so it is one history reached from three places, not a
- * second one. The shortcuts are registered once, by `HistoryControls` in the header, which is
- * always mounted; this is only buttons.
- */
-export function HistoryButtons() {
-  const canUndo = useMapStore((s) => s.past.length > 0)
-  const canRedo = useMapStore((s) => s.future.length > 0)
-  return (
-    <div className="merge-actions">
-      <button type="button" className="btn" disabled={!canUndo} title={UNDO_HINT} onClick={undoMapEdit}>
-        <HistoryArrow direction="undo" /> Undo
-      </button>
-      <button type="button" className="btn" disabled={!canRedo} title={REDO_HINT} onClick={redoMapEdit}>
-        <HistoryArrow direction="redo" /> Redo
-      </button>
-    </div>
-  )
-}
 
 export function HistoryControls() {
   const canUndo = useMapStore((s) => s.past.length > 0)

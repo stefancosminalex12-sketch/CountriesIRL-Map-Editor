@@ -14,7 +14,6 @@ import { nounFor } from '../maps/useNoun'
 import { MapToggle } from './MapToggle'
 import { RegionGroupPicker } from './RegionGroupPicker'
 import { Disclosure } from './Panels'
-import { playSfx } from '../audio/sfx'
 
 export function SelectionControls() {
   const tools = useMapStore((s) => s.selectionTools)
@@ -99,7 +98,6 @@ export function SelectionControls() {
           disabled={count === 0}
           onClick={() => {
             clearSelection()
-            playSfx('click')
           }}
         >
           Clear Selection

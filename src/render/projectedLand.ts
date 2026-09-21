@@ -38,6 +38,7 @@ import {
   type SmallEntityAnchor,
 } from './smallEntities'
 import type { EntityId } from '../types/map'
+import { projectTopologyArcs, simplifyArcs, type ArcPaths, type ProjectedArcs } from './arcPaths'
 
 export interface LandPath {
   d: string
@@ -60,22 +61,122 @@ export interface ProjectedLand {
   anchors?: SmallEntityAnchor[]
   /** Filled on first use, or by the progressive job. See {@link assistOf}. */
   assist?: AssistIndex
+  /** Screen pixels the outlines were simplified to; 0 for the source's every point. */
+  tolerance?: number
+  /**
+   * The projected arcs these paths were assembled from, for anything else drawn from the same
+   * geometry — the border networks. Null for a dataset without topology.
+   */
+  arcs?: ArcPaths | null
+  /** How the outlines were made: assembled from arcs, or drawn by `geoPath`. For the checks. */
+  how?: { viaArcs: number; viaPath: number; arcs: { points: number; kept: number; unusableArcs: number } | null }
 }
 
 const NO_PATHS: Map<EntityId, LandPath> = new Map()
 
-/** How an entity's outline is drawn under a projection and its insets — exactly as before. */
-function landPainter(projection: GeoProjection, insets: ResolvedInset[]) {
+/**
+ * How an entity's outline is drawn under a projection and its insets.
+ *
+ * The main map's entities are assembled from the topology's projected arcs (`arcPaths.ts`),
+ * which is several times quicker and keeps every shared border identical on both sides. Three
+ * things still go through `geoPath`, exactly as they always did:
+ *
+ *   - an entity drawn in an inset, which has its own projection;
+ *   - an entity with no topology behind it — one supplied from `supplemental.ts`;
+ *   - an entity the arcs cannot draw without clipping, which `arcPaths` refuses rather than
+ *     approximates: anything crossing the antimeridian or a projection's horizon.
+ */
+/**
+ * The arcs of the last dataset projected, kept for the next detail step.
+ *
+ * Zooming does not change the projection, only how finely the land is drawn, so crossing a
+ * detail step would otherwise project the same million points again for the same answer. One
+ * entry, replaced whenever anything else is asked for: the arcs of a dataset are about a fifth
+ * of the size of its coordinates, and two datasets' worth is not worth holding.
+ *
+ * A d3 projection is mutable, so identity alone would not prove the cached arcs still match it:
+ * `fit.ts` builds a projection by moving one. The probes below are projected again on every
+ * hit — three calls — and a projection that has moved since misses.
+ */
+const PROBES: [number, number][] = [
+  [0, 0],
+  [30, 45],
+  [-120, -30],
+]
+let arcCache: { topology: unknown; projection: GeoProjection; probes: string; arcs: ProjectedArcs } | null = null
+
+const probeOf = (projection: GeoProjection) =>
+  PROBES.map((p) => {
+    const at = projection(p)
+    return at ? `${at[0].toFixed(4)},${at[1].toFixed(4)}` : 'none'
+  }).join('|')
+
+function arcsFor(topology: NonNullable<LoadedDataset['topology']>, projection: GeoProjection): ProjectedArcs {
+  const probes = probeOf(projection)
+  if (arcCache && arcCache.topology === topology && arcCache.projection === projection && arcCache.probes === probes) {
+    return arcCache.arcs
+  }
+  // Dropped before the new one is built, so the two are never held at once.
+  arcCache = null
+  const arcs = projectTopologyArcs(topology, projection)
+  arcCache = { topology, projection, probes, arcs }
+  return arcs
+}
+
+/** Frees the projected arcs — for a caller that knows nothing more will be drawn from them. */
+export function forgetProjectedArcs(): void {
+  arcCache = null
+}
+
+function landPainter(
+  geo: LoadedDataset,
+  projection: GeoProjection,
+  insets: ResolvedInset[],
+  tolerance: number,
+) {
   const mainPath = geoPath(projection)
   const insetPaths = insets.map((resolved) => ({ resolved, path: geoPath(resolved.projection) }))
-  return (feature: EntityFeature): LandPath => {
+  const fast: ArcPaths | null = geo.topology
+    ? simplifyArcs(arcsFor(geo.topology, projection), tolerance)
+    : null
+  /*
+   * An entity supplied from `supplemental.ts` keeps its topology geometry — the shard the
+   * dataset does have — and that is not what the map draws. Vatican City is the case: the
+   * supplement is the whole state, the topology's ring is a fragment of it. These are drawn
+   * from the feature, like everything else the arcs cannot speak for.
+   */
+  const supplied = new Set(geo.supplemented)
+  let viaArcs = 0
+  let viaPath = 0
+  const paint = (feature: EntityFeature): LandPath => {
     const id = feature.properties.countryId
     const inset = insetPaths.find((entry) => entry.resolved.members.has(id))
+    if (!inset && fast && !supplied.has(id)) {
+      const geometries = geo.topoById.get(id)
+      if (geometries && geometries.length > 0) {
+        let d = ''
+        let whole = true
+        for (const geometry of geometries) {
+          const part = fast.path(geometry)
+          if (part === null) {
+            whole = false
+            break
+          }
+          d += part
+        }
+        if (whole && d !== '') {
+          viaArcs++
+          return { d, clipId: null }
+        }
+      }
+    }
+    viaPath++
     return {
       d: (inset ? inset.path : mainPath)(feature) ?? '',
       clipId: inset ? inset.resolved.inset.id : null,
     }
   }
+  return { paint, fast, report: () => ({ viaArcs, viaPath, arcs: fast?.stats ?? null }) }
 }
 
 export function projectLand(
@@ -85,11 +186,12 @@ export function projectLand(
   insets: ResolvedInset[],
   width: number,
   height: number,
+  tolerance = 0,
 ): ProjectedLand {
-  const paint = landPainter(projection, insets)
+  const { paint, fast, report } = landPainter(geo, projection, insets, tolerance)
   const paths = new Map<EntityId, LandPath>()
   for (const feature of geo.features) paths.set(feature.properties.countryId, paint(feature))
-  return { geo, key, projection, insets, width, height, paths }
+  return { geo, key, projection, insets, width, height, paths, tolerance, arcs: fast, how: report() }
 }
 
 /**
@@ -104,9 +206,17 @@ export async function projectLandInSlices(
   width: number,
   height: number,
   cancelled: () => boolean,
+  tolerance = 0,
 ): Promise<ProjectedLand | null> {
   const slicer = createSlicer()
-  const paint = landPainter(projection, insets)
+  /*
+   * The arcs are projected first, in one pass: it is the bulk of the work, and it is what the
+   * entity paths are then assembled from. A slice boundary before it keeps the pass that
+   * follows short.
+   */
+  const { paint, fast, report } = landPainter(geo, projection, insets, tolerance)
+  await slicer.pause()
+  if (cancelled()) return null
   const paths = new Map<EntityId, LandPath>()
   for (const feature of geo.features) {
     if (slicer.due()) {
@@ -123,7 +233,7 @@ export async function projectLandInSlices(
     if (cancelled()) return null
   }
   const assist = buildAssistIndex(geo, projection, insets)
-  return { geo, key, projection, insets, width, height, paths, anchors, assist }
+  return { geo, key, projection, insets, width, height, paths, anchors, assist, tolerance, arcs: fast, how: report() }
 }
 
 /** The small-entity anchors for this view, measured once per land. */
@@ -187,6 +297,12 @@ export function useProjectedLand(
   width: number,
   height: number,
   progressive: boolean,
+  /**
+   * Screen pixels the outlines may be simplified by — see `arcPaths.ts`. The caller decides it
+   * from how far the map is zoomed in, and must put it in `key`, so a view held at one detail
+   * is never handed back for another.
+   */
+  tolerance = 0,
 ): ProjectedLand | null {
   const immediate = useMemo((): ProjectedLand | null => {
     if (!projection) return null
@@ -194,15 +310,15 @@ export function useProjectedLand(
     const known = recallLand(geo, key)
     if (known) return known
     if (progressive) return null
-    return rememberLand(projectLand(geo, key, projection, insets, width, height))
-  }, [geo, projection, insets, key, width, height, progressive])
+    return rememberLand(projectLand(geo, key, projection, insets, width, height, tolerance))
+  }, [geo, projection, insets, key, width, height, progressive, tolerance])
 
   const [prepared, setPrepared] = useState<ProjectedLand | null>(null)
 
   useEffect(() => {
     if (immediate || !geo || !projection) return
     let cancelled = false
-    void projectLandInSlices(geo, key, projection, insets, width, height, () => cancelled).then(
+    void projectLandInSlices(geo, key, projection, insets, width, height, () => cancelled, tolerance).then(
       (land) => {
         /*
          * As a transition: the canvas renders one path per entity — 32,000 of them on the
@@ -215,7 +331,7 @@ export function useProjectedLand(
     return () => {
       cancelled = true
     }
-  }, [immediate, geo, projection, insets, key, width, height])
+  }, [immediate, geo, projection, insets, key, width, height, tolerance])
 
   if (immediate) return immediate
   return prepared && prepared.geo === geo ? prepared : null

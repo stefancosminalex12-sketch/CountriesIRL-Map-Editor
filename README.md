@@ -53,8 +53,7 @@ src/
     MapCanvas.tsx     SVG renderer, zoom, hit-testing
     smallEntities.ts  assisted hit targets + selection markers for tiny features
   theme/themes.ts     three themes: UI tokens + map palette
-  audio/sfx.ts        centralised sound effects
-  state/settingsStore.ts  theme + volume, persisted to localStorage
+  state/settingsStore.ts  theme + selection highlight, persisted to localStorage
   ui/                 sidebar, region selector, inspector, settings, status bar
 ```
 
@@ -1117,7 +1116,7 @@ section's parts sit behind a `Disclosure`:
 ```
 Maps            Map · Region · Map Detail · Outside Region Appearance
 Select          [Normal / Rectangle / Brush] · How the tools work · Entities Selected
-Edit            Merge Groups · History
+Edit            Merge Groups
 Display         Appearance · Geographic Features · Labels & Helpers · Territories · Legend Visibility
 Styles & Data   [Off / Data / Compare / Flags and each mode's workflow]
 Overlays        Overlay Management · Overlay Appearance · Overlay Transform · Overlay Mode
@@ -1134,9 +1133,11 @@ rebuilt. Where one component held controls for two sections it was split along t
 `LabelsAndHelpers`, `HideTerritories`, `LegendVisibilityToggle`) for Display; the legend and
 overlay editors wrap their existing blocks in subsections inside the same component, so their
 local state — the overlay's pending flag choice, the legend's patch helper — did not have to
-move. Two things appear in two places on purpose and are one control each: **Show Legend**
-(Display and Legend write the same `legend.visible`) and **Undo/Redo** (Edit → History and the
-header's arrows call the same `undoMapEdit`/`redoMapEdit`; the shortcuts are registered once).
+move. **Show Legend** appears in two places on purpose and is one control: Display and Legend write
+the same `legend.visible`. Undo and redo live in the header only — those arrows and the
+shortcuts call the same `undoMapEdit`/`redoMapEdit`, and the shortcuts are registered once. A
+second pair under Edit → History was removed with the Merge rework: it was the same store
+history shown twice, beside a tool it had nothing particular to do with.
 
 What changed besides position:
 
@@ -1159,7 +1160,7 @@ What changed besides position:
 - In **Legend**, the title's decorative mark is now **Title Mark**, so that "icons" means what
   the items are — each colour indicator and its text, sized by **Item Icons**. With the legend
   hidden, the editor stays usable and says the legend is hidden.
-- **Settings** holds only the editor's preferences: theme, sound and the data-source credits. Map Colours and Selection Highlight moved to Display →
+- **Settings** holds only the editor's preferences: theme and the data-source credits. Map Colours and Selection Highlight moved to Display →
   Appearance.
 - **Canvas** is the old Screen. Its **Fit to Region** did nothing in a production build: it read
   the live projection from `window.__mapProjection`, which the canvas publishes only in
@@ -1253,7 +1254,7 @@ makes the declared width the real one.
 
 The existing control components were **split, not rewritten**. `MapSettings` became
 `MapScopeSettings`, `MapDisplayToggles` and `MapColorSwatches`; `SettingsPanel` became
-`ThemePicker`, `SelectionHighlight` and `SoundSettings`; `LegendControls` gave up its
+`ThemePicker` and `SelectionHighlight`; `LegendControls` gave up its
 panel-size block as `LegendSizeControls`. `Inspector` and `DataPalette` moved across
 untouched. Same hooks, same operations — the only thing that changed is which heading
 each control appears under.
@@ -1338,7 +1339,7 @@ checked against a control. Every change was also checked for what it draws, on a
 
 **Checked and found sound:** hit-testing (outlines parsed once and indexed; a rectangle over 7,845
 units spends 7 ms finding them), the projected-land cache (the last 3 views), undo history (100
-steps), sound (Web Audio buffers, decoded once), event listeners (every one removed, or registered
+steps), event listeners (every one removed, or registered
 once for the page's life), and animation frames (requested only while a gesture runs).
 
 **Across platforms:**
@@ -1349,6 +1350,78 @@ once for the page's life), and animation frames (requested only while a gesture 
   frame. Revoking it sooner could cancel the download in Safari, on iOS especially, and in Firefox.
 - **Shortcut tooltips.** Undo and redo read ⌘Z and ⇧⌘Z on Apple keyboards. Both key sets were
   already handled everywhere; only the label was wrong.
+
+**Selection is drawn in a layer of its own.** The work above made the *app* side of a click
+free — one paint, one element, one chunk, one render, measured — and a click still cost 45 ms on
+Europe Administrative. The remaining cost was not React's and no memo could reach it: selection
+is a fill (`resolveCountryFill`), so clicking repainted that path inside the map's one layer, and
+the browser then rasterised every path overlapping the damaged region again. Measured with the
+DOM alone, outside the app: **45.7 ms to change one `fill` attribute** there, against 4.4 ms for
+the same shape in a layer the compositor holds by itself.
+
+So the land now keeps its own paint for good, and what "selected" looks like is a copy of the
+entity's path — same geometry, same clip, same border ink the entity would have been painted
+with — in a `map-selection` group above the land and below everything drawn over it, which is
+where a selected fill always sat. Three details make it behave:
+
+- **It is promoted only while something is selected.** A layer held over the map permanently
+  changes how the map beneath it is rasterised by about 410 pixels of a 900,000-pixel frame; with
+  nothing selected the map is again the map it always was, to the pixel.
+- **A transparent rectangle gives it bounds that do not move.** A layer resizes with its contents
+  and a resized layer is built again: without this, selecting entities of different sizes rebuilt
+  it every time, at 99 ms a click.
+- **It is held for 1.5 s after the last entity leaves it**, so tapping one entity on and off does
+  not build and drop a layer per tap.
+- **Coastlines-on-with-Borders-off keeps the old behaviour**, because there each entity's only
+  line is its own coast, drawn beside it: a selected coast in the layer and an unselected one
+  under it are two coincident strokes whose edges blend. That state paints selection into the
+  land, exactly as before, and costs exactly what it did.
+
+Frame intervals with a selection change every frame, before → after (median, p90):
+
+| | World (256) | Europe Administrative (2,659) | USA counties (3,235) |
+|---|---|---|---|
+| Desktop, brush | 13.7 / 45 → **4.2 / 4.4 ms** | 62.6 / 137.7 → **4.2 / 7.9 ms** | 33.4 / 83.4 → **4.5 / 8.5 ms** |
+| Desktop, taps | 12.6 / 33.2 → **4.2 / 4.4 ms** | 4.2 / 155 → **4.2 / 6.7 ms** | 28.8 / 48.9 → **4.3 / 8.6 ms** |
+| Phone ×4 CPU, brush | 29.1 / 34.1 → **4.2 / 8.4 ms** | 70.6 / 91.6 → **4.2 / 9.8 ms** | 33.6 / 54.4 → **4.4 / 8.7 ms** |
+| Phone ×4 CPU, taps | 28.1 / 33.6 → **8.3 / 15.8 ms** | 58.2 / 169 → **4.3 / 8.3 ms** | 37.5 / 50 → **4.3 / 8.5 ms** |
+
+4.2 ms is what an idle frame costs on this machine: selection no longer shows up in a frame at
+all, at any density, on either platform. Clearing 500, a 300-unit rectangle and 60 brush frames
+all improved with it; a rectangle's one batch went from 4.4 to 13.5 ms on Europe Administrative,
+which is 300 paths being made rather than 300 attributes written, and is a single frame's work.
+
+Verified against the build before it: with **nothing selected the map is pixel-identical** (0
+differing pixels on Europe Administrative and in flags mode), and with a selection the difference
+is confined to antialiasing along selected edges — 62 pixels of 898,416 differ by more than
+64/255, where a neighbour's hairline used to overdraw a selected edge. Checked with 8 and 60
+selected, hovered-while-selected, in Data mode, in Flags mode, coastlines-only, over the USA map's
+insets (the copies carry the same clip), over merged bodies, and zoomed 6× into Europe
+Administrative. Clicks still reach the land through the layer, which never takes the pointer.
+
+**Two other things profiling found, and one it cleared:**
+
+- **A data edit repainted the whole map.** Any change to `doc.countries` invalidated every
+  entity's paint, so giving 50 countries a value repainted all 2,659 of Europe Administrative.
+  The paint cache now compares the entries one by one and repaints those that changed, which is
+  the same answer: verified identical against a forced full repaint after values, a domain
+  change, a cleared value, a label, a selection, comparison groups and a palette change, on the
+  World map and on Europe Administrative.
+- **The flag warm-up ran on a timer, not on idle.** It asked for its slices with
+  `{ timeout: 3000 }`, which means "run within three seconds whether or not the browser is idle",
+  and on a 2,659-entity map those forced slices went on arriving for minutes, landing in the
+  middle of whatever the author was doing. It now asks for genuine idle time, uses the deadline
+  it is given, and never starts an entity that the remaining time cannot hold. On a phone the
+  worst idle frame on Europe Administrative went from 83 ms to 4.3 ms.
+- **The Inspector** rendered a card per selected entity and re-rendered all of them on every
+  pick. The cards are memoised on what they draw, so one arriving renders one. It was never the
+  bottleneck — 8 ms with 200 selected — but it is 4× that on a phone.
+
+**Already doing the minimum, and left alone.** Counters on every heavy memo showed that a
+selection change recomputes no labels, no water, no merged geometry, no overlays, no flag tiles,
+no coasts, no line networks and no projected land — one paint, one element, one chunk, one
+render, in every mode. The gestures already batch: the brush collects everything a frame touched
+and hands it over once. The store's own work is 0.1 ms.
 
 **What costs what it has to:**
 
@@ -1478,7 +1551,7 @@ Verified with the events each browser sends, across the whole path:
 - a plain wheel still zoomed the map, and scrolled the panels without being cancelled;
 - the page's zoom never changed (`devicePixelRatio` and `visualViewport.scale` constant).
 
-### Themes and sound
+### Themes
 
 `theme/themes.ts` holds three themes, each split into two parts:
 
@@ -1507,23 +1580,10 @@ neither of which country outlines provide, and neither is invented here.
 Theme switching only re-reads a palette — it never touches geometry, so it costs
 1–4 ms even on the 10m dataset.
 
-`audio/sfx.ts` owns the audio context, buffer cache and master gain. Components call
-`playSfx(name)` and never touch volume. The assets are local WAVs generated by
-`scripts/generate-sfx.mjs`: a family of seven short tactile clicks (50–180 ms) built
-from a damped sine body, a few milliseconds of low-passed noise for contact, and a
-raised-cosine attack that removes the harsh edge. `toggleOn` and `toggleOff` are one
-gesture in two directions — the same contact made and released, differing in pitch
-and in which way the tone bends — so a switch is audibly not a dropdown while still
-belonging to the same set. Sounds are attached only to discrete actions — selection,
-controls, switches, panels, themes, region changes. Continuous gestures (hover, drag,
-zoom) are silent, deliberately: a sound that fires whenever the pointer crosses a
-control is the one in a set like this that reliably becomes irritating. Both theme
-and volume persist to localStorage.
-
-Writes are **debounced**. `localStorage.setItem` is synchronous, and two of these are
-dragged rather than clicked — the volume slider and the selection-highlight well both
-fire on every input event, so one drag was serialising and writing the whole preferences
-object sixty times a second on the main thread. That was the jank in the Sound section.
+The theme and the selection highlight persist to localStorage, and writes are
+**debounced**. `localStorage.setItem` is synchronous and the selection-highlight well is
+dragged rather than clicked — it fires on every input event, so one drag was serialising
+and writing the whole preferences object sixty times a second on the main thread.
 The store still updates immediately; only the trip to disk waits, and the last write of a
 drag is the one that matters. Measured: a 41-step drag now performs **zero** writes while
 dragging and one after it settles, with the final value persisted.
@@ -2961,8 +3021,9 @@ later node onto the wrong partner.
 
 ### Merge
 
-Dissolving several countries into one custom entity — an "Iberia", a "Scandinavia" —
-with its own name and its own flag.
+Collecting countries into a group, and then dissolving them into one custom entity — an
+"Iberia", a "Scandinavia" — with its own name and its own flag. Collecting and dissolving are
+two separate steps: a group changes nothing on the map until it is merged.
 
 The operation is `topojson.merge`, and choosing it is the whole design. In TopoJSON a
 border between two neighbours is stored **once**, as a single arc both countries
@@ -3038,19 +3099,46 @@ The inspector shows a merge's own identity — its name, a `MERGED` tag and "Mad
 ESP, PRT" — rather than a region for it. It is not a real-world country, and giving it a
 subregion would be stating something false.
 
-**Groups are made on the map.** With the Merge panel open, tapping an entity puts it into the
-group being edited, and when no group is being edited it makes one — "Group 1", "Group 2" —
-and edits that. The rectangle and the brush fill the group the same way. Tapping a group
-chooses it for editing and selects it as one entity; tapping inside the group being edited
-takes out the entity under the tap, as × beside it in the list does. An entity already in a
-group is part of that group's body, so it is never added twice or to two groups.
+**A group is a container; merging it is a separate act.** Three buttons, in whichever order
+suits the work:
 
-**New group** adds an empty group to the list without leaving the one being edited, so a
-second group can be set up while the first is still being worked on; choosing its row starts
-editing it. Groups are listed in the order they were made, the first at the top, and are never
-reordered. × beside a group deletes it and gives its members back. A group is edited in place
-— it keeps its id, its place in the list, its name, flag and value — and each change is one
-step of undo. Outside Merge the map selects exactly as it always has.
+1. **New group** makes an empty group. It needs no selection, merges nothing, and can be
+   pressed at any point — before anything is chosen, with a selection already made, or while
+   another group is being filled. The new group becomes the one being edited, which is the one
+   marked `EDITING`, so there is never a question of where the next Add goes.
+2. **Add to group** puts everything currently selected into that group. Nothing goes in on its
+   own: a group made while three countries were selected starts empty, and those three go in
+   when the button is pressed. It says how many will go in — `Add to group (3)` — and is
+   disabled when the answer is none.
+3. **Merge** draws the group's members as one entity, dissolving the borders between them. It
+   is enabled from two members up, and is the *only* thing that changes the map: until it is
+   pressed the members are drawn as themselves, with every border between them, and the group
+   is a list in the panel. A merged group is marked `MERGED`.
+
+So `select → New group → Add to group → Merge`, or `New group → select → Add to group →
+Merge`. Both are the same three presses and neither does anything that was not pressed.
+
+**The map selects, as it does everywhere else.** Taps, the rectangle and the brush build an
+ordinary selection whether the Merge panel is open or not, and the Inspector shows it as
+usual. This is what was wrong before: opening the panel turned every tap into "add to the
+group being edited", the first tap made a group if none existed, and a group *was* a merge
+from the moment it existed — so a stray tap edited a map entity, a selection could not be
+gathered and looked at before committing it, and there was no way to hold a group of one.
+The panel now reads the selection and waits to be told what to do with it.
+
+Groups are listed in the order they were made, the first at the top, and are never reordered —
+by editing, adding, merging, rerendering or switching maps. Choosing a group's row starts
+editing it and nothing else: it creates no group, and it leaves the selection alone. × beside a
+group deletes it and gives its members back; × beside a member takes that one out. An entity
+belongs to one group at most, and a group is never a member of another — the panel's button
+counts only what can actually go in, and the document enforces the same rule, so a duplicate
+cannot arrive by any route. A group is edited in place — it keeps its id, its place in the
+list, its name, flag and value — and each change is one step of the map's undo.
+
+Undo and redo are the map's own, in the header and on Ctrl+Z / Ctrl+Y, as they are for every
+other edit. The Merge tool has no history of its own: the **History** section that used to sit
+beside it in Edit was a second pair of buttons over the same store history, reading as though
+merges were undone separately from everything else.
 
 **Renaming a merge costs nothing.** It used to cost everything. The document is
 immutable, so typing one character into a merged entity's name replaced `doc.merges`,

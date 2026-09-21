@@ -24,11 +24,10 @@ import {
   MapDetailSettings,
   OutsideRegionAppearance,
 } from './MapSettings'
-import { HistoryButtons } from './HistoryControls'
 import { SvgExchange } from './SvgExchange'
 import { TemplatePicker } from './TemplatePicker'
 import { onOpenSidebarSection } from './sidebarEvents'
-import { DataSources, SelectionHighlight, SoundSettings, ThemePicker } from './SettingsPanel'
+import { DataSources, SelectionHighlight, ThemePicker } from './SettingsPanel'
 import { DataPalette } from './DataPalette'
 import { LegendControls, LegendSizeControls } from './LegendControls'
 import { ScreenControls } from './ScreenControls'
@@ -36,7 +35,6 @@ import { MergeControls } from './MergeControls'
 import { OverlayControls } from './OverlayControls'
 import { SelectionControls } from './SelectionControls'
 import { Disclosure } from './Panels'
-import { playSfx } from '../audio/sfx'
 
 /**
  * Line icons on a 20-unit grid, stroked in `currentColor`.
@@ -224,9 +222,6 @@ const SECTIONS: SidebarSection[] = [
         <Disclosure title="Merge Groups">
           <MergeControls />
         </Disclosure>
-        <Disclosure title="History">
-          <HistoryButtons />
-        </Disclosure>
       </div>
     ),
   },
@@ -313,9 +308,6 @@ const SECTIONS: SidebarSection[] = [
             <ThemePicker />
           </div>
         </Disclosure>
-        <Disclosure title="Audio">
-          <SoundSettings />
-        </Disclosure>
         <Disclosure title="Data Sources">
           <DataSources />
         </Disclosure>
@@ -394,7 +386,6 @@ export function Sidebar() {
   const choose = (id: string) => {
     const next = id === openId ? null : id
     setOpenId(next)
-    playSfx(next ? 'toggleOn' : 'toggleOff')
   }
 
   return (

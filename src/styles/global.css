@@ -2452,31 +2452,6 @@ body {
  * same place however many entities a group collects. Add selected and Merge share a row
  * because they are the two halves of one gesture — fill it, then commit it.
  */
-.merge-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.merge-tabs .chip {
-  min-width: 30px;
-  justify-content: center;
-  gap: 4px;
-}
-
-/* The count riding on a group's tab, so a full group is visible without opening it. */
-.merge-tabs__count {
-  padding: 0 4px;
-  background: var(--line);
-  border-radius: 999px;
-  font-size: 10px;
-  font-variant-numeric: tabular-nums;
-}
-
-.chip--active .merge-tabs__count {
-  background: rgb(255 255 255 / 0.25);
-}
-
 .merge-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2585,19 +2560,24 @@ body {
 }
 
 /* Says which group is taking taps, in words, for when the accent is not enough. */
+/* Says that this group is drawn as one entity, not just collected. */
+.merge-group__state {
+  flex: none;
+  padding: 0 5px;
+  background: var(--line);
+  border-radius: 999px;
+  color: var(--text-dim);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .merge-group__live {
   flex: none;
   color: var(--accent);
   font-size: 10px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-}
-
-.merge-group__confirm {
-  flex: none;
-  height: var(--control-h-sm);
-  padding-inline: 10px;
-  font-size: 11px;
 }
 
 .merge-group__drop {
@@ -2798,20 +2778,6 @@ body {
     width: 40px;
     height: 40px;
   }
-}
-
-/* One merged entity's block, separated so several read as a list. */
-.merge-entity {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-top: 10px;
-  border-top: 1px solid var(--line);
-}
-
-.merge-entity:first-of-type {
-  padding-top: 0;
-  border-top: 0;
 }
 
 /* --------------------------------------------------------- composition frame */

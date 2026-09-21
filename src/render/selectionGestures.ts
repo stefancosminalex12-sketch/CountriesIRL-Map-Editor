@@ -50,8 +50,6 @@ export interface SelectionGestureHandlers {
   remove: (ids: string[], historyKey: string) => void
   /** Whether an entity is selected right now — what decides whether a gesture adds or takes out. */
   isSelected: (id: string) => boolean
-  /** Called once a gesture ends, with how many entities it added or took out. */
-  finished: (changed: number) => void
   /** Held true while a gesture runs, so hover is not tracked underneath it. */
   selecting: MutableRefObject<boolean>
   /**
@@ -298,7 +296,6 @@ export function useSelectionGestures(
       const h = latest.current
       cancelAnimationFrame(frame)
       frame = 0
-      let added = 0
 
       if (done.kind === 'rect') {
         const marquee = part('.map-canvas__marquee')
@@ -319,15 +316,12 @@ export function useSelectionGestures(
           const selected = ids.filter((id) => h.isSelected(id))
           if (ids.length > 0 && selected.length * 2 >= ids.length) {
             h.remove(selected, done.historyKey)
-            added = selected.length
           } else if (ids.length > 0) {
             h.add(ids, done.historyKey)
-            added = ids.length - selected.length
           }
         }
       } else {
         if (commit) stroke()
-        added = done.changed
         h.suppressClick.current = done.seen.size > 0 || done.travel > CLICK_SLOP_PX
         window.clearTimeout(clearSuppress)
         clearSuppress = window.setTimeout(() => {
@@ -340,7 +334,6 @@ export function useSelectionGestures(
       h.selecting.current = false
       release(done.pointerId)
       releasePage()
-      h.finished(added)
     }
 
     const onPointerDown = (event: PointerEvent) => {

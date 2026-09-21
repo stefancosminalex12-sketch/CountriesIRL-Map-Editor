@@ -10,8 +10,8 @@
 import { useRef, useState, type DragEvent } from 'react'
 import { useMapStore } from '../state/mapStore'
 import { buildBlankSvg, importMapSvg, type SvgImportResult } from '../io/svgExchange'
+import { withFullDetail } from '../render/landDetail'
 import { useNoun } from '../maps/useNoun'
-import { playSfx } from '../audio/sfx'
 
 /** Files larger than this are not an edited blank map — refused before they are read. */
 const MAX_BYTES = 60 * 1024 * 1024
@@ -25,9 +25,12 @@ export function SvgExchange() {
   const [busy, setBusy] = useState(false)
   const input = useRef<HTMLInputElement>(null)
 
-  const download = () => {
-    const { doc, geo } = useMapStore.getState()
-    const blank = buildBlankSvg(doc, geo)
+  // At full detail, like every other export: the file is meant to be edited and zoomed into.
+  const download = async () => {
+    const blank = await withFullDetail(() => {
+      const { doc, geo } = useMapStore.getState()
+      return buildBlankSvg(doc, geo)
+    })
     if (!blank) {
       setDownloaded('The map is still loading. Try again in a moment.')
       return
@@ -41,7 +44,6 @@ export function SvgExchange() {
     link.remove()
     window.setTimeout(() => URL.revokeObjectURL(url), 10_000)
     setDownloaded(`${blank.filename} — ${blank.entities.toLocaleString()} ${blank.entities === 1 ? noun.one : noun.many}, ${(blank.markup.length / 1024 / 1024).toFixed(1)} MB.`)
-    playSfx('confirm')
   }
 
   const read = async (file: File | undefined | null) => {
@@ -60,7 +62,6 @@ export function SvgExchange() {
       const { doc, geo, dispatch } = useMapStore.getState()
       const outcome = importMapSvg(text, doc, geo, dispatch)
       setResult(outcome)
-      playSfx(outcome.ok ? 'confirm' : 'click')
     } finally {
       setBusy(false)
     }

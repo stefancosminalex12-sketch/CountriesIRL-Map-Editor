@@ -98,11 +98,20 @@ export type MapOperation =
    */
   | { op: 'set_screen'; patch: Record<string, unknown> }
   /*
-   * Merged entities. Additive and reversible: creating one records which countries it
-   * dissolves, deleting one restores them, and the dataset is never touched by either.
+   * Groups, and the merges they become. Additive and reversible: a group records which
+   * entities it holds, merging it draws them as one, deleting it restores them, and the
+   * dataset is never touched by any of it.
+   *
+   * `merged` is what separates the two: a group left unmerged changes nothing on the map.
+   * It defaults to whether the group was created with members, so an operation that names
+   * its members — a template, or the assistant asking for a merge — still means a merge.
    */
-  | { op: 'create_merge'; id: string; name: string; members: CountryId[] }
-  | { op: 'update_merge'; id: string; patch: { name?: string; flag?: string | null; members?: CountryId[] } }
+  | { op: 'create_merge'; id: string; name: string; members: CountryId[]; merged?: boolean }
+  | {
+      op: 'update_merge'
+      id: string
+      patch: { name?: string; flag?: string | null; members?: CountryId[]; merged?: boolean }
+    }
   | { op: 'delete_merge'; id: string }
   /*
    * Map overlays: movable copies of an entity's shape. They name the entity they copy and never

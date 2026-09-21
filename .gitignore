@@ -1,7 +1,6 @@
 node_modules
 dist
 public/geo
-public/sfx
 .DS_Store
 *.local
 public/flags/

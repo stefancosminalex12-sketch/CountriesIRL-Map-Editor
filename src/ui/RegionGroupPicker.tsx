@@ -13,7 +13,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { useMapStore } from '../state/mapStore'
 import { selectableGroups } from '../geo/groups'
-import { playSfx } from '../audio/sfx'
 
 const MAX_MATCHES = 30
 
@@ -48,7 +47,6 @@ export function RegionGroupPicker() {
     addToSelection(members)
     setQuery('')
     setOpen(false)
-    playSfx('confirm')
   }
 
   return (

@@ -325,6 +325,19 @@ function clustersFor(dataset: LoadedDataset): Map<string, Landmass[][]> {
   return all
 }
 
+/**
+ * Clusters one entity, for a caller warming a dataset a few entities at a time.
+ *
+ * The clustering is memoised on the geometry, so this is exactly the work `flagFootprints`
+ * would have done for that entity and nothing is computed twice. It exists so the warm-up can
+ * stop between entities: done in one pass it held the main thread for over two seconds on
+ * Europe Countries, which is a freeze, not a load.
+ */
+export function warmEntityClusters(dataset: LoadedDataset, id: string): void {
+  const feature = dataset.byId.get(id)
+  if (feature) clustersOf(feature as Feature<Polygon | MultiPolygon>)
+}
+
 const territoryCache = new Map<string, Map<string, MultiPolygon[]>>()
 
 /**

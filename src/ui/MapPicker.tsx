@@ -12,7 +12,6 @@
  */
 import { useId, useState } from 'react'
 import { useMapStore } from '../state/mapStore'
-import { playSfx } from '../audio/sfx'
 import { ATLAS_FAMILIES, ATLASES, type Atlas, type AtlasFamilyId } from '../maps/atlas'
 
 /** The line under a map's name: its own note, or one made from its noun and insets. */
@@ -91,13 +90,11 @@ export function MapPicker() {
     if (opening) next.add(id)
     else next.delete(id)
     setOpen(next)
-    playSfx(opening ? 'toggleOn' : 'toggleOff')
   }
 
   const choose = (id: string) => {
     if (id === atlasId) return
     setAtlas(id)
-    playSfx('confirm')
   }
 
   return (

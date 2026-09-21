@@ -8,7 +8,6 @@
  * from `flagOptions`, the one list the Flags panel, the Merge panel and the overlays all share.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { playSfx } from '../audio/sfx'
 import type { FlagOption } from '../flags/flagChoices'
 
 /** How many matches are offered at once. Enough to choose from, short enough to scan. */
@@ -57,7 +56,6 @@ export function FlagPicker({ label, value, options, onChange, placeholder = 'Typ
     onChange(code)
     setQuery('')
     setOpen(false)
-    playSfx('confirm')
   }
 
   return (

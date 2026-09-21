@@ -1,11 +1,10 @@
 /**
- * Editor settings: appearance and sound.
+ * Editor settings: appearance and attribution.
  *
  * Structured as independent sections so later settings (export defaults, shortcuts,
  * the AI assistant) drop in without rearranging anything.
  */
 import { useEffect, useState } from 'react'
-import { playSfx } from '../audio/sfx'
 import { loadCompositionIndex, type CompositionIndex } from '../geo/composition'
 import { useSettingsStore } from '../state/settingsStore'
 import { getTheme, THEMES, type ThemeId } from '../theme/themes'
@@ -74,7 +73,6 @@ export function SelectionHighlight() {
             aria-pressed={current.toLowerCase() === preset.color}
             onClick={() => {
               setHighlight(preset.color)
-              playSfx('click')
             }}
           />
         ))}
@@ -87,7 +85,6 @@ export function SelectionHighlight() {
           className="btn btn--ghost"
           onClick={() => {
             setHighlight(null)
-            playSfx('click')
           }}
         >
           Use theme colour
@@ -111,7 +108,6 @@ function ThemeChoice({ id }: { id: ThemeId }) {
       onClick={() => {
         if (active) return
         setTheme(id)
-        playSfx('confirm')
       }}
     >
       <span className="theme-choice__swatches" aria-hidden="true">
@@ -136,43 +132,6 @@ export function ThemePicker() {
         <ThemeChoice key={theme.id} id={theme.id} />
       ))}
     </div>
-  )
-}
-
-export function SoundSettings() {
-  const sfxVolume = useSettingsStore((s) => s.sfxVolume)
-  const setSfxVolume = useSettingsStore((s) => s.setSfxVolume)
-  const percent = Math.round(sfxVolume * 100)
-
-  // The sidebar supplies the heading; this is the section's contents.
-  return (
-        <div className="stack">
-          <label className="field" htmlFor="sfx-volume">
-            <span className="field__row">
-              <span className="field__label">Sound effects</span>
-              <span className="field__value">{percent}%</span>
-            </span>
-            <input
-              id="sfx-volume"
-              className="slider"
-              type="range"
-              min={0}
-              max={100}
-              step={1}
-              value={percent}
-              aria-valuetext={`${percent} percent`}
-              onChange={(event) => setSfxVolume(Number(event.target.value) / 100)}
-              // Preview the level once the drag ends rather than on every step.
-              onPointerUp={() => playSfx('tick')}
-              onKeyUp={() => playSfx('tick')}
-            />
-          </label>
-          <p className="hint">
-            {percent === 0
-              ? 'Muted. Interface sounds are off.'
-              : 'Brief tactile clicks on meaningful actions only.'}
-          </p>
-        </div>
   )
 }
 

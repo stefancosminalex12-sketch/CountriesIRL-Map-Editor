@@ -14,10 +14,10 @@
  * colouring mode in Data & palette, from the value edited here or from the groups it
  * belongs to — so this panel edits the data and that panel decides how the data reads.
  */
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { useMapStore } from '../state/mapStore'
-import { playSfx } from '../audio/sfx'
-import type { CountryId, MapValue } from '../types/map'
+import type { CountryEntry, CountryId, MapValue, MergedEntity } from '../types/map'
+import type { EntityMeta } from '../geo/countryMeta'
 import { useNoun } from '../maps/useNoun'
 import { GroupActions } from './GroupActions'
 import { EntitySource } from './EntitySource'
@@ -167,7 +167,6 @@ function ValueField({
         if (e.key === 'Enter') {
           e.preventDefault()
           const applied = commit()
-          playSfx('tick')
           if (applied && onApplied) {
             settled.current = true
             onApplied()
@@ -182,6 +181,115 @@ function ValueField({
   )
 }
 
+/**
+ * One selected entity's card.
+ *
+ * Memoised, and given only what it draws: with two hundred entities selected, adding one
+ * more re-rendered all two hundred cards, every one of them producing exactly the markup it
+ * already had. Now React skips the cards whose entity, entry and role are unchanged, and
+ * renders the one that arrived. The props are the objects the document already holds — the
+ * metadata, the country's entry, its group — so "unchanged" is a reference check.
+ */
+interface SelectedRowProps {
+  id: CountryId
+  meta: EntityMeta | undefined
+  entry: CountryEntry | undefined
+  merge: MergedEntity | undefined
+  dataKey: string
+  single: boolean
+  detailsUrl: string | undefined
+  dispatch: ReturnType<typeof useMapStore.getState>['dispatch']
+  onApplied: (() => void) | undefined
+}
+
+const SelectedRow = memo(function SelectedRow({ id, meta, entry, merge, dataKey, single, detailsUrl, dispatch, onApplied }: SelectedRowProps) {
+  const value = entry?.properties[dataKey] ?? null
+  /*
+   * A merged entity has no row in the country table and should not pretend to:
+   * it is not a real-world country and inventing a region for it would be stating
+   * something false. Its own name and the countries it was made from are the true
+   * facts about it, so those are what it shows.
+   */
+  const sourceName = merge?.name ?? meta?.name ?? id
+  return (
+    <div className="inspector__row">
+      <div className="inspector__title">
+        <strong>{entry?.label ?? sourceName}</strong>
+        <code>{merge ? 'MERGED' : id}</code>
+      </div>
+      <div className="hint">
+        {merge
+          ? `Made from: ${merge.members.join(', ')}`
+          : meta?.parent
+            ? `${meta.kind ?? 'Subdivision'} in ${meta.parent.name}${
+                meta.parent.iso2 || meta.parent.code ? ` (${meta.parent.iso2 ?? meta.parent.code})` : ''
+              }`
+            : meta
+              ? `${meta.subregion} · ${meta.region}`
+              : 'Not in the country table'}
+      </div>
+      {/*
+        A subdivision's own codes and where it comes from — the ISO 3166-2 code where it
+        has one, and the dataset its lines are drawn from.
+      */}
+      {!merge && meta && <EntitySource meta={meta} detailsUrl={detailsUrl} />}
+      {!merge && meta?.members && meta.members.length > 1 && (
+        <div className="hint">
+          Made from {meta.members.length}: {meta.members.slice(0, 12).join(', ')}
+          {meta.members.length > 12 ? `, and ${meta.members.length - 12} more` : ''}
+        </div>
+      )}
+      {!merge && meta && single && <GroupActions meta={meta} />}
+
+      {/* Only the single-selection view offers per-country editing; with many
+          selected the shared row above does the work and these stay read-outs. */}
+      {single && (
+        <>
+          <input
+            className="input"
+            type="text"
+            value={entry?.label ?? ''}
+            placeholder={sourceName}
+            aria-label="Name"
+            onChange={(e) =>
+              dispatch({
+                op: 'set_country_label',
+                countryId: id,
+                label: e.target.value.trim() === '' ? null : e.target.value,
+              })
+            }
+          />
+          <ValueField
+            ids={[id]}
+            committed={value === null ? '' : String(value)}
+            onApplied={onApplied}
+          />
+          <div className="inspector__actions">
+            <button
+              type="button"
+              className="btn btn--ghost"
+              disabled={value === null}
+              onClick={() => dispatch({ op: 'clear_country_value', countryId: id })}
+            >
+              Clear value
+            </button>
+            <button
+              type="button"
+              className="btn btn--ghost"
+              title="Remove all data for this country"
+              onClick={() => {
+                dispatch({ op: 'clear_country', countryId: id })
+              }}
+            >
+              Reset
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+})
+
 export function Inspector() {
   const geo = useMapStore((s) => s.geo)
   const doc = useMapStore((s) => s.doc)
@@ -193,6 +301,8 @@ export function Inspector() {
 
   const layer = doc.layers.find((l) => l.id === doc.activeLayerId) ?? doc.layers[0]
   const key = layer?.dataKey ?? 'value'
+  /* One lookup per row rather than a scan of every group per row. */
+  const mergeById = useMemo(() => new Map(doc.merges.map((m) => [m.id, m])), [doc.merges])
 
   if (selectedCountryIds.length === 0) {
     return (
@@ -281,98 +391,20 @@ export function Inspector() {
         </div>
       )}
 
-      {selectedCountryIds.map((id) => {
-        const meta = geo?.meta[id]
-        const entry = doc.countries[id]
-        const value = entry?.properties[key] ?? null
-        /*
-         * A merged entity has no row in the country table and should not pretend to:
-         * it is not a real-world country and inventing a region for it would be stating
-         * something false. Its own name and the countries it was made from are the true
-         * facts about it, so those are what it shows.
-         */
-        const merge = doc.merges.find((m) => m.id === id)
-        const sourceName = merge?.name ?? meta?.name ?? id
-
-        return (
-          <div className="inspector__row" key={id}>
-            <div className="inspector__title">
-              <strong>{entry?.label ?? sourceName}</strong>
-              <code>{merge ? 'MERGED' : id}</code>
-            </div>
-            <div className="hint">
-              {merge
-                ? `Made from: ${merge.members.join(', ')}`
-                : meta?.parent
-                  ? `${meta.kind ?? 'Subdivision'} in ${meta.parent.name}${
-                      meta.parent.iso2 || meta.parent.code ? ` (${meta.parent.iso2 ?? meta.parent.code})` : ''
-                    }`
-                  : meta
-                    ? `${meta.subregion} · ${meta.region}`
-                    : 'Not in the country table'}
-            </div>
-            {/*
-              A subdivision's own codes and where it comes from — the ISO 3166-2 code where it
-              has one, and the dataset its lines are drawn from.
-            */}
-            {!merge && meta && <EntitySource meta={meta} detailsUrl={geo?.dataset.detailsUrl} />}
-            {!merge && meta?.members && meta.members.length > 1 && (
-              <div className="hint">
-                Made from {meta.members.length}: {meta.members.slice(0, 12).join(', ')}
-                {meta.members.length > 12 ? `, and ${meta.members.length - 12} more` : ''}
-              </div>
-            )}
-            {!merge && meta && single === id && <GroupActions meta={meta} />}
-
-            {/* Only the single-selection view offers per-country editing; with many
-                selected the shared row above does the work and these stay read-outs. */}
-            {single === id && (
-              <>
-                <input
-                  className="input"
-                  type="text"
-                  value={entry?.label ?? ''}
-                  placeholder={sourceName}
-                  aria-label="Name"
-                  onChange={(e) =>
-                    dispatch({
-                      op: 'set_country_label',
-                      countryId: id,
-                      label: e.target.value.trim() === '' ? null : e.target.value,
-                    })
-                  }
-                />
-                <ValueField
-                  ids={[id]}
-                  committed={value === null ? '' : String(value)}
-                  onApplied={onApplied}
-                />
-                <div className="inspector__actions">
-                  <button
-                    type="button"
-                    className="btn btn--ghost"
-                    disabled={value === null}
-                    onClick={() => dispatch({ op: 'clear_country_value', countryId: id })}
-                  >
-                    Clear value
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn--ghost"
-                    title="Remove all data for this country"
-                    onClick={() => {
-                      dispatch({ op: 'clear_country', countryId: id })
-                      playSfx('click')
-                    }}
-                  >
-                    Reset
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        )
-      })}
+      {selectedCountryIds.map((id) => (
+        <SelectedRow
+          key={id}
+          id={id}
+          meta={geo?.meta[id]}
+          entry={doc.countries[id]}
+          merge={mergeById.get(id)}
+          dataKey={key}
+          single={single === id}
+          detailsUrl={geo?.dataset.detailsUrl}
+          dispatch={dispatch}
+          onApplied={onApplied}
+        />
+      ))}
         </>
       )}
     </div>

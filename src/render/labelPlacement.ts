@@ -1584,7 +1584,17 @@ function blockArea(option: Option): number {
  * tie.
  */
 interface Blocking {
+  /**
+   * The placed blocks near `rect`, in no particular order: the one caller sorts what it
+   * makes of them, by a rule of its own that does not depend on which block proposed what.
+   */
   near(rect: Rect): Rect[]
+  /**
+   * Each placed block near `rect`, in no particular order and without building a list — for
+   * the scoring, which only sums what it is given. Sorting a fresh array for every candidate
+   * position was the most expensive thing in the layout after the sliding itself.
+   */
+  each(rect: Rect, visit: (other: Rect) => void): void
   /**
    * Whether `rect` is clear of every placed block. The same answer as testing `near`, but
    * asked of the grid directly: a yes or no needs no list built and no order kept, and it
@@ -1676,6 +1686,23 @@ class RectGrid {
     return false
   }
 
+  /** Calls `visit` with each entry near `rect`, once. */
+  each(rect: Rect, visit: (entry: GridEntry) => void): void {
+    const stamp = ++this.stamp
+    const [x0, y0, x1, y1] = this.range(rect)
+    for (let ix = x0; ix <= x1; ix++) {
+      for (let iy = y0; iy <= y1; iy++) {
+        const list = this.cells.get(RectGrid.key(ix, iy))
+        if (!list) continue
+        for (const entry of list) {
+          if (entry.seen === stamp) continue
+          entry.seen = stamp
+          visit(entry)
+        }
+      }
+    }
+  }
+
   query(rect: Rect): GridEntry[] {
     const stamp = ++this.stamp
     const found: GridEntry[] = []
@@ -1699,12 +1726,19 @@ class RectGrid {
 function gridBlocking(grid: RectGrid, except?: ReadonlySet<unknown>, extra?: Rect[]): Blocking {
   return {
     near(rect) {
-      const found = grid
-        .query(rect)
-        .filter((entry) => !except || !except.has(entry.owner))
-        .sort((a, b) => a.order - b.order)
-        .map((entry) => entry.rect)
-      return extra && extra.length > 0 ? [...found, ...extra] : found
+      // One pass, one array: this is asked millions of times over an administrative map.
+      const found: Rect[] = []
+      grid.each(rect, (entry) => {
+        if (!except || !except.has(entry.owner)) found.push(entry.rect)
+      })
+      if (extra) for (const other of extra) found.push(other)
+      return found
+    },
+    each(rect, visit) {
+      grid.each(rect, (entry) => {
+        if (!except || !except.has(entry.owner)) visit(entry.rect)
+      })
+      if (extra) for (const other of extra) visit(other)
     },
     clear(rect) {
       if (extra) for (const other of extra) if (overlaps(rect, other)) return false
@@ -1723,11 +1757,11 @@ function clearOf(rect: Rect, blocking: Blocking): boolean {
 /** Total area a block shares with the blocks already placed. */
 function overlapArea(rect: Rect, blocking: Blocking): number {
   let total = 0
-  for (const other of blocking.near(rect)) {
+  blocking.each(rect, (other) => {
     const w = Math.min(rect.x1, other.x1) - Math.max(rect.x0, other.x0)
     const h = Math.min(rect.y1, other.y1) - Math.max(rect.y0, other.y0)
     if (w > 0 && h > 0) total += w * h
-  }
+  })
   return total
 }
 
@@ -1781,26 +1815,50 @@ function slide(
   })
   const local: Blocking = {
     near: () => nearby,
+    each: (_rect, visit) => {
+      for (const other of nearby) visit(other)
+    },
     clear: (moved) => !nearby.some((other) => overlaps(moved, other)),
   }
 
+  /*
+   * The moves worth trying: past the edge of each block in the way, along each axis, with
+   * the ones beyond the limit dropped before the sort rather than after it, and each
+   * distinct move tried once. Neighbours in a crowd propose the same move over and over —
+   * on Europe Administrative four in five of these candidates were repeats or out of
+   * range, and each one cost a settle and a sweep of everything nearby.
+   */
   const shifts: Array<[number, number]> = []
+  const limitX = SLIDE_LIMIT * hw
+  const limitY = SLIDE_LIMIT * hh
+  const offer = (dx: number, dy: number) => {
+    if (Math.abs(dx) > limitX || Math.abs(dy) > limitY) return
+    shifts.push([dx, dy])
+  }
   for (const other of nearby) {
     if (!overlaps(rect, other)) continue
-    shifts.push(
-      [other.x1 - rect.x0, 0],
-      [other.x0 - rect.x1, 0],
-      [0, other.y1 - rect.y0],
-      [0, other.y0 - rect.y1],
-    )
+    offer(other.x1 - rect.x0, 0)
+    offer(other.x0 - rect.x1, 0)
+    offer(0, other.y1 - rect.y0)
+    offer(0, other.y0 - rect.y1)
   }
-  shifts.sort(
-    (a, b) =>
-      Math.abs(a[0]) / hw + Math.abs(a[1]) / hh - (Math.abs(b[0]) / hw + Math.abs(b[1]) / hh),
-  )
+  /*
+   * Nearest move first, and between two moves of the same distance the same one every time:
+   * the tie is broken on the move itself rather than on the order its neighbour happened to
+   * be placed in, which is what lets the blocks be gathered without sorting them.
+   */
+  shifts.sort((a, b) => {
+    const da = Math.abs(a[0]) / hw + Math.abs(a[1]) / hh
+    const db = Math.abs(b[0]) / hw + Math.abs(b[1]) / hh
+    return da !== db ? da - db : a[0] !== b[0] ? a[0] - b[0] : a[1] - b[1]
+  })
 
+  /* Nearest first, so the first of a set of equal moves is the one that would have won. */
+  const tried = new Set<string>()
   for (const [dx, dy] of shifts) {
-    if (Math.abs(dx) > SLIDE_LIMIT * hw || Math.abs(dy) > SLIDE_LIMIT * hh) continue
+    const key = `${Math.round(dx * 64)},${Math.round(dy * 64)}`
+    if (tried.has(key)) continue
+    tried.add(key)
     const moved = settle({ ...option, x: option.x + dx, y: option.y + dy }, size, frame)
     if (Math.abs(moved.option.x - option.x) > SLIDE_LIMIT * hw) continue
     if (Math.abs(moved.option.y - option.y) > SLIDE_LIMIT * hh) continue

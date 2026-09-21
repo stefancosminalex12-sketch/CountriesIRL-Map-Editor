@@ -11,7 +11,6 @@ import { useState } from 'react'
 import { useMapStore } from '../state/mapStore'
 import { TEMPLATES, templateOps, type MapTemplate } from '../state/templates'
 import { openSidebarSection } from './sidebarEvents'
-import { playSfx } from '../audio/sfx'
 
 export function TemplatePicker() {
   const geo = useMapStore((s) => s.geo)
@@ -21,7 +20,6 @@ export function TemplatePicker() {
 
   const finish = (template: MapTemplate, text: string) => {
     setStatus({ ok: true, text: `${text} ${template.next}` })
-    playSfx('confirm')
     if (template.openSection) openSidebarSection(template.openSection)
   }
 
@@ -30,7 +28,6 @@ export function TemplatePicker() {
       // Asks first: the options open under it, and a second click folds them away again.
       setAsking(asking === template.id ? null : template.id)
       setStatus(null)
-      playSfx(asking === template.id ? 'toggleOff' : 'toggleOn')
       return
     }
     const { doc, dispatch } = useMapStore.getState()
@@ -46,7 +43,6 @@ export function TemplatePicker() {
       const built = await template.choices.build(optionId, doc, loaded)
       if ('error' in built) {
         setStatus({ ok: false, text: built.error })
-        playSfx('click')
         return
       }
       // The template's fixed settings, if it has any, then the chosen option's — one edit.

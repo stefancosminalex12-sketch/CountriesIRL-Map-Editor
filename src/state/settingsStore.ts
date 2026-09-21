@@ -11,19 +11,15 @@
  */
 import { create } from 'zustand'
 import { applyUiTokens, DEFAULT_THEME_ID, getTheme, type ThemeId } from '../theme/themes'
-import { setSfxVolume } from '../audio/sfx'
 import { useMapStore } from './mapStore'
 
 const STORAGE_KEY = 'map-editor.settings.v1'
-
-export const DEFAULT_SFX_VOLUME = 0.6
 
 /** The selection highlight a fresh install starts with — the Theme Color preset. */
 export const DEFAULT_SELECTION_HIGHLIGHT = '#4a7fbf'
 
 interface PersistedSettings {
   themeId: ThemeId
-  sfxVolume: number
   /**
    * The colour a selected country is filled with, or `null` to follow the theme.
    *
@@ -43,7 +39,6 @@ function readColor(value: unknown): string | null {
 function read(): PersistedSettings {
   const fallback: PersistedSettings = {
     themeId: DEFAULT_THEME_ID,
-    sfxVolume: DEFAULT_SFX_VOLUME,
     selectionHighlight: DEFAULT_SELECTION_HIGHLIGHT,
   }
   try {
@@ -52,10 +47,6 @@ function read(): PersistedSettings {
     const parsed = JSON.parse(raw) as Partial<PersistedSettings>
     return {
       themeId: getTheme(parsed.themeId as ThemeId).id,
-      sfxVolume:
-        typeof parsed.sfxVolume === 'number' && Number.isFinite(parsed.sfxVolume)
-          ? Math.max(0, Math.min(1, parsed.sfxVolume))
-          : fallback.sfxVolume,
       /*
        * A stored `null` is a real choice — "follow the theme" — and has to be told apart
        * from a preferences file written before this setting existed. Testing for the key
@@ -76,9 +67,9 @@ function read(): PersistedSettings {
  * Writes preferences, at most once per idle moment.
  *
  * `localStorage.setItem` is synchronous, and two of these settings are dragged rather
- * than clicked: the volume slider and the selection-highlight well both fire on every
- * input event, so a single drag was serialising and writing the whole preferences
- * object sixty times a second on the main thread. That is the jank in the Sound section.
+ * than clicked: the selection-highlight well fires on every input event, so a single drag
+ * was serialising and writing the whole preferences object sixty times a second on the
+ * main thread.
  *
  * The store still updates immediately — what is deferred is only the trip to disk, and
  * the last write of a drag is the one that matters. Flushed on `pagehide` as well, so a
@@ -111,11 +102,9 @@ if (typeof window !== 'undefined') {
 
 interface SettingsStore {
   themeId: ThemeId
-  sfxVolume: number
   /** See {@link PersistedSettings.selectionHighlight}. */
   selectionHighlight: string | null
   setTheme: (id: ThemeId) => void
-  setSfxVolume: (volume: number) => void
   /** `null` hands the colour back to the theme. */
   setSelectionHighlight: (color: string | null) => void
 }
@@ -138,7 +127,6 @@ function applyMapPalette(id: ThemeId): void {
 
 export const useSettingsStore = create<SettingsStore>((set, get) => ({
   themeId: initial.themeId,
-  sfxVolume: initial.sfxVolume,
   selectionHighlight: initial.selectionHighlight,
 
   /*
@@ -155,13 +143,6 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     persist(get())
   },
 
-  setSfxVolume(volume) {
-    const next = Math.max(0, Math.min(1, volume))
-    setSfxVolume(next)
-    set({ sfxVolume: next })
-    persist(get())
-  },
-
   setSelectionHighlight(color) {
     set({ selectionHighlight: color ? (readColor(color) ?? null) : null })
     persist(get())
@@ -172,15 +153,13 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 function persist(state: SettingsStore): void {
   write({
     themeId: state.themeId,
-    sfxVolume: state.sfxVolume,
     selectionHighlight: state.selectionHighlight,
   })
 }
 
 /** Applies stored preferences at start-up, before the first paint where possible. */
 export function initialiseSettings(): void {
-  const { themeId, sfxVolume } = useSettingsStore.getState()
+  const { themeId } = useSettingsStore.getState()
   applyUiTokens(getTheme(themeId))
   applyMapPalette(themeId)
-  setSfxVolume(sfxVolume)
 }

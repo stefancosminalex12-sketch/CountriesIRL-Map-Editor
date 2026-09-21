@@ -5,7 +5,6 @@ import { HistoryControls } from './ui/HistoryControls'
 import { ExportControls } from './ui/ExportControls'
 import { StatusBar } from './ui/StatusBar'
 import { useMapStore } from './state/mapStore'
-import { preloadSfx } from './audio/sfx'
 
 export function App() {
   const datasetId = useMapStore((s) => s.doc.scope.datasetId)
@@ -16,10 +15,6 @@ export function App() {
   useEffect(() => {
     void loadDataset(datasetId)
   }, [datasetId, loadDataset])
-
-  useEffect(() => {
-    preloadSfx()
-  }, [])
 
   return (
     <div className="app">

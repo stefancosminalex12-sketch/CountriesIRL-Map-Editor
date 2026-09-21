@@ -1,5 +1,4 @@
 import { useId, useState, type ReactNode } from 'react'
-import { playSfx } from '../audio/sfx'
 
 /**
  * A titled row that opens to reveal its contents.
@@ -38,7 +37,6 @@ export function Disclosure({
         aria-controls={bodyId}
         onClick={() => {
           setOpen(!open)
-          playSfx(open ? 'toggleOff' : 'toggleOn')
         }}
       >
         <span className="disclosure__title">{title}</span>

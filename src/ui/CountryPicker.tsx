@@ -13,7 +13,6 @@
  */
 import { useMemo, useRef, useState } from 'react'
 import { useMapStore } from '../state/mapStore'
-import { playSfx } from '../audio/sfx'
 import type { CountryId } from '../types/map'
 
 /** How many matches are offered at once. Enough to choose from, short enough to scan. */
@@ -78,7 +77,6 @@ export function CountryPicker({
     onChange(id)
     setQuery('')
     setOpen(false)
-    playSfx('confirm')
   }
 
   return (

@@ -483,7 +483,13 @@ function applyOperation(doc: MapDocument, op: MapOperation): MapDocument {
       const mergeIds = new Set(doc.merges.map((m) => m.id))
       const taken = new Set(doc.merges.flatMap((m) => m.members))
       const members = [...new Set(op.members)].filter((id) => !mergeIds.has(id) && !taken.has(id))
-      return { ...doc, merges: [...doc.merges, { id: op.id, name: op.name, members, flag: null }] }
+      /*
+       * A group made empty by the panel is a container and nothing more until it is merged;
+       * one created with members already in it is a merge, which is what every other caller
+       * of this operation means by it.
+       */
+      const merged = op.merged ?? members.length > 0
+      return { ...doc, merges: [...doc.merges, { id: op.id, name: op.name, members, flag: null, merged }] }
     }
     case 'update_merge': {
       // In place: a group edited keeps its position in the list.

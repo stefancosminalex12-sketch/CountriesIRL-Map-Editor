@@ -24,7 +24,7 @@ import { getDataset } from '../geo/datasets'
 import { getProjectionDef, resolveProjectionId } from '../geo/projections'
 import { getRegion } from '../geo/regions'
 import { useMapStore } from '../state/mapStore'
-import { playSfx } from '../audio/sfx'
+import { withFullDetail } from '../render/landDetail'
 
 const FORMATS: { id: ExportFormat; label: string; hint: string }[] = [
   { id: 'png', label: 'PNG', hint: 'Lossless, 2× resolution' },
@@ -83,9 +83,14 @@ export function ExportControls() {
         format,
       )
 
-      const result = await renderMapExport(svg, { format, filename, background })
+      /*
+       * Captured at full detail, whatever the view is drawn at: the map leaves out points a
+       * screen cannot separate (`render/landDetail.ts`), and an export — a PNG at twice the
+       * scale, or an SVG someone will zoom into — must carry every one of them. The map is
+       * redrawn at full detail, captured, and released back to the view's own detail.
+       */
+      const result = await withFullDetail(() => renderMapExport(svg, { format, filename, background }))
       downloadBlob(result.blob, result.filename)
-      playSfx('confirm')
       setOpen(false)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Export failed')
@@ -104,7 +109,6 @@ export function ExportControls() {
         onClick={() => {
           setOpen((v) => !v)
           setError(null)
-          playSfx('press')
         }}
       >
         Export

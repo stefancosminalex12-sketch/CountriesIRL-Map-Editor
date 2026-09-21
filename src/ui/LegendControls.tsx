@@ -27,7 +27,6 @@ import { LEGEND_STYLES, LEGEND_STYLE_IDS } from '../state/legendStyles'
 import { LEGEND_ICON_IDS, LEGEND_ICONS } from '../state/legendIcons'
 import { naturalLegendSize } from '../state/legendLayout'
 import { MapToggle } from './MapToggle'
-import { playSfx } from '../audio/sfx'
 import {
   LABEL_FONTS,
   LEGEND_BORDER,
@@ -137,7 +136,6 @@ export function LegendControls() {
           // title the author typed.
           if (preset === CUSTOM) return
           setTitle(preset)
-          playSfx('click')
         }}
       >
         <option value={CUSTOM}>{matched === CUSTOM && title ? 'Custom' : 'Choose a preset…'}</option>
@@ -194,7 +192,6 @@ export function LegendControls() {
         value={icon ?? NO_ICON}
         onChange={(next) => {
           patch({ icon: next === NO_ICON ? null : next })
-          playSfx('click')
         }}
       >
         <option value={NO_ICON}>None</option>
@@ -245,7 +242,6 @@ export function LegendControls() {
         value={legend.font}
         onChange={(value) => {
           patch({ font: value as LabelFontId })
-          playSfx('click')
         }}
       >
         {LABEL_FONTS.map((font) => (
@@ -293,7 +289,6 @@ export function LegendControls() {
           className="btn btn--ghost"
           onClick={() => {
             patch({ ink: null, surface: null, border: null })
-            playSfx('click')
           }}
         >
           Match layout
@@ -330,7 +325,6 @@ export function LegendControls() {
         value={style}
         onChange={(next) => {
           patch({ style: next })
-          playSfx('click')
         }}
       >
         {LEGEND_STYLE_IDS.map((id) => (
@@ -409,7 +403,6 @@ export function LegendSizeControls() {
           onClick={() => {
             // Back to sizing itself to its content — the state a legend starts in.
             patch({ size: null })
-            playSfx('click')
           }}
         >
           Reset legend size

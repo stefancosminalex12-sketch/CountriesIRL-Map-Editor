@@ -21,7 +21,13 @@ initialiseSettings()
  *     { op: 'set_country_value', countryId: 'BGR', value: 18 },
  *   ])
  */
-if (import.meta.env.DEV) {
+/*
+ * On in development, and in a build made with `VITE_BRIDGE=1` — which is how the performance
+ * harness drives a production bundle (`.cache/perf-europe.mjs`): the numbers have to come from
+ * the build people actually run, not from a development one with React's checks in the way.
+ * An ordinary build has neither the flag nor this object.
+ */
+if (import.meta.env.DEV || import.meta.env.VITE_BRIDGE) {
   ;(window as unknown as Record<string, unknown>).__mapEditor = {
     dispatch: (...args: Parameters<ReturnType<typeof useMapStore.getState>['dispatch']>) =>
       useMapStore.getState().dispatch(...args),
