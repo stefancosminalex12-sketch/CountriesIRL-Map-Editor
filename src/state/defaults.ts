@@ -1,5 +1,6 @@
 /** Factory for a blank map document. */
 import { DEFAULT_ATLAS_ID, getAtlas } from '../maps/atlas'
+import { startingDatasetId } from '../maps/startingDetail'
 import { buildPalettes, DEFAULT_PALETTE_ID } from './palettes'
 import { DEFAULT_PRESET_ID } from './presets'
 import {
@@ -142,7 +143,8 @@ export function createMapDocument(
     name: 'Untitled map',
     scope: {
       atlasId: atlas.id,
-      datasetId: atlas.defaultDatasetId,
+      // The atlas's own default — or, on a phone, the lightest it offers. See `startingDetail`.
+      datasetId: startingDatasetId(atlas),
       regionIds: [...atlas.defaultRegionIds],
       projectionId: 'auto',
       padding: 32,

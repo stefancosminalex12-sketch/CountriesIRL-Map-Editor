@@ -1,6 +1,7 @@
 /** Dataset, projection and rendering controls. Every change goes through an operation. */
 import { datasetsForAtlas } from '../geo/datasets'
 import { getAtlas } from '../maps/atlas'
+import { noteDetailChosen } from '../maps/startingDetail'
 import { AUTO_PROJECTION_ID, PROJECTIONS } from '../geo/projections'
 import { useMapStore } from '../state/mapStore'
 import { MapToggle } from './MapToggle'
@@ -45,6 +46,12 @@ export function MapDetailSettings() {
         value={scope.datasetId}
         onChange={(datasetId) => {
           dispatch({ op: 'set_scope_dataset', datasetId })
+          /*
+           * From here on this session, the detail is the author's choice and not the
+           * device's: opening another map will not quietly hand a phone the lightest
+           * geography again. See `startingDetail`.
+           */
+          noteDetailChosen()
         }}
       >
         {datasets.map((d) => (

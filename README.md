@@ -875,6 +875,38 @@ count and where each of the audit's named places stands, so those gaps are known
 than papered over. Closing them means adding a finer public source — HydroLAKES or GSHHG
 for inland and coastal water — as another input to the same script.
 
+### What a phone opens at
+
+**The automatic Map Detail is the lightest resolution the map offers, on a small touch
+device only.** Opening the World map on a desktop still loads 10m, as it always has; on a
+phone it loads 110m, and the difference is the whole point of the setting: 455 KB against
+6,016 KB of geography on first load (`countries-110m.json` at 38 KB against
+`countries-10m.json` at 1,563 KB, and the lakes layer follows the dataset's own detail —
+405 KB against 4,440 KB).
+
+`maps/startingDetail.ts` decides it, and what it is not matters as much as what it is:
+
+- **Not a cap.** 50m and 10m are in the picker on a phone exactly as before, and choosing
+  one loads it.
+- **Not sticky against the author.** The moment they choose a detail themselves, the
+  automatic choice steps aside for the rest of the session, so opening another map does not
+  hand them 110m again. Verified: a manual 10m survives a region preset, a projection change,
+  a resize, an orientation change, opening and closing panels, and switching to another atlas
+  and back.
+- **Not re-decided later.** The device is read once, so nothing that happens afterwards —
+  rotating, resizing, switching maps — reconsiders it.
+- **Not a change to any other map.** Only the World map has more than one resolution; the
+  administrative, USA and Europe atlases have one geography each, so they open exactly where
+  they did.
+
+"Small touch device" is a coarse pointer *and* a screen whose shorter side is 820 px or less,
+so it reads the same in portrait and landscape and a touchscreen laptop is not caught. A phone
+and a small tablet qualify; a 1024-wide tablet and every desktop do not.
+
+The two maps are not quite the same map: 110m omits Bir Tawil and the Southern Patagonian Ice
+Field, which are unclaimed ground rather than countries. Every country, microstates included,
+is on the 110m map — see the next section for how.
+
 ### Entities a coarse dataset omits
 
 Natural Earth's three resolutions are not the same map at three levels of detail —
