@@ -32,6 +32,7 @@ import { DataPalette } from './DataPalette'
 import { LegendControls, LegendSizeControls } from './LegendControls'
 import { ScreenControls } from './ScreenControls'
 import { MergeControls } from './MergeControls'
+import { MapGrip } from './MapGrip'
 import { OverlayControls } from './OverlayControls'
 import { SelectionControls } from './SelectionControls'
 import { Disclosure } from './Panels'
@@ -468,6 +469,12 @@ export function Sidebar() {
             <div className="sidebar__body" key={rendered.id}>
               {rendered.body}
             </div>
+            {/*
+              The map, through the bottom of the panel — on a phone, where an open panel
+              leaves too little of it to drag. Part of the panel itself rather than of any
+              one section, so every section has it. See `MapGrip`.
+            */}
+            <MapGrip />
           </div>
         )}
       </div>

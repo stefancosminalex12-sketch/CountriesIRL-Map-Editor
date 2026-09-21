@@ -9,7 +9,7 @@
 import { Fragment, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactElement, memo } from 'react'
 import { geoGraticule10, geoPath } from 'd3-geo'
 import { select } from 'd3-selection'
-import { zoom, zoomIdentity, type ZoomBehavior } from 'd3-zoom'
+import { zoom, zoomIdentity, zoomTransform, type ZoomBehavior } from 'd3-zoom'
 import { useElementSize, type Size } from './useElementSize'
 import { useKeyed } from './useKeyed'
 import { getAtlas } from '../maps/atlas'
@@ -81,6 +81,7 @@ import {
 } from './smallEntities'
 import { anchorsOf, assistOf, useProjectedLand } from './projectedLand'
 import { reportDrawnTolerance, toleranceForZoom, useFullDetail } from './landDetail'
+import { setMapCamera } from './mapCamera'
 import { useGatedMemo } from './useGatedMemo'
 import { hiddenFootprint } from './hiddenMask'
 import { useSelectionGestures } from './selectionGestures'
@@ -505,6 +506,15 @@ export function MapCanvas() {
    * is the entire point.
    */
   const gesturingRef = useRef(false)
+  /**
+   * Set while the sidebar's grip is driving the camera.
+   *
+   * The grip moves the map through this very zoom behaviour, so its changes arrive with no
+   * source event — which is otherwise the signature of a programmatic move, and those are
+   * committed to the document as they happen. A gesture is not that: it wants the camera
+   * written to the DOM once a frame and the document told once, at the end. See `mapCamera.ts`.
+   */
+  const gripDragRef = useRef(false)
   /** The camera a gesture has reached, waiting for the next frame — see the zoom behaviour. */
   const liveCamera = useRef<{ k: number; x: number; y: number } | null>(null)
   const cameraFrame = useRef(0)
@@ -2330,7 +2340,7 @@ export function MapCanvas() {
       })
       .on('zoom', (event) => {
         const t = event.transform
-        if (zoomedRef.current && event.sourceEvent) {
+        if (zoomedRef.current && (event.sourceEvent || gripDragRef.current)) {
           /*
            * A wheel notch and a trackpad pinch are each their own little gesture, so this keeps
            * the map in the navigating state and pushes its release out past the last of them.
@@ -2353,6 +2363,13 @@ export function MapCanvas() {
         setTransform({ k: t.k, x: t.x, y: t.y })
       })
       .on('end', (event) => {
+        /*
+         * Each move the grip makes is its own little transform, so d3 ends a gesture after every
+         * one of them. The gesture the author is making is the whole drag, and it ends when
+         * their finger lifts — which is where the camera is committed, once, by the grip
+         * itself. Committing here as well would put a render on every frame of the drag.
+         */
+        if (gripDragRef.current) return
         // A frame still waiting is drawn now, at the final camera: the commit below would skip a
         // camera equal to the one it last committed, and leave the frame's older one on screen.
         if (cameraFrame.current) {
@@ -2385,6 +2402,63 @@ export function MapCanvas() {
     if (!svg || !zoomRef.current) return
     select(svg).call(zoomRef.current.transform, zoomIdentity)
   }, [framingEpoch])
+
+  /**
+   * The camera, lent to the sidebar's grip.
+   *
+   * Everything here is what a drag on the map itself does, in the same order and through the
+   * same zoom behaviour: `translateBy` and `scaleBy` are the calls d3 makes internally for a
+   * drag and a pinch, so the scale limits and the pan bounds are applied once, by the code
+   * that owns them. `gripDragRef` is what tells the handler above that these are a gesture's
+   * frames rather than a programmatic jump, so the camera goes to the DOM once a frame and the
+   * document hears about it once, when the finger lifts.
+   */
+  useEffect(() => {
+    setMapCamera(() => {
+      const svg = svgRef.current
+      const behavior = zoomRef.current
+      if (!svg || !behavior) return null
+      const selection = select(svg)
+      gripDragRef.current = true
+      gesturingRef.current = true
+      panScale.current = zoomTransform(svg).k
+      zoomingRef.current = false
+      navigating(true)
+      let live = true
+      const finish = () => {
+        if (!live) return
+        live = false
+        gripDragRef.current = false
+        gesturingRef.current = false
+        navigating(false)
+        // The frame still waiting is drawn now, at the camera the gesture ended on.
+        if (cameraFrame.current) {
+          cancelAnimationFrame(cameraFrame.current)
+          cameraFrame.current = 0
+          placeCamera()
+        }
+        const t = zoomTransform(svg)
+        setTransform({ k: t.k, x: t.x, y: t.y })
+      }
+      return {
+        panBy(dx, dy) {
+          if (!live) return
+          navigating(true)
+          // d3 translates in the camera's own units; a finger moves in screen pixels.
+          const k = zoomTransform(svg).k
+          selection.call(behavior.translateBy, dx / k, dy / k)
+        },
+        zoomBy(factor, clientX, clientY) {
+          if (!live) return
+          navigating(true)
+          const box = svg.getBoundingClientRect()
+          selection.call(behavior.scaleBy, factor, [clientX - box.x, clientY - box.y])
+        },
+        end: finish,
+      }
+    })
+    return () => setMapCamera(null)
+  }, [navigating, placeCamera, setTransform])
 
   const zoomBy = (factor: number) => {
     const svg = svgRef.current

@@ -378,8 +378,10 @@ body {
   z-index: 1;
   width: 260px;
   overflow: hidden;
-  background: var(--panel-alt);
-  border-right: 1px solid var(--line);
+  /*
+   * No surface of its own. The head and the body below carry it, so that the grip at the
+   * bottom — which is neither — is a window through the panel to the map. See `.sidebar__grip`.
+   */
   transform: translateX(-100%);
   /*
    * Parked, it must not be hit-testable. `pointer-events` rather than `visibility`
@@ -417,6 +419,27 @@ body {
   width: 260px;
   height: 100%;
   min-height: 0;
+}
+
+/*
+ * An open panel is a pane over the map, not a wall across it.
+ *
+ * The surface is the theme's own panel colour at around 85% — enough to hold text and to
+ * separate the panel from the map, little enough that the map reads through it and the author
+ * can see what their controls are doing to it. The blur is what makes that safe: without it
+ * a coastline running under a label competes with the words, and with it the map behind is a
+ * soft wash. One radius, on two elements, over a strip of the screen: it costs a composited
+ * blur of about 300x800 and no repaint of the map at all.
+ *
+ * The controls keep their own opaque surfaces (`--surface`, `--inset`), so every input,
+ * button and card reads exactly as it did.
+ */
+.sidebar__head,
+.sidebar__body {
+  background: var(--panel-overlay);
+  -webkit-backdrop-filter: blur(14px) saturate(1.15);
+  backdrop-filter: blur(14px) saturate(1.15);
+  border-right: 1px solid var(--line);
 }
 
 .sidebar__head {
@@ -458,9 +481,66 @@ body {
 }
 
 .sidebar__body {
+  flex: 1 1 auto;
   padding: 12px;
   overflow-y: auto;
   min-height: 0;
+}
+
+/*
+ * The map, through the bottom of the panel. See `MapGrip`.
+ *
+ * Off on a desktop, where there is map either side of the panel to drag. On a phone it is
+ * the bottom fifth of the panel: transparent, so what is under it is the map itself, and
+ * `touch-action: none` so the browser neither scrolls the panel nor swipes the page while a
+ * finger is moving the map.
+ */
+.sidebar__grip {
+  display: none;
+  position: relative;
+  flex: none;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  cursor: grab;
+}
+
+.sidebar__grip:active {
+  cursor: grabbing;
+}
+
+/* Where the controls stop and the map begins. */
+.sidebar__grip-edge {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--line);
+}
+
+/*
+ * Said once, faintly, at the top of the area: enough to be found, little enough to see the
+ * map through. It takes no pointer of its own — the whole area is one surface.
+ */
+.sidebar__grip-hint {
+  position: absolute;
+  top: 7px;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  color: var(--text-dim);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  opacity: 0.75;
+  pointer-events: none;
+  text-shadow:
+    0 1px 2px var(--panel-overlay),
+    0 0 6px var(--panel-overlay);
 }
 
 /* A labelled run of controls inside a section, for sections holding more than one. */
@@ -3285,6 +3365,26 @@ body {
  * the map more height than the information is worth.
  */
 @media (max-width: 620px) {
+  /*
+   * The grip, where the map is scarce. A fifth of the viewport, never less than a thumb's
+   * travel and never more than a quarter of a tall screen, so it is worth dragging on a
+   * small phone and does not take the panel over on a large one.
+   */
+  .sidebar__grip {
+    display: block;
+    /*
+     * Everything the controls do not need, down to a floor worth dragging on: a short panel
+     * gives most of its height back to the map, a long one still keeps a thumb's worth.
+     */
+    flex: 1 1 auto;
+    min-height: clamp(104px, 20vh, 220px);
+  }
+
+  /* The controls take what they need; the grip has the rest. */
+  .sidebar__body {
+    flex: 0 1 auto;
+  }
+
   .app__title {
     width: auto;
     min-width: 0;
@@ -3394,6 +3494,24 @@ body {
   .sidebar__panel,
   .sidebar__panel-inner {
     width: min(340px, 42vw);
+  }
+
+  /*
+   * Turned sideways there is less height to give away and more map beside the panel, so the
+   * grip is shorter — still a surface a thumb can cross, not a third of the panel.
+   */
+  .sidebar__grip {
+    display: block;
+    flex: 1 1 auto;
+    min-height: clamp(64px, 22vh, 120px);
+  }
+
+  .sidebar__body {
+    flex: 0 1 auto;
+  }
+
+  .sidebar__grip-hint {
+    top: 4px;
   }
 
   .toggles {
