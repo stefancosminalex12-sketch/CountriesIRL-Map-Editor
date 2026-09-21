@@ -379,8 +379,9 @@ body {
   width: 260px;
   overflow: hidden;
   /*
-   * No surface of its own. The head and the body below carry it, so that the grip at the
-   * bottom — which is neither — is a window through the panel to the map. See `.sidebar__grip`.
+   * No surface of its own: the head, the body and the pad below tile it from top to bottom,
+   * each in glass. Painting it here as well would put a second sheet behind the one small
+   * rectangle that is meant to be a window on the map. See `.sidebar__grip`.
    */
   transform: translateX(-100%);
   /*
@@ -422,23 +423,25 @@ body {
 }
 
 /*
- * An open panel is a pane over the map, not a wall across it.
+ * An open panel is glass over the map, not a wall across it.
  *
- * The surface is the theme's own panel colour at around 85% — enough to hold text and to
- * separate the panel from the map, little enough that the map reads through it and the author
- * can see what their controls are doing to it. The blur is what makes that safe: without it
- * a coastline running under a label competes with the words, and with it the map behind is a
- * soft wash. One radius, on two elements, over a strip of the screen: it costs a composited
- * blur of about 300x800 and no repaint of the map at all.
+ * The surface is the theme's own panel colour at around 70% with a modest blur: the map is
+ * plainly there underneath — coastlines, borders, the colours being worked on — while text
+ * and controls keep their contrast, because the blur turns whatever is behind into a soft
+ * wash rather than detail competing with the words. Nothing fancier: no gradient, no
+ * reflection, no edge glow, all of which cost legibility and hide the map.
  *
- * The controls keep their own opaque surfaces (`--surface`, `--inset`), so every input,
- * button and card reads exactly as it did.
+ * The three surfaces here — the head, the scrolling body and the pad at the foot — tile the
+ * panel from top to bottom, so it is full height, as it always was. The controls inside keep
+ * their own opaque surfaces (`--surface`, `--inset`), so every input, button and card reads
+ * exactly as it did.
  */
 .sidebar__head,
-.sidebar__body {
+.sidebar__body,
+.sidebar__pad-glass {
   background: var(--panel-overlay);
-  -webkit-backdrop-filter: blur(14px) saturate(1.15);
-  backdrop-filter: blur(14px) saturate(1.15);
+  -webkit-backdrop-filter: blur(10px) saturate(1.1);
+  backdrop-filter: blur(10px) saturate(1.1);
   border-right: 1px solid var(--line);
 }
 
@@ -488,17 +491,57 @@ body {
 }
 
 /*
- * The map, through the bottom of the panel. See `MapGrip`.
+ * The pad at the foot of an open panel, on a phone. See `MapGrip`.
  *
- * Off on a desktop, where there is map either side of the panel to drag. On a phone it is
- * the bottom fifth of the panel: transparent, so what is under it is the map itself, and
- * `touch-action: none` so the browser neither scrolls the panel nor swipes the page while a
- * finger is moving the map.
+ * Part of the panel, not a gap in it: it carries the same glass as the body above it and
+ * reaches the bottom edge, so the panel is exactly as tall as it ever was. What it holds is
+ * one small rectangle with no surface of its own — a window on the map, for moving the map
+ * without closing what is open.
  */
-.sidebar__grip {
+.sidebar__pad {
   display: none;
   position: relative;
   flex: none;
+  padding: 10px 12px 16px;
+}
+
+/*
+ * The glass of the pad, with the window cut out of it.
+ *
+ * A layer of its own rather than the pad's own background, because the mask below clips
+ * everything inside the element it is set on — set on the pad, it took the window's frame
+ * and its label with it. Here there is nothing to lose: the layer is empty.
+ *
+ * The cut is what makes the window a window. Inside it there is no surface and no blur, so
+ * the map is simply the map, sharp, rather than one more sheet of glass. The frame around it
+ * is the panel, continuing to the bottom edge as it always did. Where `mask-composite` is not
+ * understood the glass covers the whole foot instead: the same layout, a dimmer window.
+ */
+.sidebar__pad-glass {
+  position: absolute;
+  inset: 0;
+  padding: inherit;
+  -webkit-mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
+  -webkit-mask-clip: content-box, border-box;
+  -webkit-mask-composite: xor;
+  mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
+  mask-clip: content-box, border-box;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/*
+ * The window itself. Nothing is drawn in it but its own border, so what is inside it is the
+ * map. `touch-action: none` is what keeps the browser out of the gesture: without it a
+ * vertical drag scrolls the panel and a horizontal one swipes the page.
+ */
+.sidebar__grip {
+  position: relative;
+  height: clamp(92px, 13vh, 132px);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  /* A hairline of the panel's own glass just outside the frame, so the cut has an edge. */
+  box-shadow: 0 0 0 1px var(--panel-overlay);
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;
@@ -510,37 +553,32 @@ body {
   cursor: grabbing;
 }
 
-/* Where the controls stop and the map begins. */
-.sidebar__grip-edge {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: var(--line);
-}
-
 /*
- * Said once, faintly, at the top of the area: enough to be found, little enough to see the
- * map through. It takes no pointer of its own — the whole area is one surface.
+ * Said once, faintly, so the rectangle is found without being filled. It takes no pointer of
+ * its own: the whole rectangle is one surface.
  */
 .sidebar__grip-hint {
   position: absolute;
-  top: 7px;
-  left: 0;
-  right: 0;
+  left: 50%;
+  bottom: 6px;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 5px;
+  padding: 2px 8px;
+  /*
+   * On its own small plate. The window looks onto whatever the map happens to be showing —
+   * a coastline, a legend, a dark country — and a line of bare text over that is a line of
+   * text nobody can read.
+   */
+  background: var(--panel);
+  border-radius: 999px;
   color: var(--text-dim);
   font-size: 10px;
   letter-spacing: 0.02em;
-  opacity: 0.75;
+  opacity: 0.9;
   pointer-events: none;
-  text-shadow:
-    0 1px 2px var(--panel-overlay),
-    0 0 6px var(--panel-overlay);
+  white-space: nowrap;
 }
 
 /* A labelled run of controls inside a section, for sections holding more than one. */
@@ -3365,24 +3403,9 @@ body {
  * the map more height than the information is worth.
  */
 @media (max-width: 620px) {
-  /*
-   * The grip, where the map is scarce. A fifth of the viewport, never less than a thumb's
-   * travel and never more than a quarter of a tall screen, so it is worth dragging on a
-   * small phone and does not take the panel over on a large one.
-   */
-  .sidebar__grip {
+  /* A place to move the map from, at the foot of the panel. See `MapGrip`. */
+  .sidebar__pad {
     display: block;
-    /*
-     * Everything the controls do not need, down to a floor worth dragging on: a short panel
-     * gives most of its height back to the map, a long one still keeps a thumb's worth.
-     */
-    flex: 1 1 auto;
-    min-height: clamp(104px, 20vh, 220px);
-  }
-
-  /* The controls take what they need; the grip has the rest. */
-  .sidebar__body {
-    flex: 0 1 auto;
   }
 
   .app__title {
@@ -3497,21 +3520,16 @@ body {
   }
 
   /*
-   * Turned sideways there is less height to give away and more map beside the panel, so the
-   * grip is shorter — still a surface a thumb can cross, not a third of the panel.
+   * Turned sideways there is less height to spare, so the window is shorter — still a
+   * rectangle a thumb can cross, and the controls above it keep the rest.
    */
-  .sidebar__grip {
+  .sidebar__pad {
     display: block;
-    flex: 1 1 auto;
-    min-height: clamp(64px, 22vh, 120px);
+    padding: 6px 8px 8px;
   }
 
-  .sidebar__body {
-    flex: 0 1 auto;
-  }
-
-  .sidebar__grip-hint {
-    top: 4px;
+  .sidebar__grip {
+    height: clamp(56px, 18vh, 86px);
   }
 
   .toggles {

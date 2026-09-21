@@ -29,10 +29,11 @@ export interface UiTokens {
    * The same surface as `panelAlt`, translucent, for a panel that floats over the map.
    *
    * An open tool panel used to be a wall: the map behind it was simply gone, which on a
-   * phone is most of the map. It is a pane now — the map reads through it, dimmed and
-   * blurred, and the controls keep their own opaque surfaces so nothing about reading them
-   * changed. Each theme sets its own alpha rather than one being applied to all three: the
-   * light themes need more of themselves to hold text over a busy map than the dark one does.
+   * phone is most of the map. It is glass now — around 70%, enough that coastlines, borders
+   * and the colours being worked on are plainly visible through it, while the controls keep
+   * their own opaque surfaces so nothing about reading them changed. Each theme sets its own
+   * alpha rather than one being applied to all three: the light themes need more of
+   * themselves to hold text over a busy map than the dark one does.
    */
   panelOverlay: string
   /** Raised control surface — inputs, chips, buttons. */
@@ -134,7 +135,7 @@ const dark: Theme = {
     bg: '#20252c',
     panel: '#282e36',
     panelAlt: '#2d333c',
-    panelOverlay: 'rgba(45, 51, 60, 0.80)',
+    panelOverlay: 'rgba(45, 51, 60, 0.66)',
     surface: '#363d48',
     surfaceHover: '#404855',
     inset: '#1c2027',
@@ -185,7 +186,7 @@ const light: Theme = {
     bg: '#dcdfe4',
     panel: '#e9ebef',
     panelAlt: '#eef0f3',
-    panelOverlay: 'rgba(238, 240, 243, 0.84)',
+    panelOverlay: 'rgba(238, 240, 243, 0.70)',
     surface: '#f4f6f8',
     surfaceHover: '#fbfcfd',
     inset: '#d3d7dd',
@@ -234,7 +235,7 @@ const geographic: Theme = {
     bg: '#cdc4b2',
     panel: '#ded6c6',
     panelAlt: '#e5ded0',
-    panelOverlay: 'rgba(229, 222, 208, 0.84)',
+    panelOverlay: 'rgba(229, 222, 208, 0.70)',
     surface: '#f0ebe0',
     surfaceHover: '#f8f5ee',
     inset: '#c2b8a4',

@@ -3,8 +3,12 @@
  *
  * On a phone an open panel is most of the screen, and what is left of the map is a strip too
  * narrow to drag. Rather than make the author close the panel, move the map, and open it
- * again, the bottom of every panel is a window onto the map: transparent, so the map is
- * visible through it, and live, so a finger dragged across it moves the map underneath.
+ * again, every panel carries a small rectangle at its foot: transparent, so the map shows
+ * through it, and live, so a finger dragged across it moves the map underneath.
+ *
+ * It is a pad inside the panel, not the end of the panel. The panel still reaches the bottom
+ * of the screen with its controls and its glass; this is one rectangle near the foot of it,
+ * about a thumb tall.
  *
  * It is not a second map. A gesture here is handed to the camera the map already has
  * (`mapCamera.ts`), which is the same d3 zoom behaviour a drag on the exposed map drives:
@@ -110,22 +114,29 @@ export function MapGrip() {
   }, [])
 
   return (
-    <div
-      ref={surfaceRef}
-      className="sidebar__grip"
-      // Named for what it does, since there is nothing here to see.
-      role="application"
-      aria-label="Map area: drag to move the map, pinch to zoom"
-    >
-      {/* A hairline and a handle: enough to say where the controls stop and the map begins. */}
-      <span className="sidebar__grip-edge" aria-hidden="true" />
-      <span className="sidebar__grip-hint" aria-hidden="true">
-        <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M8 2.5v11M2.5 8h11" />
-          <path d="M8 2.5 6.3 4.2M8 2.5l1.7 1.7M8 13.5l-1.7-1.7M8 13.5l1.7-1.7M2.5 8l1.7-1.7M2.5 8l1.7 1.7M13.5 8l-1.7-1.7M13.5 8l-1.7 1.7" />
-        </svg>
-        Drag here to move the map
-      </span>
+    /*
+     * The pad is part of the panel and carries its glass, so the panel still reaches the
+     * bottom of the screen. The rectangle inside it is the only thing here with no surface:
+     * that is the window on the map.
+     */
+    <div className="sidebar__pad">
+      {/* The panel's glass, with the window below cut out of it. See `.sidebar__pad-glass`. */}
+      <span className="sidebar__pad-glass" aria-hidden="true" />
+      <div
+        ref={surfaceRef}
+        className="sidebar__grip"
+        // Named for what it does, since there is nothing here to see.
+        role="application"
+        aria-label="Map area: drag to move the map, pinch to zoom"
+      >
+        <span className="sidebar__grip-hint" aria-hidden="true">
+          <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M8 2.5v11M2.5 8h11" />
+            <path d="M8 2.5 6.3 4.2M8 2.5l1.7 1.7M8 13.5l-1.7-1.7M8 13.5l1.7-1.7M2.5 8l1.7-1.7M2.5 8l1.7 1.7M13.5 8l-1.7-1.7M13.5 8l-1.7 1.7" />
+          </svg>
+          Drag to move the map
+        </span>
+      </div>
     </div>
   )
 }

@@ -1140,29 +1140,37 @@ The sections are a plain array in `Sidebar.tsx`: an icon and a body. Adding one 
 entry, not new markup or new styling, and it inherits the animation, the active state
 and the keyboard behaviour with everything else.
 
-**An open panel is a pane over the map, not a wall across it.** Its head and body are the
-theme's own panel colour at 80–84% with a 14px backdrop blur (`--panel-overlay`, set by each
-theme rather than one alpha imposed on all three: the light themes need more of themselves to
-hold text over a busy map than the dark one does). The map reads through it, which is the
-point — an author colouring countries can see what their controls are doing to the part of
-the map the panel used to hide. The controls keep their own opaque surfaces, so every input,
-button and card reads exactly as it did, and the rail keeps its solid background, so the
-icons never sit over moving geography. The blur is one radius over one strip of screen: a
-drag with a panel open measures the same 4.2 ms frames as a drag with it closed, and removing
-the blur entirely changes nothing measurable.
+**An open panel is glass over the map, not a wall across it.** Its head, its scrolling body
+and the pad at its foot each take the theme's own panel colour at around 70% with a 10px
+backdrop blur (`--panel-overlay`, set by each theme rather than one alpha imposed on all
+three: the light themes need more of themselves to hold text over a busy map than the dark
+one does). Those three tile the panel from top to bottom, so it is exactly as tall as it
+always was — nothing is cut short to expose the map. What changed is that the map is plainly
+visible through it: coastlines, borders and the colours being worked on. Nothing fancier than
+that — no gradient, no reflection, no edge glow, each of which costs legibility and hides the
+map. The controls keep their own opaque surfaces, so every input, button and card reads
+exactly as it did, and the rail keeps its solid background, so the icons never sit over moving
+geography. The blur is one radius over one strip of screen: a drag with a panel open measures
+the same 4.2 ms frames as a drag with it closed, and removing the blur changes nothing
+measurable.
 
-**The bottom of a panel is a window onto the map, on a phone.** An open panel there is most
-of the screen, and what is left of the map is too narrow to drag — so below the controls sits
-a transparent area that pans and pinches the map underneath it (`MapGrip`, `mapCamera.ts`).
-It takes whatever height the controls do not need, down to a floor of about a fifth of the
-viewport, so a short panel gives most of itself back to the map and a long one still keeps a
-thumb's worth. Desktop does not have it: there is map on either side of the panel already.
+**A phone's panel carries a small window onto the map at its foot.** An open panel there is
+most of the screen, and what is left of the map is too narrow to drag — so above the panel's
+bottom edge sits one rectangle, about a thumb tall (110px of a 730px panel; 70px turned
+sideways), that pans and pinches the map underneath it (`MapGrip`, `mapCamera.ts`). It is a
+pad *inside* the panel, not the end of the panel: the controls above it keep their full height
+and scroll as they did, and the panel's glass continues past it to the bottom of the screen.
+
+The window is a real hole in that glass. The pad's surface is painted in a layer of its own
+and masked so the rectangle is cut out of it, which is why what shows there is the map itself,
+sharp, rather than one more sheet of glass. Desktop has no pad: there is map on either side of
+the panel already.
 
 It is not a second navigation system. A gesture there is handed to the camera the map already
 has — the same d3 zoom behaviour a drag on the exposed map drives — so the scale limits, the
 pan bounds and the frame-by-frame placement are the ones that were already there. Measured on
 a phone: the map follows the finger one pixel for one pixel, the camera reaches the document
-**once** per drag rather than once per frame, dragging in the grip scrolls the panel by
+**once** per drag rather than once per frame, dragging in the window scrolls the panel by
 nothing, dragging in the controls moves the map by nothing, a tap selects no country, and the
 frames cost what a drag on the map itself costs. `touch-action: none` is what keeps the
 browser from scrolling the panel or swiping the page underneath the gesture.
