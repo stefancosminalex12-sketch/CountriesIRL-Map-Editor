@@ -6,7 +6,7 @@
  * eventual 1920x1080 target) without a second rendering path, and every country is a
  * real DOM node so per-country styling and interaction stay trivial.
  */
-import { Fragment, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactElement, memo } from 'react'
+import { Fragment, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactElement, memo } from 'react'
 import { geoGraticule10, geoPath } from 'd3-geo'
 import { select } from 'd3-selection'
 import { zoom, zoomIdentity, zoomTransform, type ZoomBehavior } from 'd3-zoom'
@@ -477,7 +477,8 @@ export function MapCanvas() {
       const current = zoomedRef.current
       if (!current) return
       current.style.pointerEvents = ''
-      current.style.willChange = ''
+      // Retain only the desktop camera layer: allocating it on movement stalls the first frame.
+      current.style.willChange = window.matchMedia('(any-pointer: fine)').matches ? 'transform' : ''
     }, 120)
   }, [])
 
@@ -772,6 +773,42 @@ export function MapCanvas() {
     ? `translate(${fitCorrection.dx},${fitCorrection.dy}) scale(${fitCorrection.scale})`
     : undefined
   fitScaleRef.current = fitCorrection?.scale ?? 1
+
+  /**
+   * Prepare the desktop pan layer before input, not on the first drag frame.
+   * Europe Administrative traces were dominated by layer allocation, not geometry.
+   *
+   * Release it before a committed scale/resize is painted, so zoom always rasterises
+   * at the real scale. Re-arm only at rest. This also covers programmatic zooms, which
+   * do not pass through the gesture's `carry(false)` branch. Geometry and paint remain
+   * the same SVG; no snapshot, alternate detail level or extra transformed container.
+   */
+  useLayoutEffect(() => {
+    const group = zoomedRef.current
+    const desktop = window.matchMedia('(any-pointer: fine)')
+    if (!group || !desktop.matches) return
+    group.style.willChange = ''
+    carryingRef.current = false
+    let timer = 0
+    const prepare = () => {
+      window.clearTimeout(timer)
+      if (gesturingRef.current || navigatingRef.current) {
+        timer = window.setTimeout(prepare, 120)
+        return
+      }
+      group.style.willChange = desktop.matches ? 'transform' : ''
+    }
+    timer = window.setTimeout(prepare, 180)
+    desktop.addEventListener('change', prepare)
+    return () => {
+      window.clearTimeout(timer)
+      desktop.removeEventListener('change', prepare)
+    }
+  }, [transform.k, fitCorrection?.scale])
+
+  useEffect(() => () => {
+    if (navigatingTimer.current !== null) window.clearTimeout(navigatingTimer.current)
+  }, [])
   /** Which countries belong to the active scope — drives the outside-scope treatment. */
   const scopeCountryIds = useMemo(() => {
     if (!geo) return new Set<string>()
