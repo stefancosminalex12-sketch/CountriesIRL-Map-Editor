@@ -76,6 +76,7 @@ import { useMapStore } from '../state/mapStore'
 import { useSettingsStore } from '../state/settingsStore'
 import { getTheme } from '../theme/themes'
 import {
+  ASSIST_TARGET_PX,
   EMPTY_ASSIST_INDEX,
   pickAssistedCountryAt,
 } from './smallEntities'
@@ -106,6 +107,18 @@ interface LineNetworks {
   borders: Array<{ d: string; clipId: string | null }>
   national: Array<{ d: string; clipId: string | null }>
 }
+
+/**
+ * How far the camera may move before a press counts as a gesture rather than a tap.
+ *
+ * Six pixels for a mouse and ten for a finger: a hand resting on a phone moves further than
+ * a hand on a mouse, and a tap on a province that wandered a few pixels is still a tap on
+ * that province. A drag meant to move the map travels tens of pixels, so nothing is taken
+ * from panning. Past the threshold the map is being navigated, and the click that ends the
+ * gesture is swallowed rather than selecting whatever it finished over.
+ */
+const MOVE_SLOP_PX = 6
+const TOUCH_MOVE_SLOP_PX = 10
 
 /** Above this many units the flag geometry is not warmed ahead of the flag mode. See `warm`. */
 const WARM_MAX_FEATURES = 10000
@@ -402,6 +415,20 @@ export function MapCanvas() {
   const zoomedRef = useRef<SVGGElement>(null)
   /** The scale a gesture started at: while it is unchanged the camera is only translating. */
   const panScale = useRef(1)
+  /**
+   * The camera a gesture began at, and whether it has moved since.
+   *
+   * A press is not yet a gesture. The map stops answering the pointer while it is being
+   * moved — see `navigating` — and that used to begin at `start`, which d3 fires on the press
+   * itself. The click that ends a press then arrived while the map was still refusing the
+   * pointer, so it landed on the backdrop and selected nothing: tapping a country did nothing
+   * at all, on a phone and with a mouse alike. Nothing is suppressed now until the camera has
+   * actually moved, by more than a finger's natural wobble.
+   */
+  const gestureStart = useRef<{ k: number; x: number; y: number } | null>(null)
+  const gestureMoved = useRef(false)
+  /** How far this gesture may travel and still be a tap: a finger is allowed more. */
+  const gestureSlop = useRef(MOVE_SLOP_PX)
   /** Set while the camera is being moved, and released a moment after it stops. */
   const navigatingRef = useRef(false)
   const navigatingTimer = useRef<number | null>(null)
@@ -1489,6 +1516,25 @@ export function MapCanvas() {
    * the water inside a Maldivian atoll select the Maldives. Only if nothing claims
    * the point does the polygon under the cursor win.
    */
+  /**
+   * How large an entity is drawn, in screen pixels, measured once per entity per view.
+   *
+   * One `getBoundingClientRect` per entity, kept until the land or the camera changes, so a
+   * pointer crossing a dense map never measures the same thing twice.
+   */
+  const drawnExtent = useRef(new Map<string, number>())
+  useEffect(() => {
+    drawnExtent.current.clear()
+  }, [assist, transform.k, land])
+  const drawnExtentOf = useCallback((id: string, element: Element | null): number => {
+    const known = drawnExtent.current.get(id)
+    if (known !== undefined) return known
+    const box = (element as SVGGraphicsElement | null)?.getBoundingClientRect?.()
+    const extent = box ? Math.max(box.width, box.height) : Number.POSITIVE_INFINITY
+    drawnExtent.current.set(id, extent)
+    return extent
+  }, [])
+
   const pickEntityAt = useCallback(
     (clientX: number, clientY: number, target: Element | null): string | null => {
       const svg = svgRef.current
@@ -1508,6 +1554,25 @@ export function MapCanvas() {
        */
       if (targetId && mergeIds.has(targetId)) return targetId
       if (targetId && assist.ids.has(targetId)) return targetId
+      /*
+       * And a direct hit on any entity small enough to have been aimed at.
+       *
+       * A catchment may borrow over a neighbour's land — that is how Vatican City is picked
+       * out of Rome — and what stops it borrowing too far is that standing on plain land
+       * settles the question (`pickAssistedCountryAt`). But "plain land" is judged from the
+       * islands the assist index carries, and it carries only small ones: on an administrative
+       * map the land under the finger usually belongs to a piece too big for the index and too
+       * small to be a background, so nothing settled the question and a speck's catchment took
+       * the tap. Tapping a French commune selected Monaco; tapping a Latvian municipality
+       * selected its neighbour.
+       *
+       * An entity drawn smaller than the distance a catchment is trying to reach is not
+       * scenery, it is a target, and the tap is its own. Anything larger is the background a
+       * speck may still borrow over, exactly as before.
+       */
+      if (targetId && drawnExtentOf(targetId, target) < ASSIST_TARGET_PX) {
+        return mergeIdByMember.get(targetId) ?? targetId
+      }
 
       const rect = svg.getBoundingClientRect()
       const claimed = pickAssistedCountryAt(
@@ -1522,7 +1587,7 @@ export function MapCanvas() {
       // Whatever route got here, a member answers as the entity that absorbed it.
       return resolved ? (mergeIdByMember.get(resolved) ?? resolved) : null
     },
-    [assist, transform, mergeIds, mergeIdByMember],
+    [assist, transform, mergeIds, mergeIdByMember, drawnExtentOf],
   )
   const pickCountryAt = (event: ReactMouseEvent) =>
     pickEntityAt(event.clientX, event.clientY, event.target as Element | null)
@@ -2292,6 +2357,15 @@ export function MapCanvas() {
         return true
       })
       .scaleExtent(ZOOM_RANGE)
+      /*
+       * How far the pointer may travel between press and release and still be a click.
+       *
+       * d3 swallows the click that follows a drag — which is right, or a drag would select
+       * whatever it finished over — and by default any movement at all makes it a drag. A hand
+       * on a mouse moves a pixel or two while clicking, and on a dense map that meant clicking
+       * a province did nothing. The same four pixels the rest of the pointer handling allows.
+       */
+      .clickDistance(MOVE_SLOP_PX)
       .extent([
         [0, 0],
         [width, height],
@@ -2336,11 +2410,36 @@ export function MapCanvas() {
         gesturingRef.current = true
         panScale.current = event.transform.k
         zoomingRef.current = false
-        navigating(true)
+        gestureStart.current = { k: event.transform.k, x: event.transform.x, y: event.transform.y }
+        gestureMoved.current = false
+        const source = event.sourceEvent as { type?: string; pointerType?: string } | undefined
+        const byFinger =
+          source?.pointerType === 'touch' || (source?.type ?? '').startsWith('touch')
+        gestureSlop.current = byFinger ? TOUCH_MOVE_SLOP_PX : MOVE_SLOP_PX
       })
       .on('zoom', (event) => {
         const t = event.transform
         if (zoomedRef.current && (event.sourceEvent || gripDragRef.current)) {
+          /*
+           * Moved, or merely pressed?
+           *
+           * `MOVE_SLOP_PX` of travel is a steady finger on a small target, not a drag, and a
+           * tap that wobbles that far must still select what it landed on. Past it the map is
+           * being navigated: it stops answering the pointer, and the click that follows the
+           * gesture is swallowed with it, which is what keeps a drag from selecting whatever
+           * happened to be under the finger when it lifted.
+           */
+          const from = gestureStart.current
+          if (!gestureMoved.current && from) {
+            const slop = gestureSlop.current
+            gestureMoved.current =
+              t.k !== from.k || Math.abs(t.x - from.x) > slop || Math.abs(t.y - from.y) > slop
+          }
+          if (!gestureMoved.current && !gripDragRef.current) {
+            liveCamera.current = t
+            if (!cameraFrame.current) cameraFrame.current = requestAnimationFrame(placeCamera)
+            return
+          }
           /*
            * A wheel notch and a trackpad pinch are each their own little gesture, so this keeps
            * the map in the navigating state and pushes its release out past the last of them.
@@ -2363,6 +2462,7 @@ export function MapCanvas() {
         setTransform({ k: t.k, x: t.x, y: t.y })
       })
       .on('end', (event) => {
+        gestureStart.current = null
         /*
          * Each move the grip makes is its own little transform, so d3 ends a gesture after every
          * one of them. The gesture the author is making is the whole drag, and it ends when

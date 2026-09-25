@@ -7,22 +7,22 @@
  * same file is several times the size, several times the vertices, and every frame of every
  * gesture carries them, on a processor a quarter as fast.
  *
- * So on a small touch device the *automatic* choice is the lightest geography the open map
- * offers, and on everything else it is the atlas's own default, unchanged. Three things this
- * deliberately is not:
+ * So on a small touch device the *automatic* choice is 50m where the open map has it, and on
+ * everything else it is the atlas's own default, unchanged. Three things this deliberately
+ * is not:
  *
- * - **It is not a cap.** 50m and 10m stay in the picker on a phone, exactly as before, and
- *   choosing one loads it.
+ * - **It is not a cap.** 110m, 50m and 10m all stay in the picker on a phone, exactly as
+ *   before, and choosing one loads it.
  * - **It is not sticky against the author.** The moment they choose a detail themselves, the
  *   automatic choice steps aside for the rest of the session ({@link noteDetailChosen}), so
- *   opening another map does not quietly hand them 110m again.
+ *   opening another map does not quietly hand them 50m again.
  * - **It is not re-decided later.** The device is read once, so turning a phone on its side,
  *   resizing, changing region, projection or panel never reconsiders it — a map that is on
  *   10m because someone asked for 10m stays there.
  *
- * Only the World map actually has anything lighter than 10m; the administrative, USA and
- * Europe atlases have one resolution each (their levels are different geographies, not
- * different resolutions of one), so for those this returns exactly what it always did.
+ * Only the World map actually offers 50m; the administrative, USA and Europe atlases have one
+ * resolution each (their levels are different geographies, not different resolutions of one),
+ * so for those this returns exactly what it always did.
  */
 import type { Atlas } from './atlas'
 import type { GeoDataset } from '../geo/datasets'
@@ -37,8 +37,15 @@ import type { GeoDataset } from '../geo/datasets'
  */
 const COMPACT_MAX_PX = 820
 
-/** Lightest first. What "the lightest geography this atlas offers" is measured against. */
-const DETAIL_ORDER: Record<GeoDataset['detail'], number> = { '110m': 0, '50m': 1, '10m': 2 }
+/**
+ * What a phone opens at, when the map has it.
+ *
+ * The middle of the three, not the lightest: 110m is a different map rather than a coarser
+ * one — it names 177 of the 254 entities this app knows, and the rest reach it through the
+ * low-detail supplement — while 50m carries 240 of them at a fraction of 10m's weight. That
+ * is the trade a phone wants by default: most of the geography, little of the cost.
+ */
+const STARTING_DETAIL: GeoDataset['detail'] = '50m'
 
 /**
  * Whether this is a small touch device, decided once.
@@ -85,16 +92,11 @@ export function detailIsAutomatic(): boolean {
  * The dataset a fresh document of this atlas opens at.
  *
  * The atlas's own default, except on a small touch device that has not been told otherwise,
- * where it is the lightest resolution the atlas has. An atlas with one resolution gets its
- * default either way, so nothing about those maps changes.
+ * where it is 50m if the atlas has it. An atlas without that resolution gets its default
+ * either way, so nothing about those maps changes.
  */
 export function startingDatasetId(atlas: Atlas): string {
   if (!automatic || !isCompactDevice()) return atlas.defaultDatasetId
-  const fallback = atlas.datasets.find((dataset) => dataset.id === atlas.defaultDatasetId)
-  if (!fallback) return atlas.defaultDatasetId
-  let lightest = fallback
-  for (const dataset of atlas.datasets) {
-    if (DETAIL_ORDER[dataset.detail] < DETAIL_ORDER[lightest.detail]) lightest = dataset
-  }
-  return lightest.id
+  const chosen = atlas.datasets.find((dataset) => dataset.detail === STARTING_DETAIL)
+  return chosen ? chosen.id : atlas.defaultDatasetId
 }

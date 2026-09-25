@@ -877,20 +877,24 @@ for inland and coastal water — as another input to the same script.
 
 ### What a phone opens at
 
-**The automatic Map Detail is the lightest resolution the map offers, on a small touch
-device only.** Opening the World map on a desktop still loads 10m, as it always has; on a
-phone it loads 110m, and the difference is the whole point of the setting: 455 KB against
-6,016 KB of geography on first load (`countries-110m.json` at 38 KB against
-`countries-10m.json` at 1,563 KB, and the lakes layer follows the dataset's own detail —
-405 KB against 4,440 KB).
+**The automatic Map Detail is 50m, on a small touch device only.** Opening the World map on
+a desktop still loads 10m, as it always has; on a phone it loads 50m, and the difference is
+the whole point of the setting: 644 KB against 6,017 KB of geography on first load, measured
+over the wire (`countries-50m.json` at 227 KB against `countries-10m.json` at 1,565 KB, and
+the lakes layer follows the dataset's own detail — 405 KB against 4,440 KB).
+
+**The middle resolution, not the lightest.** 110m is a different map rather than a coarser
+one: it names 177 of the 254 entities this app knows, and the rest only reach it through the
+low-detail supplement (see above). 50m carries 240 of them at a fraction of 10m's weight,
+which is the trade a phone wants by default — most of the geography, little of the cost.
 
 `maps/startingDetail.ts` decides it, and what it is not matters as much as what it is:
 
-- **Not a cap.** 50m and 10m are in the picker on a phone exactly as before, and choosing
-  one loads it.
+- **Not a cap.** 110m, 50m and 10m are all in the picker on a phone exactly as before, and
+  choosing one loads it.
 - **Not sticky against the author.** The moment they choose a detail themselves, the
   automatic choice steps aside for the rest of the session, so opening another map does not
-  hand them 110m again. Verified: a manual 10m survives a region preset, a projection change,
+  hand them 50m again. Verified: a manual 10m survives a region preset, a projection change,
   a resize, an orientation change, opening and closing panels, and switching to another atlas
   and back.
 - **Not re-decided later.** The device is read once, so nothing that happens afterwards —
@@ -1498,6 +1502,58 @@ and hands it over once. The store's own work is 0.1 ms.
 - **A rectangle or a brush stroke across thousands of units** costs about 23 µs per unit it
   changes.
 - **An SVG export of the USA subdivisions** serialises 45 MB in 0.64 s.
+
+### A tap is a tap, not a pan
+
+**A press is not a gesture until the finger moves.** d3-zoom starts a gesture on the press,
+and the canvas used to take that as its cue to turn navigation on: `navigating(true)`, which
+sets `pointer-events: none` on the zoomed group so nothing is hit-tested while the map is
+moving. Released 120 ms later, that is exactly the window the browser's click lands in — so
+the click reached the background rectangle behind the map and selected nothing. Every tap on
+a phone, and every mouse click whose finger moved even slightly, on every dataset.
+
+It had been live since the Europe performance commit, and the tests did not see it because
+they dispatched events straight at the paths, which skips the browser's hit-testing — the
+one thing that was broken. Every selection check now drives real input through the debugger
+protocol (`Input.dispatchTouchEvent`, `Input.dispatchMouseEvent`) and lets the browser decide
+what was hit.
+
+Three fixes, all in `MapCanvas.tsx`:
+
+- **Navigation is switched on by movement, not by the press.** The zoom handler compares the
+  live transform against the one the gesture started from, and only past the slop does it
+  suppress hit-testing. A press that never moves never suppresses anything, so its click
+  reaches the land.
+- **The slop is what a finger actually does:** 6 px with a mouse, 10 px with a touch, since a
+  thumb never leaves a pixel alone. The zoom behaviour is given the same figure as
+  `clickDistance(6)`, because d3 otherwise cancels the post-drag click itself — its default
+  tolerance is zero, which is why a 3–4 px wobble on a desktop selected nothing either.
+- **A drag through the sidebar's grip bypasses the gate entirely**, since there the finger is
+  nowhere near the map and suppression costs nothing.
+
+**A direct hit beats a catchment.** The small-entity assist gives anything drawn under 44 px a
+catchment around it, and a tap inside one that misses the entity still selects it. That could
+outvote the entity the finger was actually on when that entity is itself small — a French
+commune selecting Monaco, a Latvian municipality selecting its neighbour — because the
+assist's "standing on plain land" guard only knows the islands it carries. So a hit that lands
+squarely on an entity smaller than the assist target is now taken as given, before the
+catchments are consulted. The measurement is cached per entity and dropped whenever the zoom,
+the assist index or the land changes; an A/B against a build without the rule puts hover
+frames at the same median, p90 and max, so it costs nothing measurable.
+
+Verified with real input on both platforms, on the World map at all three resolutions, Europe
+Administrative, the administrative world and the Official USA counties:
+
+- **Phone:** taps select and deselect at every entity size; a 7 px wobble still selects; a
+  drag and a pinch select nothing; six rapid taps select six; selection works after panning;
+  landscape behaves as portrait.
+- **Desktop:** the same, plus Shift multi-selection (which was broken by this too), the
+  rectangle (31 entities on a middle-button drag) and Brush Mode (5), and a plain click still
+  works after using either tool.
+- **The grip is untouched:** one store write per drag, nothing selected, no sidebar scroll,
+  and the pinch still reaches k 15.
+- **Selection frames are unchanged**, 4.2 ms median everywhere, with Europe Administrative's
+  p90 slightly better than before.
 
 ### Moving around the map
 
