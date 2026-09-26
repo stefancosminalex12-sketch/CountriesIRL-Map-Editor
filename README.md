@@ -875,13 +875,16 @@ count and where each of the audit's named places stands, so those gaps are known
 than papered over. Closing them means adding a finer public source — HydroLAKES or GSHHG
 for inland and coastal water — as another input to the same script.
 
-### What a phone opens at
+### What a map opens at
 
-**The automatic Map Detail is 50m, on a small touch device only.** Opening the World map on
-a desktop still loads 10m, as it always has; on a phone it loads 50m, and the difference is
-the whole point of the setting: 644 KB against 6,017 KB of geography on first load, measured
-over the wire (`countries-50m.json` at 227 KB against `countries-10m.json` at 1,565 KB, and
-the lakes layer follows the dataset's own detail — 405 KB against 4,440 KB).
+**The automatic Map Detail is 25m on a desktop and 50m on a small touch device.** 25m is the
+standard balance between quality and weight — every entity, island and border of 10m at about
+two fifths of its points (see *25m* below) — and 10m stays in the picker as the maximum-detail
+mode. A phone opens at 50m, and the difference is the whole point of the setting: 644 KB
+against 6,017 KB of geography on first load against 10m, measured over the wire
+(`countries-50m.json` at 227 KB against `countries-10m.json` at 1,565 KB, and the lakes layer
+follows the dataset's own detail — 405 KB against 4,440 KB). A desktop's 25m is 777 KB and
+2,077 KB.
 
 **The middle resolution, not the lightest.** 110m is a different map rather than a coarser
 one: it names 177 of the 254 entities this app knows, and the rest only reach it through the
@@ -894,9 +897,12 @@ which is the trade a phone wants by default — most of the geography, little of
   choosing one loads it.
 - **Not sticky against the author.** The moment they choose a detail themselves, the
   automatic choice steps aside for the rest of the session, so opening another map does not
-  hand them 50m again. Verified: a manual 10m survives a region preset, a projection change,
-  a resize, an orientation change, opening and closing panels, and switching to another atlas
-  and back.
+  hand them 50m — or 25m — again; a desktop that chose 10m, 50m or 110m opens a new World map
+  at that resolution. Choosing a level on a map whose levels are different geographies
+  (Europe Administrative's Regions, Standard, Detailed) is not a choice of resolution and
+  leaves the World map's default alone. Verified on both profiles: a manual 10m survives a
+  region preset, a projection change, a resize, an orientation change, opening and closing
+  panels, and switching to another atlas and back, and so does a manual 110m.
 - **Not re-decided later.** The device is read once, so nothing that happens afterwards —
   rotating, resizing, switching maps — reconsiders it.
 - **Not a change to any other map.** Only the World map has more than one resolution; the
@@ -918,8 +924,8 @@ is on the 110m map — see the next section for how.
 `countries-25m.json`, `lakes-25m.geojson` and `rivers-25m.geojson` beside it in
 `data/natural-earth/`; `prepare-data.mjs` copies them like the rest, so nothing is simplified at
 runtime. It is a maintenance step: rerun it after `build-geography.mjs` changes the 10m layers.
-The picker offers 110m, 50m, 25m and 10m; the defaults are unchanged (10m on a desktop, 50m on a
-phone).
+The picker offers 110m, 50m, 25m and 10m; a desktop opens at 25m and a phone at 50m (see *What a
+map opens at*).
 
 **What it keeps.** Every point of 25m is a 10m point on the same grid — nothing is drawn or
 moved — and the file keeps 10m's entities, ids, properties, arcs and arc references exactly, so

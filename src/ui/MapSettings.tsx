@@ -51,7 +51,7 @@ export function MapDetailSettings() {
            * device's: opening another map will not quietly hand a phone the lightest
            * geography again. See `startingDetail`.
            */
-          noteDetailChosen()
+          noteDetailChosen(atlas, datasetId)
         }}
       >
         {datasets.map((d) => (
