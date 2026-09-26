@@ -5,7 +5,7 @@
  * camera exactly as the land does and is exported with the map.
  *
  * Overlays take the pointer in every mode and whichever panel is open — Flags mode is worked from the
- * Data panel, and an overlay that answered only while the Overlays panel was open could not be
+ * Data panel, and an overlay that answered only while the Overlay tool was open could not be
  * moved there: a drag on it panned the map and a tap on it selected the country beneath. A press on
  * an overlay is the overlay's: it is chosen and dragged, and the map's own gestures and clicks leave
  * it alone (see `OVERLAY_MARKER`).
@@ -20,7 +20,7 @@
  * exclave of it, and nowhere else. The flag is the overlay's own (`MapOverlay.flag`).
  *
  * Nothing marks the chosen overlay on the map: it looks exactly as it does when it is not chosen, and
- * which one is being edited is shown in the Overlays panel alone. A dashed outline and a round handle
+ * which one is being edited is shown in the Overlay tool (Edit → Overlay) alone. A dashed outline and a round handle
  * used to be drawn on it; both read as a selection marker over the map rather than as part of it.
  */
 import { memo, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react'

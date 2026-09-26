@@ -282,6 +282,11 @@ interface MapStore {
   /** See {@link SelectionTools}. */
   selectionTools: SelectionTools
   /**
+   * Brush Mode for as long as Ctrl is held on a desktop (`heldBrush.ts`). Added to the brush
+   * switch rather than setting it, so letting go never turns off a brush that was already on.
+   */
+  brushHeld: boolean
+  /**
    * Whether the magnifying glass is on: an enlarged copy of each selected speck of a
    * territory, drawn beside it so it can be seen at a zoom where it is a pixel wide.
    *
@@ -301,7 +306,7 @@ interface MapStore {
    * it but the author — pressing New group, or choosing a group in the panel.
    */
   activeMergeId: string | null
-  /** Whether the Map Overlays panel is open: overlays take the pointer only then. */
+  /** Whether the Overlay tool (Edit → Overlay) is open: overlays take the pointer only then. */
   overlayMode: boolean
   /** The overlay being edited, or `null`. */
   activeOverlayId: string | null
@@ -393,6 +398,7 @@ interface MapStore {
    */
   removeFromSelection: (ids: CountryId[], historyKey?: string | null) => void
   setSelectionTool: (tool: keyof SelectionTools, on: boolean) => void
+  setBrushHeld: (on: boolean) => void
   setMagnifier: (on: boolean) => void
 
   setTransform: (t: Transform) => void
@@ -501,6 +507,7 @@ export const useMapStore = create<MapStore>((set, get) => {
   hoveredWaterId: null,
   selectedWaterIds: [],
   selectionTools: { rectangle: true, brush: false },
+  brushHeld: false,
   magnifier: false,
 
   activeMergeId: null,
@@ -1035,6 +1042,10 @@ export const useMapStore = create<MapStore>((set, get) => {
     if (water.length !== state.selectedWaterIds.length) patch.selectedWaterIds = water
     if (patch.selectedCountryIds === undefined && patch.selectedWaterIds === undefined) return
     commitSelection(patch, historyKey)
+  },
+
+  setBrushHeld(on) {
+    if (get().brushHeld !== on) set({ brushHeld: on })
   },
 
   setSelectionTool(tool, on) {

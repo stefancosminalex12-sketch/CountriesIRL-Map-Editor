@@ -167,7 +167,6 @@ export function HideTerritories() {
 
   return (
     <div className="sidebar__group">
-      <div className="field__label">Hide territories</div>
       <p className="hint">
         Takes the selected territories off the map. They keep their data and come back
         exactly as they were.

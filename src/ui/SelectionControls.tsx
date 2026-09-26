@@ -17,6 +17,9 @@ import { Disclosure } from './Panels'
 
 export function SelectionControls() {
   const tools = useMapStore((s) => s.selectionTools)
+  /* Ctrl held on a desktop arms the brush for as long as it is held — see `heldBrush.ts`. */
+  const brushHeld = useMapStore((s) => s.brushHeld)
+  const brush = tools.brush || brushHeld
   const setSelectionTool = useMapStore((s) => s.setSelectionTool)
   /*
    * Every kind of entity the editor can select — countries, subdivisions, territories, merged
@@ -34,7 +37,7 @@ export function SelectionControls() {
    * else is armed — so choosing it turns the two others off, and it shows as chosen whenever
    * neither of them is on. It changes nothing a click does.
    */
-  const normal = !tools.rectangle && !tools.brush
+  const normal = !tools.rectangle && !brush
 
   return (
     <div className="stack">
@@ -57,7 +60,7 @@ export function SelectionControls() {
         <MapToggle
           icon="brush"
           label="Brush Mode"
-          checked={tools.brush}
+          checked={brush}
           onChange={(on) => setSelectionTool('brush', on)}
         />
       </div>
@@ -80,7 +83,8 @@ export function SelectionControls() {
           <p className="hint">
             <strong>Brush</strong>: hold the left button, or a finger, and drag. Every {noun.one}{' '}
             you pass over is added as you go. While it is on, dragging paints instead of panning;
-            the wheel, the zoom buttons and a two-finger pinch still move the map.
+            the wheel, the zoom buttons and a two-finger pinch still move the map. On a computer,
+            holding <kbd>Ctrl</kbd> turns the brush on for as long as you hold it.
           </p>
         </div>
       </Disclosure>

@@ -13,6 +13,7 @@
  * keyboard behaviour along with everything else.
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { RegionSelector } from './RegionSelector'
 import { MapPicker } from './MapPicker'
 import {
@@ -27,6 +28,7 @@ import {
 import { SvgExchange } from './SvgExchange'
 import { TemplatePicker } from './TemplatePicker'
 import { onOpenSidebarSection } from './sidebarEvents'
+import { closeLatestDisclosure } from './Panels'
 import { DataSources, SelectionHighlight, ThemePicker } from './SettingsPanel'
 import { DataPalette } from './DataPalette'
 import { LegendControls, LegendSizeControls } from './LegendControls'
@@ -101,13 +103,6 @@ const ICONS: Record<string, ReactNode> = {
     <>
       <path d="M3.2 16.4h13.6" />
       <path d="M6 16.4V9.2M10 16.4V4.6M14 16.4v-4.8" />
-    </>
-  ),
-  // Two outlines, one lifted off the other: a shape copied and moved.
-  overlays: (
-    <>
-      <path d="M3 8.2 7.6 4.4l5 1.6-.6 5.4-5.6 1.8z" opacity="0.55" />
-      <path d="M7.6 10.6 12.4 7l4.6 2.4-1 5.4-5.4 1.4z" strokeDasharray="2.2 1.6" />
     </>
   ),
   // A key: swatches against their labels.
@@ -211,10 +206,11 @@ const SECTIONS: SidebarSection[] = [
   },
   {
     /*
-     * Doing things to the map's entities, as opposed to colouring or drawing them. Merge is the
-     * first tool here; it used to be folded under Data, where it read as part of the colouring
-     * modes. It stays folded: opening it is what makes a tap on the map build a group, so it is
-     * opened on purpose rather than by opening the section to undo something.
+     * Doing things to the map's entities, as opposed to colouring or drawing them: Merge, Hide
+     * (which lived under Display as "Territories") and Overlay (once a section of its own). Merge is the first tool here; it used
+     * to be folded under Data, where it read as part of the colouring modes. It stays folded:
+     * opening it is what makes a tap on the map build a group, so it is opened on purpose
+     * rather than by opening the section to undo something.
      */
     id: 'edit',
     name: 'Edit',
@@ -222,6 +218,18 @@ const SECTIONS: SidebarSection[] = [
       <div className="stack">
         <Disclosure title="Merge Groups">
           <MergeControls />
+        </Disclosure>
+        {/* Taking the selected entities off the map, and bringing them back. */}
+        <Disclosure title="Hide">
+          <HideTerritories />
+        </Disclosure>
+        {/*
+          Copies of an entity's shape laid over another place — it had a section of its own,
+          "Overlays". Unmounted while folded like every disclosure, and its being mounted is
+          what the store reads as the overlay tool being open (`setOverlayMode`).
+        */}
+        <Disclosure title="Overlay">
+          <OverlayControls />
         </Disclosure>
       </div>
     ),
@@ -249,9 +257,6 @@ const SECTIONS: SidebarSection[] = [
         <Disclosure title="Labels & Helpers">
           <LabelsAndHelpers />
         </Disclosure>
-        <Disclosure title="Territories">
-          <HideTerritories />
-        </Disclosure>
         <Disclosure title="Legend Visibility">
           <LegendVisibilityToggle />
         </Disclosure>
@@ -265,11 +270,6 @@ const SECTIONS: SidebarSection[] = [
     short: 'Styles',
     body: <DataPalette />,
   },
-  /*
-   * Its own section because an overlay is not data: it is a picture of one place laid over
-   * another.
-   */
-  { id: 'overlays', name: 'Overlays', body: <OverlayControls /> },
   {
     id: 'legend',
     name: 'Legend',
@@ -383,6 +383,25 @@ export function Sidebar() {
 
   const open = SECTIONS.find((section) => section.id === openId) ?? null
   const rendered = SECTIONS.find((section) => section.id === renderedId) ?? null
+  const panelRef = useRef<HTMLDivElement>(null)
+  /*
+   * Where the Back button is drawn: the editor's body — the row between the header and the
+   * status bar, across the whole width — so it can sit at that row's bottom-right corner. The
+   * sidebar itself is only the rail's width.
+   */
+  const rootRef = useRef<HTMLDivElement>(null)
+  const [backHost, setBackHost] = useState<HTMLElement | null>(null)
+  useEffect(() => setBackHost(rootRef.current?.parentElement ?? null), [])
+
+  /*
+   * The phone's Back button: backs out of whatever was opened last. A tool open inside the
+   * section (Merge Groups, Hide, Overlay, Map Detail…) is folded first, most recent first; with
+   * none left, the section closes, exactly as its own collapse button closes it. Nothing else is
+   * touched — no browser history, no map, no document — it only closes panels.
+   */
+  const back = () => {
+    if (!closeLatestDisclosure(panelRef.current)) setOpenId(null)
+  }
 
   const choose = (id: string) => {
     const next = id === openId ? null : id
@@ -390,7 +409,7 @@ export function Sidebar() {
   }
 
   return (
-    <div className={`sidebar${open ? ' sidebar--open' : ''}`}>
+    <div className={`sidebar${open ? ' sidebar--open' : ''}`} ref={rootRef}>
       <nav className="sidebar__rail" aria-label="Map controls">
         {SECTIONS.map((section) => {
           const active = section.id === openId
@@ -431,7 +450,7 @@ export function Sidebar() {
         changes size when this opens, so nothing about the map is recomputed — see the
         note on the grid in `global.css`.
       */}
-      <div className="sidebar__panel" aria-hidden={!open}>
+      <div className="sidebar__panel" aria-hidden={!open} ref={panelRef}>
         {rendered && (
           <div className="sidebar__panel-inner">
             <header className="sidebar__head">
@@ -478,6 +497,31 @@ export function Sidebar() {
           </div>
         )}
       </div>
+
+      {/*
+        Back, on a phone only (`.mobile-back` in the stylesheet) and only while there is
+        something open to back out of. Floating at the bottom-right, where a thumb holding
+        the phone reaches, rather than in the panel's header at the top.
+      */}
+      {open && backHost && createPortal(
+        <button type="button" className="mobile-back" aria-label="Back" title="Back" onClick={back}>
+          <svg
+            viewBox="0 0 20 20"
+            width="18"
+            height="18"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path d="M16 10H4.5M9.5 5 4.5 10l5 5" />
+          </svg>
+        </button>,
+        backHost,
+      )}
     </div>
   )
 }

@@ -805,6 +805,9 @@ node scripts/build-subregion-parts.mjs
 
 ### Hide Territories
 
+The tool is **Edit → Hide** (it was **Display → Territories**): select entities and press Hide;
+**Show all** brings every hidden one back.
+
 Hiding a territory removes it from the map completely, not just its land. Nothing drawn for it, or inside it, stays visible:
 
 - **Drawn per territory, so each layer skips hidden ones:** land, coastline, its share of the border network, flag, island water, labels (names, data values, group values), magnifier, click targets.
@@ -1248,29 +1251,37 @@ nothing, dragging in the controls moves the map by nothing, a tap selects no cou
 frames cost what a drag on the map itself costs. `touch-action: none` is what keeps the
 browser from scrolling the panel or swiping the page underneath the gesture.
 
-**The rail is two levels deep**, ten sections in the order the work goes — which map, what is
-selected, what is done to it, how it is drawn, what colours it, what is laid over it, how it is
-explained, how it is framed — then the editor's own preferences and the assistant to come. Each
+**The rail is two levels deep**, nine sections in the order the work goes — which map, what is
+selected, what is done to it (merging, hiding, overlaying), how it is drawn, what colours it, how
+it is explained, how it is framed — then the editor's own preferences and the assistant to come. Each
 section's parts sit behind a `Disclosure`:
 
 ```
 Maps            Map · Region · Map Detail · Outside Region Appearance
 Select          [Normal / Rectangle / Brush] · How the tools work · Entities Selected
-Edit            Merge Groups
-Display         Appearance · Geographic Features · Labels & Helpers · Territories · Legend Visibility
+Edit            Merge Groups · Hide · Overlay [Management · Appearance · Transform · Mode]
+Display         Appearance · Geographic Features · Labels & Helpers · Legend Visibility
 Styles & Data   [Off / Data / Compare / Flags and each mode's workflow]
-Overlays        Overlay Management · Overlay Appearance · Overlay Transform · Overlay Mode
 Legend          Visibility · Content · Appearance · Layout · Position & Size
 Canvas          Aspect Ratio · Dimensions · Framing
 Settings        Appearance (theme) · Data Sources
 AI              one line: coming soon
 ```
 
+**On a phone, a Back button** floats at the bottom-right whenever a section is open, in the zoom
+buttons' column just above the status bar (`.mobile-back`; touch screens at phone sizes only). It
+backs out of whatever was opened last: the tool open inside the section first — Overlay's
+Management inside Overlay, then Overlay, then Hide — and, with none left, the section itself,
+exactly as the panel's own collapse button does. It closes panels and nothing else: no browser
+history, no reload, and the map, selection, data, overlays and camera are untouched. Each
+`Disclosure` registers itself while open, so the order is the order they were opened.
+
 Every control is the component it was, with the same hooks and the same operation — moved, not
 rebuilt. Where one component held controls for two sections it was split along that seam:
 `MapSettings` now exports the map's own settings (`MapDetailSettings`,
 `OutsideRegionAppearance`) for Maps and the layer switches (`GeographicFeatureToggles`,
-`LabelsAndHelpers`, `HideTerritories`, `LegendVisibilityToggle`) for Display; the legend and
+`LabelsAndHelpers`, `LegendVisibilityToggle`) for Display, and `HideTerritories` for Edit →
+**Hide** (it sat under Display as **Territories** until it moved beside Merge); the legend and
 overlay editors wrap their existing blocks in subsections inside the same component, so their
 local state — the overlay's pending flag choice, the legend's patch helper — did not have to
 move. **Show Legend** appears in two places on purpose and is one control: Display and Legend write
@@ -1290,7 +1301,13 @@ What changed besides position:
   is, and choosing it turns both off; a click selects and deselects exactly as before whichever
   is on. The three paragraphs of help fold under *How the tools work*. The count reads
   **Entities Selected: N** and includes water regions, because countries, subdivisions,
-  territories, merged groups and seas are all selectable.
+  territories, merged groups and seas are all selectable. On a computer, holding **Ctrl** turns
+  Brush Mode on for as long as it is held (`render/heldBrush.ts`): its button lights, a
+  Ctrl-drag paints the ordinary brush stroke, and letting go returns to the tool that was in
+  hand — a Brush Mode that was already on stays on. Ctrl with any other key (Ctrl+Z, AltGr) is
+  a shortcut and ends the hold; so do typing in a field, key repeat, leaving the window or tab,
+  and a pointer moving without Ctrl. A trackpad pinch still zooms, and touch devices are
+  unchanged.
 - **Merge** moved from under Data to **Edit → Merge Groups**. It stays folded when Edit opens:
   opening it is what makes a tap on the map build a group, so it is opened on purpose rather than
   by opening the section to undo something. Closing it leaves Merge Mode, as before.
@@ -3382,7 +3399,8 @@ with the names the chooser searches on.
 
 A movable copy of an entity's shape, for comparing one place with another: Texas laid over
 France, Greenland dragged to the equator, a historical territory over its modern successor.
-The **Map Overlays** section of the sidebar makes them. Select a country, region, territory or
+The **Overlay** tool in the sidebar's **Edit** section makes them (it was a section of its own,
+**Overlays**, until it moved beside Merge and Hide). Select a country, region, territory or
 merged group on the map, press **Create overlay**, and drag the overlay anywhere. What was
 copied leaves the selection and the new overlay is the one being edited, so it can be dragged at
 once and the original is not left painted in the selection colour under it. Only the selection

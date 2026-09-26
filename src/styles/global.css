@@ -187,6 +187,8 @@ body {
    */
   grid-template-columns: 56px minmax(0, 1fr);
   min-height: 0;
+  /* The frame the phone's Back button is placed in — see `.mobile-back`. */
+  position: relative;
 }
 
 .app__map {
@@ -3386,6 +3388,71 @@ body {
   .sidebar__panel,
   .sidebar__panel-inner {
     width: min(300px, calc(100vw - 56px - 8px));
+  }
+}
+
+/*
+ * The phone's Back button (`Sidebar`): folds the tool opened last, then closes the section.
+ *
+ * Only on a touch phone — the same widths and heights that give the panel its map-drag window,
+ * and a coarse pointer, so a narrow desktop window does not get it. It floats at the
+ * bottom-right, in the column the zoom buttons use, above the status bar: clear of the drag
+ * window at the foot of the panel, and where the thumb of the hand holding the phone rests.
+ *
+ * Placed in the editor's body (`.app__body`, the row between the header and the status bar)
+ * rather than against the viewport: that row's corner is the status bar's top and the page's
+ * right edge on every phone, where a viewport's height changes as a mobile browser shows and
+ * hides its toolbars and put a fixed button over the status bar. Above the sidebar and the map;
+ * the safe-area insets keep it out of a notch and off the home indicator.
+ */
+.mobile-back {
+  display: none;
+}
+
+@media (pointer: coarse) and (max-width: 620px), (pointer: coarse) and (orientation: landscape) and (max-height: 560px) {
+  .mobile-back {
+    position: absolute;
+    right: calc(10px + env(safe-area-inset-right, 0px));
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    z-index: 6;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
+    color: var(--text);
+    cursor: pointer;
+    transition:
+      background-color var(--dur) var(--ease),
+      transform 90ms var(--ease);
+  }
+
+  .mobile-back:active {
+    transform: scale(0.985);
+    filter: brightness(0.96);
+  }
+
+  .mobile-back:focus-visible {
+    border-color: var(--accent);
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+}
+
+/* Turned sideways height is scarce, and the button sits a little lower. */
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 560px) {
+  .mobile-back {
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-back {
+    transition: none;
   }
 }
 

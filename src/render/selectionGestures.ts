@@ -28,6 +28,11 @@ export interface SelectionGestureHandlers {
   /** Whether each tool is live right now. */
   rectangle: boolean
   brush: boolean
+  /**
+   * Whether the brush is armed by holding Ctrl (`heldBrush.ts`). A press with Ctrl down is left
+   * to the browser otherwise — it is a context click on a Mac — but then it is the brush's.
+   */
+  brushByKey: boolean
   /** Entities whose drawn outline meets the rectangle, in the zoomed group's coordinates. */
   inRect: (x0: number, y0: number, x1: number, y1: number) => string[]
   /**
@@ -365,7 +370,7 @@ export function useSelectionGestures(
         return
       }
 
-      if (!h.brush || !event.isPrimary || event.button !== 0 || event.ctrlKey) return
+      if (!h.brush || !event.isPrimary || event.button !== 0 || (event.ctrlKey && !h.brushByKey)) return
       if (h.ignore(target)) return
       /*
        * The press starts a stroke, not a text selection, a drag or a focus change — see

@@ -89,6 +89,7 @@ import { RetainedVectors } from './retainedVectors'
 import { projectWater, waterPaths } from './waterDetail'
 import { hiddenFootprint } from './hiddenMask'
 import { useSelectionGestures } from './selectionGestures'
+import { useHeldBrush } from './heldBrush'
 import { usePinchZoom } from './pinchZoom'
 import { MapOverlays, OVERLAY_MARKER } from './MapOverlays'
 import { overlaySource, type OverlaySource } from './overlayGeometry'
@@ -437,6 +438,8 @@ export function MapCanvas() {
   const hoveredWaterId = useMapStore((s) => s.hoveredWaterId)
   const setHoveredWater = useMapStore((s) => s.setHoveredWater)
   const selectionTools = useMapStore((s) => s.selectionTools)
+  const brushHeld = useMapStore((s) => s.brushHeld)
+  useHeldBrush()
   const magnifierOn = useMapStore((s) => s.magnifier)
   const addToSelection = useMapStore((s) => s.addToSelection)
   const removeFromSelection = useMapStore((s) => s.removeFromSelection)
@@ -1711,7 +1714,7 @@ export function MapCanvas() {
    */
   const hasOutlines = shapes.length > 0 || mergedShapes.length > 0
   const rectangleOn = hasOutlines && selectionTools.rectangle
-  const brushOn = hasOutlines && selectionTools.brush
+  const brushOn = hasOutlines && (selectionTools.brush || brushHeld)
   brushArmedRef.current = brushOn
 
   /**
@@ -1756,6 +1759,7 @@ export function MapCanvas() {
   useSelectionGestures(svgRef, zoomedRef, selectionOverlayRef, {
     rectangle: rectangleOn,
     brush: brushOn,
+    brushByKey: brushHeld,
     /*
      * The tools test the outlines the map draws, and with the layer on the seas are among
      * them — so a rectangle over the Baltic takes the Baltic, and a brush stroke across it
@@ -3107,8 +3111,14 @@ export function MapCanvas() {
   useLayoutEffect(() => {
     if (!retainedRef.current) return
     if (fullDetail) { retainedRef.current.fallback('export'); return }
-    const matrix = zoomedRef.current?.transform.baseVal.consolidate()?.matrix
-    if (matrix) retainedRef.current.sync({ x: matrix.e, y: matrix.f, k: matrix.a })
+    const transforms = zoomedRef.current?.transform.baseVal
+    if (!transforms) return
+    // consolidate() rewrites the live SVG attribute; reading the camera must not mutate it.
+    let matrix = new DOMMatrix()
+    for (let i = 0; i < transforms.numberOfItems; i++) {
+      matrix = matrix.multiply(transforms.getItem(i).matrix)
+    }
+    retainedRef.current.sync({ x: matrix.e, y: matrix.f, k: matrix.a })
   })
 
   return (

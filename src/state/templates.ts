@@ -24,7 +24,7 @@ import { colourModeOps, type ColourMode } from './colourMode'
 import { levelName, levelOf, PREDEFINED_DATASETS, predefinedDataOps } from '../data/predefinedData'
 
 /** The sidebar sections a template can open once applied, by their stable ids. */
-export type TemplateSection = 'maps' | 'select' | 'edit' | 'display' | 'data' | 'overlays' | 'legend' | 'canvas'
+export type TemplateSection = 'maps' | 'select' | 'edit' | 'display' | 'data' | 'legend' | 'canvas'
 
 /**
  * A template that asks one thing first: which of its options.
