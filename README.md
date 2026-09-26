@@ -890,7 +890,7 @@ which is the trade a phone wants by default — most of the geography, little of
 
 `maps/startingDetail.ts` decides it, and what it is not matters as much as what it is:
 
-- **Not a cap.** 110m, 50m and 10m are all in the picker on a phone exactly as before, and
+- **Not a cap.** 110m, 50m, 25m and 10m are all in the picker on a phone exactly as before, and
   choosing one loads it.
 - **Not sticky against the author.** The moment they choose a detail themselves, the
   automatic choice steps aside for the rest of the session, so opening another map does not
@@ -910,6 +910,69 @@ and a small tablet qualify; a 1024-wide tablet and every desktop do not.
 The two maps are not quite the same map: 110m omits Bir Tawil and the Southern Patagonian Ice
 Field, which are unclaimed ground rather than countries. Every country, microstates included,
 is on the 110m map — see the next section for how.
+
+### 25m: between 50m and 10m
+
+**Natural Earth publishes 110m, 50m and 10m and nothing between, so 25m is made from 10m.**
+`scripts/build-25m.mjs` (`npm run build-25m`) reads the committed 10m topology and writes
+`countries-25m.json`, `lakes-25m.geojson` and `rivers-25m.geojson` beside it in
+`data/natural-earth/`; `prepare-data.mjs` copies them like the rest, so nothing is simplified at
+runtime. It is a maintenance step: rerun it after `build-geography.mjs` changes the 10m layers.
+The picker offers 110m, 50m, 25m and 10m; the defaults are unchanged (10m on a desktop, 50m on a
+phone).
+
+**What it keeps.** Every point of 25m is a 10m point on the same grid — nothing is drawn or
+moved — and the file keeps 10m's entities, ids, properties, arcs and arc references exactly, so
+everything keyed on them (selection, merges, data, flags, supplements, SVG import) sees the same
+map. The simplification is Douglas–Peucker at 1.2 km, with four rules on top:
+
+- **Borders stay shared.** Each shared arc is simplified once and both neighbours keep
+  referencing it; junctions and the points where a border meets the coast are always kept.
+- **Distance is measured against the great circle d3 will draw**, not the straight line in
+  longitude and latitude. Measured flat, the 49th parallel read as straight, lost its points,
+  and was drawn bowing north: 124,000 km² moved from Canada to the United States.
+- **Nothing is swept over.** A chord is accepted only if no other point of the map lies between
+  it and the line it replaces, and afterwards every drawn segment is checked against every
+  other; an arc in a crossing is simplified again more finely (none needed it at 1.2 km).
+- **Small things are kept whole.** Every entity under 2,500 km² (microstates, small island
+  territories — the same ones the coarse maps draw at 10m), every ring of 16 points or fewer,
+  and every ring under about 14 km across keeps all its points. The 35 arcs that already touch
+  another at 10m are left exactly as they are.
+
+Lakes and rivers get the same tolerance and guarantees within each feature; every lake and river
+of 10m is still there.
+
+**Checked** (`.cache/validate-25m.mjs`): 256 entities, 7,043 polygons and 7,062 rings, all as in
+10m; no degenerate or reversed ring; the containment of every ring's first point in every other
+ring unchanged (8,434 tests); the 211 interior border lines unchanged; total land within 0.007 %.
+Median area change per entity against 10m: 0.017 % at 25m, 0.33 % at 50m. Largest: French
+Polynesia −3.1 %, Baikonur −2.4 %, Cabo Verde −1.6 % (Kosovo −0.01 %) (50m: French Polynesia −22 %, Monaco −36 %);
+microstates 0.00 %.
+
+| | points | file | gzip | lakes | rivers |
+|---|---|---|---|---|---|
+| 50m | 80,667 | 726 KB | 226 KB | 405 KB | 519 KB |
+| **25m** | **217,260** (42 % of 10m) | **2,198 KB** | **776 KB** | 2,077 KB | 2,234 KB |
+| 10m | 515,207 | 4,734 KB | 1,563 KB | 4,440 KB | 7,364 KB |
+
+**Measured**, headless Edge with real input, 1280×800 and phone (390×844 @3, CPU ×4):
+
+- Switching resolution to a drawn map: desktop 50m ~0.4 s, 25m ~0.5–0.6 s, 10m ~0.9–1.4 s; phone
+  50m ~2 s, 25m ~1.4–2.4 s, 10m ~3.2–4.2 s. The JS heap after loading was 75–100 MB at 25m
+  against 95–115 MB at 10m.
+- Pan and zoom, measured with the lakes and rivers following the land's detail steps: all three
+  played out on time on both profiles, because the land is drawn at the zoom's own detail
+  (`landDetail.ts`). Where that detail is full — zoomed past 20× — 25m's frames were about a
+  quarter cheaper than 10m's (Norway coast at 24×: mean 6.4–7.2 ms against 9.3 ms). Water is now
+  drawn at every point of its layer at every zoom, so 25m's lighter lakes and rivers make the
+  difference from 10m larger than this.
+- Unchanged against 10m: selection by tap on both profiles (microstates included), Shift,
+  rectangle and brush, Data, Compare, Merge, overlays, flags with island water (72 bodies,
+  none wider than half the map), coastlines, lakes, rivers, Water Regions, all 9 projections,
+  the 7 regions and all 98 subregion presets, PNG/JPG/SVG export, and the SVG import round
+  trip. At the world view the label layout seats three names fewer (Pakistan, Namibia,
+  Zambia); all three are there from the first zoom step. 50m differs from 10m there in the same
+  way — the layout samples each outline, and a different outline changes which names fit.
 
 ### Entities a coarse dataset omits
 
@@ -1215,7 +1278,7 @@ What changed besides position:
 - **Outside Region Appearance** is the old "Outside the region" select, and **Normal (match
   region style)** is its old "Same as in-region" — the same three `outsideScope` values, named
   for what the land looks like, with a line under it saying so.
-- **Map Detail**'s dataset picker is labelled **Resolution** on the World map (10m, 50m, 110m)
+- **Map Detail**'s dataset picker is labelled **Resolution** on the World map (110m, 50m, 25m, 10m)
   and keeps the atlas's own label — **Detail** — on a map whose datasets are levels.
 - **Select** shows three tools. **Normal Selection** is on whenever neither Rectangle nor Brush
   is, and choosing it turns both off; a click selects and deselects exactly as before whichever
@@ -3837,8 +3900,8 @@ document between operations — which is the shape an assistant's batch will tak
   palettes and comparison colours are all the reader currently gets.
 - **Export** — the renderer is SVG so PNG 1920×1080 and SVG export are reachable; no
   export code yet. The button is present and disabled.
-- **Historical datasets** — registry supports them; none registered. The three
-  modern resolutions (110m / 50m / 10m) are the only entries; 10m is the default.
+- **Historical datasets** — registry supports them; none registered. The four
+  modern resolutions (110m / 50m / 25m / 10m) are the only entries; 10m is the default.
 - **Geometry editing** — `rename_country`, `merge_countries`, `set_border` and the
   rest are listed in `PLANNED_OPERATIONS` and rejected with a clear reason.
 - No backend, no auth, no database. Everything runs client-side.

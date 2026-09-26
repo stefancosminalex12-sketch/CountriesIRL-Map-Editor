@@ -56,6 +56,12 @@ export type CountryProperties = EntityProperties
 export type EntityFeature = Feature<Polygon | MultiPolygon, EntityProperties>
 export type CountryFeature = EntityFeature
 
+/**
+ * The World map's resolutions, coarsest first. 110m, 50m and 10m are Natural Earth's; 25m is
+ * the 10m map simplified by `scripts/build-25m.mjs` to a level between 50m and 10m.
+ */
+export type GeoDetail = '110m' | '50m' | '25m' | '10m'
+
 export interface GeoDataset {
   id: string
   /** Which atlas this dataset belongs to. See `maps/atlas.ts`. */
@@ -65,7 +71,7 @@ export interface GeoDataset {
   era: 'modern' | 'historical'
   /** Year the geography represents; `null` for "current". */
   year: number | null
-  detail: '110m' | '50m' | '10m'
+  detail: GeoDetail
   url: string
   /** Name of the TopoJSON object holding the entity polygons. */
   objectName: string

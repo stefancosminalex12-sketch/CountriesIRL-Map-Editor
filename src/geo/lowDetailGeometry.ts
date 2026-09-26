@@ -15,14 +15,15 @@
  */
 import type { Position } from 'geojson'
 import type { CountryId } from '../types/map'
+import type { GeoDetail } from './datasets'
 
 export interface LowDetailCountry {
   id: CountryId
   name: string
   /** Resolutions whose own layer has no geometry for this entity. */
-  appliesToDetail: ('110m' | '50m' | '10m')[]
+  appliesToDetail: GeoDetail[]
   /** The layer the shape was lifted from, before simplification. */
-  sourceDetail: '110m' | '50m' | '10m'
+  sourceDetail: GeoDetail
   polygons: Position[][][]
 }
 

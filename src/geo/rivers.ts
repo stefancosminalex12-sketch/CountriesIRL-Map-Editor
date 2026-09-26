@@ -29,6 +29,7 @@
  * the map paints before they arrive.
  */
 import type { Feature, LineString, MultiLineString } from 'geojson'
+import type { GeoDetail } from './datasets'
 
 export interface RiverProperties {
   name: string | null
@@ -38,7 +39,7 @@ export interface RiverProperties {
 
 export type RiverFeature = Feature<LineString | MultiLineString, RiverProperties>
 
-export type RiverDetail = '10m' | '50m'
+export type RiverDetail = '10m' | '25m' | '50m'
 
 export interface RiverLayer {
   id: string
@@ -52,8 +53,12 @@ export const USGS_RIVERS: RiverLayer = { id: 'usgs-rivers-1m', detail: '10m', ur
 export const RIVER_LAYERS: RiverLayer[] = [
   { id: 'rivers-10m', detail: '10m', url: 'geo/rivers-10m.geojson' },
   { id: 'rivers-50m', detail: '50m', url: 'geo/rivers-50m.geojson' },
+  // 10m's rivers simplified with the 25m land, by `scripts/build-25m.mjs`.
+  { id: 'rivers-25m', detail: '25m', url: 'geo/rivers-25m.geojson' },
   USGS_RIVERS,
 ]
+
+const RIVER_25M = RIVER_LAYERS.find((layer) => layer.id === 'rivers-25m') as RiverLayer
 
 /**
  * Picks the river detail that matches a country dataset.
@@ -61,8 +66,8 @@ export const RIVER_LAYERS: RiverLayer[] = [
  * A plain lookup, exactly as for lakes: the river layer follows whichever country
  * resolution is loaded rather than deciding anything for itself.
  */
-export function riverLayerForDetail(detail: '110m' | '50m' | '10m'): RiverLayer {
-  return detail === '10m' ? RIVER_LAYERS[0] : RIVER_LAYERS[1]
+export function riverLayerForDetail(detail: GeoDetail): RiverLayer {
+  return detail === '10m' ? RIVER_LAYERS[0] : detail === '25m' ? RIVER_25M : RIVER_LAYERS[1]
 }
 
 export interface LoadedRivers {

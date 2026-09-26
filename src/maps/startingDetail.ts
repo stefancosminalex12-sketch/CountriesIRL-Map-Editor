@@ -1,7 +1,7 @@
 /**
  * Which Map Detail a map starts at, which is not the same question on a phone.
  *
- * The world's geography comes at three resolutions — 110m, 50m and 10m — and the editor has
+ * The world's geography comes at four resolutions — 110m, 50m, 25m and 10m — and the editor has
  * always opened at 10m, which is the right answer on a desktop: it is the detail someone
  * making a map wants to see, and a desktop draws it without noticing. A phone notices. The
  * same file is several times the size, several times the vertices, and every frame of every
@@ -11,7 +11,7 @@
  * everything else it is the atlas's own default, unchanged. Three things this deliberately
  * is not:
  *
- * - **It is not a cap.** 110m, 50m and 10m all stay in the picker on a phone, exactly as
+ * - **It is not a cap.** 110m, 50m, 25m and 10m all stay in the picker on a phone, exactly as
  *   before, and choosing one loads it.
  * - **It is not sticky against the author.** The moment they choose a detail themselves, the
  *   automatic choice steps aside for the rest of the session ({@link noteDetailChosen}), so

@@ -28,12 +28,16 @@ mkdirSync(outDir, { recursive: true })
 const CURATED = [
   'countries-110m.json',
   'countries-50m.json',
+  // Between 50m and 10m, simplified from 10m — `scripts/build-25m.mjs`.
+  'countries-25m.json',
   'countries-10m.json',
   'us-states-10m.json',
   'lakes-10m.geojson',
   'lakes-50m.geojson',
+  'lakes-25m.geojson',
   'rivers-10m.geojson',
   'rivers-50m.geojson',
+  'rivers-25m.geojson',
   /*
    * The named oceans and seas, one file for every map — `scripts/build-waters.mjs`. Copied
    * like the rest even though the layer is off by default, so a clean checkout has it and the

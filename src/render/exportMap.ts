@@ -260,6 +260,14 @@ function cloneMapSvg(source: SVGSVGElement, scale: number): { svg: SVGSVGElement
     inlineComputedPaint(liveNodes[i], cloneNodes[i])
   }
 
+  // The retained renderer's transparent SVG remains the authoritative export geometry.
+  for (const node of clone.querySelectorAll<SVGElement>('[data-gpu-source]')) {
+    node.style.removeProperty('opacity')
+    node.removeAttribute('opacity')
+    node.removeAttribute('data-gpu-source')
+  }
+  clone.removeAttribute('data-renderer')
+
   /*
    * Editing chrome is dropped once the paint has been inlined.
    *

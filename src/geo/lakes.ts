@@ -19,6 +19,7 @@
  * separately from the countries, so the map paints before they arrive.
  */
 import type { Feature, MultiPolygon, Polygon } from 'geojson'
+import type { GeoDetail } from './datasets'
 import { repairPolygon } from './repair'
 
 export interface LakeProperties {
@@ -29,7 +30,7 @@ export interface LakeProperties {
 
 export type LakeFeature = Feature<Polygon | MultiPolygon, LakeProperties>
 
-export type LakeDetail = '10m' | '50m'
+export type LakeDetail = '10m' | '25m' | '50m'
 
 export interface LakeLayer {
   id: string
@@ -52,9 +53,13 @@ export const EGM_LAKES: LakeLayer = { id: 'egm-lakes-1m', detail: '10m', url: 'g
 export const LAKE_LAYERS: LakeLayer[] = [
   { id: 'lakes-10m', detail: '10m', url: 'geo/lakes-10m.geojson' },
   { id: 'lakes-50m', detail: '50m', url: 'geo/lakes-50m.geojson' },
+  // 10m's lakes simplified with the 25m land, by `scripts/build-25m.mjs`.
+  { id: 'lakes-25m', detail: '25m', url: 'geo/lakes-25m.geojson' },
   USGS_LAKES,
   EGM_LAKES,
 ]
+
+const LAKE_25M = LAKE_LAYERS.find((layer) => layer.id === 'lakes-25m') as LakeLayer
 
 /**
  * Picks the lake detail that matches a country dataset.
@@ -62,8 +67,8 @@ export const LAKE_LAYERS: LakeLayer[] = [
  * Deliberately a plain lookup rather than a level-of-detail engine: the lake layer
  * simply follows whichever country resolution is loaded.
  */
-export function lakeLayerForDetail(detail: '110m' | '50m' | '10m'): LakeLayer {
-  return detail === '10m' ? LAKE_LAYERS[0] : LAKE_LAYERS[1]
+export function lakeLayerForDetail(detail: GeoDetail): LakeLayer {
+  return detail === '10m' ? LAKE_LAYERS[0] : detail === '25m' ? LAKE_25M : LAKE_LAYERS[1]
 }
 
 export interface LoadedLakes {

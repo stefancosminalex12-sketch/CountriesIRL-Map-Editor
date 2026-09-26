@@ -84,6 +84,9 @@ import { anchorsOf, assistOf, useProjectedLand } from './projectedLand'
 import { reportDrawnTolerance, toleranceForZoom, useFullDetail } from './landDetail'
 import { setMapCamera } from './mapCamera'
 import { useGatedMemo } from './useGatedMemo'
+import { chunkPieces, chunkStrokedPath } from './pathChunks'
+import { RetainedVectors } from './retainedVectors'
+import { projectWater, waterPaths } from './waterDetail'
 import { hiddenFootprint } from './hiddenMask'
 import { useSelectionGestures } from './selectionGestures'
 import { usePinchZoom } from './pinchZoom'
@@ -103,9 +106,19 @@ import { MapLenses, type FitCorrection, type Lens, type MapLensesHandle } from '
 
 export const MAP_SVG_ID = 'map-canvas-svg'
 
+/**
+ * One projected border network: the whole path, and the same path in compact pieces, which is
+ * what is drawn (see `pathChunks.ts`).
+ */
+interface LineNetwork {
+  d: string
+  clipId: string | null
+  chunks: string[]
+}
+
 interface LineNetworks {
-  borders: Array<{ d: string; clipId: string | null }>
-  national: Array<{ d: string; clipId: string | null }>
+  borders: LineNetwork[]
+  national: LineNetwork[]
 }
 
 /**
@@ -171,9 +184,29 @@ interface PaintedShape {
  */
 const COUNTRY_CHUNK = 256
 
-/** A run of the country layer. The same array is the same chunk, passed over whole. */
-const CountryChunk = memo(function CountryChunk({ elements }: { elements: ReactElement[] }) {
-  return <>{elements}</>
+/**
+ * The camera's scale, pinned, for a run of the layer that draws no line.
+ *
+ * The scale is a custom property on the zoomed group, set every frame of a zoom so that every
+ * line keeps its width on screen (`screenStrokeWidth`). A custom property is inherited, so
+ * each change had the browser recompute the style of every element under the group: on
+ * Europe Administrative, 3,022 subdivisions, 6 to 12 ms of every zoom frame on a desktop and
+ * four times that on a phone. Most of those paths are fills with no line at all — the borders
+ * are drawn by the networks over them — and for those the scale changes nothing. A run of
+ * them is given the scale as a constant: its value is never read (a width of zero is zero at
+ * any scale), and the browser stops the change at the run instead of visiting every path.
+ */
+const PINNED_SCALE = { [MAP_SCALE_VAR]: 1 } as CSSProperties
+
+/**
+ * A run of the country layer. The same array is the same chunk, passed over whole.
+ *
+ * Always a group, so that a run starting or stopping to draw a line — a hover, a style
+ * change — changes one attribute rather than remounting its paths. `lined` says whether any
+ * of its elements draws a stroke; only a run that draws none is pinned (see above).
+ */
+const CountryChunk = memo(function CountryChunk({ elements, lined }: { elements: ReactElement[]; lined: boolean }) {
+  return <g style={lined ? undefined : PINNED_SCALE}>{elements}</g>
 })
 
 /** Whether two paints draw the same thing. */
@@ -191,6 +224,7 @@ function samePaint(a: CountryPaint, b: CountryPaint): boolean {
 /* What a layer is while it waits — see `layersReady`. Constants, so waiting changes nothing. */
 const NO_INSETS: ResolvedInset[] = []
 const NO_LINE_NETWORKS: LineNetworks = { borders: [], national: [] }
+const NO_CHUNKS: string[] = []
 const NO_COAST_PATHS: Map<string, string> = new Map()
 const NO_LABEL_SHAPES: LabelShape[] = []
 
@@ -413,6 +447,8 @@ export function MapCanvas() {
    * straight onto this element, and React is only told once the gesture ends.
    */
   const zoomedRef = useRef<SVGGElement>(null)
+  const geographyRef = useRef<SVGGElement>(null)
+  const retainedRef = useRef<RetainedVectors | null>(null)
   /** The scale a gesture started at: while it is unchanged the camera is only translating. */
   const panScale = useRef(1)
   /**
@@ -572,6 +608,7 @@ export function MapCanvas() {
     // The lines' screen width follows the camera in the same frame; a pan leaves it as it is.
     const scale = String(t.k * fitScaleRef.current)
     if (group.style.getPropertyValue(MAP_SCALE_VAR) !== scale) group.style.setProperty(MAP_SCALE_VAR, scale)
+    retainedRef.current?.draw({ x, y, k: t.k })
     lensesRef.current?.follow(t)
   }, [])
   /** Held true by a Selection-panel gesture, for the same reason — see `useSelectionGestures`. */
@@ -1217,27 +1254,46 @@ export function MapCanvas() {
   )
 
   /**
-   * Every lake as one path.
-   *
-   * They share a single style and are never individually addressable, so one element
-   * is both cheaper to render and simpler than 300+ nodes. Memoised on the projection
-   * and the layer, exactly like the country paths, so it is rebuilt when the camera's
-   * projection changes and never on a theme change, a pan or a zoom.
+   * The detail the lakes and the rivers are drawn at: every projected point, at every zoom.
+   * `waterDetail.ts` can follow the land's detail steps instead; that is left off, so water is
+   * never coarser than its source.
    */
-  const prepareLakes = useLayerLatch(style.showLakes)
-  const lakePath = useGatedMemo(layersReady, '', () => {
-    if (!prepareLakes || !projection || !lakes) return ''
-    const path = geoPath(projection)
-    return path({ type: 'FeatureCollection', features: lakes.features } as Parameters<typeof path>[0]) ?? ''
-  }, [prepareLakes, projection, lakes])
+  const waterTolerance = 0 // Preserve every projected water point at every navigation scale.
 
   /**
-   * Every river as one path.
+   * Every lake, in a few compact pieces.
    *
-   * The same arrangement the lakes get, for the same reasons: one element rather than
-   * five hundred, and memoised on the projection and the layer so it survives every pan,
-   * zoom and theme change untouched. Panning and zooming move the group this sits in,
-   * which is why interacting with the map never rebuilds this string.
+   * They share a single style and are never individually addressable, so they are not one
+   * element per lake. They used to be one element for the whole map, at full detail, and on a
+   * detailed map that single path was most of the cost of every zoom frame: a path that
+   * reaches every tile is drawn in full in every tile (see `pathChunks.ts`), and its points
+   * were far finer than any pixel. So the lakes are drawn at the land's detail
+   * (`waterDetail.ts`) and grouped into pieces that each cover a compact area, and a tile
+   * takes only the pieces that reach it.
+   *
+   * Grouped by lake, never within one: a lake with an island is two rings whose windings
+   * cancel, and they stay in the same piece. Projected once per projection, like the country
+   * paths, and simplified again only when the land's detail steps — never on a theme change,
+   * a pan or a zoom.
+   */
+  const prepareLakes = useLayerLatch(style.showLakes)
+  const lakeWater = useGatedMemo(layersReady, null, () => {
+    if (!prepareLakes || !projection || !lakes) return null
+    return projectWater(lakes.features, projection)
+  }, [prepareLakes, projection, lakes])
+  const lakeChunks = useGatedMemo(layersReady, NO_CHUNKS, () => {
+    if (!lakeWater) return NO_CHUNKS
+    const pieces = waterPaths(lakeWater, waterTolerance)
+    return pieces.length > 0 ? chunkPieces(pieces) : NO_CHUNKS
+  }, [lakeWater, waterTolerance])
+
+  /**
+   * Every river, in a few compact pieces.
+   *
+   * The same arrangement the lakes get, for the same reasons: a few elements rather than
+   * five hundred, at the land's detail, and projected once per projection so every pan,
+   * zoom and theme change leaves them untouched. Panning and zooming move the group these
+   * sit in, which is why interacting with the map never rebuilds them.
    *
    * Relevance is the projection's job. `geoPath` clips to the projection's own extent,
    * so a river outside the current map — the Amazon on a map framed to Europe, or
@@ -1255,16 +1311,21 @@ export function MapCanvas() {
     if (prepareRivers) ensureRivers()
   }, [prepareRivers, ensureRivers])
 
-  const riverPath = useGatedMemo(layersReady, '', () => {
-    if (!prepareRivers || !projection || !rivers) return ''
-    const path = geoPath(projection)
-    return path({ type: 'FeatureCollection', features: rivers.features } as Parameters<typeof path>[0]) ?? ''
+  const riverWater = useGatedMemo(layersReady, null, () => {
+    if (!prepareRivers || !projection || !rivers) return null
+    return projectWater(rivers.features, projection)
   }, [prepareRivers, projection, rivers])
+  /** The rivers at the land's detail and in compact pieces, exactly as the lakes are. */
+  const riverChunks = useGatedMemo(layersReady, NO_CHUNKS, () => {
+    if (!riverWater) return NO_CHUNKS
+    const pieces = waterPaths(riverWater, waterTolerance)
+    return pieces.length > 0 ? chunkPieces(pieces) : NO_CHUNKS
+  }, [riverWater, waterTolerance])
 
   /**
    * Hide Territories, for the lakes and the rivers.
    *
-   * Both are one path for the whole map, so a hidden territory cannot be left out of them the
+   * Neither is drawn per entity, so a hidden territory cannot be left out of them the
    * way it is left out of every per-entity layer. They are clipped instead: the clip is the
    * whole plane with the hidden territories' footprints cut out of it (even-odd), so a lake
    * or a river inside a hidden territory goes, down to the part of a shared lake on its side of
@@ -1274,12 +1335,12 @@ export function MapCanvas() {
    */
   const hiddenWaterClip = useMemo(() => {
     if (hiddenIds.size === 0 || !projection || !geo) return ''
-    if (!(style.showLakes && lakePath) && !(style.showRivers && riverPath)) return ''
+    if (!(style.showLakes && lakeChunks.length > 0) && !(style.showRivers && riverChunks.length > 0)) return ''
     const footprint = hiddenFootprint(geo, hiddenIds, lakes)
     if (!footprint) return ''
     const d = geoPath(projection)(footprint) ?? ''
     return d ? `M-1e6,-1e6H1e6V1e6H-1e6Z${d}` : ''
-  }, [hiddenIds, projection, geo, lakes, style.showLakes, style.showRivers, lakePath, riverPath])
+  }, [hiddenIds, projection, geo, lakes, style.showLakes, style.showRivers, lakeChunks, riverChunks])
 
   /**
    * The named oceans and seas, one projected path each.
@@ -1410,16 +1471,16 @@ export function MapCanvas() {
     const split = (
       build: (include?: (id: string) => boolean) => MultiLineString | null,
       buildArcs: (include?: (id: string) => boolean) => number[][] | null,
-    ): Array<{ d: string; clipId: string | null }> => {
-      const out: Array<{ d: string; clipId: string | null }> = []
+    ): LineNetwork[] => {
+      const out: LineNetwork[] = []
       const quick = fromArcs(buildArcs, onMain)
       const main = quick === null ? build(onMain) : null
       const mainPath = quick ?? (main ? (geoPath(projection)(main) ?? '') : '')
-      if (mainPath) out.push({ d: mainPath, clipId: null })
+      if (mainPath) out.push({ d: mainPath, clipId: null, chunks: chunkStrokedPath(mainPath) })
       for (const resolved of insets) {
         const own = build((id) => resolved.members.has(id))
         const d = own ? (geoPath(resolved.projection)(own) ?? '') : ''
-        if (d) out.push({ d, clipId: resolved.inset.id })
+        if (d) out.push({ d, clipId: resolved.inset.id, chunks: chunkStrokedPath(d) })
       }
       return out
     }
@@ -2971,14 +3032,24 @@ export function MapCanvas() {
       {coastBeside(shape.id, paint.outline, undefined, paint.clipPath, false)}
     </Fragment>
   )
+  /**
+   * Whether an entity's element draws a line: its outline, or its coast drawn on its own. Only
+   * then does it read the camera's scale — see `PINNED_SCALE`.
+   */
+  const drawsLine = (id: string, paint: CountryPaint) =>
+    paint.outline.strokeWidth > 0 &&
+    paint.outline.stroke !== 'none' &&
+    (outlineOn || (coastAlone && coastPaths.has(id)))
   const countryLayer = useMemo(() => {
     const previous = countryElementCache.current
     const next = new Map<string, CachedCountryElement>()
     const elements: ReactElement[] = []
+    const lines: boolean[] = []
     const layerShapes: ShapeRef[] = []
     const indexById = new Map<string, number>()
     for (const { shape, paint } of countryPaints) {
       if (!paint) continue
+      lines.push(drawsLine(shape.id, paint))
       const coast = coastAlone ? coastPaths.get(shape.id) : undefined
       const old = previous.get(shape.id)
       const element =
@@ -2994,17 +3065,20 @@ export function MapCanvas() {
     /* In chunks: a chunk with exactly the elements it had last time is the same array. */
     const previousChunks = countryChunkCache.current
     const chunks: ReactElement[][] = []
+    const lined: boolean[] = []
     for (let start = 0; start < elements.length; start += COUNTRY_CHUNK) {
       const slice = elements.slice(start, start + COUNTRY_CHUNK)
       const old = previousChunks[chunks.length]
       chunks.push(old && old.length === slice.length && old.every((element, i) => element === slice[i]) ? old : slice)
+      lined.push(lines.slice(start, start + COUNTRY_CHUNK).some(Boolean))
     }
     countryChunkCache.current = chunks
-    return { chunks, shapes: layerShapes, indexById }
+    return { chunks, lined, shapes: layerShapes, indexById }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [countryPaints, outlineOn, coastAlone, coastPaths])
   /* The hovered entity, painted hovered, in its own place in the layer: one chunk changes. */
   let countryChunks = countryLayer.chunks
+  let countryLined = countryLayer.lined
   const hoveredAt = hoveredCountryId ? countryLayer.indexById.get(hoveredCountryId) : undefined
   if (hoveredAt !== undefined) {
     const shape = countryLayer.shapes[hoveredAt]
@@ -3015,8 +3089,27 @@ export function MapCanvas() {
       chunk[hoveredAt % COUNTRY_CHUNK] = countryElement(shape, paint)
       countryChunks = countryChunks.slice()
       countryChunks[at] = chunk
+      if (!countryLined[at] && drawsLine(shape.id, paint)) {
+        countryLined = countryLined.slice()
+        countryLined[at] = true
+      }
     }
   }
+
+  // Keep the new backend opt-in until visual and feature parity checks pass.
+  useLayoutEffect(() => {
+    if (import.meta.env.VITE_RETAINED_VECTORS !== '1') return
+    const svg = svgRef.current, camera = zoomedRef.current, geography = geographyRef.current
+    if (!svg || !camera || !geography) return
+    try { retainedRef.current = new RetainedVectors(svg, camera, geography) } catch { return }
+    return () => { retainedRef.current?.dispose(); retainedRef.current = null }
+  }, [])
+  useLayoutEffect(() => {
+    if (!retainedRef.current) return
+    if (fullDetail) { retainedRef.current.fallback('export'); return }
+    const matrix = zoomedRef.current?.transform.baseVal.consolidate()?.matrix
+    if (matrix) retainedRef.current.sync({ x: matrix.e, y: matrix.f, k: matrix.a })
+  })
 
   return (
     <div className="map-canvas" ref={containerRef}>
@@ -3188,6 +3281,7 @@ export function MapCanvas() {
           // The camera's scale on screen, for the lines drawn in it — see `screenStrokeWidth`.
           style={{ [MAP_SCALE_VAR]: transform.k * (fitCorrection?.scale ?? 1) } as CSSProperties}
         >
+          <g ref={geographyRef}>
           {/*
             Outline hierarchy, heaviest first.
 
@@ -3273,7 +3367,7 @@ export function MapCanvas() {
           */}
           <g key={land?.geo?.dataset.id ?? 'none'}>
           {countryChunks.map((elements, index) => (
-            <CountryChunk key={index} elements={elements} />
+            <CountryChunk key={index} elements={elements} lined={countryLined[index]} />
           ))}
           </g>
 
@@ -3421,19 +3515,21 @@ export function MapCanvas() {
           */}
           {style.showBorders &&
             !style.showCoastlines &&
-            lineNetworks.borders.map((layer) => (
-              <path
-                key={`borders-${layer.clipId ?? 'main'}`}
-                d={layer.d}
-                fill="none"
-                stroke={flagsOn ? FLAG_BORDER_COLOR : style.border}
-                style={{ strokeWidth: screenStrokeWidth(flagsOn ? boundaryInkWidth(style.borderWidth, zoomK) : style.borderWidth) }}
-                strokeLinejoin="round"
-                strokeLinecap="butt"
-                pointerEvents="none"
-                clipPath={layer.clipId ? `url(#map-inset-${layer.clipId})` : undefined}
-              />
-            ))}
+            lineNetworks.borders.map((layer) =>
+              layer.chunks.map((d, index) => (
+                <path
+                  key={`borders-${layer.clipId ?? 'main'}-${index}`}
+                  d={d}
+                  fill="none"
+                  stroke={flagsOn ? FLAG_BORDER_COLOR : style.border}
+                  style={{ strokeWidth: screenStrokeWidth(flagsOn ? boundaryInkWidth(style.borderWidth, zoomK) : style.borderWidth) }}
+                  strokeLinejoin="round"
+                  strokeLinecap="butt"
+                  pointerEvents="none"
+                  clipPath={layer.clipId ? `url(#map-inset-${layer.clipId})` : undefined}
+                />
+              )),
+            )}
 
           {/*
             National borders, over the internal ones, on a map of subdivisions.
@@ -3448,19 +3544,21 @@ export function MapCanvas() {
           {style.showBorders &&
             hasNational &&
             !(flagsOn && doc.flags.internationalBorders) &&
-            lineNetworks.national.map((layer) => (
-              <path
-                key={`national-${layer.clipId ?? 'main'}`}
-                d={layer.d}
-                fill="none"
-                stroke={flagsOn ? FLAG_BORDER_COLOR : style.border}
-                style={{ strokeWidth: screenStrokeWidth(style.borderWidth * NATIONAL_BORDER_SCALE) }}
-                strokeLinejoin="round"
-                strokeLinecap="butt"
-                pointerEvents="none"
-                clipPath={layer.clipId ? `url(#map-inset-${layer.clipId})` : undefined}
-              />
-            ))}
+            lineNetworks.national.map((layer) =>
+              layer.chunks.map((d, index) => (
+                <path
+                  key={`national-${layer.clipId ?? 'main'}-${index}`}
+                  d={d}
+                  fill="none"
+                  stroke={flagsOn ? FLAG_BORDER_COLOR : style.border}
+                  style={{ strokeWidth: screenStrokeWidth(style.borderWidth * NATIONAL_BORDER_SCALE) }}
+                  strokeLinejoin="round"
+                  strokeLinecap="butt"
+                  pointerEvents="none"
+                  clipPath={layer.clipId ? `url(#map-inset-${layer.clipId})` : undefined}
+                />
+              )),
+            )}
 
           {/*
             The international treatment runs along the borders between countries — on a map
@@ -3474,24 +3572,31 @@ export function MapCanvas() {
                 key={`boundary-${layer.clipId ?? 'main'}`}
                 clipPath={layer.clipId ? `url(#map-inset-${layer.clipId})` : undefined}
               >
-                <path
-                  d={layer.d}
-                  fill="none"
-                  stroke={FLAG_BOUNDARY_EDGE}
-                  style={{ strokeWidth: screenStrokeWidth(boundaryEdgeWidth(style.borderWidth, zoomK)) }}
-                  strokeLinejoin="round"
-                  strokeLinecap="butt"
-                  pointerEvents="none"
-                />
-                <path
-                  d={layer.d}
-                  fill="none"
-                  stroke={FLAG_BOUNDARY_INK}
-                  style={{ strokeWidth: screenStrokeWidth(boundaryInkWidth(style.borderWidth, zoomK)) }}
-                  strokeLinejoin="round"
-                  strokeLinecap="butt"
-                  pointerEvents="none"
-                />
+                {/* Every piece's edge, then every piece's ink, so the ink is on top everywhere. */}
+                {layer.chunks.map((d, index) => (
+                  <path
+                    key={`edge-${index}`}
+                    d={d}
+                    fill="none"
+                    stroke={FLAG_BOUNDARY_EDGE}
+                    style={{ strokeWidth: screenStrokeWidth(boundaryEdgeWidth(style.borderWidth, zoomK)) }}
+                    strokeLinejoin="round"
+                    strokeLinecap="butt"
+                    pointerEvents="none"
+                  />
+                ))}
+                {layer.chunks.map((d, index) => (
+                  <path
+                    key={`ink-${index}`}
+                    d={d}
+                    fill="none"
+                    stroke={FLAG_BOUNDARY_INK}
+                    style={{ strokeWidth: screenStrokeWidth(boundaryInkWidth(style.borderWidth, zoomK)) }}
+                    strokeLinejoin="round"
+                    strokeLinecap="butt"
+                    pointerEvents="none"
+                  />
+                ))}
               </g>
             ))}
 
@@ -3508,14 +3613,24 @@ export function MapCanvas() {
               <path d={hiddenWaterClip} clipRule="evenodd" fillRule="evenodd" />
             </clipPath>
           )}
-          {style.showLakes && lakePath && (
-            <path
-              d={lakePath}
-              fill={style.lake}
-              stroke={style.lakeOutline}
-              style={{ strokeWidth: screenStrokeWidth(0.5) }}
-              clipPath={hiddenWaterClip ? 'url(#map-hidden-territories)' : undefined}
-            />
+          {/*
+            In pieces (see `lakeChunks`), each drawn as the whole layer always was: water and
+            shore line in one path. Lakes do not overlap, so no piece's water covers another's
+            shore — and where two lakes meet along a line, that line is each one's shore and is
+            drawn again, on top, with the later piece.
+          */}
+          {style.showLakes && lakeChunks.length > 0 && (
+            <g clipPath={hiddenWaterClip ? 'url(#map-hidden-territories)' : undefined}>
+              {lakeChunks.map((d, index) => (
+                <path
+                  key={`lake-${index}`}
+                  d={d}
+                  fill={style.lake}
+                  stroke={style.lakeOutline}
+                  style={{ strokeWidth: screenStrokeWidth(0.5) }}
+                />
+              ))}
+            </g>
           )}
 
           {/*
@@ -3530,18 +3645,24 @@ export function MapCanvas() {
             events are off so a river never intercepts a click meant for the country it
             crosses.
           */}
-          {style.showRivers && riverPath && (
-            <path
-              d={riverPath}
-              fill="none"
-              stroke={style.river}
-              style={{ strokeWidth: screenStrokeWidth(style.riverWidth) }}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              pointerEvents="none"
-              clipPath={hiddenWaterClip ? 'url(#map-hidden-territories)' : undefined}
-            />
+          {style.showRivers && riverChunks.length > 0 && (
+            <g clipPath={hiddenWaterClip ? 'url(#map-hidden-territories)' : undefined} pointerEvents="none">
+              {riverChunks.map((d, index) => (
+                <path
+                  key={`river-${index}`}
+                  d={d}
+                  fill="none"
+                  stroke={style.river}
+                  style={{ strokeWidth: screenStrokeWidth(style.riverWidth) }}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  pointerEvents="none"
+                />
+              ))}
+            </g>
           )}
+
+          </g>
 
           {/*
             Selection is a fill, and only a fill.

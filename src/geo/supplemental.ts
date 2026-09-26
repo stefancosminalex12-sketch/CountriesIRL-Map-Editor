@@ -41,6 +41,7 @@
 import type { Position } from 'geojson'
 import { LOW_DETAIL_COUNTRIES } from './lowDetailGeometry'
 import type { CountryId } from '../types/map'
+import type { GeoDetail } from './datasets'
 
 /**
  * How a supplement relates to whatever the dataset already provides.
@@ -68,7 +69,7 @@ export interface SupplementalCountry {
    * dropping 10m coastlines into the 110m map would look wrong next to its
    * nine-point neighbours. Omit to apply everywhere.
    */
-  appliesToDetail?: ('110m' | '50m' | '10m')[]
+  appliesToDetail?: GeoDetail[]
   /**
    * Drawn this many times its true size, about its own centre, or absent for true size.
    *

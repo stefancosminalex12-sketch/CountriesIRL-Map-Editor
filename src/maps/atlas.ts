@@ -175,6 +175,19 @@ const WORLD_DATASETS: GeoDataset[] = [
     identify: 'feature-id',
   },
   {
+    id: 'modern-25m',
+    atlasId: 'world',
+    name: 'Modern world',
+    era: 'modern',
+    year: null,
+    detail: '25m',
+    url: 'geo/countries-25m.json',
+    objectName: 'countries',
+    metaUrl: 'geo/country-meta.json',
+    // The 10m map simplified between 50m and 10m by `build-25m.mjs`: 10m's entities, ids and arcs.
+    identify: 'feature-id',
+  },
+  {
     id: 'modern-10m',
     atlasId: 'world',
     name: 'Modern world',

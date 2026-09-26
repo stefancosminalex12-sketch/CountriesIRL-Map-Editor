@@ -27,7 +27,7 @@ import {
  *
  * The two questions that decide what the geometry *is*, which is why they are in Maps beside
  * the map and the region rather than among the layer switches in Display. The dataset selector
- * is the resolution on the World map (10m, 50m, 110m) and the level of detail on a map whose
+ * is the resolution on the World map (110m, 50m, 25m, 10m) and the level of detail on a map whose
  * datasets are levels — the atlas names it (`datasetLabel`), so one control serves both.
  */
 export function MapDetailSettings() {
