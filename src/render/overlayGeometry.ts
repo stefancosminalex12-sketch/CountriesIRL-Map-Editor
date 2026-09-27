@@ -23,6 +23,7 @@
 import { geoArea, geoCentroid, geoPath, geoRotation, type GeoProjection } from 'd3-geo'
 import type { Geometry, MultiPolygon, Polygon, Position } from 'geojson'
 import type { MapOverlay } from '../types/map'
+import { clampOverlayScale } from './overlayScale'
 
 export type OverlayGeometry = Polygon | MultiPolygon
 
@@ -141,7 +142,7 @@ export function placeOverlay(
   source: OverlaySource,
   projection: GeoProjection,
 ): OverlayPlacement | null {
-  const scale = Number.isFinite(overlay.scale) && overlay.scale > 0 ? overlay.scale : 1
+  const scale = clampOverlayScale(overlay.scale)
   /* `d`, where the centre of its main landmass is drawn in it, and where that centre belongs. */
   let d = source.homePath
   let from = source.homeCentre

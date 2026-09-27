@@ -14,6 +14,7 @@ import { Disclosure } from './Panels'
 import { useNoun } from '../maps/useNoun'
 import { mergeCountries } from '../geo/merge'
 import { landCentre } from '../render/overlayGeometry'
+import { clampOverlayScale, overlayScaleAt, OVERLAY_SIZE_MIN, OVERLAY_SIZE_MAX } from '../render/overlayScale'
 import { OVERLAY_SCALE_RANGE, type MapOverlay, type OverlayMode, type OverlayTexture } from '../types/map'
 import { FlagPicker } from './FlagPicker'
 import { entityFlagCode, flagName, flagOptions } from '../flags/flagChoices'
@@ -34,29 +35,8 @@ const TEXTURES: Array<[OverlayTexture, string]> = [
   ['dots', 'Dots'],
   ['flag', 'Flag'],
   ['none', 'None'],
+  ['solid', 'Solid Color'],
 ]
-
-/*
- * The size slider runs on a logarithmic scale: halving and doubling are the same distance, so
- * 10%–100% gets as much of the track as 100%–500% would need twice over, and the entity's own
- * size sits near the middle rather than squeezed against one end.
- */
-const SIZE_MIN = Math.log2(OVERLAY_SCALE_RANGE.min)
-const SIZE_MAX = Math.log2(OVERLAY_SCALE_RANGE.max)
-
-/**
- * A slider position as a scale: whole percent, and the entity's own size within 3% of it.
- *
- * The ends are the ends of the range exactly. The track is not a whole number of steps long, so
- * the browser's last position falls just short of the maximum — 499% rather than 500%.
- */
-function scaleAt(position: number): number {
-  if (position >= SIZE_MAX - 0.01) return OVERLAY_SCALE_RANGE.max
-  if (position <= SIZE_MIN + 0.01) return OVERLAY_SCALE_RANGE.min
-  const scale = Math.round(2 ** position * 100) / 100
-  if (Math.abs(scale - 1) <= 0.03) return 1
-  return Math.min(OVERLAY_SCALE_RANGE.max, Math.max(OVERLAY_SCALE_RANGE.min, scale))
-}
 
 const formatLonLat = ([lon, lat]: [number, number]) =>
   `${Math.abs(lat).toFixed(1)}° ${lat >= 0 ? 'N' : 'S'}, ${Math.abs(lon).toFixed(1)}° ${lon >= 0 ? 'E' : 'W'}`
@@ -97,7 +77,10 @@ export function OverlayControls() {
   /* What can be copied: selected entities of this map, merged groups included. */
   const copyable = selected.filter((id) => mergeById.has(id) || !!geo?.byId.has(id))
   const active = overlays.find((o) => o.id === activeId) ?? null
-  const scale = active?.scale ?? 1
+  const scale = clampOverlayScale(active?.scale ?? 1)
+  const [scaleInput, setScaleInput] = useState(String(scale))
+  useEffect(() => setScaleInput(String(scale)), [activeId, scale])
+  const percent = (scale * 100).toLocaleString(undefined, { maximumFractionDigits: 3 })
   /* "Move over": the entity selected last. */
   const target = copyable.length > 0 ? copyable[copyable.length - 1] : null
 
@@ -273,19 +256,41 @@ export function OverlayControls() {
               <label className="field">
                 <span className="field__row">
                   <span className="field__label">Size</span>
-                  <span className="field__value">{Math.round(scale * 100)}%</span>
+                  <span className="field__value">{percent}%</span>
                 </span>
                 <input
                   className="slider"
                   type="range"
-                  min={SIZE_MIN}
-                  max={SIZE_MAX}
+                  min={OVERLAY_SIZE_MIN}
+                  max={OVERLAY_SIZE_MAX}
                   step={0.01}
                   value={Math.log2(scale)}
                   aria-label="Size"
-                  aria-valuetext={`${Math.round(scale * 100)} percent of its real size`}
-                  onChange={(event) => update({ scale: scaleAt(Number(event.target.value)) })}
+                  aria-valuetext={`${percent} percent of its real size`}
+                  onChange={(event) => update({ scale: overlayScaleAt(Number(event.target.value)) })}
                 />
+              </label>
+
+              <label className="field">
+                <span className="field__label">Scale multiplier</span>
+                <input
+                  type="number"
+                  aria-label="Scale multiplier"
+                  min={OVERLAY_SCALE_RANGE.min}
+                  max={OVERLAY_SCALE_RANGE.max}
+                  step="any"
+                  value={scaleInput}
+                  onChange={(event) => setScaleInput(event.target.value)}
+                  onBlur={() => {
+                    const value = Number(scaleInput)
+                    const next = scaleInput.trim() && Number.isFinite(value) && value > 0
+                      ? clampOverlayScale(value) : scale
+                    setScaleInput(String(next))
+                    if (next !== scale) update({ scale: next })
+                  }}
+                  onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur() }}
+                />
+                <span className="hint">0.001×–1000× the original size.</span>
               </label>
 
               <p className="hint">

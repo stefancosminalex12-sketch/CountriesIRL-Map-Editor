@@ -3453,8 +3453,11 @@ only in how that point is honoured:
   projection does to land at the new place. Greenland dragged to the equator on Mercator comes
   out the size it really is.
 
-**Size.** Every overlay has its own size, from 10% to 500% of the entity's, on a slider next to
-**Reset size**. The slider is logarithmic, so halving and doubling are the same distance and the
+**Solid Color.** This texture fills the overlay uniformly with its chosen colour, without a
+pattern or outline. The overlay's opacity still applies. The other texture options are unchanged.
+
+**Size.** Every overlay has its own size, from 0.001× to 1000× the entity's, on a slider next to
+**Reset size**, with a numeric multiplier input for exact sizes. The slider is logarithmic, so halving and doubling are the same distance and the
 entity's own size sits near the middle; it snaps to 100%. Scaling is one uniform transform of the
 drawn overlay about the same centre it is dragged by, applied after it has been placed:
 

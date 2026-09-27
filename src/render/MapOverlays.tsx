@@ -318,19 +318,21 @@ export const MapOverlays = memo(function MapOverlays({
               ))}
             </>
           ) : (
-            <path d={place.d} fill={overlay.color} fillOpacity={TINT} />
+            <path d={place.d} fill={overlay.color} fillOpacity={overlay.texture === 'solid' ? 1 : TINT} />
           )}
           {(overlay.texture === 'hatch' || overlay.texture === 'dots') && (
             <path d={place.d} fill={`url(#${textureId(overlay.id)})`} />
           )}
-          <path
-            d={place.d}
-            fill="none"
-            stroke={overlay.color}
-            strokeWidth={OUTLINE_PX}
-            strokeLinejoin="round"
-            vectorEffect="non-scaling-stroke"
-          />
+          {overlay.texture !== 'solid' && (
+            <path
+              d={place.d}
+              fill="none"
+              stroke={overlay.color}
+              strokeWidth={OUTLINE_PX}
+              strokeLinejoin="round"
+              vectorEffect="non-scaling-stroke"
+            />
+          )}
         </g>
       ))}
     </g>

@@ -743,7 +743,7 @@ export type OverlayMode = 'shape' | 'projection'
  * What an overlay is filled with: a texture over its tint, the tint alone, or a flag — which
  * replaces the tint, framed over the overlay's own outline and clipped to it.
  */
-export type OverlayTexture = 'hatch' | 'dots' | 'none' | 'flag'
+export type OverlayTexture = 'hatch' | 'dots' | 'none' | 'flag' | 'solid'
 
 /**
  * A movable copy of an entity's shape, for comparing one place with another.
@@ -786,8 +786,8 @@ export interface MapOverlay {
   scale: number
 }
 
-/** How far an overlay can be shrunk and grown: from a tenth of its size to five times it. */
-export const OVERLAY_SCALE_RANGE = { min: 0.1, max: 5 } as const
+/** How far an overlay can be shrunk and grown: 1000 times smaller or larger. */
+export const OVERLAY_SCALE_RANGE = { min: 0.001, max: 1000 } as const
 
 /* ------------------------------------------------------------------- waters */
 
