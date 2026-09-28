@@ -29,6 +29,7 @@ import type { RiverLayer } from './rivers'
 import { SUPPLEMENTAL_COUNTRIES } from './supplemental'
 import { computeDatasetMetricsInSlices, type CountryMetrics } from './metrics'
 import { repairPolygon } from './repair'
+import { repairBirTawilBoundary } from './boundaryRepair'
 import { createSlicer } from './slices'
 import { ALL_DATASETS } from '../maps/atlas'
 import type { EntityId } from '../types/map'
@@ -592,11 +593,13 @@ export function loadGeoDataset(id: string): Promise<LoadedDataset> {
 
   const dataset = getDataset(id)
   const promise = (async (): Promise<LoadedDataset> => {
-    const { topology, metaIndex } = dataset.compose
+    const { topology: sourceTopology, metaIndex } = dataset.compose
       ? await loadComposed({ ...dataset, compose: dataset.compose })
       : await Promise.all([fetchTopology(dataset.url), loadEntityMeta(dataset.metaUrl)]).then(
           ([topology, metaIndex]): { topology: Topology; metaIndex: EntityMetaIndex } => ({ topology, metaIndex }),
         )
+
+    const topology = repairBirTawilBoundary(sourceTopology, dataset.objectName, metaIndex.entities)
 
     /*
      * Everything below is one long computation over every entity — decoding, repairing,
