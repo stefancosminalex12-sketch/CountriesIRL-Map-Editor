@@ -81,7 +81,7 @@ import {
   pickAssistedCountryAt,
 } from './smallEntities'
 import { anchorsOf, assistOf, useProjectedLand } from './projectedLand'
-import { reportDrawnTolerance, toleranceForZoom, useFullDetail } from './landDetail'
+import { reportDrawnTolerance, useFullDetail } from './landDetail'
 import { setMapCamera } from './mapCamera'
 import { useGatedMemo } from './useGatedMemo'
 import { chunkPieces, chunkStrokedPath } from './pathChunks'
@@ -452,8 +452,6 @@ export function MapCanvas() {
   const zoomedRef = useRef<SVGGElement>(null)
   const geographyRef = useRef<SVGGElement>(null)
   const retainedRef = useRef<RetainedVectors | null>(null)
-  /** The scale a gesture started at: while it is unchanged the camera is only translating. */
-  const panScale = useRef(1)
   /**
    * The camera a gesture began at, and whether it has moved since.
    *
@@ -471,31 +469,9 @@ export function MapCanvas() {
   /** Set while the camera is being moved, and released a moment after it stops. */
   const navigatingRef = useRef(false)
   const navigatingTimer = useRef<number | null>(null)
-  /** Whether the compositor is currently carrying the map, and whether this gesture zooms. */
-  const carryingRef = useRef(false)
-  const zoomingRef = useRef(false)
-
-  /**
-   * What the map does differently while the camera is being moved.
-   *
-   * Two things, both set straight on the DOM like the camera itself, so a gesture never goes
-   * through React:
-   *
-   * **It stops answering the pointer.** Every pointer event over the map is hit-tested against
-   * the outlines under it, and on a dense map that is the most expensive thing in a gesture —
-   * 5.8 s of a two-second pinch on Europe Administrative, more than the drawing. While the
-   * camera moves that answer is never used: there is no hover to show and no click to resolve.
-   *
-   * **The compositor may carry it, but only while the scale is unchanged.** A pan moves the
-   * picture without changing it, so letting the compositor carry the layer draws every frame
-   * from the same raster the main thread would have made — the same pixels, the same crisp
-   * borders, at a twelfth of the cost (Europe Administrative: a pan of 12.9 s at 208 ms a frame
-   * became 1.4 s at 4 ms). The moment the scale changes it is taken back and the map is drawn
-   * again at the new scale, because a *scaled* raster would be a picture of the map rather than
-   * the map — which is the one thing navigation here must never do.
-   *
-   * A wheel notch is a gesture of its own, so this is turned on by each event and released
-   * shortly after the last one rather than at the end of any single one.
+  /** Suspend unused geographic hit testing while the camera moves. Keep the SVG
+   * unpromoted: will-change on its scaled group caches a lower-resolution raster in
+   * Chromium, visibly softening borders and coastlines after zooming and while panning.
    */
   const navigating = useCallback((on: boolean) => {
     const group = zoomedRef.current
@@ -512,37 +488,12 @@ export function MapCanvas() {
     navigatingTimer.current = window.setTimeout(() => {
       navigatingTimer.current = null
       navigatingRef.current = false
-      carryingRef.current = false
       const current = zoomedRef.current
       if (!current) return
       current.style.pointerEvents = ''
-      // Retain only the desktop camera layer: allocating it on movement stalls the first frame.
-      current.style.willChange = window.matchMedia('(any-pointer: fine)').matches ? 'transform' : ''
     }, 120)
   }, [])
 
-  /**
-   * Hands the layer to the compositor, or takes it back.
-   *
-   * Asked for only once a gesture has actually moved the camera without changing its scale,
-   * and dropped for the rest of a gesture as soon as the scale does change: a pinch that
-   * turned this on and off at every notch spent more on making and discarding layers than it
-   * saved, so once a gesture is a zoom it stays drawn the ordinary way.
-   */
-  const carry = useCallback((on: boolean) => {
-    const group = zoomedRef.current
-    if (!group) return
-    if (on) {
-      if (!carryingRef.current) {
-        carryingRef.current = true
-        group.style.willChange = 'transform'
-      }
-      return
-    }
-    carryingRef.current = false
-    zoomingRef.current = true
-    if (group.style.willChange) group.style.willChange = ''
-  }, [])
   /** Each country's element from the last build of the layer — see `countryLayer`. */
   const countryElementCache = useRef(new Map<string, CachedCountryElement>())
   /** The chunks of the layer's last build, and the paints it was made from. */
@@ -593,20 +544,7 @@ export function MapCanvas() {
     const t = liveCamera.current
     const group = zoomedRef.current
     if (!t || !group) return
-    /*
-     * While the compositor is carrying the layer, the camera moves in whole device pixels.
-     *
-     * A layer translated by a whole pixel is copied texel for texel: every frame of the pan
-     * holds the very pixels the map was drawn with, which is the only form of carrying that
-     * is allowed here. Translated by part of a pixel it would be *resampled* instead — the
-     * same picture smeared across a new grid, with the borders softening as it moves, which
-     * is precisely the thing this map must never do. Half a pixel of the drag is held back
-     * until the gesture ends and the map is drawn again at the exact camera.
-     */
-    const carrying = carryingRef.current
-    const unit = carrying ? window.devicePixelRatio || 1 : 0
-    const x = carrying ? Math.round(t.x * unit) / unit : t.x
-    const y = carrying ? Math.round(t.y * unit) / unit : t.y
+    const { x, y } = t
     group.setAttribute('transform', `translate(${x},${y}) scale(${t.k})`)
     // The lines' screen width follows the camera in the same frame; a pan leaves it as it is.
     const scale = String(t.k * fitScaleRef.current)
@@ -715,40 +653,11 @@ export function MapCanvas() {
    * outlines actually on screen instead of running ahead of them.
    */
   const progressive = !!geo?.dataset.progressive
-  /*
-   * How finely to draw: a tolerance from the camera's zoom, in steps, or every point while an
-   * export is holding full detail (`landDetail.ts`). It is part of the key, so the view at one
-   * detail is never handed back for another, and crossing a step reprojects in the background
-   * exactly as a new region does — what is on screen stays until the finer land is ready.
-   */
   const fullDetail = useFullDetail()
-  /*
-   * The zoom the detail follows, which is the camera's own zoom once it has stopped moving.
-   *
-   * Crossing a step reprojects the dataset, and doing that in the middle of a pinch is the
-   * worst possible moment for it: the frames that are already the most expensive ones get a
-   * reprojection and a full rebuild of the layer on top of them (Europe Administrative: a
-   * pinch of 26 s became 33 s). The geometry on screen during the gesture is the real
-   * geometry either way — only at the detail the view before the gesture asked for — so
-   * the step is taken a moment after the camera settles instead, in the background, exactly
-   * as a new region is.
-   */
-  const [settledK, setSettledK] = useState(transform.k)
-  useEffect(() => {
-    if (transform.k === settledK) return
-    let timer = 0
-    const settle = () => {
-      // A wheel zoom is a burst of separate gestures: wait for the last of them.
-      if (navigatingRef.current) {
-        timer = window.setTimeout(settle, 100)
-        return
-      }
-      setSettledK(transform.k)
-    }
-    timer = window.setTimeout(settle, 150)
-    return () => window.clearTimeout(timer)
-  }, [transform.k, settledK])
-  const landTolerance = fullDetail ? 0 : toleranceForZoom(settledK)
+  // Navigation transforms the original paths. Zoom-dependent simplification left
+  // enlarged coarse borders on screen until an asynchronous replacement finished.
+  // Keep every point at every zoom so live and settled navigation draw the same land.
+  const landTolerance = 0
   const landKey = `${[...scope.regionIds].sort().join('+')}|${scope.projectionId}|${scope.padding}|${fit.width}x${fit.height}|t${landTolerance}`
   const land = useProjectedLand(
     geo,
@@ -813,38 +722,6 @@ export function MapCanvas() {
     ? `translate(${fitCorrection.dx},${fitCorrection.dy}) scale(${fitCorrection.scale})`
     : undefined
   fitScaleRef.current = fitCorrection?.scale ?? 1
-
-  /**
-   * Prepare the desktop pan layer before input, not on the first drag frame.
-   * Europe Administrative traces were dominated by layer allocation, not geometry.
-   *
-   * Release it before a committed scale/resize is painted, so zoom always rasterises
-   * at the real scale. Re-arm only at rest. This also covers programmatic zooms, which
-   * do not pass through the gesture's `carry(false)` branch. Geometry and paint remain
-   * the same SVG; no snapshot, alternate detail level or extra transformed container.
-   */
-  useLayoutEffect(() => {
-    const group = zoomedRef.current
-    const desktop = window.matchMedia('(any-pointer: fine)')
-    if (!group || !desktop.matches) return
-    group.style.willChange = ''
-    carryingRef.current = false
-    let timer = 0
-    const prepare = () => {
-      window.clearTimeout(timer)
-      if (gesturingRef.current || navigatingRef.current) {
-        timer = window.setTimeout(prepare, 120)
-        return
-      }
-      group.style.willChange = desktop.matches ? 'transform' : ''
-    }
-    timer = window.setTimeout(prepare, 180)
-    desktop.addEventListener('change', prepare)
-    return () => {
-      window.clearTimeout(timer)
-      desktop.removeEventListener('change', prepare)
-    }
-  }, [transform.k, fitCorrection?.scale])
 
   useEffect(() => () => {
     if (navigatingTimer.current !== null) window.clearTimeout(navigatingTimer.current)
@@ -2510,8 +2387,6 @@ export function MapCanvas() {
         // the camera without anyone's pointer being involved.
         if (!event.sourceEvent) return
         gesturingRef.current = true
-        panScale.current = event.transform.k
-        zoomingRef.current = false
         gestureStart.current = { k: event.transform.k, x: event.transform.x, y: event.transform.y }
         gestureMoved.current = false
         const source = event.sourceEvent as { type?: string; pointerType?: string } | undefined
@@ -2547,15 +2422,6 @@ export function MapCanvas() {
            * the map in the navigating state and pushes its release out past the last of them.
            */
           navigating(true)
-          /*
-           * The compositor may carry the map only while the scale is unchanged, and only for a
-           * drag: a wheel or a pinch is a zoom, and each notch of one arrives as its own little
-           * gesture, so asking for a layer at the start of each would spend more on making and
-           * discarding layers than carrying ever saves. See `carry`.
-           */
-          const moving = event.sourceEvent?.type !== 'wheel'
-          if (t.k !== panScale.current || !moving) carry(false)
-          else if (!zoomingRef.current) carry(true)
           liveCamera.current = t
           if (!cameraFrame.current) cameraFrame.current = requestAnimationFrame(placeCamera)
           return
@@ -2623,8 +2489,6 @@ export function MapCanvas() {
       const selection = select(svg)
       gripDragRef.current = true
       gesturingRef.current = true
-      panScale.current = zoomTransform(svg).k
-      zoomingRef.current = false
       navigating(true)
       let live = true
       const finish = () => {

@@ -45,6 +45,15 @@ export interface PathPiece {
 export const CHUNK_MAX_CHARS = 60_000
 
 /**
+ * Dense border networks need smaller batches than filled water features. At 60k,
+ * each visible SVG tile still processes thousands of distant border vertices.
+ * Splitting at existing subpaths keeps every point, join and cap intact; an
+ * individual long subpath is never cut. Filled features keep their larger batches
+ * so their holes and draw ordering are unaffected.
+ */
+export const STROKE_CHUNK_MAX_CHARS = 2_000
+
+/**
  * The box covered by a run of path data written as `M`/`L`/`Z` with absolute coordinates —
  * what `geoPath` and `arcPaths` write. `null` for anything else, which the caller then leaves
  * whole rather than guess at.
@@ -169,7 +178,7 @@ export function chunkPieces(pieces: PathPiece[], maxChars = CHUNK_MAX_CHARS): st
 }
 
 /** A stroked layer, cut between subpaths; the path whole when it cannot be read. */
-export function chunkStrokedPath(d: string, maxChars = CHUNK_MAX_CHARS): string[] {
+export function chunkStrokedPath(d: string, maxChars = STROKE_CHUNK_MAX_CHARS): string[] {
   if (!d) return []
   if (d.length <= maxChars) return [d]
   const pieces = subpathPieces(d)
