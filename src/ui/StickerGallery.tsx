@@ -1,5 +1,5 @@
 /**
- * The sticker gallery: 108 ready-made faces (`stickers/facePresets.ts`), all in the colour picked
+ * The sticker gallery: every ready-made face (`stickers/facePresets.ts`), all in the colour picked
  * above them.
  *
  * Tapping a face adds it to the library in that colour and picks it; the bar under the grid then
@@ -15,6 +15,7 @@ import { FACE_PRESETS, presetFace, type FacePreset } from '../stickers/facePrese
 import { saveLadder, useStickerLibrary } from '../stickers/stickerLibrary'
 import { StickerColorRow } from './StickerColorRow'
 import { useNoun } from '../maps/useNoun'
+import { useSelectionStickers } from './useSelectionStickers'
 
 /** Every preset's artwork, per colour, for the session. */
 const drawn = new Map<string, Map<string, string>>()
@@ -33,7 +34,8 @@ export function StickerGallery() {
   const [chosen, setChosen] = useState<FacePreset | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const { uploads, add, pick, setFace } = useStickerLibrary()
-  const selected = useMapStore((s) => s.selectedCountryIds)
+  const onSelection = useSelectionStickers()
+  const selected = onSelection.selected
   const doc = useMapStore((s) => s.doc)
   const dispatch = useMapStore((s) => s.dispatch)
   const noun = useNoun()
@@ -61,13 +63,13 @@ export function StickerGallery() {
 
   const putOnSelection = () => {
     if (!chosen) return
-    const id = ensure(chosen)
-    const mode = stickersOf(doc)
-    dispatch([
-      { op: 'assign_sticker', countryIds: selected, stickerId: id },
-      ...(mode.enabled ? [] : [{ op: 'set_stickers' as const, patch: { enabled: true } }]),
-    ])
-    setMessage(`Put on ${selected.length} ${selected.length === 1 ? noun.one : noun.many}.`)
+    onSelection.putOn(ensure(chosen))
+    setMessage(`Put on ${onSelection.label}.`)
+  }
+
+  const removeFromSelection = () => {
+    onSelection.remove()
+    setMessage(`Removed from ${onSelection.label}.`)
   }
 
   const addToTiers = () => {
@@ -94,7 +96,7 @@ export function StickerGallery() {
       <input
         className="input"
         type="search"
-        placeholder="Search 108 faces: angry, love, cool…"
+        placeholder={`Search ${FACE_PRESETS.length} faces: angry, love, cool…`}
         value={query}
         onChange={(event) => setQuery(event.target.value)}
         aria-label="Search faces"
@@ -123,9 +125,20 @@ export function StickerGallery() {
             <strong>{chosen.name}</strong> in {colourName.toLowerCase()}, added to your library.
           </p>
           {selected.length > 0 && (
-            <button type="button" className="btn btn--on" onClick={putOnSelection}>
-              Put on {selected.length} selected
-            </button>
+            <>
+              <button type="button" className="btn btn--on" onClick={putOnSelection}>
+                Put on {onSelection.label}
+              </button>
+              <button
+                type="button"
+                className="btn"
+                disabled={!onSelection.canRemove}
+                title={`Take the sticker off ${onSelection.label}`}
+                onClick={removeFromSelection}
+              >
+                Remove
+              </button>
+            </>
           )}
           <div className="mode-switch mode-switch--pair">
             <button type="button" className="btn" onClick={addToTiers}>
@@ -138,7 +151,15 @@ export function StickerGallery() {
           {message && <p className="hint">{message}</p>}
         </div>
       ) : (
-        <p className="hint">Pick a colour, then tap a face. Select {noun.many} on the map first to put it straight on them.</p>
+        <div className="stack">
+          <p className="hint">Pick a colour, then tap a face. Select {noun.many} on the map first to put it straight on them.</p>
+          {selected.length > 0 && (
+            <button type="button" className="btn" disabled={!onSelection.canRemove} title={`Take the sticker off ${onSelection.label}`} onClick={removeFromSelection}>
+              Remove
+            </button>
+          )}
+          {!chosen && message && <p className="hint">{message}</p>}
+        </div>
       )}
     </div>
   )

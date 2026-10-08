@@ -1,5 +1,5 @@
 /**
- * The sticker gallery: 108 ready-made faces, each a named combination of face-maker parts.
+ * The sticker gallery: ready-made faces, each a named combination of face-maker parts.
  *
  * A preset is only the parts — eyes, brows, mouth, extras — never a colour, so the whole gallery
  * is drawn in whichever colour the author picks, and every face can be opened in the face maker
@@ -19,7 +19,7 @@ export interface FacePreset {
 type Row = [name: string, eyes: EyeId, brows: BrowId, mouth: MouthId, extras?: ExtraId[]]
 
 /*
- * The collection: sixty faces after the reference sheet the author follows — each one's name and
+ * The collection: a hundred faces after the reference sheets the author follows — each one's name and
  * idea, drawn in this face maker's own parts.
  */
 const COLLECTION: Row[] = [
@@ -83,6 +83,47 @@ const COLLECTION: Row[] = [
   ['Red Lips Kiss', 'closed', 'worried', 'redLips'],
   ['Evil Smirk', 'angry', 'angry', 'smirk'],
   ['Please', 'rolling', 'raised', 'flat', ['pray']],
+  // The second sheet.
+  ['Sleepy and Yawning', 'closed', 'floating', 'yawn', ['yawnHand']],
+  ['Suspicious Heavy-Lidded', 'bags', 'calm', 'aside'],
+  ['Unamused Face', 'tired', 'angry', 'wideFrown'],
+  ['Very Touched', 'staring', 'floating', 'tiny', ['bigBlush', 'cheekHands']],
+  ['Dumbfound', 'narrowed', 'angry', 'dotO'],
+  ['Annoyed', 'fury', 'none', 'poutSide'],
+  ['Appalled', 'staring', 'floating', 'tiny'],
+  ['Devious', 'fury', 'none', 'smirk', ['rubFingers']],
+  ['Flattered', 'lashes', 'none', 'smallSmile', ['bigBlush']],
+  ['Derp', 'goofy', 'none', 'twoTeeth'],
+  ['Smug Side-Eye', 'halfSide', 'suspicious', 'blank'],
+  ['Worried', 'staring', 'floatingWorried', 'frownSmall'],
+  ['Waving Hello', 'hopeful', 'raised', 'teeth', ['waveLeft']],
+  ["Can't Unsee This", 'uneven', 'floatingOne', 'grimaceSide'],
+  ['Wink', 'winkSide', 'none', 'smirk'],
+  ['Goofy', 'goofy', 'floatingOne', 'bite'],
+  ['Wacky Face', 'goofy', 'floating', 'wacky', ['pullMouth']],
+  ['Seasick Smiley', 'goofy', 'floatingOne', 'pout', ['seasick']],
+  ['Unimpressed', 'tired', 'none', 'tiny'],
+  ['Displeased', 'tired', 'none', 'wideFlat'],
+  ['Laughing It Off', 'squint', 'none', 'openTeeth', ['palmsUp']],
+  ['Terrified', 'staring', 'floatingAngry', 'tallShout', ['strain']],
+  ['Beaming', 'closed', 'none', 'teeth'],
+  ['Knowing Smirk', 'hopeful', 'raised', 'smirk'],
+  ['Huge Grin', 'hopeful', 'suspicious', 'teeth'],
+  ['Instant Regret with Hands on Head', 'staring', 'none', 'grimaceSide', ['handsOnHead']],
+  ['Face Palm', 'closed', 'none', 'flat', ['facepalm']],
+  ['Mouth Open in Rage', 'fury', 'none', 'rageO'],
+  ['Hush', 'hopeful', 'worried', 'lips', ['shush']],
+  ['Hot Face', 'hot', 'floating', 'hangTongue', ['hotSweat']],
+  ['Woozy Face', 'goofy', 'floatingOne', 'sideTongue'],
+  ['Contented Grin', 'hopeful', 'floating', 'blank'],
+  ['Drooling', 'staring', 'none', 'lipDrool'],
+  ['Raspberry', 'narrowed', 'angry', 'blep'],
+  ['Grumpy', 'fury', 'none', 'frownSmall'],
+  ['Yikes', 'uneven', 'none', 'grimaceSide'],
+  ['Give Me A Hug', 'closed', 'floating', 'blank', ['hug']],
+  ['Punched in Face Black-Eye', 'blackEye', 'floatingWorried', 'sadOpen', ['plaster']],
+  ['Tongue Out', 'hopeful', 'raised', 'tongueOut'],
+  ['Growling Mad', 'fury', 'none', 'growl'],
 ]
 
 /* More faces, made before the collection; any sharing a collection name gives way to it. */

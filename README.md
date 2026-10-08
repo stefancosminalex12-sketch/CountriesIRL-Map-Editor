@@ -3025,8 +3025,11 @@ Categorical data, Compare and Flags have no low-to-high order and place no stick
 The Tiers panel shows what each rung covers under the active scale and how many territories wear
 it. **Reverse order** is for data where a high number is the bad end, such as inflation.
 
-**By hand.** Pick a sticker in the Library and **Put on** the selection; **No sticker** keeps a
-territory bare whatever the data says; **Back to data** removes the choice. A hand-placed sticker
+**By hand.** Pick a sticker in the Gallery or the Library and **Put on** the selection (the
+button names it: "Put on France"). **Remove**, right under it, takes off whatever sticker the
+selection is wearing: a sticker the data chose is hidden with a "no sticker" override, so the
+data does not put it straight back, and one only placed by hand is cleared, leaving the territory
+as if it had never had one (`ui/useSelectionStickers.ts`). **Back to data** removes any choice. A hand-placed sticker
 outranks the ladder and shows in every colouring mode. Each of these is one operation
 (`set_stickers`, `assign_sticker`, `clear_sticker`) and one undo step.
 
@@ -3049,11 +3052,12 @@ a few decoded images rather than hundreds of copies of a data URI.
 
 #### The sticker gallery
 
-**Sticker Gallery** is 151 ready-made faces (`stickers/facePresets.ts`), each a named combination
-of face-maker parts. The first 60 (`COLLECTION`) are the library collection, in the order of the
-reference screenshots: Fire Punch, Shrug, Heavy Breathing, Checking You Out, Trying Not To Laugh,
-Hold Up, Thumbs Down, Rose in Teeth, … Red Lips Kiss, Evil Smirk, Please. The older set follows,
-minus any name the collection already uses. All are drawn in the colour picked above the grid and
+**Sticker Gallery** is 184 ready-made faces (`stickers/facePresets.ts`), each a named combination
+of face-maker parts. The first 100 (`COLLECTION`) are the library collection, in the order of the
+reference sheets: Fire Punch, Shrug, Heavy Breathing, Checking You Out, … Evil Smirk, Please, then
+Sleepy and Yawning, Very Touched, Devious, Waving Hello, Can't Unsee This, Wacky Face, Seasick
+Smiley, Instant Regret with Hands on Head, Hot Face, Woozy Face, Give Me A Hug, Punched in Face
+Black-Eye, … Growling Mad. The older set follows, minus any name the collection already uses. All are drawn in the colour picked above the grid and
 searchable by name. A preset is only parts, never a colour, so the whole gallery recolours at once.
 The colour presets are the nine base colours of the recolourable emoji site the gallery follows,
 sampled exactly from its swatches — blue `#1b4fd8`, purple `#9062f9`, yellow `#faca15`, red
@@ -3081,12 +3085,17 @@ colour; tapping one adds it to the library in that colour.
 
 **Create** makes new stickers, saved to the library like uploads:
 
-- **Face maker** (`stickers/faceMaker.ts`): a glossy 3D face assembled from parts (29 eyes, 7
-  brows, 35 mouths, 28 hand poses — thumbs up and down, pointing, waving, fist, fire punch, peace,
-  shrug, facepalm, salute, thinking, OK sign, cheering, covering eyes or mouth, praying, palms up,
-  holding a heart, offering a rose, a bat, and more — and 34 other extras such as glasses, a
-  helmet, cat ears, a party blower, confetti, a goatee, a nose, a monocle, a crown, steam, hearts
-  and Zzz, plus an optional outline) in any colour. The hands are slim, soft cartoon gloves built
+- **Face maker** (`stickers/faceMaker.ts`): a glossy 3D face assembled from parts (38 eyes —
+  among them staring, goofy, uneven, fury and a black eye — 11 brows, including four that float
+  just above the head, 53 mouths, 36 hand poses — thumbs up and down, pointing, waving, fist, fire
+  punch, peace, shrug, facepalm, salute, thinking, OK sign, cheering, covering eyes or mouth,
+  praying, palms up, holding a heart, a finger to the lips, hands on the head, pulling the mouth
+  wide, open arms, and more — and 39 other extras such as big blushing or seasick-green cheeks,
+  sweat, a plaster, glasses, a helmet, cat ears, confetti, a crown, steam, hearts and Zzz, plus an
+  optional outline) in any colour. Brows are slim crescents tapering to fine ends. Teeth are one
+  clean white band clipped by the mouth, with a thin divider at each gap. Every shadow — under a
+  raised part, inside the mouth, along a carved line — is the face's own deepest tone rather than
+  black, and soft shading near the edge is clipped to the head so nothing glows outside it. The hands are slim, soft cartoon gloves built
   by one function, `hand()`, from a description of the pose: each finger out (length and angle) or
   curled into the palm, and where the thumb is. Fingers are long and lightly tapered with round
   tips on a small palm, and the whole silhouette is drawn as one piece through the `gloveFx`

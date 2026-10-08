@@ -229,9 +229,12 @@ function heart(cx: number, cy: number, r: number): string {
   )
 }
 
-/** A brow as a lens: thick in the middle, tapering to both ends, raised off the face. */
-function brow(c: Ctx, x1: number, y1: number, qx: number, qy: number, x2: number, y2: number, thick = 9.5): string {
-  return `<path d="M${x1} ${y1} Q${qx} ${qy - thick} ${x2} ${y2} Q${qx} ${qy + thick * 0.55} ${x1} ${y1} Z" fill="url(#brow)" stroke="${c.brow}" stroke-width="2.2" stroke-linejoin="round" filter="url(#bevelSoft)"/>`
+/**
+ * A brow: a slim crescent, thickest in the middle and tapering to fine round ends, barely raised
+ * off the face. `thick` is the bow of its top edge; the drawn stroke is about half that.
+ */
+function brow(c: Ctx, x1: number, y1: number, qx: number, qy: number, x2: number, y2: number, thick = 4.6): string {
+  return `<path d="M${x1} ${y1} Q${qx} ${qy - thick} ${x2} ${y2} Q${qx} ${qy + thick * 0.2} ${x1} ${y1} Z" fill="url(#brow)" stroke="${c.brow}" stroke-width="0.9" stroke-linejoin="round" filter="url(#bevelSoft)"/>`
 }
 
 const mirror = (x: number) => 120 - x
@@ -377,6 +380,50 @@ export const EYES = {
     draw: (c: Ctx) => ridge(c, 'M33 54 Q43 49 53 55', 4.2) + eye(c, { ...ROUND, cx: 77, lid: 'half', look: [-3.5, 1] }, -1, 'r'),
   },
   halfSide: { name: 'Half, aside', draw: (c: Ctx) => pair(c, { ...ROUND, rx: 11.5, ry: 10.5, look: [4, 2.5], lid: 'heavy' }) },
+  hopeful: { name: 'Lidded, up', draw: (c: Ctx) => pair(c, { ...ROUND, rx: 11, ry: 12, look: [0.5, -0.5], lid: 'sad', iris: 0.62 }) },
+  bags: {
+    name: 'Heavy-lidded',
+    draw: (c: Ctx) =>
+      pair(c, { ...ROUND, cy: 53, rx: 12, ry: 10, look: [1.5, 2], lid: 'heavy' }) +
+      ridge(c, 'M34 65 Q43 69 52 65', 1.5) +
+      ridge(c, 'M68 65 Q77 69 86 65', 1.5),
+  },
+  staring: { name: 'Staring', draw: (c: Ctx) => pair(c, { cx: 43, cy: 50, rx: 12.5, ry: 14.5, iris: 0.36, look: [2, 0] }, { look: [-2, 0] }) },
+  narrowed: {
+    name: 'Narrowed',
+    draw: (c: Ctx) => pair(c, { cx: 43, cy: 55, rx: 12.5, ry: 9.5, iris: 0.62, look: [3, 0.5], lid: 'angry' }, { look: [-3, 0.5] }),
+  },
+  fury: {
+    name: 'Fury',
+    draw: (c: Ctx) =>
+      pair(c, { cx: 43, cy: 56, rx: 13.5, ry: 10, iris: 0.6, look: [3, 1.5], lid: 'angry' }, { look: [-3, 1.5] }) +
+      ridge(c, 'M55 43 L60 49 L65 43', 1.6),
+  },
+  blackEye: {
+    name: 'Black eye',
+    draw: (c: Ctx) =>
+      eye(c, { cx: 42, cy: 52, rx: 12, ry: 13.5, iris: 0.42, look: [1, -1] }, 1, 'l') +
+      `<ellipse cx="78" cy="53" rx="16.5" ry="17" fill="url(#bruise)" ${RAISED}/>` +
+      eye(c, { cx: 78, cy: 53, rx: 12, ry: 12.5, iris: 0.42, look: [-1, -1], lid: 'half' }, -1, 'r'),
+  },
+  goofy: {
+    name: 'Goofy',
+    draw: (c: Ctx) =>
+      eye(c, { cx: 42, cy: 50, rx: 14, ry: 15, iris: 0.5, look: [3, -1] }, 1, 'l') +
+      eye(c, { cx: 78, cy: 52, rx: 11, ry: 12, iris: 0.5, look: [-1, 2] }, -1, 'r'),
+  },
+  uneven: {
+    name: 'Uneven',
+    draw: (c: Ctx) =>
+      eye(c, { cx: 42, cy: 57, rx: 9.5, ry: 9, iris: 0.62, look: [2, 0.5], lid: 'sad' }, 1, 'l') +
+      eye(c, { cx: 77, cy: 48, rx: 11.5, ry: 11, iris: 0.6, look: [-2.5, 1], lid: 'half' }, -1, 'r'),
+  },
+  hot: {
+    name: 'Overheated',
+    draw: (c: Ctx) =>
+      eye(c, { ...ROUND, cx: 42, rx: 12, ry: 12.5, look: [0.5, 2.5], lid: 'heavy' }, 1, 'l') +
+      eye(c, { cx: 78, cy: 51, rx: 13, ry: 14.5, iris: 0.4, look: [-1, 0] }, -1, 'r'),
+  },
   stars: { name: 'Stars', draw: () => star(44, 51, 13) + star(76, 51, 13) },
   hearts: { name: 'Hearts', draw: () => heart(44, 52, 10) + heart(76, 52, 10) },
   dizzy: {
@@ -389,13 +436,21 @@ export const BROWS = {
   none: { name: 'None', draw: () => '' },
   calm: { name: 'Calm', draw: (c: Ctx) => browPair(c, 32, 35, 43, 28, 55, 33) },
   raised: { name: 'Raised', draw: (c: Ctx) => browPair(c, 32, 31, 43, 19, 55, 27) },
-  angry: { name: 'Angry', draw: (c: Ctx) => browPair(c, 30, 30, 43, 33, 57, 42, 11) },
+  angry: { name: 'Angry', draw: (c: Ctx) => browPair(c, 30, 30, 43, 33, 57, 42, 5.6) },
   worried: { name: 'Worried', draw: (c: Ctx) => browPair(c, 31, 38, 42, 30, 55, 26) },
   suspicious: {
     name: 'One up',
     draw: (c: Ctx) => brow(c, 32, 37, 43, 34, 55, 37) + brow(c, 65, 28, 77, 16, 89, 26),
   },
-  thick: { name: 'Bushy', draw: (c: Ctx) => browPair(c, 31, 34, 44, 28, 57, 35, 14) },
+  thick: { name: 'Bushy', draw: (c: Ctx) => browPair(c, 31, 34, 44, 28, 57, 35, 7.5) },
+  // Floating just above the head, as cartoon brows do when the eyes go wide.
+  floating: { name: 'Floating', draw: (c: Ctx) => browPair(c, 27, 12, 38, 5, 50, 6) },
+  floatingWorried: { name: 'Floating, worried', draw: (c: Ctx) => browPair(c, 26, 15, 37, 6, 49, 2) },
+  floatingAngry: { name: 'Floating, cross', draw: (c: Ctx) => browPair(c, 28, 4, 40, 6, 51, 13) },
+  floatingOne: {
+    name: 'Floating, one up',
+    draw: (c: Ctx) => brow(c, 26, 16, 36, 9, 47, 9) + brow(c, 71, 0, 83, -6, 95, 1),
+  },
 } as const satisfies Record<string, { name: string; draw: (c: Ctx) => string }>
 
 /** An open mouth: the cavity, sunk into the face, with whatever is inside it clipped to it. */
@@ -403,8 +458,8 @@ function cavity(c: Ctx, d: string, inside: string, key: string): string {
   c.defs.push(`<clipPath id="mouth-${key}"><path d="${d}"/></clipPath>`)
   return (
     // The mouth sits in a soft hollow, ringed by a raised lip that catches the light.
-    `<path d="${d}" fill="none" stroke="${c.line}" stroke-width="12" stroke-linejoin="round" opacity="0.35" filter="url(#soft)"/>` +
-    `<path d="${d}" fill="none" stroke="${c.skinLight}" stroke-width="6.5" stroke-linejoin="round" ${RAISED}/>` +
+    `<path d="${d}" fill="none" stroke="${c.line}" stroke-width="10" stroke-linejoin="round" opacity="0.3" filter="url(#soft)" clip-path="url(#head)"/>` +
+    `<path d="${d}" fill="none" stroke="${c.skinLight}" stroke-width="4.2" stroke-linejoin="round" opacity="0.9" ${RAISED}/>` +
     `<path d="${d}" fill="url(#mouth)" ${SUNKEN}/>` +
     `<g clip-path="url(#mouth-${key})">${inside}</g>` +
     `<path d="${d}" fill="none" stroke="${c.line}" stroke-width="1.8" stroke-linejoin="round"/>`
@@ -412,20 +467,14 @@ function cavity(c: Ctx, d: string, inside: string, key: string): string {
 }
 
 /**
- * A row of teeth: each tooth its own rounded block, between the given gaps, so the row reads as
- * teeth rather than as a white bar with lines on it.
+ * A row of teeth: one clean white band, clipped by the mouth, with a thin divider at each gap —
+ * so the row reads as teeth without turning into a stack of separate blocks.
  */
-const teethRow = (y: number, h: number, x1 = 30, x2 = 90, gaps: number[] = []) => {
-  const edges = [x1, ...gaps, x2]
-  return edges
-    .slice(1)
-    .map((x, i) => {
-      const from = edges[i] + 0.45
-      const width = x - edges[i] - 0.9
-      return `<rect x="${from.toFixed(2)}" y="${y}" width="${width.toFixed(2)}" height="${h}" rx="${Math.min(2.6, width / 2.4).toFixed(2)}" fill="url(#teeth)" stroke="#c3ccd8" stroke-width="0.5"/>`
-    })
+const teethRow = (y: number, h: number, x1 = 30, x2 = 90, gaps: number[] = []) =>
+  `<rect x="${x1}" y="${y}" width="${x2 - x1}" height="${h}" rx="${Math.min(3, h / 3).toFixed(2)}" fill="url(#teeth)"/>` +
+  gaps
+    .map((x) => `<path d="M${x} ${(y + h * 0.1).toFixed(2)} V${(y + h * 0.9).toFixed(2)}" stroke="#cfd6e1" stroke-width="0.75" stroke-linecap="round"/>`)
     .join('')
-}
 
 const tongue = (cx: number, cy: number, rx: number, ry: number) =>
   `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="url(#tongue)"/>` +
@@ -491,7 +540,7 @@ cheeks(c, [30, 70], [90, 70]) +
         'M30 70 Q60 64 90 70 Q88 94 60 96 Q32 94 30 70 Z',
         teethRow(60, 19, 26, 94, [38, 49, 60, 71, 82]) +
           teethRow(79, 20, 26, 94, [40, 50, 60, 70, 80]) +
-          `<path d="M26 79 Q60 83 94 79" stroke="#7a1b2e" stroke-width="1.6" fill="none"/>`,
+          `<path d="M26 79 Q60 83 94 79" stroke="${c.line}" stroke-width="1" opacity="0.55" fill="none"/>`,
         'teeth',
       ),
   },
@@ -539,7 +588,7 @@ cheeks(c, [40, 76], [84, 66]) +
         c,
         'M30 74 Q60 70 90 74 Q92 88 90 88 Q60 92 30 88 Q28 88 30 74 Z',
         teethRow(70, 10.5, 26, 94, [38, 46, 53, 60, 67, 74, 82]) + teethRow(80.5, 10, 26, 94, [38, 46, 53, 60, 67, 74, 82]) +
-          `<path d="M26 80.5 H94" stroke="#7a1b2e" stroke-width="1.2"/>`,
+          `<path d="M26 80.5 H94" stroke="${c.line}" stroke-width="1" opacity="0.55"/>`,
         'grimace',
       ),
   },
@@ -646,6 +695,99 @@ cheeks(c, [42, 78], [78, 78]) +
       `<path d="M50 96 L50 116 Q60 128 70 116 L70 96 Z" fill="url(#tongue)" stroke="#a52a52" stroke-width="1" ${RAISED}/>` +
       `<path d="M60 99 V114" stroke="#c43c63" stroke-width="1.2" stroke-linecap="round"/>`,
   },
+  yawn: {
+    name: 'Yawn',
+    draw: (c: Ctx) =>
+      cavity(
+        c,
+        'M30 66 Q50 54 84 60 Q90 82 74 100 Q52 110 40 98 Q28 84 30 66 Z',
+        `<g transform="rotate(-6 57 62)">${teethRow(55, 11, 26, 92, gapsBetween(28, 90, 8))}</g>`,
+        'yawn',
+      ),
+  },
+  dotO: { name: 'Little o', draw: (c: Ctx) => cavity(c, 'M60 81.5 C65 81.5 65 89.5 60 89.5 C55 89.5 55 81.5 60 81.5 Z', '', 'doto') },
+  tiny: { name: 'Tiny', draw: (c: Ctx) => ridge(c, 'M55 86 Q60 85 65 86', 3) },
+  aside: { name: 'Aside', draw: (c: Ctx) => ridge(c, 'M58 90 Q63 89.5 68 87.5', 3) },
+  wideFlat: {
+    name: 'Wide flat',
+    draw: (c: Ctx) => ridge(c, 'M30 82 Q60 85 90 82', 3.4) + ridge(c, 'M28 78.5 Q30.5 82 28 85.5', 1.8) + ridge(c, 'M92 78.5 Q89.5 82 92 85.5', 1.8),
+  },
+  wideFrown: { name: 'Wide frown', draw: (c: Ctx) => ridge(c, 'M30 89 Q60 74 90 89', 3.6) },
+  grimaceSide: {
+    name: 'Sideways grimace',
+    draw: (c: Ctx) =>
+      cavity(
+        c,
+        'M44 92 Q64 78 88 70 Q95 80 89 89 Q68 97 44 92 Z',
+        `<g transform="rotate(-17 70 83)">${teethRow(71, 11.5, 36, 104, gapsBetween(40, 100, 7))}${teethRow(83, 11, 36, 104, gapsBetween(40, 100, 7))}</g>`,
+        'gside',
+      ),
+  },
+  rageO: {
+    name: 'Roar',
+    draw: (c: Ctx) => cavity(c, 'M46 72 Q60 67 74 72 Q77 94 60 107 Q43 94 46 72 Z', teethRow(66, 9.5, 40, 80, [53, 60, 67]) + tongue(60, 106, 9, 6), 'rage'),
+  },
+  hangTongue: {
+    name: 'Tongue hanging',
+    draw: (c: Ctx) =>
+      cavity(c, 'M49 74 Q60 69 71 74 Q75 92 66 101 Q60 104 54 101 Q45 92 49 74 Z', '', 'hang') +
+      `<path d="M51 93 Q50 113 61 114 Q72 113 71 95 Q61 99 51 93 Z" fill="url(#tongue)" stroke="#c4466d" stroke-width="0.9" ${RAISED}/>` +
+      `<path d="M61 99 V109" stroke="#c43c63" stroke-width="1" stroke-linecap="round" opacity="0.7"/>`,
+  },
+  sideTongue: {
+    name: 'Tongue aside',
+    draw: (c: Ctx) =>
+      cheeks(c, [88, 76]) +
+      `<path d="M43 83 Q41 99 50 100 Q59 100 58 86 Z" fill="url(#tongue)" stroke="#c4466d" stroke-width="0.9" ${RAISED}/>` +
+      `<path d="M50 88 V96" stroke="#c43c63" stroke-width="1" stroke-linecap="round" opacity="0.7"/>` +
+      ridge(c, 'M38 83 Q66 92 88 76', 3.6),
+  },
+  blep: {
+    name: 'Blep',
+    draw: (c: Ctx) =>
+      `<path d="M52 84 Q51 101 60 101 Q69 101 68 84 Z" fill="url(#tongue)" stroke="#c4466d" stroke-width="0.9" ${RAISED}/>` +
+      `<path d="M60 87 V96" stroke="#c43c63" stroke-width="1" stroke-linecap="round" opacity="0.7"/>` +
+      ridge(c, 'M50 84 Q60 81 70 84', 3),
+  },
+  growl: {
+    name: 'Growl',
+    draw: (c: Ctx) =>
+      cavity(
+        c,
+        'M36 80 Q60 72 84 80 Q88 90 82 97 Q60 92 38 97 Q32 90 36 80 Z',
+        teethRow(72, 12.5, 30, 90, gapsBetween(36, 84, 6.5)) + teethRow(85.5, 12, 30, 90, gapsBetween(36, 84, 6.5)),
+        'growl',
+      ),
+  },
+  sadOpen: { name: 'Sad open', draw: (c: Ctx) => cavity(c, 'M47 93 Q59 79 75 90 Q61 87 47 93 Z', '', 'sadopen') },
+  poutSide: { name: 'Pout aside', draw: (c: Ctx) => `<g transform="translate(6 3) rotate(-8 60 80)">${lips(c, 0.8)}</g>` },
+  lipDrool: {
+    name: 'Drooling lips',
+    draw: (c: Ctx) =>
+      lips(c, 0.85, true, 'url(#lips)', 6) +
+      `<path d="M65 87 Q67.5 96 65.5 103 Q63.5 106 62.5 102 Q62.5 95 65 87 Z" fill="url(#water)" stroke="#5aaee6" stroke-width="0.6"/>`,
+  },
+  wacky: {
+    name: 'Stretched',
+    draw: (c: Ctx) =>
+      cheeks(c, [22, 72], [98, 72]) +
+      cavity(c, 'M22 72 Q60 66 98 72 Q92 88 60 94 Q28 88 22 72 Z', teethRow(64, 12, 18, 102, gapsBetween(22, 98, 7)), 'wacky') +
+      `<g transform="rotate(-38 80 96)"><path d="M73 86 Q72 106 80 107 Q88 106 87 86 Z" fill="url(#tongue)" stroke="#c4466d" stroke-width="0.9" ${RAISED}/>` +
+      `<path d="M80 89 V101" stroke="#c43c63" stroke-width="1" stroke-linecap="round" opacity="0.7"/></g>` +
+      `<path d="M90 104 Q96 112 101 114" fill="none" stroke="#bfe8ff" stroke-width="1.4" stroke-linecap="round"/>`,
+  },
+  twoTeeth: {
+    name: 'Two teeth',
+    draw: (c: Ctx) =>
+      cheeks(c, [30, 76], [90, 76]) +
+      cavity(
+        c,
+        'M30 76 Q60 68 90 76 Q90 94 77 98 Q68 92 60 97 Q52 92 43 98 Q30 94 30 76 Z',
+        `<rect x="45" y="68" width="8.5" height="12" rx="2.6" fill="url(#teeth)"/><rect x="65" y="68" width="8.5" height="12" rx="2.6" fill="url(#teeth)"/>`,
+        'two',
+      ),
+  },
+  smallSmile: { name: 'Small smile', draw: (c: Ctx) => ridge(c, 'M53 82 Q60 88 67 82', 2.6) },
   grit: {
     name: 'Gritted',
     draw: (c: Ctx) =>
@@ -653,7 +795,7 @@ cheeks(c, [42, 78], [78, 78]) +
         c,
         'M34 84 Q60 66 86 84 Q60 94 34 84 Z',
         teethRow(70, 14, 30, 90, [42, 51, 60, 69, 78]) + teethRow(84, 12, 30, 90, [44, 52, 60, 68, 76]) +
-          `<path d="M30 84 H90" stroke="#7a1b2e" stroke-width="1.4"/>`,
+          `<path d="M30 84 H90" stroke="${c.line}" stroke-width="1" opacity="0.55"/>`,
         'grit',
       ),
   },
@@ -814,7 +956,7 @@ export const EXTRAS = {
   shades: {
     name: 'Shades',
     draw: () =>
-      `<g ${RAISED}><path d="M26 44 H94 L92 50 H87 Q85 64 72 64 Q62 64 61 51 H59 Q58 64 48 64 Q35 64 33 50 H28 Z" fill="url(#lens)" stroke="#000" stroke-width="1"/></g>` +
+      `<g ${RAISED}><path d="M26 44 H94 L92 50 H87 Q85 64 72 64 Q62 64 61 51 H59 Q58 64 48 64 Q35 64 33 50 H28 Z" fill="url(#lens)" stroke="#1a1f2a" stroke-width="1"/></g>` +
       `<path d="M37 50 L45 50 L35 60 Z M66 50 L74 50 L64 60 Z" fill="#ffffff" opacity="0.4"/>`,
   },
   anger: {
@@ -1055,6 +1197,35 @@ export const EXTRAS = {
     name: 'Motion lines',
     draw: () => `<path d="M-4 66 Q-12 80 -6 96 M-12 62 Q-22 80 -14 100" fill="none" stroke="#c9d2df" stroke-width="2" stroke-linecap="round"/>`,
   },
+  bigBlush: {
+    name: 'Big blush',
+    draw: () =>
+      [26, 94].map((x) => `<circle cx="${x}" cy="70" r="13" fill="url(#rosy)" ${RAISED}/><ellipse cx="${x - 4}" cy="64.5" rx="4.6" ry="3" fill="#ffffff" opacity="0.55"/>`).join(''),
+  },
+  seasick: {
+    name: 'Green cheeks',
+    draw: () =>
+      [24, 96].map((x) => `<circle cx="${x}" cy="74" r="15" fill="url(#sick)" ${RAISED}/><ellipse cx="${x - 5}" cy="67.5" rx="5" ry="3.2" fill="#ffffff" opacity="0.45"/>`).join(''),
+  },
+  strain: { name: 'Strain lines', draw: (c: Ctx) => ridge(c, 'M29 68 Q32 84 40 98', 1.6) + ridge(c, 'M91 68 Q88 84 80 98', 1.6) },
+  hotSweat: {
+    name: 'Sweating all over',
+    draw: () =>
+      [
+        [30, 28], [42, 19], [60, 15], [76, 18], [90, 26], [100, 40], [20, 46], [104, 58], [16, 66], [100, 76], [26, 88], [92, 92], [44, 104], [76, 104],
+      ]
+        .map(([x, y], i) => {
+          const r = 1.2 + (i % 3) * 0.4
+          return `<path d="M${x} ${y - r * 2} Q${x - r} ${y} ${x} ${y + r} Q${x + r} ${y} ${x} ${y - r * 2} Z" fill="#d9f1ff" stroke="#6bb8ea" stroke-width="0.4"/>`
+        })
+        .join(''),
+  },
+  plaster: {
+    name: 'Plaster',
+    draw: () =>
+      `<g ${RAISED} transform="rotate(-52 30 84)"><rect x="19" y="79.5" width="22" height="9" rx="4.5" fill="#f3bf96" stroke="#cf9468" stroke-width="0.7"/>` +
+      `<rect x="26.5" y="80.5" width="7" height="7" rx="1" fill="#e9a97c"/></g>`,
+  },
   thumbsUp: { name: 'Thumbs up', draw: () => place(HAND.thumb, 20, 112, -10) },
   thumbsDown: { name: 'Thumbs down', draw: () => place(HAND.thumb, 100, 80, 170, 1.8, true) },
   point: { name: 'Pointing', draw: () => place(HAND.point, 16, 114, -28) },
@@ -1112,13 +1283,21 @@ export const EXTRAS = {
   },
   bawlFists: { name: 'Fists down', draw: () => place(HAND.fist, 12, 126, -14, 1.45) + place(HAND.fist, 108, 126, 14, 1.45, true) },
   adjustShades: { name: 'Hand on shades', draw: () => place(HAND.point, 104, 78, 26, 1.35, true) },
+  yawnHand: { name: 'Hand to a yawn', draw: () => place(HAND.flat, 100, 122, -38, 1.45, true) },
+  cheekHands: { name: 'Hands to cheeks', draw: () => place(HAND.open, 34, 122, 22, 1.4) + place(HAND.open, 86, 122, -22, 1.4, true) },
+  rubFingers: { name: 'Rubbing fingers', draw: () => place(HAND.ok, 16, 114, -40, 1.55) },
+  pullMouth: { name: 'Pulling the mouth', draw: () => place(HAND.point, 2, 98, 78, 1.35) + place(HAND.point, 118, 98, -78, 1.35, true) },
+  handsOnHead: { name: 'Hands on head', draw: () => place(HAND.flat, 12, 42, 34, 1.45) + place(HAND.flat, 108, 42, -34, 1.45, true) },
+  shush: { name: 'Finger to lips', draw: () => place(HAND.point, 58, 126, -4, 1.4) },
+  hug: { name: 'Open arms', draw: () => place(HAND.open, 13, 96, -12, 1.3) + place(HAND.open, 107, 96, 12, 1.3, true) },
+  waveLeft: { name: 'Waving, left', draw: () => place(HAND.open, 18, 36, -26, 1.45) },
 } as const satisfies Record<string, { name: string; draw: (c: Ctx) => string }>
 
 /** The extras that are hands, listed apart from the rest in the panel. */
 export const HAND_EXTRAS: ExtraId[] = [
   'thumbsUp', 'thumbsDown', 'doubleThumbs', 'point', 'pointLaugh', 'wave', 'fist', 'cheer', 'bawlFists', 'peace', 'okSign', 'shrug', 'palmsUp',
   'firePunch', 'facepalm', 'salute', 'think', 'mewing', 'coverEyes', 'coverMouth', 'bothMouth', 'pray', 'shyHands', 'holdHeart', 'offerRose',
-  'cookie', 'bat', 'adjustShades',
+  'cookie', 'bat', 'adjustShades', 'yawnHand', 'cheekHands', 'rubFingers', 'pullMouth', 'handsOnHead', 'shush', 'hug', 'waveLeft',
 ]
 
 export type EyeId = keyof typeof EYES
@@ -1165,12 +1344,14 @@ export function faceSvg(options: FaceOptions): string {
   const c: Ctx = {
     skin: shade(base, 0.03),
     skinLight: shade(base, 0.16, 0.95),
-    brow: dark ? shade(base, 0.32) : shade(base, -0.28, 1.05),
-    line: dark ? '#dfe5f0' : shade(base, -0.36, 1.1),
+    brow: dark ? shade(base, 0.32) : shade(base, -0.3, 1.05),
+    line: dark ? '#dfe5f0' : shade(base, -0.3, 1.1),
     defs: [],
     eyeballs: [],
     cheeks: [],
   }
+  /** Every shadow — under a raised part, inside a cavity or a groove — is the face's own deepest tone. */
+  const shadow = dark ? '#000000' : shade(base, -0.4, 1.1)
   const eyes = (EYES[options.eyes] ?? EYES.round).draw(c)
   const brows = (BROWS[options.brows] ?? BROWS.none).draw(c)
   const mouth = (MOUTHS[options.mouth] ?? MOUTHS.smile).draw(c)
@@ -1231,7 +1412,7 @@ export function faceSvg(options: FaceOptions): string {
     `<radialGradient id="sclera" cx="0.42" cy="0.38" r="0.68"><stop offset="0.45" stop-color="#ffffff"/><stop offset="0.85" stop-color="#d6dee9"/><stop offset="1" stop-color="#aebbcc"/></radialGradient>` +
     `<radialGradient id="iris" cx="0.4" cy="0.35" r="0.7"><stop offset="0" stop-color="#3c4352"/><stop offset="1" stop-color="#06080c"/></radialGradient>` +
     // The inside of the mouth is the head's own colour, deep — as a mouth on a coloured face is.
-    `<linearGradient id="mouth" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${dark ? '#05070d' : shade(base, -0.44, 1.05)}"/><stop offset="1" stop-color="${dark ? '#1c2335' : shade(base, -0.3, 1.05)}"/></linearGradient>` +
+    `<linearGradient id="mouth" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${dark ? '#0b0f1a' : shade(base, -0.34, 1.05)}"/><stop offset="1" stop-color="${dark ? '#1f2738' : shade(base, -0.2, 1.05)}"/></linearGradient>` +
     `<linearGradient id="teeth" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#d9e0ea"/></linearGradient>` +
     `<radialGradient id="tongue" cx="0.45" cy="0.35" r="0.7"><stop offset="0" stop-color="#ff8fb0"/><stop offset="1" stop-color="#d94672"/></radialGradient>` +
     `<linearGradient id="gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff3a6"/><stop offset="0.5" stop-color="#ffd23f"/><stop offset="1" stop-color="#e59a00"/></linearGradient>` +
@@ -1242,6 +1423,9 @@ export function faceSvg(options: FaceOptions): string {
     `<radialGradient id="cookie" cx="0.4" cy="0.35" r="0.7"><stop offset="0" stop-color="#f2c27a"/><stop offset="1" stop-color="#c58a3a"/></radialGradient>` +
     `<linearGradient id="candy" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#a855f7"/><stop offset="0.33" stop-color="#ec4899"/><stop offset="0.66" stop-color="#22d3ee"/><stop offset="1" stop-color="#a855f7"/></linearGradient>` +
     `<linearGradient id="fade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity="0"/><stop offset="1" stop-color="#ffffff" stop-opacity="0.92"/></linearGradient>` +
+    `<radialGradient id="rosy" cx="0.4" cy="0.35" r="0.7"><stop offset="0" stop-color="#ffc2d2"/><stop offset="0.6" stop-color="#f08aa6"/><stop offset="1" stop-color="#d4607f"/></radialGradient>` +
+    `<radialGradient id="sick" cx="0.4" cy="0.35" r="0.7"><stop offset="0" stop-color="#b9e58a"/><stop offset="0.6" stop-color="#6fb544"/><stop offset="1" stop-color="#3f7f26"/></radialGradient>` +
+    `<radialGradient id="bruise" cx="0.5" cy="0.5" r="0.5"><stop offset="0.6" stop-color="#7a3ff0"/><stop offset="0.86" stop-color="#5420c2"/><stop offset="1" stop-color="#9a6bff"/></radialGradient>` +
     `<linearGradient id="cash" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9df27c"/><stop offset="1" stop-color="#1f9a3a"/></linearGradient>` +
     `<linearGradient id="heart" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff6d8a"/><stop offset="1" stop-color="#d4123b"/></linearGradient>` +
     `<linearGradient id="water" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d6f3ff"/><stop offset="1" stop-color="#3fa9f5"/></linearGradient>` +
@@ -1253,7 +1437,7 @@ export function faceSvg(options: FaceOptions): string {
     `<feDistantLight azimuth="225" elevation="42"/></feSpecularLighting>` +
     `<feComposite in="s" in2="SourceAlpha" operator="in" result="si"/>` +
     `<feOffset in="SourceAlpha" dx="0.6" dy="1.4" result="o"/><feGaussianBlur in="o" stdDeviation="0.9" result="ob"/>` +
-    `<feFlood flood-color="#000" flood-opacity="0.32"/><feComposite in2="ob" operator="in" result="drop"/>` +
+    `<feFlood flood-color="${shadow}" flood-opacity="0.38"/><feComposite in2="ob" operator="in" result="drop"/>` +
     `<feMerge><feMergeNode in="drop"/><feMergeNode in="SourceGraphic"/><feMergeNode in="si"/></feMerge>` +
     `</filter>` +
     // Raised, but matte: dark features (brows) keep their colour and only catch a little light.
@@ -1263,7 +1447,7 @@ export function faceSvg(options: FaceOptions): string {
     `<feDistantLight azimuth="225" elevation="48"/></feSpecularLighting>` +
     `<feComposite in="s" in2="SourceAlpha" operator="in" result="si"/>` +
     `<feOffset in="SourceAlpha" dx="0.6" dy="1.6" result="o"/><feGaussianBlur in="o" stdDeviation="1.1" result="ob"/>` +
-    `<feFlood flood-color="#000" flood-opacity="0.35"/><feComposite in2="ob" operator="in" result="drop"/>` +
+    `<feFlood flood-color="${shadow}" flood-opacity="0.3"/><feComposite in2="ob" operator="in" result="drop"/>` +
     `<feMerge><feMergeNode in="drop"/><feMergeNode in="SourceGraphic"/><feMergeNode in="si"/></feMerge>` +
     `</filter>` +
     // One glove piece: a single outline round the whole silhouette, its lower right edge shaded,
@@ -1286,7 +1470,7 @@ export function faceSvg(options: FaceOptions): string {
     `<filter id="inset" x="-20%" y="-20%" width="140%" height="140%">` +
     `<feComponentTransfer in="SourceAlpha" result="inv"><feFuncA type="table" tableValues="1 0"/></feComponentTransfer>` +
     `<feOffset in="inv" dx="0" dy="2.6" result="io"/><feGaussianBlur in="io" stdDeviation="1.8" result="ib"/>` +
-    `<feFlood flood-color="#000" flood-opacity="0.5"/><feComposite in2="ib" operator="in" result="sh"/>` +
+    `<feFlood flood-color="${shadow}" flood-opacity="0.55"/><feComposite in2="ib" operator="in" result="sh"/>` +
     `<feComposite in="sh" in2="SourceAlpha" operator="in" result="shi"/>` +
     `<feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="shi"/></feMerge>` +
     `</filter>` +
@@ -1294,11 +1478,12 @@ export function faceSvg(options: FaceOptions): string {
     `<filter id="groove" x="-20%" y="-40%" width="140%" height="180%">` +
     `<feGaussianBlur in="SourceAlpha" stdDeviation="0.5" result="b"/>` +
     `<feOffset in="b" dx="0" dy="-0.8" result="o"/>` +
-    `<feFlood flood-color="#000" flood-opacity="0.45"/><feComposite in2="o" operator="in" result="d"/>` +
+    `<feFlood flood-color="${shadow}" flood-opacity="0.4"/><feComposite in2="o" operator="in" result="d"/>` +
     `<feComposite in="d" in2="SourceAlpha" operator="in" result="di"/>` +
     `<feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="di"/></feMerge>` +
     `</filter>` +
     `<filter id="blur1" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1"/></filter>` +
+    `<clipPath id="head"><circle cx="60" cy="60" r="50"/></clipPath>` +
     `<clipPath id="rimSide"><path d="M120 30 L120 120 L20 120 Z"/></clipPath>` +
     `<filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.4"/></filter>` +
     `<filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3.2"/></filter>` +
@@ -1313,8 +1498,7 @@ export function faceSvg(options: FaceOptions): string {
     `<ellipse cx="36" cy="24" rx="8" ry="4" fill="#ffffff" opacity="0.75" transform="rotate(-32 36 24)"/>` +
     // Rim light: a band of brighter, more saturated colour along the lower right edge.
     `<circle cx="60" cy="60" r="47" fill="none" stroke="${shade(base, 0.2, 1.15)}" stroke-width="4" opacity="0.7" clip-path="url(#rimSide)" filter="url(#blur1)"/>` +
-    sockets +
-    cheekShapes +
+    `<g clip-path="url(#head)">${sockets}${cheekShapes}</g>` +
     eyes +
     folds +
     brows +

@@ -27,6 +27,7 @@ import { StickerFinder } from './StickerFinder'
 import { StickerGallery } from './StickerGallery'
 import { StickerCreator } from './StickerCreator'
 import { useNoun } from '../maps/useNoun'
+import { useSelectionStickers } from './useSelectionStickers'
 
 function Thumb({ sticker, size = 28 }: { sticker: Sticker | undefined; size?: number }) {
   if (!sticker) return <span className="sticker-thumb sticker-thumb--missing" style={{ width: size, height: size }} title="Missing image">?</span>
@@ -181,6 +182,7 @@ export function StickerLibraryControls() {
   const [busy, setBusy] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
   const mode = stickersOf(doc)
+  const onSelection = useSelectionStickers()
   const picked = pickedId ? index.get(pickedId) : undefined
 
   const upload = async (files: FileList | null) => {
@@ -276,18 +278,14 @@ export function StickerLibraryControls() {
             Add to tiers (as highest)
           </button>
           {selected.length > 0 && (
-            <button
-              type="button"
-              className="btn"
-              onClick={() => {
-                dispatch([
-                  { op: 'assign_sticker', countryIds: selected, stickerId: picked.id },
-                  ...(mode.enabled ? [] : [{ op: 'set_stickers' as const, patch: { enabled: true } }]),
-                ])
-              }}
-            >
-              Put on {selectionLabel}
-            </button>
+            <>
+              <button type="button" className="btn btn--on" onClick={() => onSelection.putOn(picked.id)}>
+                Put on {selectionLabel}
+              </button>
+              <button type="button" className="btn" disabled={!onSelection.canRemove} title={`Take the sticker off ${selectionLabel}`} onClick={onSelection.remove}>
+                Remove
+              </button>
+            </>
           )}
           {!picked.builtin && (
             <button type="button" className="btn btn--ghost" onClick={deletePicked}>
@@ -302,15 +300,7 @@ export function StickerLibraryControls() {
       {selected.length > 0 && (
         <div className="stack">
           <span className="sidebar__group-label">Selection: {selectionLabel}</span>
-          <div className="mode-switch mode-switch--pair">
-            <button
-              type="button"
-              className="chip"
-              title="No sticker here, whatever the data says"
-              onClick={() => dispatch({ op: 'assign_sticker', countryIds: selected, stickerId: null })}
-            >
-              No sticker
-            </button>
+          <div className="mode-switch">
             <button
               type="button"
               className="chip"
