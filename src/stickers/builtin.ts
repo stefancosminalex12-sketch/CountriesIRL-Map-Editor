@@ -14,12 +14,12 @@ import { FACE_PRESETS, presetFace } from './facePresets'
 import type { Sticker } from './types'
 
 const TIERS: Array<[id: string, name: string, preset: string, color: string]> = [
-  ['furious', 'Furious', 'furious', '#b00302'],
-  ['sad', 'Sad', 'sad', '#f57c1f'],
-  ['meh', 'Meh', 'unimpressed', '#faca15'],
-  ['happy', 'Happy', 'grinning', '#82c431'],
-  ['joyful', 'Joyful', 'big-laugh', '#1b4fd8'],
-  ['starstruck', 'Starstruck', 'star-struck', '#9062f9'],
+  ['furious', 'Furious', 'furious', '#d60402'],
+  ['sad', 'Sad', 'sad', '#f79144'],
+  ['meh', 'Meh', 'unimpressed', '#fbd23a'],
+  ['happy', 'Happy', 'grinning', '#95d24a'],
+  ['joyful', 'Joyful', 'big-laugh', '#3465e6'],
+  ['starstruck', 'Starstruck', 'star-struck', '#aa87fa'],
 ]
 
 export const BUILTIN_STICKERS: Sticker[] = TIERS.map(([id, name, presetId, color]) => {

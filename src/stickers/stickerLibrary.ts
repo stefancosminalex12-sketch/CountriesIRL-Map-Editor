@@ -13,7 +13,7 @@
  * are, since they are already small and stay sharp at any size.
  *
  * **Library faces are not stored at all.** A face from the gallery is named by what it is —
- * `face:<preset>:<colour>`, say `face:fire-punch:1b4fd8` — and drawn from that on demand
+ * `face:<preset>:<colour>`, say `face:fire-punch:3465e6` — and drawn from that on demand
  * (`faceSticker`), the same face every time. So putting a face on a country, or changing its
  * colour ten times, spends no storage, and the index below answers for every such id.
  */
@@ -190,7 +190,7 @@ export function allStickers(uploads: Sticker[]): Sticker[] {
 const FACE_ID = /^face:([a-z0-9-]+):([0-9a-f]{6}|flag)$/
 
 /**
- * The id of a library face in a colour: `face:fire-punch:1b4fd8` — or `face:fire-punch:flag`, the
+ * The id of a library face in a colour: `face:fire-punch:3465e6` — or `face:fire-punch:flag`, the
  * face in the flag of whichever territory wears it (the map fills each one in; see `MapCanvas`).
  */
 export function faceStickerId(presetId: string, color: string): string {

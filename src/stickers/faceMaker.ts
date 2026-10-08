@@ -41,15 +41,15 @@ export interface FaceOptions {
  * colours; a picker beside them gives any other, and the flag dot a country's flag.
  */
 export const FACE_COLORS: Array<{ name: string; color: string }> = [
-  { name: 'Light blue', color: '#41b6e6' },
-  { name: 'Blue', color: '#1b4fd8' },
-  { name: 'Lime', color: '#82c431' },
-  { name: 'Yellow', color: '#faca15' },
-  { name: 'Orange', color: '#f57c1f' },
-  { name: 'Red', color: '#b00302' },
-  { name: 'Purple', color: '#9062f9' },
-  { name: 'Gray', color: '#8a9099' },
-  { name: 'Black', color: '#111827' },
+  { name: 'Light blue', color: '#63c3ea' },
+  { name: 'Blue', color: '#3465e6' },
+  { name: 'Lime', color: '#95d24a' },
+  { name: 'Yellow', color: '#fbd23a' },
+  { name: 'Orange', color: '#f79144' },
+  { name: 'Red', color: '#d60402' },
+  { name: 'Purple', color: '#aa87fa' },
+  { name: 'Gray', color: '#9ea3ab' },
+  { name: 'Black', color: '#22252b' },
 ]
 
 /* ------------------------------------------------------------------ colour */
@@ -116,6 +116,17 @@ interface Ctx {
 }
 
 const RAISED = 'filter="url(#bevel)"'
+
+/** How wide a part's black outline is, in units, by the part's size: tiny, usual and big. */
+const EDGE_WIDTH = { s: 0.6, m: 0.95, l: 1.3 } as const
+type EdgeSize = keyof typeof EDGE_WIDTH
+
+/**
+ * A part with a black outline round its whole silhouette, as wide as suits its size, so a small
+ * drop, star or tongue still reads on any ball. Drawn in the face's own coordinates (not inside a
+ * transform), so every outline is the same width for the same size.
+ */
+const edge = (svg: string, size: EdgeSize = 'm') => (svg ? `<g filter="url(#edge-${size})">${svg}</g>` : '')
 const SUNKEN = 'filter="url(#inset)"'
 
 type Side = -1 | 1
@@ -296,7 +307,7 @@ export const EYES = {
       [44, 76]
         .map(
           (x) =>
-            `<text x="${x}" y="61" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="25" fill="url(#cash)" stroke="#145c22" stroke-width="1.2" ${RAISED}>$</text>`,
+            edge(`<text x="${x}" y="61" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="25" fill="url(#cash)" stroke="#145c22" stroke-width="1.2" ${RAISED}>$</text>`),
         )
         .join(''),
   },
@@ -382,9 +393,7 @@ export const EYES = {
   squeeze: {
     name: 'Squeezed',
     draw: (c: Ctx) =>
-      ridge(c, 'M32 49 Q42 57 53 52', 3.8) +
-      ridge(c, 'M88 49 Q78 57 67 52', 3.8) +
-      ridge(c, 'M34 44 Q40 47 46 46 M86 44 Q80 47 74 46 M54 46 Q57 44 60 45 Q63 44 66 46', 1.6),
+      ridge(c, 'M32 49 Q42 57 53 52', 3.8) + ridge(c, 'M88 49 Q78 57 67 52', 3.8),
   },
   tearful: {
     name: 'Teary',
@@ -407,9 +416,7 @@ export const EYES = {
   bags: {
     name: 'Heavy-lidded',
     draw: (c: Ctx) =>
-      pair(c, { ...ROUND, cy: 53, rx: 12, ry: 10, look: [1.5, 2], lid: 'heavy' }) +
-      ridge(c, 'M34 65 Q43 69 52 65', 1.5) +
-      ridge(c, 'M68 65 Q77 69 86 65', 1.5),
+      pair(c, { ...ROUND, cy: 53, rx: 12, ry: 10, look: [1.5, 2], lid: 'heavy' }),
   },
   staring: { name: 'Staring', draw: (c: Ctx) => pair(c, { cx: 43, cy: 50, rx: 12.5, ry: 14.5, iris: 0.36, look: [2, 0] }, { look: [-2, 0] }) },
   narrowed: {
@@ -447,8 +454,8 @@ export const EYES = {
       eye(c, { ...ROUND, cx: 42, rx: 12, ry: 12.5, look: [0.5, 2.5], lid: 'heavy' }, 1, 'l') +
       eye(c, { cx: 78, cy: 51, rx: 13, ry: 14.5, iris: 0.4, look: [-1, 0] }, -1, 'r'),
   },
-  stars: { name: 'Stars', draw: () => star(44, 51, 13) + star(76, 51, 13) },
-  hearts: { name: 'Hearts', draw: () => heart(44, 52, 10) + heart(76, 52, 10) },
+  stars: { name: 'Stars', draw: () => edge(star(44, 51, 13) + star(76, 51, 13)) },
+  hearts: { name: 'Hearts', draw: () => edge(heart(44, 52, 10) + heart(76, 52, 10)) },
   dizzy: {
     name: 'Dizzy',
     draw: (c: Ctx) => ridge(c, 'M38 46 L50 58 M50 46 L38 58', 4) + ridge(c, 'M70 46 L82 58 M82 46 L70 58', 4),
@@ -585,8 +592,10 @@ cheeks(c, [30, 70], [90, 70]) +
     name: 'Tongue',
     draw: (c: Ctx) =>
 cheeks(c, [42, 76], [78, 76]) +
-            `<path d="M53 80 Q53 97 61 97 Q69 97 69 80 Z" fill="url(#tongue)" stroke="#a52a52" stroke-width="1.2" ${RAISED}/>` +
-      `<path d="M61 82 V91" stroke="#c43c63" stroke-width="1.2" stroke-linecap="round"/>` +
+      edge(
+        `<path d="M53 80 Q53 97 61 97 Q69 97 69 80 Z" fill="url(#tongue)" stroke="#a52a52" stroke-width="1.2" ${RAISED}/>` +
+          `<path d="M61 82 V91" stroke="#c43c63" stroke-width="1.2" stroke-linecap="round"/>`,
+      ) +
       ridge(c, 'M42 76 Q60 86 78 76'),
   },
   kiss: {
@@ -644,7 +653,7 @@ cheeks(c, [42, 78], [78, 78]) +
     name: 'Drool',
     draw: (c: Ctx) =>
       cavity(c, 'M40 74 Q60 79 80 74 Q76 92 60 93 Q44 92 40 74 Z', teethRow(72, 7, 36, 84, [48, 56, 64, 72]) + tongue(60, 92, 11, 6), 'drool') +
-      `<path d="M76 84 Q80 96 78 104 Q75 109 72 104 Q71 96 76 84 Z" fill="url(#water)" stroke="#2a8ad6" stroke-width="0.8" ${RAISED}/>`,
+      edge(`<path d="M76 84 Q80 96 78 104 Q75 109 72 104 Q71 96 76 84 Z" fill="url(#water)" stroke="#2a8ad6" stroke-width="0.8" ${RAISED}/>`, 's'),
   },
   wow: {
     name: 'Wow',
@@ -712,8 +721,10 @@ cheeks(c, [42, 78], [78, 78]) +
     draw: (c: Ctx) =>
       cheeks(c, [30, 68], [90, 68]) +
       cavity(c, 'M30 68 Q60 74 90 68 Q86 100 60 102 Q34 100 30 68 Z', teethRow(66, 10, 26, 94, gapsBetween(26, 94, 8.5)), 'tongueout') +
-      `<path d="M50 96 L50 116 Q60 128 70 116 L70 96 Z" fill="url(#tongue)" stroke="#a52a52" stroke-width="1" ${RAISED}/>` +
-      `<path d="M60 99 V114" stroke="#c43c63" stroke-width="1.2" stroke-linecap="round"/>`,
+      edge(
+        `<path d="M50 96 L50 116 Q60 128 70 116 L70 96 Z" fill="url(#tongue)" stroke="#a52a52" stroke-width="1" ${RAISED}/>` +
+          `<path d="M60 99 V114" stroke="#c43c63" stroke-width="1.2" stroke-linecap="round"/>`,
+      ),
   },
   yawn: {
     name: 'Yawn',
@@ -751,22 +762,28 @@ cheeks(c, [42, 78], [78, 78]) +
     name: 'Tongue hanging',
     draw: (c: Ctx) =>
       cavity(c, 'M49 74 Q60 69 71 74 Q75 92 66 101 Q60 104 54 101 Q45 92 49 74 Z', '', 'hang') +
-      `<path d="M51 93 Q50 113 61 114 Q72 113 71 95 Q61 99 51 93 Z" fill="url(#tongue)" stroke="#c4466d" stroke-width="0.9" ${RAISED}/>` +
-      `<path d="M61 99 V109" stroke="#c43c63" stroke-width="1" stroke-linecap="round" opacity="0.7"/>`,
+      edge(
+        `<path d="M51 93 Q50 113 61 114 Q72 113 71 95 Q61 99 51 93 Z" fill="url(#tongue)" stroke="#c4466d" stroke-width="0.9" ${RAISED}/>` +
+          `<path d="M61 99 V109" stroke="#c43c63" stroke-width="1" stroke-linecap="round" opacity="0.7"/>`,
+      ),
   },
   sideTongue: {
     name: 'Tongue aside',
     draw: (c: Ctx) =>
       cheeks(c, [88, 76]) +
-      `<path d="M43 83 Q41 99 50 100 Q59 100 58 86 Z" fill="url(#tongue)" stroke="#c4466d" stroke-width="0.9" ${RAISED}/>` +
-      `<path d="M50 88 V96" stroke="#c43c63" stroke-width="1" stroke-linecap="round" opacity="0.7"/>` +
+      edge(
+        `<path d="M43 83 Q41 99 50 100 Q59 100 58 86 Z" fill="url(#tongue)" stroke="#c4466d" stroke-width="0.9" ${RAISED}/>` +
+          `<path d="M50 88 V96" stroke="#c43c63" stroke-width="1" stroke-linecap="round" opacity="0.7"/>`,
+      ) +
       ridge(c, 'M38 83 Q66 92 88 76', 3.6),
   },
   blep: {
     name: 'Blep',
     draw: (c: Ctx) =>
-      `<path d="M52 84 Q51 101 60 101 Q69 101 68 84 Z" fill="url(#tongue)" stroke="#c4466d" stroke-width="0.9" ${RAISED}/>` +
-      `<path d="M60 87 V96" stroke="#c43c63" stroke-width="1" stroke-linecap="round" opacity="0.7"/>` +
+      edge(
+        `<path d="M52 84 Q51 101 60 101 Q69 101 68 84 Z" fill="url(#tongue)" stroke="#c4466d" stroke-width="0.9" ${RAISED}/>` +
+          `<path d="M60 87 V96" stroke="#c43c63" stroke-width="1" stroke-linecap="round" opacity="0.7"/>`,
+      ) +
       ridge(c, 'M50 84 Q60 81 70 84', 3),
   },
   growl: {
@@ -785,16 +802,18 @@ cheeks(c, [42, 78], [78, 78]) +
     name: 'Drooling lips',
     draw: (c: Ctx) =>
       lips(c, 0.85, true, 'url(#lips)', 6) +
-      `<path d="M65 87 Q67.5 96 65.5 103 Q63.5 106 62.5 102 Q62.5 95 65 87 Z" fill="url(#water)" stroke="#5aaee6" stroke-width="0.6"/>`,
+      edge(`<path d="M65 87 Q67.5 96 65.5 103 Q63.5 106 62.5 102 Q62.5 95 65 87 Z" fill="url(#water)" stroke="#5aaee6" stroke-width="0.6"/>`, 's'),
   },
   wacky: {
     name: 'Stretched',
     draw: (c: Ctx) =>
       cheeks(c, [22, 72], [98, 72]) +
       cavity(c, 'M22 72 Q60 66 98 72 Q92 88 60 94 Q28 88 22 72 Z', teethRow(64, 12, 18, 102, gapsBetween(22, 98, 7)), 'wacky') +
-      `<g transform="rotate(-38 80 96)"><path d="M73 86 Q72 106 80 107 Q88 106 87 86 Z" fill="url(#tongue)" stroke="#c4466d" stroke-width="0.9" ${RAISED}/>` +
-      `<path d="M80 89 V101" stroke="#c43c63" stroke-width="1" stroke-linecap="round" opacity="0.7"/></g>` +
-      `<path d="M90 104 Q96 112 101 114" fill="none" stroke="#bfe8ff" stroke-width="1.4" stroke-linecap="round"/>`,
+      edge(
+        `<g transform="rotate(-38 80 96)"><path d="M73 86 Q72 106 80 107 Q88 106 87 86 Z" fill="url(#tongue)" stroke="#c4466d" stroke-width="0.9" ${RAISED}/>` +
+          `<path d="M80 89 V101" stroke="#c43c63" stroke-width="1" stroke-linecap="round" opacity="0.7"/></g>`,
+      ) +
+      edge(`<path d="M90 104 Q96 112 101 114" fill="none" stroke="#bfe8ff" stroke-width="1.4" stroke-linecap="round"/>`, 's'),
   },
   twoTeeth: {
     name: 'Two teeth',
@@ -1149,7 +1168,7 @@ export const EXTRAS = {
   // The fist on fire: flames bursting up and back round it, over the ball and under the fist.
   firePunch: {
     name: 'Fire punch',
-    draw: () => flame(18, 104, 1.15, -44) + flame(12, 116, 0.85, -76) + flame(30, 92, 0.8, -12) + hand('fistFront', 26, 112, 58, -6),
+    draw: () => edge(flame(18, 104, 1.15, -44) + flame(12, 116, 0.85, -76) + flame(30, 92, 0.8, -12)) + hand('fistFront', 26, 112, 58, -6),
   },
   facepalm: { name: 'Facepalm', draw: () => hand('backLeft', 42, 70, 60, 8) },
   salute: { name: 'Salute', draw: () => hand('raised', 98, 30, 50, -62) },
@@ -1168,8 +1187,10 @@ export const EXTRAS = {
     name: 'Offering a rose',
     draw: () =>
       hand('cupped', 60, 118, 70) +
-      `<g ${RAISED}><path d="M46 104 Q54 92 62 100 Q56 108 46 104 Z M72 98 Q82 92 86 100 Q78 104 72 98 Z" fill="#43a843" stroke="#1f6a1f" stroke-width="0.8"/></g>` +
-      rose(60, 96, 13),
+      edge(
+        `<g ${RAISED}><path d="M46 104 Q54 92 62 100 Q56 108 46 104 Z M72 98 Q82 92 86 100 Q78 104 72 98 Z" fill="#43a843" stroke="#1f6a1f" stroke-width="0.8"/></g>` +
+          rose(60, 96, 13),
+      ),
   },
   pointLaugh: { name: 'Pointing and wiping', draw: () => hand('atYou', 26, 112, 54) + hand('backRight', 102, 72, 36, -16) },
   mewing: { name: 'Finger at chin', draw: () => hand('indexUp', 92, 118, 50, -14) },
@@ -1184,8 +1205,11 @@ export const EXTRAS = {
   bat: {
     name: 'Baseball bat',
     draw: () =>
-      `<g ${RAISED}><path d="M4 2 C10 -4 18 0 18 6 L30 112 C30 116 24 117 22 113 Z" fill="url(#wood)" stroke="#6b3d14" stroke-width="1"/>` +
-      `<ellipse cx="26" cy="116" rx="6" ry="3" fill="#8a5220" stroke="#6b3d14" stroke-width="1"/></g>` +
+      edge(
+        `<g ${RAISED}><path d="M4 2 C10 -4 18 0 18 6 L30 112 C30 116 24 117 22 113 Z" fill="url(#wood)" stroke="#6b3d14" stroke-width="1"/>` +
+          `<ellipse cx="26" cy="116" rx="6" ry="3" fill="#8a5220" stroke="#6b3d14" stroke-width="1"/></g>`,
+        'l',
+      ) +
       hand('fistSide', 24, 114, 42, 0, true),
   },
   bawlFists: { name: 'Fists down', draw: () => hand('fistFront', 10, 126, 40, -8) + hand('fistFront', 110, 126, 40, 8, true) },
@@ -1246,7 +1270,46 @@ export const DEFAULT_FACE: FaceOptions = {
 /** Drawn behind the head rather than over it. */
 const BEHIND: ExtraId[] = ['halo']
 
-/** A flame: a teardrop licking up and back, in three nested colours. */
+/**
+ * How wide each extra's black outline is (`edge`): tiny parts thin, big ones bold, the rest in
+ * between. `null` for the parts with none — soft ones (a blush, a fade, motion lines), ones that
+ * are black lines already, and the hands, which are the author's pictures with their own outline
+ * (a hand's props are outlined where the hand is drawn).
+ */
+const EXTRA_EDGE: Partial<Record<ExtraId, EdgeSize | null>> = {
+  ...Object.fromEntries(HAND_EXTRAS.map((id) => [id, null])),
+  blush: null,
+  fadeAway: null,
+  motion: null,
+  strain: null,
+  shades: null,
+  glasses: null,
+  nerdGlasses: null,
+  notes: null,
+  catEars: null,
+  sparkles: 's',
+  confetti: 's',
+  zzz: 's',
+  floatHearts: 's',
+  foreheadSweat: 's',
+  hotSweat: 's',
+  question: 's',
+  exclaim: 's',
+  anger: 's',
+  helmet: 'l',
+  headphones: 'l',
+  crown: 'l',
+  partyHat: 'l',
+  halo: 'l',
+}
+
+/** An extra as drawn, with its outline. */
+const drawExtra = (id: ExtraId, c: Ctx) => {
+  const size = id in EXTRA_EDGE ? EXTRA_EDGE[id] : 'm'
+  const svg = EXTRAS[id].draw(c)
+  return size ? edge(svg, size) : svg
+}
+
 /**
  * One of the author's hands (`handArt.ts`) centred on (`x`, `y`), `size` across its longer side,
  * turned `rotate` degrees and, with `flip`, mirrored — a left hand made right.
@@ -1262,6 +1325,7 @@ function hand(id: HandId, x: number, y: number, size: number, rotate = 0, flip =
   )
 }
 
+/** A flame: a teardrop licking up and back, in three nested colours. */
 function flame(x: number, y: number, size: number, angle: number): string {
   const layer = (scale: number, color: string) =>
     `<path transform="scale(${scale})" d="M0 0 C-9 -2 -12 -12 -6 -22 C-4 -16 -1 -15 0 -18 C1 -26 6 -32 12 -36 C9 -26 14 -20 13 -10 C12 -3 7 1 0 0 Z" fill="${color}"/>`
@@ -1355,9 +1419,9 @@ export function faceSvg(options: FaceOptions): string {
   const mouth = (MOUTHS[options.mouth] ?? MOUTHS.smile).draw(c)
   const extras = options.extras.filter((id) => id in EXTRAS)
   const behind =
-    extras.map((id) => BEHIND_PARTS[id]?.(c) ?? '').join('') +
-    extras.filter((id) => BEHIND.includes(id)).map((id) => EXTRAS[id].draw(c)).join('')
-  const over = extras.filter((id) => !BEHIND.includes(id)).map((id) => EXTRAS[id].draw(c)).join('')
+    extras.map((id) => edge(BEHIND_PARTS[id]?.(c) ?? '')).join('') +
+    extras.filter((id) => BEHIND.includes(id)).map((id) => drawExtra(id, c)).join('')
+  const over = extras.filter((id) => !BEHIND.includes(id)).map((id) => drawExtra(id, c)).join('')
 
   /*
    * The ball's fill: its colour, or a flag laid over the whole ball and clipped to it — the
@@ -1411,6 +1475,16 @@ export function faceSvg(options: FaceOptions): string {
     `<filter id="bevelSoft"><feMerge><feMergeNode in="SourceGraphic"/></feMerge></filter>` +
     `<filter id="inset"><feMerge><feMergeNode in="SourceGraphic"/></feMerge></filter>` +
     `<filter id="groove"><feMerge><feMergeNode in="SourceGraphic"/></feMerge></filter>` +
+    // A small part's black outline (see `edge`): its silhouette grown by a little, in ink, under it.
+    Object.entries(EDGE_WIDTH)
+      .map(
+        ([size, r]) =>
+          `<filter id="edge-${size}" filterUnits="userSpaceOnUse" x="-40" y="-40" width="200" height="200">` +
+          `<feMorphology in="SourceAlpha" operator="dilate" radius="${r}" result="grown"/>` +
+          `<feFlood flood-color="${ink}" result="ink"/><feComposite in="ink" in2="grown" operator="in" result="edge"/>` +
+          `<feMerge><feMergeNode in="edge"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`,
+      )
+      .join('') +
     `<filter id="blur1" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1"/></filter>` +
     `<clipPath id="head"><circle cx="60" cy="60" r="50"/></clipPath>` +
         `<filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.4"/></filter>` +

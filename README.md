@@ -3146,16 +3146,16 @@ Smiley, Instant Regret with Hands on Head, Hot Face, Woozy Face, Give Me A Hug, 
 Black-Eye, … Growling Mad, then one face for each of the author's hand gestures. The older set follows, minus any name the collection already uses. All are drawn in the colour picked above the grid and
 searchable by name. A preset is only parts, never a colour, so the whole gallery recolours at once.
 The colour presets are the nine base colours of the recolourable emoji site the gallery follows,
-sampled exactly from its swatches — blue `#1b4fd8`, purple `#9062f9`, yellow `#faca15`, red
-`#b00302`, pink `#db8eb6`, teal `#1ca6be`, green `#82c431`, white `#f3f4f6`, black `#111827` — plus
-orange `#f57c1f` for the default tiers, and a picker for any other. The head is shaded only in
+sampled exactly from its swatches — blue `#3465e6`, purple `#aa87fa`, yellow `#fbd23a`, red
+`#d60402`, pink `#db8eb6`, teal `#1ca6be`, green `#95d24a`, white `#f3f4f6`, black `#22252b` — plus
+orange `#f79144` for the default tiers, and a picker for any other. The head is shaded only in
 darker tones of its own colour, with no black rim and no ground shadow, so a sticker sits cleanly
 on a map. Tapping a sticker picks it; the bar under the grid puts it on the selected territories
 (turning stickers on if needed), takes a sticker off them (**Remove**), adds it to the tiers, opens
 a face in Create → Face maker, or deletes an upload.
 
 **A face is named, not stored.** A face from the grid is the id `face:<preset>:<colour>` —
-`face:fire-punch:1b4fd8` — and `stickerIndex` draws it from that when the map or a panel asks
+`face:fire-punch:3465e6` — and `stickerIndex` draws it from that when the map or a panel asks
 (`faceSticker` in `stickers/stickerLibrary.ts`, kept once drawn). Picking or placing a face, in
 any number of colours, writes nothing to the browser's storage. Faces the earlier gallery stored
 as copies (`user:face-…`) still resolve, and are left out of **Yours**.
@@ -3212,7 +3212,10 @@ is SVG — so an emoji copy saved by any route is dropped on load unless the tie
   pinch, claw, crossed arms, writing, clasped and cupped hands, and more — and 39 other extras such as big blushing or seasick-green cheeks,
   sweat, a plaster, glasses, a helmet, cat ears, confetti, a crown, steam, hearts and Zzz, plus an
   optional outline) in any colour. Brows are slim crescents tapering to fine ends. Teeth are one
-  clean white band clipped by the mouth, with a thin divider at each gap. Every shadow — under a
+  clean white band clipped by the mouth, with a thin divider at each gap. Every small part — a tear,
+  a sweat drop, a heart, a star, a tongue out of the mouth, a crown — has a black outline round its
+  whole silhouette (`edge`), thin on tiny parts and bolder on big ones, so it reads on any ball.
+  Closed and squeezed eyes are one line each, never a second crease above them. Every shadow — under a
   raised part, inside the mouth, along a carved line — is the face's own deepest tone rather than
   black, and soft shading near the edge is clipped to the head so nothing glows outside it. The hands are the author's own 3D glove hands,
   cut from their four reference sheets — the best copy of each gesture that repeats — into 30 small
