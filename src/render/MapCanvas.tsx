@@ -65,7 +65,8 @@ import { MapLabels } from './MapLabels'
 import { MapStickers, STICKER_MARKER, type PlacedSticker } from './MapStickers'
 import { openSidebarSection } from '../ui/sidebarEvents'
 import { resolveStickers, stickersOf } from '../state/stickers'
-import { stickerIndex, useStickerLibrary } from '../stickers/stickerLibrary'
+import { flagFaceSticker, parseFaceSticker, stickerIndex, useStickerLibrary } from '../stickers/stickerLibrary'
+import type { Sticker } from '../stickers/types'
 import { OverlayMenu, type OverlayMenuRequest } from '../ui/OverlayMenu'
 import { CountryCoast, CountryPath, MAP_SCALE_VAR, screenStrokeWidth } from './CountryPath'
 import { flagCodeFor, useFlagStore } from '../flags/flagStore'
@@ -2334,6 +2335,48 @@ export function MapCanvas() {
    * from — and handed to the overlay layer only once it has arrived.
    */
   /*
+   * Stickers as drawn. A flag face (`face:<preset>:flag`) is the face in the flag of the territory
+   * wearing it — Brazil's in Brazil's, France's in France's — so each is drawn with that flag once
+   * its artwork has arrived, from the same store and by the same rule every flag on the map uses
+   * (a merged group's own, an assigned flag, or the entity's own). Until then it waits, rather
+   * than flashing another flag. Every other sticker is drawn as it is.
+   */
+  const stickerFlagCodes = useMemo(() => {
+    const out = new Map<string, string>()
+    const mergeFlag = new Map(doc.merges.map((m) => [m.id, m.flag]))
+    for (const p of stickerPlacements) {
+      if (!p.stickerId.endsWith(':flag') || !parseFaceSticker(p.stickerId)) continue
+      const code = mergeFlag.get(p.id) ?? flagCodeOf(p.id)
+      if (code) out.set(p.id, code)
+    }
+    return out
+  }, [stickerPlacements, doc.merges, flagCodeOf])
+  useEffect(() => {
+    const codes = [...new Set(stickerFlagCodes.values())]
+    if (codes.length) requestFlags(codes)
+  }, [stickerFlagCodes, requestFlags])
+  const drawnStickers = useMemo(() => {
+    if (stickerFlagCodes.size === 0) return { placements: stickerPlacements, artwork: stickerArtwork }
+    const artwork = new Map<string, Sticker>()
+    const placements: PlacedSticker[] = []
+    for (const p of stickerPlacements) {
+      const code = stickerFlagCodes.get(p.id)
+      if (p.stickerId.endsWith(':flag') && parseFaceSticker(p.stickerId)) {
+        const src = code ? loadedFlags[code] : undefined
+        const sticker = code && src ? flagFaceSticker(p.stickerId, code, src) : undefined
+        if (!sticker) continue
+        artwork.set(sticker.id, sticker)
+        placements.push({ ...p, stickerId: sticker.id })
+      } else {
+        const sticker = stickerArtwork.get(p.stickerId)
+        if (sticker) artwork.set(p.stickerId, sticker)
+        placements.push(p)
+      }
+    }
+    return { placements, artwork }
+  }, [stickerPlacements, stickerArtwork, stickerFlagCodes, loadedFlags])
+
+  /*
    * The overlays as drawn. A Land overlay is more of the map, so in Flags mode it is what the map's
    * land is there — its entity's flag, or under World Domination the one flag every country flies —
    * rather than a blank shape on a map of flags. The overlay itself keeps its Land texture: with
@@ -3713,7 +3756,7 @@ export function MapCanvas() {
             Stickers under the names, so a name laid over a face stays readable.
           */}
           {stickerPlacements.length > 0 && (
-            <MapStickers placements={stickerPlacements} stickers={stickerArtwork} activeId={activeStickerId} />
+            <MapStickers placements={drawnStickers.placements} stickers={drawnStickers.artwork} activeId={activeStickerId} />
           )}
 
           {textOn && <MapLabels placements={labelsToDraw} labels={labels} />}

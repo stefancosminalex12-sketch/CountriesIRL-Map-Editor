@@ -3109,6 +3109,30 @@ in that browser. The tier order is remembered there too, and a new map starts fr
 is defined once as a `<symbol>` and every territory wearing it is a `<use>`, so a world of faces is
 a few decoded images rather than hundreds of copies of a data URI.
 
+#### Countryballs
+
+**Every face is a countryball.** The same faces, poses and props as before, drawn in the
+countryball style (`stickers/faceMaker.ts`): a flat ball with a black outline and a faint
+highlight and shade so it still reads as round; countryball eyes — white shapes with a black
+outline, the emotion in their shape (cut flat when half-closed, slanting hard to the nose when
+angry, up to it when sad, pushed up from below when happy), with a plain black pupil only where an
+eye looks somewhere; flat black-edged brows, lines and mouths (a deep red inside, white teeth);
+and white gloves with the same black outline. Everything is drawn over the ball's fill, so eyes,
+mouth and hands are always on top of the colour or the flag. The lighting filters the glossy faces
+used are now flat, which also makes every face cheaper to draw.
+
+**Flag mode.** The colour rows in the Library and in the clicked-sticker editor end with a
+**Country flag** dot (white over red). A face in that "colour" is `face:<preset>:flag`: on the map,
+each one is the face filled with the flag of the territory wearing it — Brazil's in Brazil's,
+France's in France's — by the rule every flag on the map follows (a merged group's own flag, an
+assigned one, or the entity's own), from the same flag store (`drawnStickers` in `MapCanvas`,
+`flagFaceSticker`). It waits for the flag's artwork rather than flashing another. Where there is no
+country — a Library thumbnail — it shows white over red, the first countryball.
+
+**Fists face the front.** A fist is now drawn as seen from the front (`fistFront`): four curled
+fingers side by side, each with its knuckle fold, and the thumb folded across them — held up with a
+cuff (`HAND.fist`), or punching at the viewer with no wrist to be seen (`HAND.punch`, Fire Punch).
+
 #### The Library
 
 **Library** (first in the Stickers panel; **Tiers** is last) holds every sticker in one grid: the
@@ -3178,7 +3202,7 @@ is SVG — so an emoji copy saved by any route is dropped on load unless the tie
 
 **Create** makes new stickers, saved to the library like uploads:
 
-- **Face maker** (`stickers/faceMaker.ts`): a glossy 3D face assembled from parts (38 eyes —
+- **Face maker** (`stickers/faceMaker.ts`): a countryball assembled from parts (38 eyes —
   among them staring, goofy, uneven, fury and a black eye — 11 brows, including four that float
   just above the head, 53 mouths, 36 hand poses — thumbs up and down, pointing, waving, fist, fire
   punch, peace, shrug, facepalm, salute, thinking, OK sign, cheering, covering eyes or mouth,

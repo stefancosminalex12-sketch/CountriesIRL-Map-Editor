@@ -179,11 +179,14 @@ export function allStickers(uploads: Sticker[]): Sticker[] {
 
 /* ------------------------------------------------------------ library faces */
 
-const FACE_ID = /^face:([a-z0-9-]+):([0-9a-f]{6})$/
+const FACE_ID = /^face:([a-z0-9-]+):([0-9a-f]{6}|flag)$/
 
-/** The id of a library face in a colour: `face:fire-punch:1b4fd8`. */
+/**
+ * The id of a library face in a colour: `face:fire-punch:1b4fd8` — or `face:fire-punch:flag`, the
+ * face in the flag of whichever territory wears it (the map fills each one in; see `MapCanvas`).
+ */
 export function faceStickerId(presetId: string, color: string): string {
-  return `face:${presetId}:${color.replace('#', '').toLowerCase()}`
+  return `face:${presetId}:${color === 'flag' ? 'flag' : color.replace('#', '').toLowerCase()}`
 }
 
 /** A library face id's preset and colour, or null for any other id. */
@@ -191,7 +194,7 @@ export function parseFaceSticker(id: string): { preset: FacePreset; color: strin
   const match = FACE_ID.exec(id)
   if (!match) return null
   const preset = FACE_PRESETS.find((p) => p.id === match[1])
-  return preset ? { preset, color: `#${match[2]}` } : null
+  return preset ? { preset, color: match[2] === 'flag' ? 'flag' : `#${match[2]}` } : null
 }
 
 /**
@@ -211,7 +214,25 @@ export function faceOf(stickerId: string): { preset: FacePreset; color: string }
 }
 
 export function colourName(color: string): string {
+  if (color === 'flag') return 'Flag'
   return FACE_COLORS.find((c) => c.color === color.toLowerCase())?.name ?? color.toLowerCase()
+}
+
+const flagFaces = new Map<string, Sticker>()
+
+/**
+ * A flag face as worn by one territory: the face filled with `flagSrc`, the artwork of the flag it
+ * flies. Drawn once per face and flag, and kept.
+ */
+export function flagFaceSticker(stickerId: string, code: string, flagSrc: string): Sticker | undefined {
+  const key = `${stickerId}@${code}`
+  const known = flagFaces.get(key)
+  if (known) return known
+  const face = parseFaceSticker(stickerId)
+  if (!face || face.color !== 'flag') return undefined
+  const sticker = { id: key, name: face.preset.name, src: faceDataUri({ ...presetFace(face.preset, 'flag'), flagHref: flagSrc }) }
+  flagFaces.set(key, sticker)
+  return sticker
 }
 
 const faces = new Map<string, Sticker>()

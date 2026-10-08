@@ -135,7 +135,7 @@ export function StickerLibrary() {
     <div className="stack">
       <div className="stack sticker-parts">
         <span className="sidebar__group-label">Colour</span>
-        <StickerColorRow value={color} onChange={(next) => next && changeColour(next)} />
+        <StickerColorRow value={color} onChange={(next) => next && changeColour(next)} allowFlag />
       </div>
       <input
         className="input"

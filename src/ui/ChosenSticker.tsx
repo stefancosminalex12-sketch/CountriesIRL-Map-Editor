@@ -76,7 +76,7 @@ export function ChosenSticker() {
 
       <div className="stack sticker-parts">
         <span className="sidebar__group-label">Colour</span>
-        <StickerColorRow value={face?.color ?? null} onChange={(color) => color && void recolour(color)} />
+        <StickerColorRow value={face?.color ?? null} onChange={(color) => color && void recolour(color)} allowFlag={!!face} />
       </div>
 
       <label className="field">

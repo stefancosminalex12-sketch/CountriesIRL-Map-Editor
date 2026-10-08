@@ -1,29 +1,31 @@
 /**
- * The face maker: a glossy 3D face assembled from parts, in any colour.
+ * The face maker: a countryball, assembled from parts, in any colour — or in a country's flag.
  *
- * Original artwork, drawn here as SVG. A face is a colour and one choice from each part list —
+ * Original artwork, drawn here as SVG. A face is a fill and one choice from each part list —
  * eyes, brows, mouth — plus any extras, and the same options always draw the same face.
  *
- * **What makes it look rendered rather than flat** is light, applied the same way to every part:
+ * **The countryball look**, applied the same way to every part:
  *
- * - The head is a lit sphere: a radial body gradient lit from the top left, a darker rim, a pale
- *   bounce of light along the bottom edge, a soft specular bloom and a sharp highlight. Every
- *   shade is the face's own colour, darker — never black — so no colour turns muddy at the edge.
- * - Brows, eyelids, the closed-eye arcs, stars, hearts and hands are *raised*: the `bevel` filter
- *   lights a blurred copy of each shape's alpha (`feSpecularLighting`) from the same top-left
- *   light, so every edge facing the light catches it.
- * - Eyes and open mouths are *cavities*: the `inset` filter casts an inner shadow from their top
- *   edge, so the eye sits in the head and the mouth goes into it. Teeth, tongues and irises have
- *   their own gradients and highlights.
- *
- * Every tone — the lids, the brows, the lines, the deep inside of the mouth's rim — is derived
- * from the one face colour, so recolouring the face recolours all of it consistently.
+ * - The head is a flat ball with a black outline, filled with one colour or with a flag
+ *   (`color: 'flag'`, the artwork in `flagHref`), under a faint highlight and shade so it still
+ *   reads as round. With no flag given — a gallery thumbnail — it shows white over red, the
+ *   original countryball.
+ * - The eyes are countryball eyes: white shapes with a black outline, the emotion in their shape —
+ *   cut flat for half-closed, slanting to the nose for angry, up to it for sad, pushed up from
+ *   below for happy. A pupil is a plain black dot, drawn only where the eye looks somewhere.
+ * - Everything is drawn over the fill — eyes, brows, mouth, hands — so it is always on top of the
+ *   colour or the flag.
+ * - Mouths, brows and lines are flat and black-edged; hands are white gloves with the same black
+ *   outline, seen from the front.
  *
  * The result is an SVG data URI: small, sharp at any size, and in every export.
  */
 
 export interface FaceOptions {
+  /** `#rrggbb`, or `'flag'` for a ball in a country's flag (see `flagHref`). */
   color: string
+  /** The flag a `'flag'` ball is filled with, as an image URL (a data URI, so exports keep it). */
+  flagHref?: string
   eyes: EyeId
   brows: BrowId
   mouth: MouthId
@@ -97,18 +99,18 @@ function shade(hex: string, dl: number, ks = 1): string {
  * for hands, halos and drops.
  */
 interface Ctx {
-  /** The head's own colour, for lids. */
+  /** The ball's own colour, for parts drawn in it (cat ears, a nose). */
   skin: string
   skinLight: string
-  /** Brows: a deep tone of the head. */
+  /** Brows: black, or light on a black ball. */
   brow: string
-  /** Lines and edges — the lid crease, a closed smile. */
+  /** Lines and edges — a closed eye, a smile, a mouth's edge. */
   line: string
+  /** The outline every eye and the ball itself is drawn with. */
+  ink: string
   /** Defs a part needs (clip paths), collected and written once. */
   defs: string[]
-  /** Every open eye drawn, so the head can be sculpted round it: a socket, a fold of skin above. */
-  eyeballs: Array<{ cx: number; cy: number; rx: number; ry: number; lid: boolean }>
-  /** The corners of a smiling mouth, which push the cheeks up. */
+  /** The corners of a smiling mouth. Kept for the parts that note them; nothing is sculpted now. */
   cheeks: Array<[number, number]>
 }
 
@@ -122,95 +124,85 @@ interface EyeSpec {
   cy: number
   rx: number
   ry: number
-  /** Where the iris looks, in units. */
+  /** Where the eye looks, in units — and, given, that it has a pupil. */
   look?: [number, number]
-  /** Iris radius as a share of the eye's smaller radius. */
+  /** Pupil size, as a share of the eye's smaller radius (scaled down to a countryball's dot). */
   iris?: number
   lid?: 'half' | 'heavy' | 'angry' | 'sad' | 'happy'
 }
 
-/** One eye: a sunken white, a shaded iris and pupil, two catch-lights, and an optional lid. */
+/**
+ * One countryball eye: a white shape with a black outline, cut by its lid. The cut is the
+ * expression — flat across for half-closed or heavy, slanting hard down to the nose for angry, up
+ * to it for sad; a happy eye is cut from below, pushed up by the cheek. A pupil, where the eye
+ * looks somewhere, is a plain black dot inside what shows.
+ */
 function eye(c: Ctx, e: EyeSpec, side: Side, key: string): string {
-  const [dx, dy] = e.look ?? [0, 1]
-  const r = Math.min(e.rx, e.ry) * (e.iris ?? 0.6)
-  c.eyeballs.push({ cx: e.cx, cy: e.cy, rx: e.rx, ry: e.ry, lid: !!e.lid })
-  const clip = `eye-${key}`
-  c.defs.push(`<clipPath id="${clip}"><ellipse cx="${e.cx}" cy="${e.cy}" rx="${e.rx}" ry="${e.ry}"/></clipPath>`)
-  const ix = e.cx + dx
-  const iy = e.cy + dy
-  let out =
-    `<ellipse cx="${e.cx}" cy="${e.cy + 0.8}" rx="${e.rx + 1.2}" ry="${e.ry + 1.2}" fill="${c.line}" opacity="0.35"/>` +
-    `<ellipse cx="${e.cx}" cy="${e.cy}" rx="${e.rx}" ry="${e.ry}" fill="url(#sclera)" ${SUNKEN}/>` +
-    `<g clip-path="url(#${clip})">` +
-    `<circle cx="${ix}" cy="${iy}" r="${r}" fill="url(#iris)"/>` +
-    `<circle cx="${ix}" cy="${iy}" r="${r * 0.52}" fill="#050506"/>` +
-    `<ellipse cx="${ix - r * 0.32}" cy="${iy - r * 0.38}" rx="${r * 0.32}" ry="${r * 0.26}" fill="#ffffff" opacity="0.95"/>` +
-    `<circle cx="${ix + r * 0.38}" cy="${iy + r * 0.34}" r="${r * 0.13}" fill="#ffffff" opacity="0.8"/>`
-  if (e.lid) {
-    const { cx, cy, rx, ry } = e
-    const left = cx - rx - 2
-    const right = cx + rx + 2
-    const top = cy - ry - 3
-    // The lid's cut, from the outer corner to the inner one. `side` is +1 for the left eye.
-    const outer = side === 1 ? left : right
-    const inner = side === 1 ? right : left
-    let a: number
-    let b: number
-    let bulge: number
-    switch (e.lid) {
-      case 'half':
-        a = cy - ry * 0.12
-        b = cy - ry * 0.12
-        bulge = ry * 0.22
-        break
-      case 'heavy':
-        a = cy + ry * 0.12
-        b = cy + ry * 0.12
-        bulge = ry * 0.18
-        break
-      case 'angry':
-        a = cy - ry * 0.85
-        b = cy - ry * 0.05
-        bulge = ry * 0.1
-        break
-      case 'sad':
-        a = cy - ry * 0.1
-        b = cy - ry * 0.85
-        bulge = ry * 0.1
-        break
-      default:
-        a = cy - ry * 0.95
-        b = cy - ry * 0.95
-        bulge = 0
-    }
-    if (e.lid === 'happy') {
-      // A lower lid pushed up by the cheek: the eye smiles.
-      const lowY = cy + ry * 0.35
-      out +=
-        `<path d="M${left} ${cy + ry + 3} L${left} ${lowY + 2} Q${cx} ${lowY - ry * 0.45} ${right} ${lowY + 2} L${right} ${cy + ry + 3} Z" fill="url(#lid)"/>` +
-        `</g><path d="M${left + 1} ${lowY + 1.5} Q${cx} ${lowY - ry * 0.45} ${right - 1} ${lowY + 1.5}" fill="none" stroke="${c.line}" stroke-width="1.6" stroke-linecap="round"/>`
-      return out
-    }
-    const midY = (a + b) / 2 + bulge
-    out +=
-      `<path d="M${outer} ${a} Q${cx} ${midY + bulge} ${inner} ${b} L${inner} ${top} L${outer} ${top} Z" fill="url(#lid)"/>` +
-      `</g>` +
-      `<path d="M${outer + side * 1} ${a} Q${cx} ${midY + bulge} ${inner - side * 1} ${b}" fill="none" stroke="${c.line}" stroke-width="2.2" stroke-linecap="round"/>`
-    return out
+  const { cx, cy, rx, ry } = e
+  const sw = 2.4
+  const left = cx - rx - 4
+  const right = cx + rx + 4
+  const top = cy - ry - 4
+  const bottom = cy + ry + 4
+  // `side` is +1 for the left eye: its outer corner is on the left.
+  const outer = side === 1 ? left : right
+  const inner = side === 1 ? right : left
+  let region: string | null = null
+  let cut = ''
+  const keepBelow = (a: number, b: number, bulge: number) => {
+    const mid = (a + b) / 2 + bulge
+    cut = `M${outer} ${a.toFixed(2)} Q${cx} ${mid.toFixed(2)} ${inner} ${b.toFixed(2)}`
+    region = `${cut} L${inner} ${bottom} L${outer} ${bottom} Z`
   }
-  return out + `</g>`
+  switch (e.lid) {
+    case 'half':
+      keepBelow(cy - ry * 0.18, cy - ry * 0.18, ry * 0.12)
+      break
+    case 'heavy':
+      keepBelow(cy + ry * 0.12, cy + ry * 0.12, ry * 0.1)
+      break
+    case 'angry':
+      keepBelow(cy - ry * 1.05, cy + ry * 0.12, ry * 0.08)
+      break
+    case 'sad':
+      keepBelow(cy + ry * 0.05, cy - ry * 1.0, ry * 0.08)
+      break
+    case 'happy': {
+      const low = cy + ry * 0.3
+      cut = `M${left} ${(low + 2).toFixed(2)} Q${cx} ${(low - ry * 0.75).toFixed(2)} ${right} ${(low + 2).toFixed(2)}`
+      region = `M${left} ${top} L${right} ${top} L${right} ${(low + 2).toFixed(2)} Q${cx} ${(low - ry * 0.75).toFixed(2)} ${left} ${(low + 2).toFixed(2)} Z`
+      break
+    }
+  }
+  const inside = `eye-${key}-in`
+  const edge = `eye-${key}-edge`
+  c.defs.push(
+    `<clipPath id="${inside}"><ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}"/></clipPath>` +
+      `<clipPath id="${edge}"><ellipse cx="${cx}" cy="${cy}" rx="${rx + sw / 2}" ry="${ry + sw / 2}"/></clipPath>` +
+      (region ? `<clipPath id="eye-${key}-shown"><path d="${region}"/></clipPath>` : ''),
+  )
+  let pupil = ''
+  if (e.look) {
+    const [dx, dy] = e.look
+    const r = Math.min(rx, ry) * (e.iris ?? 0.6) * 0.62
+    pupil =
+      `<g clip-path="url(#${inside})"><circle cx="${cx + dx}" cy="${cy + dy}" r="${r.toFixed(2)}" fill="#0c0c0c"/>` +
+      (r > 4.5 ? `<circle cx="${cx + dx - r * 0.35}" cy="${cy + dy - r * 0.4}" r="${(r * 0.28).toFixed(2)}" fill="#ffffff"/>` : '') +
+      `</g>`
+  }
+  const ball = `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="#ffffff" stroke="${c.ink}" stroke-width="${sw}"/>` + pupil
+  return (
+    (region ? `<g clip-path="url(#eye-${key}-shown)">${ball}</g>` : ball) +
+    (cut ? `<path d="${cut}" fill="none" stroke="${c.ink}" stroke-width="${sw}" stroke-linecap="round" clip-path="url(#${edge})"/>` : '')
+  )
 }
 
 const pair = (c: Ctx, spec: EyeSpec, right: Partial<EyeSpec> = {}) =>
   eye(c, { ...spec, cx: 43 }, 1, 'l') + eye(c, { ...spec, cx: 77, ...right }, -1, 'r')
 
-/**
- * A line carved into the face: closed eyes, a closed smile. Dark, with the lip of the groove
- * catching the light just below it, which is what makes it read as cut in rather than drawn on.
- */
+/** A line drawn on the ball: a closed eye, a smile — flat and black, round at the ends. */
 const ridge = (c: Ctx, d: string, width = 5.6, color?: string) =>
-  `<path d="${d}" fill="none" stroke="${c.skinLight}" stroke-width="${width * 0.7}" stroke-linecap="round" stroke-linejoin="round" opacity="0.8" transform="translate(0 ${(width * 0.38).toFixed(2)})"/>` +
-  `<path d="${d}" fill="none" stroke="${color ?? c.line}" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round" filter="url(#groove)"/>`
+  `<path d="${d}" fill="none" stroke="${color ?? c.line}" stroke-width="${Math.max(1.5, width * 0.52).toFixed(2)}" stroke-linecap="round" stroke-linejoin="round"/>`
 
 function star(cx: number, cy: number, r: number, fill = 'url(#gold)'): string {
   const points: string[] = []
@@ -243,12 +235,9 @@ function rose(cx: number, cy: number, r: number): string {
   )
 }
 
-/**
- * A brow: a slim crescent, thickest in the middle and tapering to fine round ends, barely raised
- * off the face. `thick` is the bow of its top edge; the drawn stroke is about half that.
- */
+/** A brow: a slim black crescent, thickest in the middle and tapering to round ends. */
 function brow(c: Ctx, x1: number, y1: number, qx: number, qy: number, x2: number, y2: number, thick = 4.6): string {
-  return `<path d="M${x1} ${y1} Q${qx} ${qy - thick} ${x2} ${y2} Q${qx} ${qy + thick * 0.2} ${x1} ${y1} Z" fill="url(#brow)" stroke="${c.brow}" stroke-width="0.9" stroke-linejoin="round" filter="url(#bevelSoft)"/>`
+  return `<path d="M${x1} ${y1} Q${qx} ${qy - thick} ${x2} ${y2} Q${qx} ${qy + thick * 0.2} ${x1} ${y1} Z" fill="${c.brow}" stroke="${c.brow}" stroke-width="0.8" stroke-linejoin="round"/>`
 }
 
 const mirror = (x: number) => 120 - x
@@ -467,16 +456,13 @@ export const BROWS = {
   },
 } as const satisfies Record<string, { name: string; draw: (c: Ctx) => string }>
 
-/** An open mouth: the cavity, sunk into the face, with whatever is inside it clipped to it. */
+/** An open mouth: dark inside, black-edged, with whatever is inside it clipped to it. */
 function cavity(c: Ctx, d: string, inside: string, key: string): string {
   c.defs.push(`<clipPath id="mouth-${key}"><path d="${d}"/></clipPath>`)
   return (
-    // The mouth sits in a soft hollow, ringed by a raised lip that catches the light.
-    `<path d="${d}" fill="none" stroke="${c.line}" stroke-width="10" stroke-linejoin="round" opacity="0.3" filter="url(#soft)" clip-path="url(#head)"/>` +
-    `<path d="${d}" fill="none" stroke="${c.skinLight}" stroke-width="4.2" stroke-linejoin="round" opacity="0.9" ${RAISED}/>` +
-    `<path d="${d}" fill="url(#mouth)" ${SUNKEN}/>` +
+    `<path d="${d}" fill="url(#mouth)"/>` +
     `<g clip-path="url(#mouth-${key})">${inside}</g>` +
-    `<path d="${d}" fill="none" stroke="${c.line}" stroke-width="1.8" stroke-linejoin="round"/>`
+    `<path d="${d}" fill="none" stroke="${c.line}" stroke-width="2.4" stroke-linejoin="round"/>`
   )
 }
 
@@ -487,7 +473,7 @@ function cavity(c: Ctx, d: string, inside: string, key: string): string {
 const teethRow = (y: number, h: number, x1 = 30, x2 = 90, gaps: number[] = []) =>
   `<rect x="${x1}" y="${y}" width="${x2 - x1}" height="${h}" rx="${Math.min(3, h / 3).toFixed(2)}" fill="url(#teeth)"/>` +
   gaps
-    .map((x) => `<path d="M${x} ${(y + h * 0.1).toFixed(2)} V${(y + h * 0.9).toFixed(2)}" stroke="#cfd6e1" stroke-width="0.75" stroke-linecap="round"/>`)
+    .map((x) => `<path d="M${x} ${(y + h * 0.1).toFixed(2)} V${(y + h * 0.9).toFixed(2)}" stroke="#9aa1ab" stroke-width="0.8" stroke-linecap="round"/>`)
     .join('')
 
 const tongue = (cx: number, cy: number, rx: number, ry: number) =>
@@ -501,8 +487,8 @@ function lips(c: Ctx, scale = 1, open = false, fill = 'url(#lips)', dy = 0): str
   const t = `translate(${60 - 60 * scale} ${80 * (1 - scale) + dy}) scale(${scale})`
   return (
     `<g transform="${t}">` +
-    `<path d="M48.5 79 C51 72.5 57 72.8 60 76 C63 72.8 69 72.5 71.5 79 C64 80.8 56 80.8 48.5 79 Z" fill="${fill}" stroke="${c.line}" stroke-width="0.9" ${RAISED}/>` +
-    `<path d="M49.5 80 C53 89.5 67 89.5 70.5 80 C64 81.8 56 81.8 49.5 80 Z" fill="${fill}" stroke="${c.line}" stroke-width="0.9" ${RAISED}/>` +
+    `<path d="M48.5 79 C51 72.5 57 72.8 60 76 C63 72.8 69 72.5 71.5 79 C64 80.8 56 80.8 48.5 79 Z" fill="${fill}" stroke="${c.line}" stroke-width="1.5"/>` +
+    `<path d="M49.5 80 C53 89.5 67 89.5 70.5 80 C64 81.8 56 81.8 49.5 80 Z" fill="${fill}" stroke="${c.line}" stroke-width="1.5"/>` +
     `<path d="M49 79.6 Q60 82.4 71 79.6" fill="none" stroke="${c.line}" stroke-width="1.5" stroke-linecap="round"/>` +
     (open ? `<ellipse cx="60" cy="80.4" rx="3.6" ry="2.6" fill="url(#mouth)"/>` : '') +
     `<ellipse cx="56" cy="84.6" rx="4" ry="1.4" fill="#ffffff" opacity="0.35"/>` +
@@ -830,8 +816,8 @@ cheeks(c, [42, 78], [78, 78]) +
  * 32 units across, then placed beside the face by its extra.
  */
 const GLOVE_FILL = '#f9fbfe'
-const SEAM = 'fill="none" stroke="#bcc5d3" stroke-width="0.7" stroke-linecap="round"'
-const SEAM_SOFT = 'fill="none" stroke="#d0d7e1" stroke-width="0.6" stroke-linecap="round"'
+const SEAM = 'fill="none" stroke="#5f6670" stroke-width="0.75" stroke-linecap="round"'
+const SEAM_SOFT = 'fill="none" stroke="#8d949e" stroke-width="0.65" stroke-linecap="round"'
 
 /** One piece of glove, outlined and shaded as a whole. */
 const piece = (inner: string) => `<g filter="url(#gloveFx)" fill="${GLOVE_FILL}">${inner}</g>`
@@ -934,12 +920,35 @@ const THUMB =
   knuckleCrease(-3.2, -16, 15, 5.8, -6, 0.48) +
   cuff(15)
 
+/**
+ * A fist seen from the front, as a punch coming at the viewer is: four curled fingers side by side
+ * across the top, each with the fold of its knuckle, and the thumb folded across them. With a cuff
+ * it is a fist held up; without, the arm runs away from the viewer and the fist's bottom is round.
+ */
+function fistFront(withCuff: boolean): string {
+  const xs = [-7.65, -2.55, 2.55, 7.65]
+  const body = withCuff
+    ? `<path d="M-9.6 -1 C-11 -6 -11.2 -12 -10.4 -16 L10.4 -16 C11.2 -12 11 -6 9.6 -1 Z"/>`
+    : `<path d="M-10.4 -16 L10.4 -16 C11.6 -10 11 -4 6 -1.6 Q0 0.6 -6 -1.6 C-11 -4 -11.6 -10 -10.4 -16 Z"/>`
+  return (
+    piece(body + xs.map((x) => `<rect x="${(x - 2.6).toFixed(2)}" y="-24.5" width="5.2" height="15" rx="2.6"/>`).join('')) +
+    [-5.1, 0, 5.1].map((x) => `<path d="M${x} -22.6 Q${x + 0.3} -17 ${x} -12" ${SEAM}/>`).join('') +
+    xs.map((x) => `<path d="M${(x - 1.4).toFixed(2)} -19.6 Q${x} -20.6 ${(x + 1.4).toFixed(2)} -19.6" ${SEAM_SOFT}/>`).join('') +
+    piece(`<path d="M-11.2 -9.5 C-11.4 -13 -8.6 -14.2 -5.6 -13.8 L4.6 -12.6 C7.6 -12.2 7.8 -7.6 4.6 -7.2 L-7.6 -6.2 C-10 -6 -11.1 -7.4 -11.2 -9.5 Z"/>`) +
+    `<path d="M1 -13 Q1.6 -10 1 -7.4" ${SEAM_SOFT}/>` +
+    (withCuff ? cuff(16) : '')
+  )
+}
+
 const HAND = {
   /** Palm out, fingers spread. */
   open: hand({ fingers: [out(F.index, 17, -14, -0.4), out(F.middle, 19.5, -4.5), out(F.ring, 18.5, 5), out(F.pinky, 14.5, 15, 0.4)], thumb: { angle: -52, len: 13.5 } }),
   /** Fingers together, the thumb alongside: praying, covering, saluting. */
   flat: hand({ fingers: [out(F.index, 17, -2), out(F.middle, 19, 0), out(F.ring, 18, 1.5), out(F.pinky, 14.5, 3)], thumb: { angle: -16, len: 12.5 } }),
-  fist: hand({ fingers: [curl(F.index), curl(F.middle), curl(F.ring), curl(F.pinky)], thumb: 'fold' }),
+  /** A fist held up, from the front. */
+  fist: fistFront(true),
+  /** A fist punching at the viewer, from the front: no wrist to be seen. */
+  punch: fistFront(false),
   thumb: THUMB,
   point: hand({ fingers: [out(F.index, 21, -3), curl(F.middle), curl(F.ring), curl(F.pinky)], thumb: 'fold' }),
   peace: hand({ fingers: [out(F.index, 19, -12), out(F.middle, 20, 8), curl(F.ring), curl(F.pinky)], thumb: 'fold' }),
@@ -1259,7 +1268,7 @@ export const EXTRAS = {
     draw: () => place(HAND.open, 32, 108, -46, 1.32) + place(HAND.open, 88, 108, 46, 1.32, true),
   },
   // The flames are drawn behind the head — see `BEHIND_PARTS` — so only the fist sits over it.
-  firePunch: { name: 'Fire punch', draw: () => place(HAND.fist, 28, 110, -18, 1.8) },
+  firePunch: { name: 'Fire punch', draw: () => place(HAND.punch, 28, 114, -6, 1.9) },
   facepalm: { name: 'Facepalm', draw: () => place(HAND.flat, 22, 106, 36, 2.05) },
   salute: { name: 'Salute', draw: () => place(HAND.flat, 90, 48, 54, 1.4, true) },
   think: { name: 'Thinking', draw: () => place(HAND.point, 66, 126, -14, 1.6) },
@@ -1377,85 +1386,63 @@ const FRAME = '-10 -12 160 160'
 
 /** The face as standalone SVG markup. */
 export function faceSvg(options: FaceOptions): string {
-  const base = options.color
+  const flag = options.color === 'flag'
+  // A flag ball's own colour, for the few parts drawn in it (cat ears, a nose, lips): a neutral.
+  const base = flag ? '#d9d4cc' : options.color
   const [, , lightness] = hexToHsl(base)
-  const dark = lightness < 0.25
+  const dark = !flag && lightness < 0.25
+  const ink = '#151515'
   const c: Ctx = {
     skin: shade(base, 0.03),
     skinLight: shade(base, 0.16, 0.95),
-    brow: dark ? shade(base, 0.32) : shade(base, -0.3, 1.05),
-    line: dark ? '#dfe5f0' : shade(base, -0.3, 1.1),
+    brow: dark ? '#ececec' : ink,
+    line: dark ? '#ececec' : ink,
+    ink,
     defs: [],
-    eyeballs: [],
     cheeks: [],
   }
-  /** Every shadow — under a raised part, inside a cavity or a groove — is the face's own deepest tone. */
-  const shadow = dark ? '#000000' : shade(base, -0.4, 1.1)
   const eyes = (EYES[options.eyes] ?? EYES.round).draw(c)
   const brows = (BROWS[options.brows] ?? BROWS.none).draw(c)
   const mouth = (MOUTHS[options.mouth] ?? MOUTHS.smile).draw(c)
-  /*
-   * Sculpting, from what the parts drew: a shadowed socket round every open eye and a fold of
-   * skin over the ones with no lid of their own; cheeks bulging up beside a smile. This is the
-   * difference between features painted on a ball and a face with relief.
-   */
-  const shadowTone = dark ? shade(base, -0.06) : shade(base, -0.2, 1.1)
-  const sockets = c.eyeballs
-    .map(
-      (e) =>
-        `<ellipse cx="${e.cx}" cy="${e.cy + 1}" rx="${e.rx + 5}" ry="${e.ry + 5}" fill="${shadowTone}" opacity="0.75" filter="url(#soft)"/>` +
-        `<ellipse cx="${e.cx}" cy="${e.cy - e.ry - 4}" rx="${e.rx + 3}" ry="4" fill="${c.skinLight}" opacity="0.55" filter="url(#soft)"/>`,
-    )
-    .join('')
-  const folds = c.eyeballs
-    .filter((e) => !e.lid)
-    .map((e) => {
-      const l = e.cx - e.rx - 1.5
-      const r = e.cx + e.rx + 1.5
-      const top = e.cy - e.ry
-      return (
-        `<path d="M${l} ${e.cy - e.ry * 0.25} C${l} ${top - 7} ${r} ${top - 7} ${r} ${e.cy - e.ry * 0.25} ` +
-        `C${r - 2} ${top - 1} ${l + 2} ${top - 1} ${l} ${e.cy - e.ry * 0.25} Z" fill="url(#lid)" ${RAISED}/>`
-      )
-    })
-    .join('')
-  const cheekShapes = c.cheeks
-    .map(
-      ([x, y]) =>
-        `<ellipse cx="${x + (x < 60 ? -7 : 7)}" cy="${y - 7}" rx="12" ry="9" fill="${c.skinLight}" opacity="0.6" filter="url(#soft)"/>` +
-        `<path d="M${x + (x < 60 ? -3 : 3)} ${y - 9} Q${x + (x < 60 ? -7 : 7)} ${y - 2} ${x + (x < 60 ? -3 : 3)} ${y + 5}" fill="none" stroke="${shadowTone}" stroke-width="2.4" stroke-linecap="round" opacity="0.7" filter="url(#blur1)"/>`,
-    )
-    .join('')
   const extras = options.extras.filter((id) => id in EXTRAS)
   const behind =
     extras.map((id) => BEHIND_PARTS[id]?.(c) ?? '').join('') +
     extras.filter((id) => BEHIND.includes(id)).map((id) => EXTRAS[id].draw(c)).join('')
   const over = extras.filter((id) => !BEHIND.includes(id)).map((id) => EXTRAS[id].draw(c)).join('')
 
+  /*
+   * The ball's fill: its colour, or a flag laid over the whole ball and clipped to it — the
+   * country's own when given, else white over red, the first countryball.
+   */
+  const fill = !flag
+    ? `<circle cx="60" cy="60" r="50" fill="${base}"/>`
+    : `<g clip-path="url(#head)">` +
+      (options.flagHref
+        ? `<rect x="10" y="10" width="100" height="100" fill="#ffffff"/><image href="${options.flagHref}" x="-5" y="10" width="130" height="100" preserveAspectRatio="xMidYMid slice"/>`
+        : `<rect x="10" y="10" width="100" height="50" fill="#ffffff"/><rect x="10" y="60" width="100" height="50" fill="#dc143c"/>`) +
+      `</g>`
+
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${FRAME}">` +
     `<defs>` +
-    // The head.
-    `<radialGradient id="body" cx="0.38" cy="0.3" r="0.8">` +
-    `<stop offset="0" stop-color="${shade(base, 0.2, 0.95)}"/>` +
-    `<stop offset="0.5" stop-color="${base}"/>` +
-    `<stop offset="0.85" stop-color="${shade(base, -0.07, 1.04)}"/>` +
-    `<stop offset="1" stop-color="${shade(base, -0.13, 1.06)}"/>` +
+    // The ball's light: a faint glow at the top left, a faint shade at the bottom right.
+    `<radialGradient id="ballLight" cx="0.36" cy="0.3" r="0.78">` +
+    `<stop offset="0" stop-color="#ffffff" stop-opacity="0.28"/>` +
+    `<stop offset="0.45" stop-color="#ffffff" stop-opacity="0"/>` +
+    `<stop offset="0.8" stop-color="#000000" stop-opacity="0.04"/>` +
+    `<stop offset="1" stop-color="#000000" stop-opacity="0.2"/>` +
     `</radialGradient>` +
-    `<radialGradient id="rim" cx="0.5" cy="0.5" r="0.5"><stop offset="0.8" stop-color="${shade(base, -0.2, 1.05)}" stop-opacity="0"/><stop offset="1" stop-color="${shade(base, -0.2, 1.05)}" stop-opacity="0.3"/></radialGradient>` +
-    `<radialGradient id="bounce" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="${shade(base, 0.25)}" stop-opacity="0.7"/><stop offset="1" stop-color="${shade(base, 0.25)}" stop-opacity="0"/></radialGradient>` +
-    `<radialGradient id="bloom" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#fff" stop-opacity="0.7"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>` +
     // Parts.
-    `<linearGradient id="brow" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${dark ? shade(base, 0.4) : shade(base, -0.18, 1.05)}"/><stop offset="1" stop-color="${c.brow}"/></linearGradient>` +
-    `<linearGradient id="lid" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c.skinLight}"/><stop offset="1" stop-color="${c.skin}"/></linearGradient>` +
-    `<radialGradient id="sclera" cx="0.42" cy="0.38" r="0.68"><stop offset="0.45" stop-color="#ffffff"/><stop offset="0.85" stop-color="#d6dee9"/><stop offset="1" stop-color="#aebbcc"/></radialGradient>` +
-    `<radialGradient id="iris" cx="0.4" cy="0.35" r="0.7"><stop offset="0" stop-color="#3c4352"/><stop offset="1" stop-color="#06080c"/></radialGradient>` +
-    // The inside of the mouth is the head's own colour, deep — as a mouth on a coloured face is.
-    `<linearGradient id="mouth" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${dark ? '#0b0f1a' : shade(base, -0.34, 1.05)}"/><stop offset="1" stop-color="${dark ? '#1f2738' : shade(base, -0.2, 1.05)}"/></linearGradient>` +
-    `<linearGradient id="teeth" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#d9e0ea"/></linearGradient>` +
-    `<radialGradient id="tongue" cx="0.45" cy="0.35" r="0.7"><stop offset="0" stop-color="#ff8fb0"/><stop offset="1" stop-color="#d94672"/></radialGradient>` +
+    `<linearGradient id="brow" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c.brow}"/><stop offset="1" stop-color="${c.brow}"/></linearGradient>` +
+    `<linearGradient id="lid" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c.skin}"/><stop offset="1" stop-color="${c.skin}"/></linearGradient>` +
+    `<radialGradient id="sclera" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#ffffff"/></radialGradient>` +
+    `<radialGradient id="iris" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#0c0c0c"/><stop offset="1" stop-color="#0c0c0c"/></radialGradient>` +
+    // Inside an open mouth: a deep red, darker at the top, as a countryball's is.
+    `<linearGradient id="mouth" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a0c12"/><stop offset="1" stop-color="#6b1a24"/></linearGradient>` +
+    `<linearGradient id="teeth" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#eef1f5"/></linearGradient>` +
+    `<radialGradient id="tongue" cx="0.45" cy="0.35" r="0.7"><stop offset="0" stop-color="#ff8aa6"/><stop offset="1" stop-color="#e2557a"/></radialGradient>` +
     `<linearGradient id="gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff3a6"/><stop offset="0.5" stop-color="#ffd23f"/><stop offset="1" stop-color="#e59a00"/></linearGradient>` +
-    `<linearGradient id="lips" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${shade(base, 0.12, 0.95)}"/><stop offset="1" stop-color="${shade(base, -0.06, 1.05)}"/></linearGradient>` +
+    `<linearGradient id="lips" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${flag ? '#e8838f' : shade(base, 0.08, 0.95)}"/><stop offset="1" stop-color="${flag ? '#c9566a' : shade(base, -0.08, 1.05)}"/></linearGradient>` +
     `<linearGradient id="redLip" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff5a6e"/><stop offset="1" stop-color="#b3122a"/></linearGradient>` +
     `<linearGradient id="olive" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8a9a5b"/><stop offset="0.6" stop-color="#5d6b35"/><stop offset="1" stop-color="#3c4722"/></linearGradient>` +
     `<linearGradient id="wood" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#c98a4b"/><stop offset="0.5" stop-color="#e7b277"/><stop offset="1" stop-color="#a86b30"/></linearGradient>` +
@@ -1470,77 +1457,34 @@ export function faceSvg(options: FaceOptions): string {
     `<linearGradient id="heart" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff6d8a"/><stop offset="1" stop-color="#d4123b"/></linearGradient>` +
     `<linearGradient id="water" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d6f3ff"/><stop offset="1" stop-color="#3fa9f5"/></linearGradient>` +
     `<linearGradient id="lens" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b4250"/><stop offset="0.5" stop-color="#11141a"/><stop offset="1" stop-color="#262b35"/></linearGradient>` +
-    // Light: raised shapes catch it from the top left; cavities are shadowed from their top edge.
-    `<filter id="bevel" x="-30%" y="-30%" width="160%" height="160%">` +
-    `<feGaussianBlur in="SourceAlpha" stdDeviation="1.4" result="b"/>` +
-    `<feSpecularLighting in="b" surfaceScale="2.2" specularConstant="0.5" specularExponent="24" lighting-color="#ffffff" result="s">` +
-    `<feDistantLight azimuth="225" elevation="42"/></feSpecularLighting>` +
-    `<feComposite in="s" in2="SourceAlpha" operator="in" result="si"/>` +
-    `<feOffset in="SourceAlpha" dx="0.6" dy="1.4" result="o"/><feGaussianBlur in="o" stdDeviation="0.9" result="ob"/>` +
-    `<feFlood flood-color="${shadow}" flood-opacity="0.38"/><feComposite in2="ob" operator="in" result="drop"/>` +
-    `<feMerge><feMergeNode in="drop"/><feMergeNode in="SourceGraphic"/><feMergeNode in="si"/></feMerge>` +
-    `</filter>` +
-    // Raised, but matte: dark features (brows) keep their colour and only catch a little light.
-    `<filter id="bevelSoft" x="-30%" y="-30%" width="160%" height="160%">` +
-    `<feGaussianBlur in="SourceAlpha" stdDeviation="1.6" result="b"/>` +
-    `<feSpecularLighting in="b" surfaceScale="2" specularConstant="0.28" specularExponent="30" lighting-color="#ffffff" result="s">` +
-    `<feDistantLight azimuth="225" elevation="48"/></feSpecularLighting>` +
-    `<feComposite in="s" in2="SourceAlpha" operator="in" result="si"/>` +
-    `<feOffset in="SourceAlpha" dx="0.6" dy="1.6" result="o"/><feGaussianBlur in="o" stdDeviation="1.1" result="ob"/>` +
-    `<feFlood flood-color="${shadow}" flood-opacity="0.3"/><feComposite in2="ob" operator="in" result="drop"/>` +
-    `<feMerge><feMergeNode in="drop"/><feMergeNode in="SourceGraphic"/><feMergeNode in="si"/></feMerge>` +
-    `</filter>` +
-    // One glove piece: a single outline round the whole silhouette, its lower right edge shaded,
-    // its upper left lit, and a soft shadow beneath.
+    // Flat, as countryballs are: what was raised or sunk is drawn as it is, with no lighting.
+    `<filter id="bevel"><feMerge><feMergeNode in="SourceGraphic"/></feMerge></filter>` +
+    `<filter id="bevelSoft"><feMerge><feMergeNode in="SourceGraphic"/></feMerge></filter>` +
+    `<filter id="inset"><feMerge><feMergeNode in="SourceGraphic"/></feMerge></filter>` +
+    `<filter id="groove"><feMerge><feMergeNode in="SourceGraphic"/></feMerge></filter>` +
+    // One glove piece: a single black outline round the whole silhouette, a soft shade on its
+    // lower right edge, and nothing else.
     `<filter id="gloveFx" x="-25%" y="-25%" width="150%" height="150%">` +
-    `<feMorphology in="SourceAlpha" operator="dilate" radius="0.45" result="d"/>` +
-    `<feFlood flood-color="#a3aec0"/><feComposite in2="d" operator="in" result="outline"/>` +
-    `<feOffset in="d" dx="0.6" dy="1.4" result="do"/><feGaussianBlur in="do" stdDeviation="1.2" result="db"/>` +
-    `<feFlood flood-color="#1b2a44" flood-opacity="0.16"/><feComposite in2="db" operator="in" result="drop"/>` +
+    `<feMorphology in="SourceAlpha" operator="dilate" radius="0.75" result="d"/>` +
+    `<feFlood flood-color="${ink}"/><feComposite in2="d" operator="in" result="outline"/>` +
     `<feComponentTransfer in="SourceAlpha" result="inv"><feFuncA type="table" tableValues="1 0"/></feComponentTransfer>` +
-    `<feOffset in="inv" dx="-1.4" dy="-1.8" result="io"/><feGaussianBlur in="io" stdDeviation="1.6" result="ib"/>` +
-    `<feFlood flood-color="#b3bed0" flood-opacity="0.6"/><feComposite in2="ib" operator="in" result="sh"/>` +
+    `<feOffset in="inv" dx="-1.2" dy="-1.6" result="io"/><feGaussianBlur in="io" stdDeviation="1.4" result="ib"/>` +
+    `<feFlood flood-color="#b9c1cc" flood-opacity="0.55"/><feComposite in2="ib" operator="in" result="sh"/>` +
     `<feComposite in="sh" in2="SourceAlpha" operator="in" result="shade"/>` +
-    `<feGaussianBlur in="SourceAlpha" stdDeviation="1.3" result="b"/>` +
-    `<feSpecularLighting in="b" surfaceScale="2" specularConstant="0.7" specularExponent="26" lighting-color="#ffffff" result="s">` +
-    `<feDistantLight azimuth="225" elevation="45"/></feSpecularLighting>` +
-    `<feComposite in="s" in2="SourceAlpha" operator="in" result="spec"/>` +
-    `<feMerge><feMergeNode in="drop"/><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/><feMergeNode in="shade"/><feMergeNode in="spec"/></feMerge>` +
-    `</filter>` +
-    `<filter id="inset" x="-20%" y="-20%" width="140%" height="140%">` +
-    `<feComponentTransfer in="SourceAlpha" result="inv"><feFuncA type="table" tableValues="1 0"/></feComponentTransfer>` +
-    `<feOffset in="inv" dx="0" dy="2.6" result="io"/><feGaussianBlur in="io" stdDeviation="1.8" result="ib"/>` +
-    `<feFlood flood-color="${shadow}" flood-opacity="0.55"/><feComposite in2="ib" operator="in" result="sh"/>` +
-    `<feComposite in="sh" in2="SourceAlpha" operator="in" result="shi"/>` +
-    `<feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="shi"/></feMerge>` +
-    `</filter>` +
-    // A carved line: its own soft inner shading, no shine.
-    `<filter id="groove" x="-20%" y="-40%" width="140%" height="180%">` +
-    `<feGaussianBlur in="SourceAlpha" stdDeviation="0.5" result="b"/>` +
-    `<feOffset in="b" dx="0" dy="-0.8" result="o"/>` +
-    `<feFlood flood-color="${shadow}" flood-opacity="0.4"/><feComposite in2="o" operator="in" result="d"/>` +
-    `<feComposite in="d" in2="SourceAlpha" operator="in" result="di"/>` +
-    `<feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="di"/></feMerge>` +
+    `<feMerge><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/><feMergeNode in="shade"/></feMerge>` +
     `</filter>` +
     `<filter id="blur1" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1"/></filter>` +
     `<clipPath id="head"><circle cx="60" cy="60" r="50"/></clipPath>` +
-    `<clipPath id="rimSide"><path d="M120 30 L120 120 L20 120 Z"/></clipPath>` +
-    `<filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.4"/></filter>` +
+        `<filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.4"/></filter>` +
     `<filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3.2"/></filter>` +
     c.defs.join('') +
     `</defs>` +
     `<g transform="translate(10 8)">` +
     behind +
-    `<circle cx="60" cy="60" r="50" fill="url(#body)"${options.outline ? ' stroke="#121212" stroke-width="5"' : ''}/>` +
-    `<circle cx="60" cy="60" r="50" fill="url(#rim)"/>` +
-    `<ellipse cx="60" cy="98" rx="30" ry="9" fill="url(#bounce)"/>` +
-    `<ellipse cx="42" cy="27" rx="25" ry="13" fill="url(#bloom)" transform="rotate(-28 42 27)" filter="url(#glow)"/>` +
-    `<ellipse cx="36" cy="24" rx="8" ry="4" fill="#ffffff" opacity="0.75" transform="rotate(-32 36 24)"/>` +
-    // Rim light: a band of brighter, more saturated colour along the lower right edge.
-    `<circle cx="60" cy="60" r="47" fill="none" stroke="${shade(base, 0.2, 1.15)}" stroke-width="4" opacity="0.7" clip-path="url(#rimSide)" filter="url(#blur1)"/>` +
-    `<g clip-path="url(#head)">${sockets}${cheekShapes}</g>` +
+    fill +
+    `<circle cx="60" cy="60" r="50" fill="url(#ballLight)"/>` +
+    `<circle cx="60" cy="60" r="50" fill="none" stroke="${ink}" stroke-width="${options.outline ? 5 : 2.8}"/>` +
     eyes +
-    folds +
     brows +
     mouth +
     over +
