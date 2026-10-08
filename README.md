@@ -3010,8 +3010,10 @@ slider multiplies them all. They are drawn under the names, so a name over a fac
 and they ignore the pointer, so clicking a face selects the territory under it.
 
 **The library is not the document.** The document names stickers by id; the artwork lives in
-`stickers/stickerLibrary.ts`, like flag artwork in the flag store. Six original faces ship with the
-editor (`stickers/builtin.ts`). Uploads are redrawn to at most 256 px, stored as PNG data URIs (SVGs
+`stickers/stickerLibrary.ts`, like flag artwork in the flag store. Six built-in faces ship with
+the editor (`stickers/builtin.ts`): Fluent Emoji 3D faces from furious to starstruck, recoloured
+red, orange, yellow, green, blue and purple so the tiers stay apart even where an expression is too
+small to read, inlined as data URIs in `builtinArt.ts`. Uploads are redrawn to at most 256 px, stored as PNG data URIs (SVGs
 as they are) and kept in localStorage, so they survive a refresh and are there for every map made
 in that browser. The tier order is remembered there too, and a new map starts from it. Each sticker
 is defined once as a `<symbol>` and every territory wearing it is a `<use>`, so a world of faces is
@@ -3019,26 +3021,34 @@ a few decoded images rather than hundreds of copies of a data URI.
 
 #### Finding and making stickers
 
-**Find Stickers** searches a catalogue that ships with the editor: Microsoft's Fluent Emoji Flat
-(1,591 emoji, skin-tone variants left out) and Icons8's Flat Color Icons (329), both MIT, so they
-can be used on maps and in videos without conditions. `scripts/prepare-stickers.mjs` writes one SVG
-per icon to `public/stickers/` from the `@iconify-json/*` packages, plus an index of names and
-categories, as part of `prepare-assets`; the panel fetches the index when it opens and shows
-thumbnails as lazily loaded images. Choosing one reads its SVG into a data URI and adds it to the
-library. Search matches icon names (`crown`, `stopwatch`, `money`); an empty search browses by
-category.
+**Find Stickers** searches a catalogue that ships with the editor: Microsoft's **Fluent Emoji 3D**
+(1,567 rendered emoji: faces, people, animals, objects, symbols; skin-tone variants and national
+flags left out), MIT licensed, so they can be used on maps and in videos without conditions.
+`scripts/prepare-stickers.mjs` copies the 256-pixel WebP files (about 6 KB each) from
+`@lobehub/fluent-emoji-3d` into `public/stickers/` as part of `prepare-assets`, naming them and
+sorting them into categories from `@iconify-json/fluent-emoji-flat`'s metadata. The panel fetches
+the index when it opens and shows thumbnails as lazily loaded images. Search matches emoji names
+(`crown`, `stopwatch`, `money`); an empty search browses by category, faces first.
+
+**Colour** turns the whole grid into one colour, the way a recolourable emoji site does: pick blue
+and every face in it is blue, shading kept. Only the thumbnails on screen are recoloured, once per
+colour; tapping one adds it to the library in that colour.
 
 **Create** makes new stickers, saved to the library like uploads:
 
-- **Face maker** (`stickers/faceMaker.ts`): a glossy face assembled from parts (eleven eyes, six
-  brows, twelve mouths, seven extras, an optional outline) in any colour. The body, the brows and
-  the inside of the mouth are all shaded from the one colour, so a colour change recolours the
-  whole face consistently. Original artwork, as SVG.
+- **Face maker** (`stickers/faceMaker.ts`): a glossy 3D face assembled from parts (15 eyes, 7
+  brows, 13 mouths, 9 extras including thumbs-up and thumbs-down hands, an optional outline) in any
+  colour. Original artwork, as SVG, lit consistently from the top left: the head is a shaded
+  sphere with a rim, a bounce light and a specular highlight; brows, lids, stars, hearts and hands
+  are raised with a lighting filter (`bevel`); eyes and open mouths are sunk in with an inner
+  shadow (`inset`); closed smiles are carved (`groove`). Every tone is derived from the one face
+  colour.
 - **Recolour** (`stickers/recolor.ts`): the picked sticker with its main colour swapped. The
   dominant hue among its saturated pixels is found, and every pixel near that hue moves to the
-  target with its offset in saturation and lightness kept, so the shading survives. Other hues and
-  greys (white gloves, a black outline, a red rose) are left alone. An all-grey image is tinted as
-  a whole. Output is a PNG of at most 256 px.
+  target with its offset in saturation and lightness kept, so the shading survives. Other hues,
+  greys and near-whites (white gloves, eye whites, a black outline, a red rose) are left alone. An
+  all-grey image is tinted as a whole. Output is WebP (PNG where the browser cannot write WebP), at
+  most 256 px.
 
 ### Legend
 

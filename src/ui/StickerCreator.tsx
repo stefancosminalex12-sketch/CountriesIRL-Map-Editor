@@ -24,29 +24,8 @@ import {
   type FaceOptions,
 } from '../stickers/faceMaker'
 import { recolorSticker } from '../stickers/recolor'
+import { StickerColorRow } from './StickerColorRow'
 import { newId, stickerIndex, useStickerLibrary } from '../stickers/stickerLibrary'
-
-function ColorRow({ value, onChange }: { value: string; onChange: (color: string) => void }) {
-  return (
-    <div className="sticker-colors" role="group" aria-label="Colour">
-      {FACE_COLORS.map(({ name, color }) => (
-        <button
-          key={color}
-          type="button"
-          className={`sticker-colors__dot${value.toLowerCase() === color ? ' sticker-colors__dot--on' : ''}`}
-          style={{ background: color }}
-          title={name}
-          aria-label={name}
-          aria-pressed={value.toLowerCase() === color}
-          onClick={() => onChange(color)}
-        />
-      ))}
-      <label className="sticker-colors__custom" title="Any colour">
-        <input type="color" value={value} onChange={(event) => onChange(event.target.value)} aria-label="Any colour" />
-      </label>
-    </div>
-  )
-}
 
 function PartChoice<T extends string>({
   label,
@@ -104,7 +83,7 @@ function FaceMaker() {
       <div className="sticker-preview">
         <img src={preview} alt="Face preview" width={132} height={132} />
       </div>
-      <ColorRow value={face.color} onChange={(color) => update({ color })} />
+      <StickerColorRow value={face.color} onChange={(color) => color && update({ color })} />
       <PartChoice label="Eyes" parts={EYES} value={face.eyes} onChange={(eyes) => update({ eyes })} />
       <PartChoice label="Brows" parts={BROWS} value={face.brows} onChange={(brows) => update({ brows })} />
       <PartChoice label="Mouth" parts={MOUTHS} value={face.mouth} onChange={(mouth) => update({ mouth })} />
@@ -188,7 +167,7 @@ function Recolour() {
         <span aria-hidden="true">→</span>
         {preview ? <img src={preview} alt="Recoloured" width={84} height={84} /> : <span className="sticker-preview__empty" />}
       </div>
-      <ColorRow value={color} onChange={setColor} />
+      <StickerColorRow value={color} onChange={(next) => next && setColor(next)} />
       {error && <p className="hint hint--warn">{error}</p>}
       <button type="button" className="btn btn--on" disabled={!preview} onClick={save}>
         Save as new sticker

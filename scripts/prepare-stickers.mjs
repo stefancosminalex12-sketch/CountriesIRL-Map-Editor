@@ -1,82 +1,87 @@
 /**
- * Writes the sticker catalogue the editor's Find Stickers panel searches: one SVG per icon in
- * `public/stickers/<set>/`, and an index of every icon's set, name and category.
+ * Writes the sticker catalogue the editor's Find Stickers panel searches: one image per emoji in
+ * `public/stickers/fluent-emoji-3d/`, and an index of every emoji's name and category.
  *
- * The artwork comes from Iconify's packaging of open icon sets, chosen for licences that let
- * the pictures be shipped with the editor and used in maps and videos without conditions:
+ * The artwork is Microsoft's Fluent Emoji in its **3D** style — rendered, shaded, glossy faces,
+ * people, animals, objects and symbols — from the `@lobehub/fluent-emoji-3d` package, which ships
+ * them as 256-pixel WebP files of about 6 KB each. MIT licensed, so they can be shipped with the
+ * editor and used on maps and in videos without conditions.
  *
- * - Fluent Emoji Flat (Microsoft, MIT): faces, people, animals, objects, symbols — the flat
- *   coloured style mapping videos use for "time zones" and "currency" icons.
- * - Flat Color Icons (Icons8, MIT): simple flat icons.
- *
- * One file per icon rather than one bundle, so the panel's thumbnails load lazily as plain
- * images and a search that shows forty icons downloads forty small files. Skin-tone variants
- * are left out (`-light`, `-medium-dark`, …): the default yellow figure is what a map wants, and
- * five copies of every person would bury everything else.
+ * That package names each file by its code points (`1f600.webp`). The names and categories come
+ * from Iconify's packaging of the same emoji set (`@iconify-json/fluent-emoji-flat`), which maps
+ * code points to names (`grinning-face`) and names to Unicode categories. An emoji with no name
+ * there — mostly national flags, which the editor has its own artwork for — is left out, and so
+ * are the skin-tone variants: the default yellow figure is what a map wants, and five copies of
+ * every person would bury everything else.
  */
 import { createRequire } from 'node:module'
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const require = createRequire(import.meta.url)
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const OUT_DIR = join(root, 'public', 'stickers')
+const PREFIX = 'fluent-emoji-3d'
 
-const SETS = [
-  { prefix: 'fluent-emoji-flat', label: 'Emoji' },
-  { prefix: 'flat-color-icons', label: 'Icons' },
-]
+const SOURCE = join(dirname(require.resolve('@lobehub/fluent-emoji-3d/package.json')), 'assets')
+const META_DIR = dirname(require.resolve('@iconify-json/fluent-emoji-flat/package.json'))
+const read = (file) => JSON.parse(readFileSync(join(META_DIR, file), 'utf8'))
 
 const SKIN_TONE = /-(light|medium-light|medium|medium-dark|dark)$/
 
-function readSet(prefix) {
-  const dir = dirname(require.resolve(`@iconify-json/${prefix}/package.json`))
-  const read = (file) => JSON.parse(readFileSync(join(dir, file), 'utf8'))
-  return {
-    icons: read('icons.json'),
-    info: read('info.json'),
-    metadata: existsSync(join(dir, 'metadata.json')) ? read('metadata.json') : {},
-  }
+/** Code points → name, with the variation selector ignored so `2639` and `2639-fe0f` agree. */
+const chars = read('chars.json')
+const strip = (codes) => codes.replace(/-fe0f/g, '')
+const nameOf = new Map()
+for (const [codes, name] of Object.entries(chars)) {
+  nameOf.set(codes, name)
+  if (!nameOf.has(strip(codes))) nameOf.set(strip(codes), name)
+}
+
+const categories = Object.keys(read('metadata.json').categories ?? {})
+const categoryOf = new Map()
+for (const [category, names] of Object.entries(read('metadata.json').categories ?? {})) {
+  for (const name of names) categoryOf.set(name, categories.indexOf(category))
 }
 
 rmSync(OUT_DIR, { recursive: true, force: true })
-const index = { sets: [], icons: [] }
+const dir = join(OUT_DIR, PREFIX)
+mkdirSync(dir, { recursive: true })
 
-for (const { prefix, label } of SETS) {
-  const { icons, info, metadata } = readSet(prefix)
-  const categoryOf = new Map()
-  const categories = Object.keys(metadata.categories ?? {})
-  for (const [category, names] of Object.entries(metadata.categories ?? {})) {
-    for (const name of names) categoryOf.set(name, categories.indexOf(category))
-  }
-  if (categories.length === 0) categories.push(label)
-
-  const setIndex = index.sets.length
-  index.sets.push({
-    prefix,
-    label,
-    name: info.name,
-    author: info.author?.name ?? '',
-    license: info.license?.title ?? '',
-    categories,
-  })
-
-  const dir = join(OUT_DIR, prefix)
-  mkdirSync(dir, { recursive: true })
-  let written = 0
-  for (const [name, icon] of Object.entries(icons.icons)) {
-    if (SKIN_TONE.test(name) || icon.hidden) continue
-    const width = icon.width ?? icons.width ?? 16
-    const height = icon.height ?? icons.height ?? 16
-    const left = icon.left ?? 0
-    const top = icon.top ?? 0
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${left} ${top} ${width} ${height}">${icon.body}</svg>`
-    writeFileSync(join(dir, `${name}.svg`), svg)
-    index.icons.push([setIndex, name, categoryOf.get(name) ?? 0])
-    written++
-  }
-  console.log(`[stickers] ${written} ${info.name} (${info.license?.title}) -> public/stickers/${prefix}`)
+const icons = []
+const seen = new Set()
+for (const file of readdirSync(SOURCE).sort()) {
+  if (!file.endsWith('.webp')) continue
+  const codes = file.slice(0, -5)
+  const name = nameOf.get(codes) ?? nameOf.get(strip(codes))
+  if (!name || SKIN_TONE.test(name) || seen.has(name) || !categoryOf.has(name)) continue
+  seen.add(name)
+  copyFileSync(join(SOURCE, file), join(dir, `${name}.webp`))
+  icons.push([0, name, categoryOf.get(name), Number.parseInt(codes, 16)])
 }
 
+/*
+ * Faces first, then by code point, which keeps related emoji together (the grinning faces, the
+ * hearts) — so Smileys opens on faces rather than on whatever sorts first alphabetically.
+ */
+const isFace = (name) => /(^|-)face(-|$)/.test(name)
+icons.sort((a, b) => Number(isFace(b[1])) - Number(isFace(a[1])) || a[3] - b[3])
+for (const icon of icons) icon.length = 3
+
+const index = {
+  sets: [
+    {
+      prefix: PREFIX,
+      label: 'Emoji',
+      ext: 'webp',
+      name: 'Fluent Emoji 3D',
+      author: 'Microsoft',
+      license: 'MIT',
+      categories,
+    },
+  ],
+  icons,
+}
 writeFileSync(join(OUT_DIR, 'index.json'), JSON.stringify(index))
+console.log(`[stickers] ${icons.length} Fluent Emoji 3D (MIT) -> public/stickers/${PREFIX}`)

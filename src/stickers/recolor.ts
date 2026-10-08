@@ -9,7 +9,7 @@
  * which is what makes a blue face with a red rose come out a green face with a red rose.
  *
  * Works on any image the browser can draw: uploads, built-in faces, the icon catalogue. The
- * result is a PNG at most {@link MAX_EDGE} pixels on its longest edge.
+ * result is a WebP (PNG where the browser cannot write WebP) at most {@link MAX_EDGE} pixels on its longest edge.
  */
 import { MAX_EDGE } from './stickerLibrary'
 
@@ -17,6 +17,8 @@ import { MAX_EDGE } from './stickerLibrary'
 const HUE_WINDOW = 0.15
 /** Below this saturation a pixel is a grey — a white glove, a black outline — and is kept. */
 const MIN_SATURATION = 0.18
+/** Above this lightness a pixel is a highlight or the white of an eye, and is kept. */
+const MAX_LIGHTNESS = 0.88
 
 function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
   r /= 255
@@ -138,7 +140,8 @@ export async function recolorSticker(src: string, target: string): Promise<strin
     const [h, s, l] = rgbToHsl(data[i], data[i + 1], data[i + 2])
     let next: [number, number, number]
     if (from) {
-      if (s < MIN_SATURATION || hueDistance(h, from.h) > HUE_WINDOW) continue
+      // Near-white is a highlight or an eye: kept, or a dark target would grey the eyes over.
+      if (s < MIN_SATURATION || l > MAX_LIGHTNESS || hueDistance(h, from.h) > HUE_WINDOW) continue
       // Shading kept: each pixel keeps its offset from the dominant colour, around the target.
       const ns = from.s > 0 ? clamp01(s * (ts / from.s)) : ts
       const nl = clamp01(l + (tl - from.l) * (1 - Math.abs(l - from.l)))
@@ -152,5 +155,6 @@ export async function recolorSticker(src: string, target: string): Promise<strin
     data[i + 2] = next[2]
   }
   context.putImageData(pixels, 0, 0)
-  return canvas.toDataURL('image/png')
+  // WebP is a fraction of PNG's size for the same picture; a browser that cannot write it hands back PNG.
+  return canvas.toDataURL('image/webp', 0.92)
 }

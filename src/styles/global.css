@@ -3834,3 +3834,12 @@ body {
   padding: 0 8px;
   font-size: 11.5px;
 }
+
+.sticker-colors__dot--original {
+  background: conic-gradient(#f8c51b 0 25%, #1f6fe0 0 50%, #c81e1e 0 75%, #7cc22f 0);
+}
+
+.sticker-thumb--loading {
+  border-radius: 50%;
+  background: var(--surface-hover);
+}
