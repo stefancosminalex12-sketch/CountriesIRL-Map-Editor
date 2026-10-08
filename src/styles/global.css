@@ -4217,3 +4217,38 @@ body {
   padding-top: 0;
   border-top: 0;
 }
+
+/* The Library grid's two parts: the author's own stickers, then the faces. */
+.sticker-grid__heading {
+  grid-column: 1 / -1;
+  padding: 4px 2px 0;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+/* A thumbnail drawn once near the screen; until then a faint disc holds its place. */
+.sticker-thumb--lazy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sticker-thumb--lazy img {
+  display: block;
+}
+
+.sticker-thumb__wait {
+  width: 70%;
+  height: 70%;
+  border-radius: 50%;
+  background: var(--surface-hover);
+}
+
+/* The grid scrolls on its own layer, so scrolling never repaints the panel round it. */
+.sticker-grid--gallery {
+  contain: content;
+  will-change: scroll-position;
+}

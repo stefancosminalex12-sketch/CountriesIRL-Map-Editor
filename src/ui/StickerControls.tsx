@@ -1,33 +1,32 @@
 /**
- * Stickers: pictures on the territories, chosen by the data or put there by hand.
+ * Stickers: pictures on the territories, put there by hand or chosen by the data.
  *
- * Four parts, in the order the work goes:
+ * In the order the work goes:
  *
  * - the switch, and a line saying what the stickers are following right now;
+ * - **Library** — every sticker: the author's own and the gallery of faces, in any colour. Pick
+ *   one, then put it on the selected territories, take it off, or add it to the tiers;
+ * - **Emoji**, **Create** — more stickers, added to the Library;
+ * - **Size**;
  * - **Tiers** — the ladder, lowest value first, with what each rung covers under the active
- *   scale, so the author can see which countries will get which face before looking at the map;
- * - **Library** — the built-in faces and the author's uploads. Pick one, then add it to the
- *   tiers or put it on the selected territories;
- * - **Size**.
+ *   scale: the advanced part, last.
  *
  * Everything that changes the map is one operation (`set_stickers`, `assign_sticker`,
  * `clear_sticker`), so every change is one undo step. The library is the exception: it is the
  * author's collection of images, kept in this browser, not part of any one map.
  */
-import { useMemo, useRef, useState } from 'react'
+import { useMemo } from 'react'
 import { useMapStore } from '../state/mapStore'
 import { colourModeOf } from '../state/colourMode'
 import { describeRungs, resolveStickers, stickersOf } from '../state/stickers'
 import { getPreset } from '../state/presets'
-import { allStickers, saveLadder, stickerFromFile, stickerIndex, useStickerLibrary } from '../stickers/stickerLibrary'
+import { saveLadder, stickerIndex, useStickerLibrary } from '../stickers/stickerLibrary'
 import type { Sticker } from '../stickers/types'
-import { STICKER_SIZE, type CountryId } from '../types/map'
+import { STICKER_SIZE } from '../types/map'
 import { Disclosure } from './Panels'
 import { StickerFinder } from './StickerFinder'
-import { StickerGallery } from './StickerGallery'
+import { StickerLibrary } from './StickerLibrary'
 import { StickerCreator } from './StickerCreator'
-import { useNoun } from '../maps/useNoun'
-import { useSelectionStickers } from './useSelectionStickers'
 
 function Thumb({ sticker, size = 28 }: { sticker: Sticker | undefined; size?: number }) {
   if (!sticker) return <span className="sticker-thumb sticker-thumb--missing" style={{ width: size, height: size }} title="Missing image">?</span>
@@ -169,157 +168,6 @@ export function StickerTiers() {
   )
 }
 
-export function StickerLibraryControls() {
-  const doc = useMapStore((s) => s.doc)
-  const selected = useMapStore((s) => s.selectedCountryIds)
-  const geo = useMapStore((s) => s.geo)
-  const dispatch = useMapStore((s) => s.dispatch)
-  const noun = useNoun()
-  const { uploads, add, remove, pickedId, pick: setPickedId } = useStickerLibrary()
-  const stickers = useMemo(() => allStickers(uploads), [uploads])
-  const index = useMemo(() => stickerIndex(uploads), [uploads])
-  const [message, setMessage] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-  const fileInput = useRef<HTMLInputElement>(null)
-  const mode = stickersOf(doc)
-  const onSelection = useSelectionStickers()
-  const picked = pickedId ? index.get(pickedId) : undefined
-
-  const upload = async (files: FileList | null) => {
-    if (!files || files.length === 0) return
-    setBusy(true)
-    setMessage(null)
-    const made: Sticker[] = []
-    const failed: string[] = []
-    for (const file of Array.from(files)) {
-      try {
-        made.push(await stickerFromFile(file))
-      } catch {
-        failed.push(file.name)
-      }
-    }
-    if (made.length > 0) {
-      const stored = add(made)
-      setPickedId(made[made.length - 1].id)
-      setMessage(
-        stored
-          ? `Added ${made.length} sticker${made.length === 1 ? '' : 's'}.`
-          : 'Added, but this browser is out of storage space, so they will be gone after a refresh. Delete some uploads to make room.',
-      )
-    }
-    if (failed.length > 0) setMessage(`Could not read ${failed.join(', ')}.`)
-    setBusy(false)
-    if (fileInput.current) fileInput.current.value = ''
-  }
-
-  const deletePicked = () => {
-    if (!picked || picked.builtin) return
-    const inLadder = mode.ladder.filter((id) => id !== picked.id)
-    if (inLadder.length !== mode.ladder.length) {
-      dispatch({ op: 'set_stickers', patch: { ladder: inLadder } })
-      saveLadder(inLadder)
-    }
-    remove(picked.id)
-    setPickedId(null)
-  }
-
-  /* ---- the selection ---- */
-  const merges = useMapStore((s) => s.doc.merges)
-  const nameOf = (id: CountryId) => merges.find((m) => m.id === id)?.name ?? geo?.meta[id]?.name ?? id
-  const handPlaced = selected.filter((id) => id in mode.overrides)
-  const selectionLabel = selected.length === 1 ? nameOf(selected[0]) : `${selected.length} ${noun.many}`
-
-  return (
-    <div className="stack">
-      <div className="sticker-grid" role="listbox" aria-label="Stickers">
-        {stickers.map((sticker) => (
-          <button
-            key={sticker.id}
-            type="button"
-            role="option"
-            aria-selected={pickedId === sticker.id}
-            className={`sticker-grid__item${pickedId === sticker.id ? ' sticker-grid__item--picked' : ''}`}
-            title={sticker.name}
-            onClick={() => setPickedId(pickedId === sticker.id ? null : sticker.id)}
-          >
-            <Thumb sticker={sticker} size={36} />
-          </button>
-        ))}
-      </div>
-
-      <input
-        ref={fileInput}
-        type="file"
-        accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
-        multiple
-        hidden
-        onChange={(event) => void upload(event.target.files)}
-      />
-      <button type="button" className="btn" disabled={busy} onClick={() => fileInput.current?.click()}>
-        {busy ? 'Adding…' : 'Upload images…'}
-      </button>
-      {message && <p className="hint">{message}</p>}
-
-      {picked ? (
-        <div className="stack">
-          <p className="hint">
-            <strong>{picked.name}</strong>
-            {picked.builtin ? ' (built-in)' : ''}
-          </p>
-          <button
-            type="button"
-            className="btn"
-            onClick={() => {
-              const ladder = [...mode.ladder, picked.id]
-              dispatch({ op: 'set_stickers', patch: { ladder, enabled: true } })
-              saveLadder(ladder)
-            }}
-          >
-            Add to tiers (as highest)
-          </button>
-          {selected.length > 0 && (
-            <>
-              <button type="button" className="btn btn--on" onClick={() => onSelection.putOn(picked.id)}>
-                Put on {selectionLabel}
-              </button>
-              <button type="button" className="btn" disabled={!onSelection.canRemove} title={`Take the sticker off ${selectionLabel}`} onClick={onSelection.remove}>
-                Remove
-              </button>
-            </>
-          )}
-          {!picked.builtin && (
-            <button type="button" className="btn btn--ghost" onClick={deletePicked}>
-              Delete this upload
-            </button>
-          )}
-        </div>
-      ) : (
-        <p className="hint">Pick a sticker to add it to the tiers or put it on the selection.</p>
-      )}
-
-      {selected.length > 0 && (
-        <div className="stack">
-          <span className="sidebar__group-label">Selection: {selectionLabel}</span>
-          <div className="mode-switch">
-            <button
-              type="button"
-              className="chip"
-              title="Let the data choose again"
-              disabled={handPlaced.length === 0}
-              onClick={() => dispatch({ op: 'clear_sticker', countryIds: handPlaced })}
-            >
-              Back to data
-            </button>
-          </div>
-        </div>
-      )}
-      <p className="hint">
-        Uploads are saved in this browser for every map. Your tiers are remembered too. Images are shrunk to 256 px, which is plenty for a sticker.
-      </p>
-    </div>
-  )
-}
-
 export function StickerSize() {
   const size = useMapStore((s) => stickersOf(s.doc).size)
   const dispatch = useMapStore((s) => s.dispatch)
@@ -349,14 +197,8 @@ export function StickerControls() {
   return (
     <div className="stack">
       <StickerSwitch />
-      <Disclosure title="Tiers">
-        <StickerTiers />
-      </Disclosure>
-      <Disclosure title="Sticker Gallery">
-        <StickerGallery />
-      </Disclosure>
       <Disclosure title="Library">
-        <StickerLibraryControls />
+        <StickerLibrary />
       </Disclosure>
       <Disclosure title="Emoji">
         <StickerFinder />
@@ -366,6 +208,10 @@ export function StickerControls() {
       </Disclosure>
       <Disclosure title="Size">
         <StickerSize />
+      </Disclosure>
+      {/* Stickers chosen by the data, lowest value first: the advanced part, so it comes last. */}
+      <Disclosure title="Tiers">
+        <StickerTiers />
       </Disclosure>
     </div>
   )

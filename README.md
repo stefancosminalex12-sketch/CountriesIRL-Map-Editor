@@ -1311,7 +1311,7 @@ Merge           groups: new, name, flag, members
 Hide            Hide selected · Show all
 Overlay         Management · Appearance · Transform · Mode
 Styles & Data   [Off / Data / Compare / Flags and each mode's workflow]
-Stickers        Tiers · Sticker Gallery · Library · Emoji · Create · Size
+Stickers        Library · Emoji · Create · Size · Tiers
 Legend          Visibility · Content · Appearance · Layout · Position & Size
 Canvas          Aspect Ratio · Dimensions · Framing
 Settings        Appearance (theme) · Data Sources
@@ -3060,7 +3060,7 @@ Categorical data, Compare and Flags have no low-to-high order and place no stick
 The Tiers panel shows what each rung covers under the active scale and how many territories wear
 it. **Reverse order** is for data where a high number is the bad end, such as inflation.
 
-**By hand.** Pick a sticker in the Gallery or the Library and **Put on** the selection (the
+**By hand.** Pick a sticker in the Library and **Put on** the selection (the
 button names it: "Put on France"). **Remove**, right under it, takes off whatever sticker the
 selection is wearing: a sticker the data chose is hidden with a "no sticker" override, so the
 data does not put it straight back, and one only placed by hand is cleared, leaving the territory
@@ -3085,9 +3085,11 @@ in that browser. The tier order is remembered there too, and a new map starts fr
 is defined once as a `<symbol>` and every territory wearing it is a `<use>`, so a world of faces is
 a few decoded images rather than hundreds of copies of a data URI.
 
-#### The sticker gallery
+#### The Library
 
-**Sticker Gallery** is 184 ready-made faces (`stickers/facePresets.ts`), each a named combination
+**Library** (first in the Stickers panel; **Tiers** is last) holds every sticker in one grid: the
+author's own under **Yours** — uploads (the **Upload images…** button is under the grid), emoji
+added from Emoji, faces saved from Create — and then the **Faces**: 184 ready-made faces (`stickers/facePresets.ts`), each a named combination
 of face-maker parts. The first 100 (`COLLECTION`) are the library collection, in the order of the
 reference sheets: Fire Punch, Shrug, Heavy Breathing, Checking You Out, … Evil Smirk, Please, then
 Sleepy and Yawning, Very Touched, Devious, Waving Hello, Can't Unsee This, Wacky Face, Seasick
@@ -3099,9 +3101,30 @@ sampled exactly from its swatches — blue `#1b4fd8`, purple `#9062f9`, yellow `
 `#b00302`, pink `#db8eb6`, teal `#1ca6be`, green `#82c431`, white `#f3f4f6`, black `#111827` — plus
 orange `#f57c1f` for the default tiers, and a picker for any other. The head is shaded only in
 darker tones of its own colour, with no black rim and no ground shadow, so a sticker sits cleanly
-on a map. Tapping a face adds it to the library in that colour and picks it; the bar under the grid puts it
-on the selected territories (turning stickers on if needed), adds it to the tiers, or opens it in
-Create → Face maker to change. Thumbnails are drawn once per colour per session.
+on a map. Tapping a sticker picks it; the bar under the grid puts it on the selected territories
+(turning stickers on if needed), takes a sticker off them (**Remove**), adds it to the tiers, opens
+a face in Create → Face maker, or deletes an upload.
+
+**A face is named, not stored.** A face from the grid is the id `face:<preset>:<colour>` —
+`face:fire-punch:1b4fd8` — and `stickerIndex` draws it from that when the map or a panel asks
+(`faceSticker` in `stickers/stickerLibrary.ts`, kept once drawn). Picking or placing a face, in
+any number of colours, writes nothing to the browser's storage. Faces the earlier gallery stored
+as copies (`user:face-…`) still resolve, and are left out of **Yours**.
+
+**Changing the colour recolours the picked face where it is being worked on.** With a face
+picked, every selected territory wearing that face, in any colour, takes it in the new colour once
+the colour settles (150 ms, so dragging the custom colour is one change): one `assign_sticker`,
+one undo step. The rest of the map, the tiers and other faces are untouched. So: select Germany,
+pick Fire Punch, **Put on Germany**, then tap red, and Germany's face is red.
+
+**The grid shows pictures, not live drawings.** A face is an SVG with lighting filters on every
+part; nearly two hundred of them, re-filtered as the grid scrolled, made it stutter even on a fast
+machine. Each thumbnail is now drawn once, as it comes within 160 px of the visible part of the grid
+(`ui/LazyThumb.tsx`), onto a canvas at twice its display size and kept as a small WebP
+(`stickers/thumbnails.ts`): one at a time, newest request first, each in its own task, and kept
+for the session by face and colour. Until then a faint disc holds its place. Opening the Library
+draws about 30 faces instead of 184, and a fast scroll through the grid holds 60 frames a second.
+The stickers on the map are unchanged: vector, sharp in every export.
 
 #### Emoji, and making stickers
 

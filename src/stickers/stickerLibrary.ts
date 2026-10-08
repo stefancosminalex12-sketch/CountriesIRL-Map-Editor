@@ -11,10 +11,16 @@
  * render would only be spending the storage quota (about 5 MB per site) on detail nobody sees;
  * redrawn, a typical sticker is 10–40 KB and a hundred of them fit. SVG uploads are kept as they
  * are, since they are already small and stay sharp at any size.
+ *
+ * **Library faces are not stored at all.** A face from the gallery is named by what it is —
+ * `face:<preset>:<colour>`, say `face:fire-punch:1b4fd8` — and drawn from that on demand
+ * (`faceSticker`), the same face every time. So putting a face on a country, or changing its
+ * colour ten times, spends no storage, and the index below answers for every such id.
  */
 import { create } from 'zustand'
 import { BUILTIN_STICKERS } from './builtin'
-import { DEFAULT_FACE, type FaceOptions } from './faceMaker'
+import { DEFAULT_FACE, FACE_COLORS, faceDataUri, type FaceOptions } from './faceMaker'
+import { FACE_PRESETS, presetFace, type FacePreset } from './facePresets'
 import type { Sticker } from './types'
 
 const STORAGE_KEY = 'map-editor.stickers.v1'
@@ -105,7 +111,7 @@ export function savedLadder(): string[] | null {
   try {
     const parsed = JSON.parse(localStorage.getItem(LADDER_KEY) ?? 'null') as unknown
     if (!Array.isArray(parsed)) return null
-    const known = new Set([...BUILTIN_STICKERS, ...read()].map((s) => s.id))
+    const known = stickerIndex(read())
     const ladder = parsed.filter((id): id is string => typeof id === 'string' && known.has(id))
     return ladder.length > 0 ? ladder : null
   } catch {
@@ -126,9 +132,53 @@ export function allStickers(uploads: Sticker[]): Sticker[] {
   return [...BUILTIN_STICKERS, ...uploads]
 }
 
+/* ------------------------------------------------------------ library faces */
+
+const FACE_ID = /^face:([a-z0-9-]+):([0-9a-f]{6})$/
+
+/** The id of a library face in a colour: `face:fire-punch:1b4fd8`. */
+export function faceStickerId(presetId: string, color: string): string {
+  return `face:${presetId}:${color.replace('#', '').toLowerCase()}`
+}
+
+/** A library face id's preset and colour, or null for any other id. */
+export function parseFaceSticker(id: string): { preset: FacePreset; color: string } | null {
+  const match = FACE_ID.exec(id)
+  if (!match) return null
+  const preset = FACE_PRESETS.find((p) => p.id === match[1])
+  return preset ? { preset, color: `#${match[2]}` } : null
+}
+
+export function colourName(color: string): string {
+  return FACE_COLORS.find((c) => c.color === color.toLowerCase())?.name ?? color.toLowerCase()
+}
+
+const faces = new Map<string, Sticker>()
+
+/** A library face as a sticker, drawn the first time it is asked for and kept. */
+export function faceSticker(id: string): Sticker | undefined {
+  const known = faces.get(id)
+  if (known) return known
+  const face = parseFaceSticker(id)
+  if (!face) return undefined
+  const sticker = { id, name: `${face.preset.name} (${colourName(face.color)})`, src: faceDataUri(presetFace(face.preset, face.color)) }
+  faces.set(id, sticker)
+  return sticker
+}
+
+/** The built-in faces and the uploads by id — and every library face, drawn when first asked for. */
+class StickerIndex extends Map<string, Sticker> {
+  override get(id: string): Sticker | undefined {
+    return super.get(id) ?? faceSticker(id)
+  }
+  override has(id: string): boolean {
+    return super.has(id) || parseFaceSticker(id) !== null
+  }
+}
+
 /** Stickers by id, for the renderer and the panels. */
 export function stickerIndex(uploads: Sticker[]): Map<string, Sticker> {
-  return new Map(allStickers(uploads).map((s) => [s.id, s]))
+  return new StickerIndex(allStickers(uploads).map((s) => [s.id, s]))
 }
 
 function readAsDataUrl(file: File): Promise<string> {
