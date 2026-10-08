@@ -27,5 +27,10 @@ export const BUILTIN_STICKERS: Sticker[] = TIERS.map(([id, name, presetId, color
   return { id: `builtin:${id}`, name, src: faceDataUri(presetFace(preset, color)), builtin: true }
 })
 
+/** Each built-in sticker's face and colour, so it can be recoloured as a library face is. */
+export const BUILTIN_FACES: ReadonlyMap<string, { presetId: string; color: string }> = new Map(
+  TIERS.map(([id, , presetId, color]) => [`builtin:${id}`, { presetId, color }]),
+)
+
 /** The ladder a new map starts with: every built-in face, lowest value first. */
 export const DEFAULT_STICKER_LADDER: string[] = BUILTIN_STICKERS.map((s) => s.id)

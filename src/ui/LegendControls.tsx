@@ -21,7 +21,7 @@
 import { buildLegendModel, defaultLegendTitle, LEGEND_WIDTH, TITLE_PRESETS } from '../state/legend'
 import { useMapStore } from '../state/mapStore'
 import { SelectField } from './Select'
-import { Disclosure } from './Panels'
+import { Section } from './Panels'
 import { LegendVisibilityToggle } from './MapSettings'
 import { LEGEND_STYLES, LEGEND_STYLE_IDS } from '../state/legendStyles'
 import { LEGEND_ICON_IDS, LEGEND_ICONS } from '../state/legendIcons'
@@ -83,7 +83,7 @@ export function LegendControls() {
         in both places. The editor below stays open and usable while the legend is hidden —
         the notice says so, so nobody edits a legend wondering why nothing changes.
       */}
-      <Disclosure title="Visibility">
+      <Section title="Visibility">
         <div className="stack">
           <LegendVisibilityToggle />
           {!legend.visible && (
@@ -93,9 +93,9 @@ export function LegendControls() {
             </p>
           )}
         </div>
-      </Disclosure>
+      </Section>
 
-      <Disclosure title="Content">
+      <Section title="Content">
       <div className="stack">
       {/*
         The switch sits above the field it governs, so the field reads as belonging to
@@ -228,9 +228,9 @@ export function LegendControls() {
         colouring mode: the palette's bands, the comparison's groups, the coloured seas.
       </p>
       </div>
-      </Disclosure>
+      </Section>
 
-      <Disclosure title="Appearance">
+      <Section title="Appearance">
       <div className="stack">
       {/*
         The look, kept apart from the wording above: what the legend says and how it is
@@ -302,9 +302,9 @@ export function LegendControls() {
         onChange={(borderWidth) => patch({ borderWidth })}
       />
       </div>
-      </Disclosure>
+      </Section>
 
-      <Disclosure title="Layout">
+      <Section title="Layout">
       <div className="stack">
 
       {/*
@@ -334,7 +334,7 @@ export function LegendControls() {
         ))}
       </SelectField>
       </div>
-      </Disclosure>
+      </Section>
     </>
   )
 }

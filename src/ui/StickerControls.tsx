@@ -23,9 +23,10 @@ import { getPreset } from '../state/presets'
 import { saveLadder, stickerIndex, useStickerLibrary } from '../stickers/stickerLibrary'
 import type { Sticker } from '../stickers/types'
 import { STICKER_SIZE } from '../types/map'
-import { Disclosure } from './Panels'
+import { Section } from './Panels'
 import { StickerFinder } from './StickerFinder'
 import { StickerLibrary } from './StickerLibrary'
+import { ChosenSticker } from './ChosenSticker'
 import { StickerCreator } from './StickerCreator'
 
 function Thumb({ sticker, size = 28 }: { sticker: Sticker | undefined; size?: number }) {
@@ -197,22 +198,23 @@ export function StickerControls() {
   return (
     <div className="stack">
       <StickerSwitch />
-      <Disclosure title="Library">
+      <ChosenSticker />
+      <Section title="Library">
         <StickerLibrary />
-      </Disclosure>
-      <Disclosure title="Emoji">
+      </Section>
+      <Section title="Emoji">
         <StickerFinder />
-      </Disclosure>
-      <Disclosure title="Create">
+      </Section>
+      <Section title="Create">
         <StickerCreator />
-      </Disclosure>
-      <Disclosure title="Size">
+      </Section>
+      <Section title="Size">
         <StickerSize />
-      </Disclosure>
+      </Section>
       {/* Stickers chosen by the data, lowest value first: the advanced part, so it comes last. */}
-      <Disclosure title="Tiers">
+      <Section title="Tiers">
         <StickerTiers />
-      </Disclosure>
+      </Section>
     </div>
   )
 }

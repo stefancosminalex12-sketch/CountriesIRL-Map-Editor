@@ -1301,9 +1301,12 @@ Editor" label left the bar (the name is still the document's, used for export fi
 
 **The rail is the tools**, in the order the work goes — what is selected, what is done to it
 (merging, hiding, overlaying), what colours it, what is put on it, how it is explained, how it is
-framed — then the editor's own preferences, the assistant to come and the SVG round trip. Which map,
-the templates and how the map is displayed are in the File menu. A section's parts sit behind a
-`Disclosure`:
+framed — then the SVG round trip. Which map, the templates, how the map is displayed and the
+editor's own **Settings** (Appearance — the theme — and Data Sources, at the bottom of File) are in
+the File menu. The AI section, a placeholder for a feature a long way off, was removed. **A section
+shows everything at once**, one scroll down, its parts under plain headings (`Section` in
+`ui/Panels.tsx`) rather than folds — Stickers, Legend and Canvas now as Overlay and Hide always
+have:
 
 ```
 Select          Tool [Normal ▾] · region groups · Entities Selected
@@ -1311,11 +1314,9 @@ Merge           groups: new, name, flag, members
 Hide            Hide selected · Show all
 Overlay         create · the list · the chosen overlay: Appearance, Size and place, Display mode
 Data            [Data / Groups / Flags, the one on pressed again is off] · each mode's workflow
-Stickers        Library · Emoji · Create · Size · Tiers
+Stickers        the sticker clicked on the map · Library · Emoji · Create · Size · Tiers
 Legend          Visibility · Content · Appearance · Layout · Position & Size
 Canvas          Aspect Ratio · Dimensions · Framing
-Settings        Appearance (theme) · Data Sources
-AI              one line: coming soon
 SVG             export a blank SVG · import an edited one
 ```
 
@@ -3066,6 +3067,22 @@ first. With **Follow the data** on and the Data section in Data mode:
 Categorical data, Compare and Flags have no low-to-high order and place no stickers of their own.
 The Tiers panel shows what each rung covers under the active scale and how many territories wear
 it. **Reverse order** is for data where a high number is the bad end, such as inflation.
+
+**Click a sticker on the map** to work on that one sticker. The click is the sticker's, not the
+country's (`STICKER_MARKER` in `render/MapStickers.tsx`): nothing is selected, the Stickers panel
+opens with the sticker at its top, ringed on the map (on screen only, never in an export), and
+`activeStickerId` names it. There it can be:
+
+- **recoloured** — a face (a Library face, a built-in tier face or an older stored copy, `faceOf`)
+  by naming it in the new colour; any other picture by shifting its hue, kept for the session;
+- **resized** on its own — a multiplier over the size it would have (`StickerMode.sizes`, the
+  `size_sticker` operation), with **Usual size** to drop it;
+- **swapped** — picking any sticker in the Library or Emoji puts that one there instead
+  (`swapChosenSticker`), keeping its own size;
+- **removed**.
+
+Each is one operation on that territory alone, one undo step. **Done**, or a click anywhere else on
+the map, lets it go; a drag that starts on a sticker still moves the map.
 
 **By hand.** Pick a sticker in the Library and **Put on** the selection (the
 button names it: "Put on France"). **Remove**, right under it, takes off whatever sticker the

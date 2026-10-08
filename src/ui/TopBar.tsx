@@ -9,7 +9,9 @@
  *   - **Outside region** — how the land outside the chosen region is drawn;
  *   - **Templates** — the built-in presets;
  *   - **Display** — cascading once more, to Appearance, Geographic Features and Labels &
- *     Helpers, each a panel of the switches the rail's Display section held.
+ *     Helpers, each a panel of the switches the rail's Display section held;
+ *   - **Settings**, last — the editor's own preferences: Appearance (the theme) and Data
+ *     Sources, as the rail's Settings section held them.
  *   On a narrow screen there is no room at the side, so a row opens its choices in place of the
  *   rows, with a way back up a level.
  * - **Regions** — the open map's regions as split buttons. The name selects and deselects
@@ -23,7 +25,7 @@
 import { useRef, useState, type ReactNode } from 'react'
 import { Chevron, ChevronRight, Flyout, MenuItem, Popover, useNarrow } from './Menu'
 import { GeographicFeatureToggles, LabelsAndHelpers, MapColorSwatches } from './MapSettings'
-import { SelectionHighlight } from './SettingsPanel'
+import { DataSources, SelectionHighlight, ThemePicker } from './SettingsPanel'
 import { TemplatePicker } from './TemplatePicker'
 import { useMapStore } from '../state/mapStore'
 import { ATLAS_FAMILIES, ATLASES, getAtlas, type Atlas } from '../maps/atlas'
@@ -338,6 +340,29 @@ const DISPLAY: FileNode[] = [
   },
 ]
 
+/** The editor's own preferences — nothing here is about the map being made. */
+const SETTINGS: FileNode[] = [
+  {
+    id: 'theme',
+    name: 'Appearance',
+    render: () => (
+      <div className="stack top-flyout__body">
+        <span className="sidebar__group-label">Theme</span>
+        <ThemePicker />
+      </div>
+    ),
+  },
+  {
+    id: 'sources',
+    name: 'Data Sources',
+    render: () => (
+      <div className="top-flyout__body">
+        <DataSources />
+      </div>
+    ),
+  },
+]
+
 /** The rows under `path`, or what the last node in it opens. */
 function nodeAt(root: FileNode[], path: string[]): FileNode | null {
   let rows = root
@@ -436,6 +461,7 @@ function FileMenu() {
       ),
     },
     { id: 'display', name: 'Display', children: DISPLAY },
+    { id: 'settings', name: 'Settings', children: SETTINGS },
   ]
 
   /** What each open row opens: rows to cascade into, or its content. */

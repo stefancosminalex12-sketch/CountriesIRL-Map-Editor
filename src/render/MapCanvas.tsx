@@ -62,7 +62,8 @@ import {
   type LabelShape,
 } from './labelPlacement'
 import { MapLabels } from './MapLabels'
-import { MapStickers, type PlacedSticker } from './MapStickers'
+import { MapStickers, STICKER_MARKER, type PlacedSticker } from './MapStickers'
+import { openSidebarSection } from '../ui/sidebarEvents'
 import { resolveStickers, stickersOf } from '../state/stickers'
 import { stickerIndex, useStickerLibrary } from '../stickers/stickerLibrary'
 import { OverlayMenu, type OverlayMenuRequest } from '../ui/OverlayMenu'
@@ -1206,6 +1207,7 @@ export function MapCanvas() {
 
   /* ---------------------------------------------------------------- stickers */
 
+  const activeStickerId = useMapStore((s) => s.activeStickerId)
   const stickerUploads = useStickerLibrary((s) => s.uploads)
   const stickerArtwork = useMemo(() => stickerIndex(stickerUploads), [stickerUploads])
   const stickerAssignments = useMemo(() => resolveStickers(doc), [doc])
@@ -1228,11 +1230,12 @@ export function MapCanvas() {
       const x = spot ? spot.x : (shape.minX + shape.maxX) / 2
       const y = spot ? spot.y : (shape.minY + shape.maxY) / 2
       const room = spot ? spot.r * STICKER_ROOM : 0
-      const size = Math.min(Math.max(room, STICKER_MIN * shape.unit), STICKER_MAX * shape.unit) * stickerMode.size
+      const own = stickerMode.sizes?.[shape.id] ?? 1
+      const size = Math.min(Math.max(room, STICKER_MIN * shape.unit), STICKER_MAX * shape.unit) * stickerMode.size * own
       out.push({ id: shape.id, stickerId, x, y, size })
     }
     return out
-  }, [stickersOn, stickerAssignments, stickerArtwork, labelShapes, mergeGeometry, scopeCountryIds, style.outsideScope, stickerMode.size])
+  }, [stickersOn, stickerAssignments, stickerArtwork, labelShapes, mergeGeometry, scopeCountryIds, style.outsideScope, stickerMode.size, stickerMode.sizes])
 
   /**
    * The detail the lakes and the rivers are drawn at: every projected point, at every zoom.
@@ -3145,6 +3148,11 @@ export function MapCanvas() {
         onMouseMove={(event) => {
           if (gesturingRef.current || selectingRef.current) return
           if ((event.target as Element | null)?.closest?.(`[${OVERLAY_MARKER}]`)) return
+          // Over a sticker the pointer is on the sticker, not the country beneath it.
+          if ((event.target as Element | null)?.closest?.(`[${STICKER_MARKER}]`)) {
+            setHovered(null)
+            return
+          }
           const id = pickCountryAt(event)
           setHovered(id)
           // The sea only where no land claims the point, so land's precedence is absolute.
@@ -3156,6 +3164,17 @@ export function MapCanvas() {
           if ((event.target as Element | null)?.closest?.(`[${LEGEND_MARKER}]`)) return
           // An overlay tapped or dragged is chosen by the overlay layer, not selected here.
           if ((event.target as Element | null)?.closest?.(`[${OVERLAY_MARKER}]`)) return
+          /*
+           * A click on a sticker chooses the sticker, not the country under it: the Stickers panel
+           * opens on it, to recolour, resize or swap it. A click anywhere else lets it go.
+           */
+          const sticker = (event.target as Element | null)?.closest?.(`[${STICKER_MARKER}]`)
+          if (sticker) {
+            useMapStore.getState().setActiveSticker(sticker.getAttribute(STICKER_MARKER))
+            openSidebarSection('stickers')
+            return
+          }
+          if (useMapStore.getState().activeStickerId) useMapStore.getState().setActiveSticker(null)
           // A brush press has already selected what it touched — see `useSelectionGestures`.
           if (suppressClickRef.current) {
             suppressClickRef.current = false
@@ -3694,7 +3713,7 @@ export function MapCanvas() {
             Stickers under the names, so a name laid over a face stays readable.
           */}
           {stickerPlacements.length > 0 && (
-            <MapStickers placements={stickerPlacements} stickers={stickerArtwork} />
+            <MapStickers placements={stickerPlacements} stickers={stickerArtwork} activeId={activeStickerId} />
           )}
 
           {textOn && <MapLabels placements={labelsToDraw} labels={labels} />}

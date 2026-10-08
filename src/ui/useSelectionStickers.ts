@@ -14,6 +14,17 @@ import type { MapOperation } from '../state/operations'
 import type { CountryId } from '../types/map'
 import { useNoun } from '../maps/useNoun'
 
+/**
+ * With a sticker clicked on the map (`activeStickerId`), picking another sticker swaps it: the
+ * territory wears the new one. True when it did, so a picker knows the pick went to the map.
+ */
+export function swapChosenSticker(stickerId: string): boolean {
+  const { activeStickerId, dispatch } = useMapStore.getState()
+  if (!activeStickerId) return false
+  dispatch({ op: 'assign_sticker', countryIds: [activeStickerId], stickerId })
+  return true
+}
+
 export function useSelectionStickers() {
   const doc = useMapStore((s) => s.doc)
   const selected = useMapStore((s) => s.selectedCountryIds)

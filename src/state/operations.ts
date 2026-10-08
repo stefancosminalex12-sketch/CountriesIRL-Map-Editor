@@ -162,6 +162,8 @@ export type MapOperation =
     }
   | { op: 'assign_sticker'; countryIds: CountryId[]; stickerId: string | null }
   | { op: 'clear_sticker'; countryIds: CountryId[] }
+  /** One sticker's own size, as a multiplier (see `StickerMode.sizes`); null for the usual size. */
+  | { op: 'size_sticker'; countryIds: CountryId[]; size: number | null }
   | { op: 'set_comparison'; patch: { enabled?: boolean; groupCount?: number } }
   /*
    * Comparison groups. Compare owns these outright — see `ComparisonMode` — so they
@@ -224,6 +226,7 @@ const IMPLEMENTED: Record<MapOperationType, true> = {
   set_stickers: true,
   assign_sticker: true,
   clear_sticker: true,
+  size_sticker: true,
   set_comparison: true,
   set_comparison_group: true,
   add_to_comparison: true,
@@ -276,6 +279,7 @@ export const UNDOABLE_OPERATIONS = new Set<MapOperationType>([
   'set_stickers',
   'assign_sticker',
   'clear_sticker',
+  'size_sticker',
   'set_comparison',
   'set_comparison_group',
   'add_to_comparison',

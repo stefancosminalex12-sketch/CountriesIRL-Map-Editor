@@ -13,7 +13,7 @@ import { fitAspect, fitRegionScreen, MIN_SCREEN } from '../render/screenFrame'
 import { computeFraming } from '../geo/framing'
 import { getLiveProjection } from '../render/liveProjection'
 import { MapToggle } from './MapToggle'
-import { Disclosure } from './Panels'
+import { Section } from './Panels'
 
 function clamp(value: number, min: number, max: number): number {
   return value < min ? min : value > max ? max : value
@@ -149,7 +149,7 @@ export function ScreenControls() {
         <p className="hint">Off: the whole map is the picture, and exports are uncropped.</p>
       )}
 
-      <Disclosure title="Aspect Ratio">
+      <Section title="Aspect Ratio">
       <div className="stack">
       <div className="field">
         <span className="field__row">
@@ -210,9 +210,9 @@ export function ScreenControls() {
         Freeform
       </button>
       </div>
-      </Disclosure>
+      </Section>
 
-      <Disclosure title="Dimensions">
+      <Section title="Dimensions">
       <div className="stack">
       <div className="field">
         <span className="field__row">
@@ -253,14 +253,14 @@ export function ScreenControls() {
       </div>
 
       </div>
-      </Disclosure>
+      </Section>
 
       {/*
         Framing: a frame measured off the region as it is drawn now. It only places a rectangle
         round what is already on screen — the map's zoom, pan, projection and geometry are never
         touched by anything in this section.
       */}
-      <Disclosure title="Framing">
+      <Section title="Framing">
       <div className="stack">
       <button type="button" className="btn" onClick={fitToRegion}>
         Fit to Region
@@ -271,7 +271,7 @@ export function ScreenControls() {
           : 'Choose a ratio, or fit a frame to the region on screen.'}
       </p>
       </div>
-      </Disclosure>
+      </Section>
 
     </div>
   )

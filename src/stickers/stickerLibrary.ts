@@ -18,7 +18,7 @@
  * colour ten times, spends no storage, and the index below answers for every such id.
  */
 import { create } from 'zustand'
-import { BUILTIN_STICKERS } from './builtin'
+import { BUILTIN_FACES, BUILTIN_STICKERS } from './builtin'
 import { DEFAULT_FACE, FACE_COLORS, faceDataUri, type FaceOptions } from './faceMaker'
 import { FACE_PRESETS, presetFace, type FacePreset } from './facePresets'
 import type { Sticker } from './types'
@@ -192,6 +192,22 @@ export function parseFaceSticker(id: string): { preset: FacePreset; color: strin
   if (!match) return null
   const preset = FACE_PRESETS.find((p) => p.id === match[1])
   return preset ? { preset, color: `#${match[2]}` } : null
+}
+
+/**
+ * The face and colour any face sticker is — a library face, a built-in tier face, or one of the
+ * older stored face copies (`user:face-<preset>-<colour>`) — or null for a picture that is not a
+ * face. What lets a face be recoloured wherever it came from.
+ */
+export function faceOf(stickerId: string): { preset: FacePreset; color: string } | null {
+  const face = parseFaceSticker(stickerId)
+  if (face) return face
+  const builtin = BUILTIN_FACES.get(stickerId)
+  const legacy = /^user:face-([a-z0-9-]+)-([0-9a-f]{6})$/.exec(stickerId)
+  const presetId = builtin?.presetId ?? legacy?.[1]
+  const color = builtin?.color ?? (legacy ? `#${legacy[2]}` : null)
+  const preset = presetId ? FACE_PRESETS.find((p) => p.id === presetId) : undefined
+  return preset && color ? { preset, color } : null
 }
 
 export function colourName(color: string): string {

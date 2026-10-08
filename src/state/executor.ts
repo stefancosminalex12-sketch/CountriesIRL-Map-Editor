@@ -143,6 +143,10 @@ export function validateOperation(op: MapOperation, ctx: ExecutionContext = {}):
       }
       return null
     }
+    case 'size_sticker':
+      return op.size === null || (typeof op.size === 'number' && op.size >= STICKER_SIZE.min && op.size <= STICKER_SIZE.max)
+        ? null
+        : `size must be null or between ${STICKER_SIZE.min} and ${STICKER_SIZE.max}`
     case 'assign_sticker':
       return op.stickerId === null || (typeof op.stickerId === 'string' && op.stickerId)
         ? null
@@ -594,6 +598,15 @@ function applyOperation(doc: MapDocument, op: MapOperation): MapDocument {
       const overrides = { ...mode.overrides }
       for (const id of op.countryIds) delete overrides[id]
       return { ...doc, stickers: { ...mode, overrides } }
+    }
+    case 'size_sticker': {
+      const mode = stickersOf(doc)
+      const sizes = { ...(mode.sizes ?? {}) }
+      for (const id of op.countryIds) {
+        if (op.size === null || op.size === 1) delete sizes[id]
+        else sizes[id] = op.size
+      }
+      return { ...doc, stickers: { ...mode, sizes } }
     }
     case 'set_active_preset':
       return { ...doc, activePresetId: op.presetId }

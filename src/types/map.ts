@@ -444,6 +444,11 @@ export interface StickerMode {
   overrides: Record<CountryId, string | null>
   /** Multiplier over the size each territory earns. See {@link STICKER_SIZE}. */
   size: number
+  /**
+   * One sticker's own size, as entity id → multiplier over the size it would otherwise have
+   * (`size` included) — set by clicking that sticker on the map. Absent for the usual size.
+   */
+  sizes?: Record<CountryId, number>
 }
 
 /* -------------------------------------------------------------------- merge */

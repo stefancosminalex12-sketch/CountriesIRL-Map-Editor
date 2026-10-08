@@ -90,3 +90,17 @@ export function Disclosure({
     </div>
   )
 }
+
+/**
+ * A titled part of a panel that is simply there — no fold, nothing to open. The panels show
+ * everything at once now, one scroll down, the way Overlay and Hide always have; this gives each
+ * part the same heading a `Disclosure` had, with a hairline above it.
+ */
+export function Section({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="panel-section">
+      <h3 className="panel-section__title">{title}</h3>
+      {children}
+    </section>
+  )
+}

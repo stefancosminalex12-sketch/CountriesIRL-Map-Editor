@@ -4292,3 +4292,42 @@ body {
   gap: 4px;
   flex: none;
 }
+
+/* A part of a panel that is always shown: a heading over a hairline, like a Disclosure's, unfolded. */
+.panel-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.panel-section__title {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+/* The sticker clicked on the map, at the top of the Stickers panel. */
+.chosen-sticker {
+  padding: 10px;
+  border: 1px solid var(--accent, #2f6fe0);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.chosen-sticker__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chosen-sticker__text {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+}

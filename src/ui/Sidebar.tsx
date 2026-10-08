@@ -18,7 +18,6 @@ import { HideTerritories } from './MapSettings'
 import { SvgExchange } from './SvgExchange'
 import { onOpenSidebarSection } from './sidebarEvents'
 import { closeLatestDisclosure } from './Panels'
-import { DataSources, ThemePicker } from './SettingsPanel'
 import { DataPalette } from './DataPalette'
 import { LegendControls, LegendSizeControls } from './LegendControls'
 import { ScreenControls } from './ScreenControls'
@@ -27,7 +26,7 @@ import { MapGrip } from './MapGrip'
 import { OverlayControls } from './OverlayControls'
 import { SelectionControls } from './SelectionControls'
 import { StickerControls } from './StickerControls'
-import { Disclosure } from './Panels'
+import { Section } from './Panels'
 
 /**
  * Line icons on a 20-unit grid, stroked in `currentColor`.
@@ -36,14 +35,6 @@ import { Disclosure } from './Panels'
  * glyph that needs a caption to be understood is a glyph that has failed here.
  */
 const ICONS: Record<string, ReactNode> = {
-  // Sliders: the preferences, rather than anything about the map itself.
-  settings: (
-    <>
-      <path d="M3.4 6.2h13.2M3.4 13.8h13.2" />
-      <circle cx="8" cy="6.2" r="1.9" />
-      <circle cx="12.6" cy="13.8" r="1.9" />
-    </>
-  ),
   // A dashed marquee and the pointer drawing it: taking many things at once.
   select: (
     <>
@@ -114,13 +105,6 @@ const ICONS: Record<string, ReactNode> = {
       <path d="M10 8.6v5.4M7.8 11.8 10 14l2.2-2.2" />
     </>
   ),
-  // A spark: the assistant that will translate language into operations.
-  assistant: (
-    <>
-      <path d="M10 3.2 11.6 8 16.4 9.6 11.6 11.2 10 16 8.4 11.2 3.6 9.6 8.4 8z" />
-      <path d="M15.4 3.4 15.9 5 17.5 5.5 15.9 6 15.4 7.6 14.9 6 13.3 5.5 14.9 5z" />
-    </>
-  ),
 }
 
 interface SidebarSection {
@@ -140,21 +124,15 @@ interface SidebarSection {
 /*
  * The sections, top to bottom, in the order the work goes: what is selected, the tools that act
  * on it (Merge, Hide, Overlay), what colours the map, what is put on it, how it is explained, how
- * it is framed — and then the editor's own preferences, and the assistant still to come. Which
- * map, its templates and how it is displayed are in the top bar's File menu (`TopBar.tsx`).
+ * it is framed — and the SVG round trip. Which map, its templates, how it is displayed and the
+ * editor's own settings are in the top bar's File menu (`TopBar.tsx`).
  *
  * Every control below is the component it always was, with the same hooks and the same
  * operations, referenced exactly once. Nothing was rewritten to be moved: where a component held
  * controls for two places, it was split along that seam.
  *
- * Each section's parts sit behind a `Disclosure`: open/closed is local component state, nothing
- * reaches the document, and a closed subsection is *unmounted*, so folding one away stops it
- * reading the document on every render.
- *
- * **Every subsection starts closed**, in every section, on every device. Opening a section opens
- * that section and nothing inside it: the reader sees the list of what is there and chooses, rather
- * than finding one part already unfolded and the rest to scroll past. Closing a section unmounts
- * its body, so opening it again starts closed again.
+ * A section shows everything at once, one scroll down, its parts under plain headings
+ * (`Section`) rather than folds — as the Overlay and Hide panels always have.
  */
 const SECTIONS: SidebarSection[] = [
   {
@@ -201,7 +179,7 @@ const SECTIONS: SidebarSection[] = [
           The panel's size, and where it sits: the legend is dragged into place on the map and
           resized by its corner, and these are the numeric form of the same size.
         */}
-        <Disclosure title="Position & Size">
+        <Section title="Position & Size">
           <div className="stack">
             <LegendSizeControls />
             <p className="hint">
@@ -209,7 +187,7 @@ const SECTIONS: SidebarSection[] = [
               and drag its corner to resize it.
             </p>
           </div>
-        </Disclosure>
+        </Section>
       </div>
     ),
   },
@@ -218,35 +196,6 @@ const SECTIONS: SidebarSection[] = [
    * moves the map, zooms it or changes what is drawn.
    */
   { id: 'canvas', name: 'Canvas', body: <ScreenControls /> },
-  {
-    /* The editor's own preferences — nothing here is about the map being made. */
-    id: 'settings',
-    name: 'Settings',
-    body: (
-      <div className="stack">
-        <Disclosure title="Appearance">
-          <div className="sidebar__group">
-            <span className="sidebar__group-label">Theme</span>
-            <ThemePicker />
-          </div>
-        </Disclosure>
-        <Disclosure title="Data Sources">
-          <DataSources />
-        </Disclosure>
-      </div>
-    ),
-  },
-  {
-    id: 'assistant',
-    name: 'AI',
-    /* Space held for a feature that is architected but not built: one line, not a panel of nothing. */
-    body: (
-      <p className="hint">
-        <span className="badge">Coming soon</span> Describe a map in words and the assistant will
-        build it through the same operations the editor uses.
-      </p>
-    ),
-  },
   {
     /*
      * At the bottom: the map out as a blank SVG to edit anywhere, and the edited file back in.

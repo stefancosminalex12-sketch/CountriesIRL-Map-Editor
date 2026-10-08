@@ -310,6 +310,11 @@ interface MapStore {
   overlayMode: boolean
   /** The overlay being edited, or `null`. */
   activeOverlayId: string | null
+  /**
+   * The sticker clicked on the map — named by the entity wearing it — whose colour, size and
+   * picture the Stickers panel then edits, or `null`. Not undoable, not saved.
+   */
+  activeStickerId: CountryId | null
 
   /* operation log — the audit trail the AI assistant will write into */
   log: OperationResult[]
@@ -337,6 +342,8 @@ interface MapStore {
   createMergeGroup: () => string
   setOverlayMode: (on: boolean) => void
   setActiveOverlay: (id: string | null) => void
+  /** Chooses the sticker on `id` to edit, or `null` for none. Touches no selection. */
+  setActiveSticker: (id: CountryId | null) => void
   /**
    * Makes an overlay of each selected entity — a country, a region, a merged group — and chooses
    * the last. One undo step. Returns the new overlays' ids.
@@ -520,6 +527,7 @@ export const useMapStore = create<MapStore>((set, get) => {
 
   overlayMode: false,
   activeOverlayId: null,
+  activeStickerId: null,
 
   log: [],
 
@@ -622,6 +630,7 @@ export const useMapStore = create<MapStore>((set, get) => {
       activeMergeId: null,
       parked,
       activeOverlayId: null,
+      activeStickerId: null,
       /*
        * The other map's geometry is not this map's. Clearing it rather than leaving the
        * previous atlas's features on screen is what stops a frame of Europe appearing
@@ -859,6 +868,10 @@ export const useMapStore = create<MapStore>((set, get) => {
 
   setActiveOverlay(id) {
     if (get().activeOverlayId !== id) set({ activeOverlayId: id })
+  },
+
+  setActiveSticker(id) {
+    if (get().activeStickerId !== id) set({ activeStickerId: id })
   },
 
   /**

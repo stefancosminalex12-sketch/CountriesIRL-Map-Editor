@@ -15,6 +15,7 @@ import { recolorSticker } from '../stickers/recolor'
 import { FACE_COLORS } from '../stickers/faceMaker'
 import { StickerColorRow } from './StickerColorRow'
 import { PickedStickerActions } from './StickerLibrary'
+import { swapChosenSticker } from './useSelectionStickers'
 
 interface CatalogueSet {
   prefix: string
@@ -140,6 +141,7 @@ export function StickerFinder() {
     const id = `user:icon-${set.prefix}-${name}${color ? `-${color.slice(1)}` : ''}`
     if (uploads.some((s) => s.id === id)) {
       pick(id)
+      swapChosenSticker(id)
       return
     }
     setAdding(id)
@@ -154,6 +156,8 @@ export function StickerFinder() {
       // Picked for this session; kept only if it joins the tiers (see `keep`).
       add([{ id, name: colourName ? `${prettyName(name)} (${colourName})` : prettyName(name), src }], false)
       pick(id)
+      // A sticker chosen on the map takes this one instead.
+      swapChosenSticker(id)
     } finally {
       setAdding(null)
     }

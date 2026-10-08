@@ -32,7 +32,7 @@ import type { Sticker } from '../stickers/types'
 import type { CountryId } from '../types/map'
 import { StickerColorRow } from './StickerColorRow'
 import { LazyThumb } from './LazyThumb'
-import { useSelectionStickers } from './useSelectionStickers'
+import { swapChosenSticker, useSelectionStickers } from './useSelectionStickers'
 import { useNoun } from '../maps/useNoun'
 
 /** `value`, once it has stopped changing for `ms` — so dragging the colour picker redraws once. */
@@ -94,6 +94,12 @@ export function StickerLibrary() {
 
   /* ---- picking ---- */
   const choose = (id: string) => {
+    // A sticker chosen on the map takes the one picked here instead.
+    if (swapChosenSticker(id)) {
+      pick(id)
+      setMessage(null)
+      return
+    }
     pick(pickedId === id ? null : id)
     setMessage(null)
   }
