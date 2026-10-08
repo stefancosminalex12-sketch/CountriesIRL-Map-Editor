@@ -1310,7 +1310,7 @@ Select          Tool [Normal ▾] · region groups · Entities Selected
 Merge           groups: new, name, flag, members
 Hide            Hide selected · Show all
 Overlay         create · the list · the chosen overlay: Appearance, Size and place, Display mode
-Styles & Data   [Off / Data / Compare / Flags and each mode's workflow]
+Data            [Data / Groups / Flags, the one on pressed again is off] · each mode's workflow
 Stickers        Library · Emoji · Create · Size · Tiers
 Legend          Visibility · Content · Appearance · Layout · Position & Size
 Canvas          Aspect Ratio · Dimensions · Framing
@@ -2294,7 +2294,12 @@ or life expectancy costs one object and no code. Band colours are categorical an
 of them is near white either, for the same reason — a threshold map's lowest band is a
 real reading, not an absence.
 
-**Compare** is a separate mode, not a palette. It answers "which of these two" rather
+**The Data section** (it was Styles & Data) has three mode chips — **Data**, **Groups**,
+**Flags** — and no Off: none on is colouring off, and pressing the chip that is on turns it off
+(`setMode` in `ui/DataPalette.tsx`), with a line saying so while nothing is on. Under Data the scale
+chips are **Custom** and **Predefined**.
+
+**Groups** (it was called Compare) is a separate mode, not a palette. It answers "which of these two" rather
 than "how much", reads no values at all, and picks its own two colours. Sides are
 assigned to *groups*, which is what the group system is for and what keeps the
 assignment out of the countries themselves: a country can sit in groups on both sides
@@ -2852,7 +2857,7 @@ on each keystroke — so a rename is one operation and one undo step however lon
 — and because everything that shows a group reads `group.name`, the legend and the
 colour control's label follow with no wiring of their own.
 
-**In Compare mode the inspector stops at its first line.** Everything below it edits
+**In Groups mode the inspector stops at its first line.** Everything below it edits
 values, and comparison reads no values at all — it colours by membership — so a card per
 selected country was a column of controls that did nothing for the mode in use. Worse, it
 grew with the selection: twenty countries meant twenty cards above the Compare panel,
@@ -3023,7 +3028,7 @@ country or region in that group: a group holding France, Germany, Italy and Spai
 puts "50" on all four. Its own switch, independent of **Region Names** and **Data Values** — any of
 the three, or none — and nothing to do with Merge Groups.
 
-The value is set on the group itself: under the active group in **Styles & Data → Compare**, a
+The value is set on the group itself: under the active group in **Data → Groups**, a
 **Group value** field, written on Enter or when the field is left, as one undo step. A number is
 stored as a number ("50", "1,200"), anything else as the text typed ("High"), and an empty field
 removes it; each group's value is shown in its row beside the member count. It is `value` on the
@@ -3050,7 +3055,7 @@ usually a choropleth too, with each country coloured and faced by the same numbe
 on suspends nothing, and nothing suspends them.
 
 **The tiers follow the active scale.** The ladder is an ordered list of stickers, lowest value
-first. With **Follow the data** on and Styles & Data in Data mode:
+first. With **Follow the data** on and the Data section in Data mode:
 
 - **Predefined**: each band of the preset gets a rung. With as many stickers as bands it is one
   each; with fewer, neighbouring bands share one; with more, the ends are kept and the middle rungs
@@ -3149,7 +3154,10 @@ tapped, which filled **Yours** with emoji nobody chose to keep (a Disguised Face
 lives in the library for the session only (`add(…, false)`), and is saved when it joins the tiers
 (`keep`), since tiers outlast a refresh. On load, stored copies of that kind — emoji
 (`user:icon-…`) and the old gallery's face copies (`user:face-…`) — are dropped unless the saved
-tiers use them, and **Yours** shows only uploads and faces saved from Create (`isOwnSticker`).
+tiers use them, and **Yours** shows only uploads and stickers made in Create (`isOwnSticker`). Each stored sticker
+now records where it came from (`origin`: `upload` or `made`); one stored before that is judged by
+its format — a copy of a catalogue emoji is WebP, while an upload is redrawn as PNG and a made face
+is SVG — so an emoji copy saved by any route is dropped on load unless the tiers use it.
 
 **Create** makes new stickers, saved to the library like uploads:
 
@@ -3647,6 +3655,13 @@ then **coastline**: drawn in the map's line colour and width, and shown or hidde
 **Coastlines** switch exactly as the map's own coast is (the same goes for Solid and Flag fills;
 Hatching, Dots and None keep their coloured outline, as highlights over the map).
 
+**In Flags mode a Land copy flies its flag.** A Land overlay is more of the map, and with Data →
+Flags on the map's land is flags — so the copy shows its entity's flag (a merged group's own, or the
+one assigned to it), or under World Domination the one flag every country flies, framed and clipped
+as a Flag overlay is (`drawnOverlays` in `MapCanvas`). It used to stay the plain land colour, a blank
+shape on a map of flags. The overlay keeps its Land texture, so with Flags off it is land again. A
+group copy keeps the land colour, having no one flag.
+
 **Copies are their own things.** Each is named as a copy — "United States 2", "Canada 3" —
 numbered by how many copies of that entity the map already has, so a copy is never mistaken for
 the original or for another copy.
@@ -3956,7 +3971,7 @@ nothing — another template, a manual change, an undo — can alter a preset, a
 sets the same thing twice. A template may name the section to open afterwards, where the work it
 sets up is done.
 
-Choosing the colouring mode is shared with the mode chips in Styles & Data (`state/colourMode.ts`),
+Choosing the colouring mode is shared with the mode chips in Data (`state/colourMode.ts`),
 so a template turns Flags on exactly as clicking **Flags** does — the layer's scale set aside, the
 comparison off — rather than a second copy of that rule.
 
@@ -3968,7 +3983,7 @@ comparison off — rather than a second copy of that rule.
   High-Contrast Borders and Island Water Coverage off;
 - Region names, data values and Compare group values off, and Water Regions off, so a click on
   the sea never gets in the way of picking countries;
-- then it opens Styles & Data on Flags: select countries and use **Change Flag** to give them
+- then it opens Data on Flags: select countries and use **Change Flag** to give them
   another country's flag, or pick one flag in **Choose flag** to cover the whole world.
 
 **Predefined Data**: published figures on the map, with nothing typed in. It is one template for
@@ -3980,7 +3995,7 @@ every dataset. Click it and the datasets open under it: **HDI**, **GDP per capit
 - Data mode turns on with the **Predefined** scale and the dataset's own fixed thresholds;
 - the layer takes the dataset's name and unit ("$", "%"), so **Data Values** print "$90,027";
 - the legend is shown, with the source and year as its subtitle;
-- Styles & Data opens on Data.
+- Data opens on Data.
 
 The map on screen decides which values are used. `levelOf` reads the loaded entities' ids and
 works out whether they are countries (ISO 3166-1 alpha-3), US states (`US-CA` on USA States,
