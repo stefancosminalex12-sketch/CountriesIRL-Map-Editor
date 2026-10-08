@@ -236,16 +236,32 @@ function heart(cx: number, cy: number, r: number): string {
   )
 }
 
-/** A rose head: outer petals cupping a tight spiral, lit from the top left. */
+/**
+ * A rose head, seen a little from above: two back petals flaring out, the cupped bowl of the outer
+ * petals with their edges, the lip of the cup's opening, a tight spiral of petals inside it, the
+ * green sepals underneath, and a highlight from the top left.
+ */
 function rose(cx: number, cy: number, r: number): string {
   const t = `translate(${cx} ${cy}) scale(${r / 12})`
   return (
     `<g transform="${t}" ${RAISED}>` +
-    `<path d="M-12 1 C-13 -8 -6 -13 0 -12 C6 -13 13 -8 12 1 C11 9 5 12 0 12 C-5 12 -11 9 -12 1 Z" fill="url(#roseG)" stroke="#7a0a18" stroke-width="0.8"/>` +
-    `<path d="M-9 3 C-10 -4 -4 -8 1 -7 C6 -7 9 -3 8 2 C6 7 -6 8 -9 3 Z" fill="#e2263f" stroke="#8e0c20" stroke-width="0.7"/>` +
-    `<path d="M-5 0 C-5 -4 0 -6 3 -4 C6 -2 5 2 2 3 C-1 4 -3 1 -1 -1" fill="none" stroke="#a0122a" stroke-width="0.8" stroke-linecap="round"/>` +
-    `<path d="M-12 1 C-9 6 -4 8 0 8 C4 8 9 6 12 1" fill="none" stroke="#9b0f24" stroke-width="0.8" opacity="0.7"/>` +
-    `<ellipse cx="-5" cy="-7" rx="3.4" ry="1.8" fill="#ffffff" opacity="0.45" transform="rotate(-25 -5 -7)"/>` +
+    // Sepals.
+    `<path d="M-3 9 L-11 14 L-1 12.5 Z M3 9 L11 14 L1 12.5 Z M-1 11 L0 16 L1 11 Z" fill="#2f8a2f" stroke="#1f6a1f" stroke-width="0.6" stroke-linejoin="round"/>` +
+    // Back petals, flaring out either side.
+    `<path d="M-6 -4 C-13 -5 -15 -12 -9 -15 C-6 -16 -3 -13 -2 -9 Z" fill="#b3122d" stroke="#6e0816" stroke-width="0.7"/>` +
+    `<path d="M6 -4 C13 -5 15 -12 9 -15 C6 -16 3 -13 2 -9 Z" fill="#b3122d" stroke="#6e0816" stroke-width="0.7"/>` +
+    `<path d="M-4 -8 C-4 -14 4 -14 4 -8 Z" fill="#a50f28" stroke="#6e0816" stroke-width="0.6"/>` +
+    // The bowl of outer petals.
+    `<path d="M-12 -3 C-13 6 -7 12 0 12 C7 12 13 6 12 -3 C8 0 4 1 0 1 C-4 1 -8 0 -12 -3 Z" fill="url(#roseG)" stroke="#6e0816" stroke-width="0.8"/>` +
+    // The opening: dark inside, the front lip lighter.
+    `<ellipse cx="0" cy="-3.5" rx="9.5" ry="4.6" fill="#7d0a1c"/>` +
+    `<path d="M-10 -3 C-6 2.5 6 2.5 10 -3 C5 -0.5 -5 -0.5 -10 -3 Z" fill="#e8304a"/>` +
+    // The spiral of inner petals.
+    `<path d="M-6 -3.5 C-6 -7.5 1 -9 4.5 -6 C7 -3.5 4.5 -0.5 1 -0.8 C-2 -1 -2.8 -3.4 -0.6 -4.4 C1.2 -5.2 2.8 -3.8 1.8 -2.6" fill="none" stroke="#4e0410" stroke-width="1.1" stroke-linecap="round"/>` +
+    `<path d="M-5.5 -4.5 C-4 -7 -1 -7.4 1.5 -6.8" fill="none" stroke="#ff6b80" stroke-width="0.7" stroke-linecap="round" opacity="0.8"/>` +
+    // Where the outer petals overlap on the bowl.
+    `<path d="M-12 -2 C-10 5 -4 10 2 11.5 M12 -2 C11 4 7 8 1 9 M-5 1 C-6 5 -4 8 -1 10" fill="none" stroke="#8e0c20" stroke-width="0.8" stroke-linecap="round"/>` +
+    `<ellipse cx="-6.5" cy="4" rx="2.6" ry="1.4" fill="#ffffff" opacity="0.35" transform="rotate(-35 -6.5 4)"/>` +
     `</g>`
   )
 }
@@ -1076,12 +1092,12 @@ export const EXTRAS = {
           .map(([x, y, rx, ry, a]) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="#3d4a24" transform="rotate(${a} ${x} ${y})"/>`)
           .join('') +
         `</g>` +
-        specks(18, 10, 110, -4, 46, 0.4, 1.1, '#1e2610', 0.45) +
+        specks(30, 7, 112, -8, 48, 0.5, 1.5, '#1e2610', 0.55) +
         `<path d="M70 8 L77 12 M84 22 L88 30 M30 26 L36 24 M60 36 L66 38" stroke="#a7b27a" stroke-width="0.9" stroke-linecap="round" opacity="0.6"/>` +
         `</g>` +
         `<path d="M1 44 Q60 55 119 44 Q120 49 118 51 Q60 62 2 51 Q0 49 1 44 Z" fill="#56652f" stroke="${c.ink}" stroke-width="1.8"/>` +
         `<path d="M4 46 Q60 56.5 116 46" fill="none" stroke="#7f8f4c" stroke-width="1.1" stroke-linecap="round"/>` +
-        specks(8, 6, 114, 45, 56, 0.35, 0.8, '#232c14', 0.5) +
+        specks(12, 4, 116, 44, 58, 0.4, 1, '#232c14', 0.6) +
         `</g>` +
         `<ellipse cx="38" cy="10" rx="17" ry="7" fill="#ffffff" opacity="0.22" transform="rotate(-24 38 10)"/>` +
         `</g>`
@@ -1093,10 +1109,10 @@ export const EXTRAS = {
     name: 'Battle grime',
     draw: () =>
       `<g clip-path="url(#head)">` +
-      `<ellipse cx="26" cy="84" rx="9" ry="5" fill="#2a1d10" opacity="0.1" filter="url(#soft)" transform="rotate(-20 26 84)"/>` +
-      `<ellipse cx="94" cy="80" rx="7" ry="4" fill="#2a1d10" opacity="0.08" filter="url(#soft)"/>` +
-      `<ellipse cx="70" cy="100" rx="10" ry="4" fill="#2a1d10" opacity="0.08" filter="url(#soft)"/>` +
-      specks(22, 16, 104, 36, 106, 0.3, 0.8, '#1c140a', 0.2) +
+      `<ellipse cx="26" cy="84" rx="9" ry="5" fill="#2a1d10" opacity="0.14" filter="url(#soft)" transform="rotate(-20 26 84)"/>` +
+      `<ellipse cx="94" cy="78" rx="7" ry="4" fill="#2a1d10" opacity="0.12" filter="url(#soft)"/>` +
+      `<ellipse cx="72" cy="100" rx="10" ry="4" fill="#2a1d10" opacity="0.12" filter="url(#soft)"/>` +
+      specks(46, 13, 107, 30, 110, 0.35, 1.2, '#1c140a', 0.3) +
       `</g>`,
   },
   catEars: {

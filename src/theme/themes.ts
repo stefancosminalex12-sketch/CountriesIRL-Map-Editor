@@ -192,11 +192,12 @@ const light: Theme = {
     inset: '#d3d7dd',
     line: '#c6cad1',
     lineStrong: '#a3a9b3',
-    text: '#242a33',
+    // The author's navy for what is chosen and for the ink, and an off-white instead of pure white.
+    text: '#0b1725',
     textDim: '#657081',
-    accent: '#3b7ea8',
-    accentText: '#ffffff',
-    accentSoft: '#d6e4ee',
+    accent: '#0b1725',
+    accentText: '#fffffd',
+    accentSoft: '#d5dbe3',
   },
   map: {
     background: '#c9d8e2',
@@ -244,7 +245,7 @@ const geographic: Theme = {
     text: '#2f2b23',
     textDim: '#6b6350',
     accent: '#38705f',
-    accentText: '#ffffff',
+    accentText: '#fffffd',
     accentSoft: '#d3e0d8',
   },
   map: {
