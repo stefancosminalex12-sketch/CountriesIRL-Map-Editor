@@ -37,6 +37,15 @@ export const MAX_EDGE = 256
  */
 const AUTO_SAVED = /^user:(icon|face)-/
 
+/**
+ * Whether a stored sticker is the author's own: an upload or one made in Create — not an emoji or
+ * a face copy the editor stored by itself. Stickers stored before `origin` was recorded are judged
+ * by what they are: copies of catalogue emoji are WebP (an upload is redrawn as PNG, a made face is
+ * SVG), so a WebP with no origin is one of those, however it came to be saved.
+ */
+export const isOwnSticker = (s: Sticker) =>
+  s.origin !== undefined || (!AUTO_SAVED.test(s.id) && !s.src.startsWith('data:image/webp'))
+
 function ladderIds(): Set<string> {
   try {
     const parsed = JSON.parse(localStorage.getItem('map-editor.stickers.ladder.v1') ?? '[]') as unknown
@@ -62,7 +71,7 @@ function read(): Sticker[] {
         typeof s.src === 'string' &&
         s.src.startsWith('data:image/'),
     )
-    const kept = stickers.filter((s) => !AUTO_SAVED.test(s.id) || inLadder.has(s.id))
+    const kept = stickers.filter((s) => isOwnSticker(s) || inLadder.has(s.id))
     if (kept.length !== stickers.length) write(kept)
     return kept
   } catch {
@@ -163,9 +172,6 @@ export function saveLadder(ladder: string[]): void {
   }
 }
 
-/** Whether a stored sticker is one the author made or uploaded, rather than an emoji or old face copy. */
-export const isOwnSticker = (s: Sticker) => !AUTO_SAVED.test(s.id)
-
 /** Every sticker on offer, built-in first. */
 export function allStickers(uploads: Sticker[]): Sticker[] {
   return [...BUILTIN_STICKERS, ...uploads]
@@ -260,7 +266,7 @@ export async function stickerFromFile(file: File): Promise<Sticker> {
   if (!file.type.startsWith('image/')) throw new Error(`${file.name} is not an image`)
   const original = await readAsDataUrl(file)
   const name = nameFromFile(file)
-  if (file.type === 'image/svg+xml') return { id: newId(), name, src: original }
+  if (file.type === 'image/svg+xml') return { id: newId(), name, src: original, origin: 'upload' }
 
   const image = await loadImage(original)
   const longest = Math.max(image.naturalWidth, image.naturalHeight)
@@ -270,8 +276,8 @@ export async function stickerFromFile(file: File): Promise<Sticker> {
   canvas.width = Math.max(1, Math.round(image.naturalWidth * scale))
   canvas.height = Math.max(1, Math.round(image.naturalHeight * scale))
   const context = canvas.getContext('2d')
-  if (!context) return { id: newId(), name, src: original }
+  if (!context) return { id: newId(), name, src: original, origin: 'upload' }
   context.imageSmoothingQuality = 'high'
   context.drawImage(image, 0, 0, canvas.width, canvas.height)
-  return { id: newId(), name, src: canvas.toDataURL('image/png') }
+  return { id: newId(), name, src: canvas.toDataURL('image/png'), origin: 'upload' }
 }

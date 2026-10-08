@@ -40,7 +40,7 @@ function useStatus(): string {
   if (!mode.auto) return 'Only stickers you place by hand are shown.'
   const colour = colourModeOf(doc)
   if (colour !== 'data') {
-    return 'Following the data needs Styles & Data in Data mode. Stickers you place by hand still show.'
+    return 'Following the data needs Data → Data mode. Stickers you place by hand still show.'
   }
   const layer = doc.layers.find((l) => l.id === doc.activeLayerId) ?? doc.layers[0]
   if (layer?.colorScale.mode === 'threshold') {

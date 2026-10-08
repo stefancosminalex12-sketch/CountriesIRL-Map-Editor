@@ -177,16 +177,15 @@ const SECTIONS: SidebarSection[] = [
   /* Copies of an entity's shape laid over another place. */
   { id: 'overlay', name: 'Overlay', body: <OverlayControls /> },
   {
-    /* The colouring modes — Off, Data, Compare, Flags — and each mode's own workflow. */
+    /* The colouring modes — Data, Groups, Flags; none on is off — and each mode's own workflow. */
     id: 'data',
-    name: 'Styles & Data',
-    short: 'Styles',
+    name: 'Data',
     body: <DataPalette />,
   },
   {
     /*
      * Pictures on the territories — faces, icons — chosen by the data or put there by hand. Next to
-     * Styles & Data because the tiers follow its active scale. See `state/stickers.ts`.
+     * Data because the tiers follow its active scale. See `state/stickers.ts`.
      */
     id: 'stickers',
     name: 'Stickers',

@@ -1499,7 +1499,7 @@ body {
 }
 
 /**
- * Two-up variant, for the Palette/Predefined split and the 6/9 step pair.
+ * Two-up variant, for the Custom/Predefined split and the 6/9 step pair.
  *
  * Same chips, same centring, one fewer column — so the second row of the colouring
  * panel reads as a continuation of the first rather than as a different control.
@@ -1508,7 +1508,12 @@ body {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-/** Four-up, for the visualisation modes. Tightened so the labels still fit at 244px. */
+/** Three-up, for the colouring modes: Data, Groups, Flags. */
+.mode-switch--trio {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/** Four-up. Tightened so the labels still fit at 244px. Tightened so the labels still fit at 244px. */
 .mode-switch--quad {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }

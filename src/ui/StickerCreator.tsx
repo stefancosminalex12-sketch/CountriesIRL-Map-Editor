@@ -73,7 +73,7 @@ function FaceMaker() {
     update({ extras: face.extras.includes(id) ? face.extras.filter((e) => e !== id) : [...face.extras, id] })
 
   const save = () => {
-    const sticker = { id: newId(), name: name.trim() || `${MOUTHS[face.mouth].name} face`, src: preview }
+    const sticker = { id: newId(), name: name.trim() || `${MOUTHS[face.mouth].name} face`, src: preview, origin: 'made' as const }
     const stored = add([sticker])
     pick(sticker.id)
     setSaved(stored ? `Saved “${sticker.name}” to your library.` : 'Saved, but this browser is out of storage space.')
@@ -172,7 +172,7 @@ function Recolour() {
   const colourName = FACE_COLORS.find((c) => c.color === color)?.name ?? color
   const save = () => {
     if (!preview) return
-    const sticker = { id: newId(), name: `${source.name} (${colourName})`, src: preview }
+    const sticker = { id: newId(), name: `${source.name} (${colourName})`, src: preview, origin: 'made' as const }
     add([sticker])
     pick(sticker.id)
   }

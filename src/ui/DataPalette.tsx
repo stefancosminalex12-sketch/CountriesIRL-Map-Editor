@@ -1,10 +1,11 @@
 /**
  * Colouring controls: how the map turns data into colour.
  *
- * Three mutually exclusive top-level modes, because a map can only answer one
- * question at a time. **Off** leaves every country its land colour. **Data** reads the
- * active layer's values. And **Compare** puts two groups against each other, reading
- * no values at all.
+ * Three mutually exclusive modes, because a map can only answer one question at a time:
+ * **Data** reads the active layer's values, **Groups** (the comparison) puts groups against
+ * each other, reading no values at all, and **Flags** shows each country's flag. None on is
+ * colouring off — every country its land colour — and pressing the mode that is on turns it
+ * off, so there is no Off button.
  *
  * Data then splits again, into the two ways a number can become a colour:
  *
@@ -89,6 +90,8 @@ export function DataPalette() {
    * restores the scale that was in use, because the panel remembers which one it was.
    */
   const setMode = (next: ColorMode) => {
+    // Pressing the mode already on turns colouring off: there is no separate Off button.
+    if (next === mode) next = 'none'
     if (next === mode) return
     // The same move the built-in templates make — see `state/colourMode.ts`.
     const resume = scale === 'predefined' ? 'threshold' : scale === 'imported' ? 'categorical' : 'numeric'
@@ -109,11 +112,14 @@ export function DataPalette() {
 
   return (
     <div className="stack">
-      <div className="mode-switch mode-switch--quad" role="group" aria-label="Visualisation mode">
+      {/*
+        Three modes; none on is colouring off. Pressing the one that is on turns it off again,
+        so there is no Off button to find.
+      */}
+      <div className="mode-switch mode-switch--trio" role="group" aria-label="Visualisation mode">
         {([
-          ['none', 'Off'],
           ['data', 'Data'],
-          ['comparison', 'Compare'],
+          ['comparison', 'Groups'],
           ['flags', 'Flags'],
         ] as [ColorMode, string][]).map(([id, label]) => (
           <button
@@ -121,12 +127,17 @@ export function DataPalette() {
             type="button"
             className={`chip${mode === id ? ' chip--active' : ''}`}
             aria-pressed={mode === id}
+            title={mode === id ? `Turn ${label} off` : undefined}
             onClick={() => setMode(id)}
           >
             {label}
           </button>
         ))}
       </div>
+
+      {mode === 'none' && (
+        <p className="hint">Colouring is off. Pick Data, Groups or Flags; press it again to turn it off.</p>
+      )}
 
       {mode === 'data' && (
         <>
@@ -195,7 +206,7 @@ export function DataPalette() {
           <p className="hint">
             Each country shows its own flag. Data colouring is paused while this is on —
             your values, groups and palette are kept and come back when you switch to
-            Data or Compare.
+            Data or Groups.
           </p>
           {/*
             Shown with the mode it belongs to rather than in the settings panel, because

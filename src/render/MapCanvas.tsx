@@ -2330,18 +2330,34 @@ export function MapCanvas() {
    * so it is asked for here, for the code each overlay chose, from the same store every flag comes
    * from — and handed to the overlay layer only once it has arrived.
    */
+  /*
+   * The overlays as drawn. A Land overlay is more of the map, so in Flags mode it is what the map's
+   * land is there — its entity's flag, or under World Domination the one flag every country flies —
+   * rather than a blank shape on a map of flags. The overlay itself keeps its Land texture: with
+   * Flags off it is land coloured again. A group copy keeps the land colour, having no one flag.
+   */
+  const drawnOverlays = useMemo(() => {
+    if (!flagsOn) return visibleOverlays
+    const mergeFlag = new Map(doc.merges.map((m) => [m.id, m.flag]))
+    return visibleOverlays.map((overlay) => {
+      if (overlay.texture !== 'land' || (overlay.members && overlay.members.length > 1)) return overlay
+      const flag = dominationCode ?? mergeFlag.get(overlay.sourceId) ?? flagCodeOf(overlay.sourceId)
+      return flag ? { ...overlay, texture: 'flag' as const, flag } : overlay
+    })
+  }, [flagsOn, visibleOverlays, doc.merges, dominationCode, flagCodeOf])
+
   const overlayFlagCodes = useMemo(
-    () => [...new Set(overlays.filter((o) => o.texture === 'flag' && o.flag).map((o) => o.flag as string))],
-    [overlays],
+    () => [...new Set(drawnOverlays.filter((o) => o.texture === 'flag' && o.flag).map((o) => o.flag as string))],
+    [drawnOverlays],
   )
   useEffect(() => {
     if (overlayFlagCodes.length) requestFlags(overlayFlagCodes)
   }, [overlayFlagCodes, requestFlags])
   const overlayFlags = useMemo(() => {
     const out = new Map<string, string>()
-    for (const o of overlays) if (o.texture === 'flag' && o.flag && loadedFlags[o.flag]) out.set(o.id, loadedFlags[o.flag])
+    for (const o of drawnOverlays) if (o.texture === 'flag' && o.flag && loadedFlags[o.flag]) out.set(o.id, loadedFlags[o.flag])
     return out
-  }, [overlays, loadedFlags])
+  }, [drawnOverlays, loadedFlags])
 
   /**
    * Artwork for the water, which the land layer's budget does not cover.
@@ -3687,9 +3703,9 @@ export function MapCanvas() {
             Map overlays, over everything the map draws and inside the camera, so they move with
             the land and are exported with it — see `MapOverlays`.
           */}
-          {projection && visibleOverlays.length > 0 && (
+          {projection && drawnOverlays.length > 0 && (
             <MapOverlays
-              overlays={visibleOverlays}
+              overlays={drawnOverlays}
               sources={overlaySources}
               projection={projection}
               zoomK={zoomK}

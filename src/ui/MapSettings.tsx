@@ -238,13 +238,13 @@ export function LabelsAndHelpers() {
           onChange={(values) => dispatch({ op: 'set_labels', patch: { values } })}
         />
         {/*
-          Each Compare group's value on every member of the group — the value set on the group in
-          Styles & Data → Compare. Its own switch, independent of the names and of the entities'
+          Each group's value on every member of the group — the value set on the group in
+          Data → Groups. Its own switch, independent of the names and of the entities'
           own data values, and nothing to do with Merge Groups. See `CountryLabels.compareValues`.
         */}
         <MapToggle
           icon="compare"
-          label="Compare Group Values"
+          label="Group Values"
           checked={labels.compareValues ?? false}
           onChange={(compareValues) => dispatch({ op: 'set_labels', patch: { compareValues } })}
         />
