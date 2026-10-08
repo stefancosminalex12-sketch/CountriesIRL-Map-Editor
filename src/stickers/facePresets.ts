@@ -33,7 +33,7 @@ const COLLECTION: Row[] = [
   ['Rose in Teeth', 'smug', 'suspicious', 'troll', ['rose', 'floatHearts']],
   ['Sneaky Grin', 'halfSide', 'calm', 'fewTeeth'],
   ['Big Puppy Eyes', 'glossy', 'worried', 'wobble'],
-  ['Fading Away', 'round', 'worried', 'frownSmall', ['wave', 'motion', 'fadeAway']],
+  ['Fading Away', 'round', 'worried', 'frownSmall', ['byeLeft', 'motion', 'fadeAway']],
   ['Cat Face', 'cat', 'calm', 'flat', ['catEars']],
   ['Thousand-Yard Stare', 'bloodshot', 'worried', 'frownSmall', ['helmet']],
   ['Mewing', 'halfSide', 'worried', 'lips', ['mewing']],
