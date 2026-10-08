@@ -8,7 +8,7 @@
  *
  * Data then splits again, into the two ways a number can become a colour:
  *
- * - **Palette** — relative. A country's colour is its position between the lowest and
+ * - **Custom** (the `palette` scale) — relative. A country's colour is its position between the lowest and
  *   the highest value on the map, so the scale moves when the data moves. Right for a
  *   quantity that means nothing on its own.
  * - **Predefined** — fixed. A country's colour is the published band its number falls
@@ -132,7 +132,7 @@ export function DataPalette() {
         <>
           <div className="mode-switch mode-switch--pair" role="group" aria-label="Data scale">
             {([
-              ['palette', 'Palette'],
+              ['palette', 'Custom'],
               ['predefined', 'Predefined'],
               ...(scale === 'imported' ? [['imported', 'Imported']] : []),
             ] as [DataScale, string][]).map(([id, label]) => (
@@ -149,12 +149,18 @@ export function DataPalette() {
           </div>
 
           {scale === 'palette' ? (
-            <PaletteControls dataKey={key} />
+            <>
+              <p className="hint">
+                Your own values, on a scale of their own: the lowest number on the map gets one end of the
+                colours, the highest gets the other, and everything between falls in line.
+              </p>
+              <PaletteControls dataKey={key} />
+            </>
           ) : scale === 'predefined' ? (
             <PresetControls dataKey={key} />
           ) : (
             <p className="hint">
-              Colours from an imported SVG, exactly as the file gave them. Choose Palette or Predefined
+              Colours from an imported SVG, exactly as the file gave them. Choose Custom or Predefined
               to colour the same values with the editor&rsquo;s own scales.
             </p>
           )}
@@ -322,7 +328,7 @@ function PaletteControls({ dataKey }: { dataKey: string }) {
   return (
     <>
       <SelectField
-        label="Palette"
+        label="Colours"
         value={chosen.family}
         onChange={(family) => {
           dispatch({

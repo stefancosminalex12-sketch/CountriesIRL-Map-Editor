@@ -21,6 +21,7 @@ import { FACE_PRESETS, presetFace } from '../stickers/facePresets'
 import {
   colourName,
   faceStickerId,
+  isOwnSticker,
   parseFaceSticker,
   saveLadder,
   stickerFromFile,
@@ -54,23 +55,18 @@ export function StickerLibrary() {
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
-  const { uploads, add, remove, pickedId, pick, setFace } = useStickerLibrary()
-  const doc = useMapStore((s) => s.doc)
+  const { uploads, add, pickedId, pick } = useStickerLibrary()
   const dispatch = useMapStore((s) => s.dispatch)
   const onSelection = useSelectionStickers()
   const noun = useNoun()
-  const mode = stickersOf(doc)
   const gridColor = useSettled(color.toLowerCase(), 150)
 
-  const index = useMemo(() => stickerIndex(uploads), [uploads])
-  const picked = pickedId ? index.get(pickedId) : undefined
   const pickedFace = pickedId ? parseFaceSticker(pickedId) : null
-  const isUpload = !!picked && uploads.some((s) => s.id === picked.id)
 
   const words = query.toLowerCase().split(/\s+/).filter(Boolean)
   const matches = (name: string) => words.every((w) => name.toLowerCase().includes(w))
-  // The author's own stickers. Faces the old gallery stored as copies are drawn from their ids now.
-  const mine = uploads.filter((s) => !s.id.startsWith('user:face-') && matches(s.name))
+  // The author's own: uploads and faces saved from Create — not emoji picked this session.
+  const mine = uploads.filter((s) => isOwnSticker(s) && matches(s.name))
   const faces = useMemo(() => FACE_PRESETS.filter((p) => matches(p.name)), [query]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ---- colour: the grid, and the picked face where it is being worked on ---- */
@@ -102,39 +98,6 @@ export function StickerLibrary() {
     setMessage(null)
   }
 
-  /* ---- actions ---- */
-  const putOn = () => {
-    if (!picked) return
-    onSelection.putOn(picked.id)
-    setMessage(`Put on ${onSelection.label}.`)
-  }
-  const takeOff = () => {
-    onSelection.remove()
-    setMessage(`Removed from ${onSelection.label}.`)
-  }
-  const addToTiers = () => {
-    if (!picked) return
-    const ladder = [...mode.ladder, picked.id]
-    dispatch({ op: 'set_stickers', patch: { ladder, enabled: true } })
-    saveLadder(ladder)
-    setMessage(`Added to the tiers as tier ${ladder.length}.`)
-  }
-  const edit = () => {
-    if (!pickedFace) return
-    setFace(presetFace(pickedFace.preset, pickedFace.color))
-    setMessage('Opened in Create → Face maker.')
-  }
-  const deletePicked = () => {
-    if (!picked || !isUpload) return
-    const ladder = mode.ladder.filter((id) => id !== picked.id)
-    if (ladder.length !== mode.ladder.length) {
-      dispatch({ op: 'set_stickers', patch: { ladder } })
-      saveLadder(ladder)
-    }
-    remove(picked.id)
-    pick(null)
-  }
-
   const upload = async (files: FileList | null) => {
     if (!files || files.length === 0) return
     setBusy(true)
@@ -161,8 +124,6 @@ export function StickerLibrary() {
     setBusy(false)
     if (fileInput.current) fileInput.current.value = ''
   }
-
-  const handPlaced = onSelection.selected.filter((id) => id in mode.overrides)
 
   return (
     <div className="stack">
@@ -226,64 +187,123 @@ export function StickerLibrary() {
         {busy ? 'Adding…' : 'Upload images…'}
       </button>
 
-      <div className="stack sticker-gallery__actions">
-        {picked ? (
-          <p className="hint">
-            <strong>{pickedFace ? pickedFace.preset.name : picked.name}</strong>
-            {pickedFace ? ` in ${colourName(pickedFace.color).toLowerCase()}` : ''}
-          </p>
-        ) : (
-          <p className="hint">Pick a sticker. Select {noun.many} on the map first to put it straight on them.</p>
-        )}
-        {onSelection.selected.length > 0 && (
-          <>
-            {picked && (
-              <button type="button" className="btn btn--on" onClick={putOn}>
-                Put on {onSelection.label}
-              </button>
-            )}
-            <button
-              type="button"
-              className="btn"
-              disabled={!onSelection.canRemove}
-              title={`Take the sticker off ${onSelection.label}`}
-              onClick={takeOff}
-            >
-              Remove
-            </button>
-          </>
-        )}
-        {picked && (
-          <div className="mode-switch mode-switch--pair">
-            <button type="button" className="btn" onClick={addToTiers}>
-              Add to tiers
-            </button>
-            {pickedFace ? (
-              <button type="button" className="btn" onClick={edit}>
-                Edit in face maker
-              </button>
-            ) : isUpload ? (
-              <button type="button" className="btn btn--ghost" onClick={deletePicked}>
-                Delete
-              </button>
-            ) : null}
-          </div>
-        )}
-        {handPlaced.length > 0 && (
-          <button
-            type="button"
-            className="btn btn--ghost"
-            title="Let the data choose again"
-            onClick={() => dispatch({ op: 'clear_sticker', countryIds: handPlaced })}
-          >
-            Back to data
-          </button>
-        )}
-        {message && <p className="hint">{message}</p>}
-      </div>
+      <PickedStickerActions note={message} />
       <p className="hint">
         Uploads are saved in this browser for every map, shrunk to 256 px, which is plenty for a sticker.
       </p>
+    </div>
+  )
+}
+
+/**
+ * What to do with the picked sticker — put it on the selection, take a sticker off it, add it to
+ * the tiers, open a face in the face maker, delete an upload — and Back to data for the
+ * selection. Shown under the Library and under Emoji, so a sticker can be used where it was found.
+ */
+export function PickedStickerActions({ note }: { note?: string | null }) {
+  const [message, setMessage] = useState<string | null>(null)
+  const { uploads, remove, pickedId, pick, setFace, keep } = useStickerLibrary()
+  const doc = useMapStore((s) => s.doc)
+  const dispatch = useMapStore((s) => s.dispatch)
+  const onSelection = useSelectionStickers()
+  const noun = useNoun()
+  const mode = stickersOf(doc)
+  const index = useMemo(() => stickerIndex(uploads), [uploads])
+  const picked = pickedId ? index.get(pickedId) : undefined
+  const pickedFace = pickedId ? parseFaceSticker(pickedId) : null
+  const isUpload = !!picked && uploads.some((s) => s.id === picked.id && isOwnSticker(s))
+  useEffect(() => setMessage(null), [pickedId])
+
+  const putOn = () => {
+    if (!picked) return
+    onSelection.putOn(picked.id)
+    setMessage(`Put on ${onSelection.label}.`)
+  }
+  const takeOff = () => {
+    onSelection.remove()
+    setMessage(`Removed from ${onSelection.label}.`)
+  }
+  const addToTiers = () => {
+    if (!picked) return
+    const ladder = [...mode.ladder, picked.id]
+    keep(picked.id)
+    dispatch({ op: 'set_stickers', patch: { ladder, enabled: true } })
+    saveLadder(ladder)
+    setMessage(`Added to the tiers as tier ${ladder.length}.`)
+  }
+  const edit = () => {
+    if (!pickedFace) return
+    setFace(presetFace(pickedFace.preset, pickedFace.color))
+    setMessage('Opened in Create → Face maker.')
+  }
+  const deletePicked = () => {
+    if (!picked || !isUpload) return
+    const ladder = mode.ladder.filter((id) => id !== picked.id)
+    if (ladder.length !== mode.ladder.length) {
+      dispatch({ op: 'set_stickers', patch: { ladder } })
+      saveLadder(ladder)
+    }
+    remove(picked.id)
+    pick(null)
+  }
+  const handPlaced = onSelection.selected.filter((id) => id in mode.overrides)
+  const shown = message ?? note
+
+  return (
+    <div className="stack sticker-gallery__actions">
+      {picked ? (
+        <p className="hint">
+          <strong>{pickedFace ? pickedFace.preset.name : picked.name}</strong>
+          {pickedFace ? ` in ${colourName(pickedFace.color).toLowerCase()}` : ''}
+        </p>
+      ) : (
+        <p className="hint">Pick a sticker. Select {noun.many} on the map first to put it straight on them.</p>
+      )}
+      {onSelection.selected.length > 0 && (
+        <>
+          {picked && (
+            <button type="button" className="btn btn--on" onClick={putOn}>
+              Put on {onSelection.label}
+            </button>
+          )}
+          <button
+            type="button"
+            className="btn"
+            disabled={!onSelection.canRemove}
+            title={`Take the sticker off ${onSelection.label}`}
+            onClick={takeOff}
+          >
+            Remove
+          </button>
+        </>
+      )}
+      {picked && (
+        <div className="mode-switch mode-switch--pair">
+          <button type="button" className="btn" onClick={addToTiers}>
+            Add to tiers
+          </button>
+          {pickedFace ? (
+            <button type="button" className="btn" onClick={edit}>
+              Edit in face maker
+            </button>
+          ) : isUpload ? (
+            <button type="button" className="btn btn--ghost" onClick={deletePicked}>
+              Delete
+            </button>
+          ) : null}
+        </div>
+      )}
+      {handPlaced.length > 0 && (
+        <button
+          type="button"
+          className="btn btn--ghost"
+          title="Let the data choose again"
+          onClick={() => dispatch({ op: 'clear_sticker', countryIds: handPlaced })}
+        >
+          Back to data
+        </button>
+      )}
+      {shown && <p className="hint">{shown}</p>}
     </div>
   )
 }

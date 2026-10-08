@@ -6,7 +6,7 @@
  * are lazily loaded images, so a search costs the handful of files it shows.
  *
  * **Colour** works the way a recolourable emoji site does: pick blue and every face in the grid
- * turns blue, shading kept (see `stickers/recolor.ts`); tap one and it goes into the library in
+ * turns blue, shading kept (see `stickers/recolor.ts`); tap one and it is picked in
  * that colour. Only the thumbnails on screen are recoloured, each once per colour.
  */
 import { memo, useEffect, useMemo, useState } from 'react'
@@ -14,6 +14,7 @@ import { useStickerLibrary } from '../stickers/stickerLibrary'
 import { recolorSticker } from '../stickers/recolor'
 import { FACE_COLORS } from '../stickers/faceMaker'
 import { StickerColorRow } from './StickerColorRow'
+import { PickedStickerActions } from './StickerLibrary'
 
 interface CatalogueSet {
   prefix: string
@@ -150,7 +151,8 @@ export function StickerFinder() {
             if (!r.ok) throw new Error(String(r.status))
             return r.blob().then(readAsDataUrl)
           })
-      add([{ id, name: colourName ? `${prettyName(name)} (${colourName})` : prettyName(name), src }])
+      // Picked for this session; kept only if it joins the tiers (see `keep`).
+      add([{ id, name: colourName ? `${prettyName(name)} (${colourName})` : prettyName(name), src }], false)
       pick(id)
     } finally {
       setAdding(null)
@@ -186,7 +188,7 @@ export function StickerFinder() {
       </div>
 
       <p className="hint">
-        {results.length} found. Tap one to add it to your library{colourName ? ` in ${colourName.toLowerCase()}` : ''}.
+        {results.length} found. Tap one to pick it{colourName ? ` in ${colourName.toLowerCase()}` : ''}, then put it on the selection below.
       </p>
 
       <div className="sticker-grid sticker-grid--finder">
@@ -211,6 +213,7 @@ export function StickerFinder() {
           Show more
         </button>
       )}
+      <PickedStickerActions />
       <p className="hint">
         {data.sets.map((set) => `${set.name} by ${set.author} (${set.license})`).join(' · ')}. Free to use, including in
         videos.

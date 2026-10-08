@@ -28,13 +28,32 @@ const STORAGE_KEY = 'map-editor.stickers.v1'
 /** Longest edge an uploaded raster is stored at, in pixels. */
 export const MAX_EDGE = 256
 
+/**
+ * Copies the editor used to store on its own — an emoji the moment it was tapped
+ * (`user:icon-…`), a gallery face in each colour tried (`user:face-…`) — which filled the
+ * author's own stickers with things they never chose to keep. Dropped on load unless the saved
+ * tiers use them; emoji are now kept only for the session unless added to the tiers, and gallery
+ * faces are drawn from their ids.
+ */
+const AUTO_SAVED = /^user:(icon|face)-/
+
+function ladderIds(): Set<string> {
+  try {
+    const parsed = JSON.parse(localStorage.getItem('map-editor.stickers.ladder.v1') ?? '[]') as unknown
+    return new Set(Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : [])
+  } catch {
+    return new Set()
+  }
+}
+
 function read(): Sticker[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return []
     const parsed = JSON.parse(raw) as unknown
     if (!Array.isArray(parsed)) return []
-    return parsed.filter(
+    const inLadder = ladderIds()
+    const stickers = parsed.filter(
       (s): s is Sticker =>
         !!s &&
         typeof s.id === 'string' &&
@@ -43,15 +62,21 @@ function read(): Sticker[] {
         typeof s.src === 'string' &&
         s.src.startsWith('data:image/'),
     )
+    const kept = stickers.filter((s) => !AUTO_SAVED.test(s.id) || inLadder.has(s.id))
+    if (kept.length !== stickers.length) write(kept)
+    return kept
   } catch {
     return []
   }
 }
 
+/** Stickers in the library for this session only — an emoji picked but not yet kept. */
+const sessionOnly = new Set<string>()
+
 /** Writes the uploads, and says whether they fitted. */
 function write(uploads: Sticker[]): boolean {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(uploads))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(uploads.filter((s) => !sessionOnly.has(s.id))))
     return true
   } catch {
     return false
@@ -69,8 +94,13 @@ interface StickerLibrary {
   /** The face open in Create → Face maker, so the gallery can hand a preset to it. Not saved. */
   face: FaceOptions
   setFace: (face: FaceOptions) => void
-  /** Adds stickers; returns false when the browser would not store them (they still work until a refresh). */
-  add: (stickers: Sticker[]) => boolean
+  /**
+   * Adds stickers; returns false when the browser would not store them (they still work until a
+   * refresh). With `save` false they are kept for this session only, until `keep` saves them.
+   */
+  add: (stickers: Sticker[], save?: boolean) => boolean
+  /** Saves a session-only sticker, so it outlasts a refresh — done when it joins the tiers. */
+  keep: (id: string) => void
   remove: (id: string) => void
   rename: (id: string, name: string) => void
 }
@@ -81,12 +111,18 @@ export const useStickerLibrary = create<StickerLibrary>((set, get) => ({
   pick: (pickedId) => set({ pickedId }),
   face: DEFAULT_FACE,
   setFace: (face) => set({ face }),
-  add: (stickers) => {
+  add: (stickers, save = true) => {
+    if (!save) for (const s of stickers) sessionOnly.add(s.id)
     const uploads = [...get().uploads, ...stickers]
     set({ uploads })
     return write(uploads)
   },
+  keep: (id) => {
+    if (!sessionOnly.delete(id)) return
+    write(get().uploads)
+  },
   remove: (id) => {
+    sessionOnly.delete(id)
     const uploads = get().uploads.filter((s) => s.id !== id)
     set({ uploads, pickedId: get().pickedId === id ? null : get().pickedId })
     write(uploads)
@@ -126,6 +162,9 @@ export function saveLadder(ladder: string[]): void {
     // Private browsing or a full quota: the tiers simply are not remembered.
   }
 }
+
+/** Whether a stored sticker is one the author made or uploaded, rather than an emoji or old face copy. */
+export const isOwnSticker = (s: Sticker) => !AUTO_SAVED.test(s.id)
 
 /** Every sticker on offer, built-in first. */
 export function allStickers(uploads: Sticker[]): Sticker[] {

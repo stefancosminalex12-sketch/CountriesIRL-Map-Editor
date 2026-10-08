@@ -48,7 +48,7 @@ function useStatus(): string {
     return `Following the predefined ${preset?.name ?? ''} bands: each band gets its tier’s sticker.`
   }
   if (layer?.colorScale.mode === 'numeric') {
-    return 'Following the palette scale: the range of values is split evenly across the tiers, lowest first.'
+    return 'Following your Custom scale: the range of values is split evenly across the tiers, lowest first.'
   }
   return 'Categories have no low-to-high order, so only stickers you place by hand are shown.'
 }

@@ -229,6 +229,20 @@ function heart(cx: number, cy: number, r: number): string {
   )
 }
 
+/** A rose head: outer petals cupping a tight spiral, lit from the top left. */
+function rose(cx: number, cy: number, r: number): string {
+  const t = `translate(${cx} ${cy}) scale(${r / 12})`
+  return (
+    `<g transform="${t}" ${RAISED}>` +
+    `<path d="M-12 1 C-13 -8 -6 -13 0 -12 C6 -13 13 -8 12 1 C11 9 5 12 0 12 C-5 12 -11 9 -12 1 Z" fill="url(#roseG)" stroke="#7a0a18" stroke-width="0.8"/>` +
+    `<path d="M-9 3 C-10 -4 -4 -8 1 -7 C6 -7 9 -3 8 2 C6 7 -6 8 -9 3 Z" fill="#e2263f" stroke="#8e0c20" stroke-width="0.7"/>` +
+    `<path d="M-5 0 C-5 -4 0 -6 3 -4 C6 -2 5 2 2 3 C-1 4 -3 1 -1 -1" fill="none" stroke="#a0122a" stroke-width="0.8" stroke-linecap="round"/>` +
+    `<path d="M-12 1 C-9 6 -4 8 0 8 C4 8 9 6 12 1" fill="none" stroke="#9b0f24" stroke-width="0.8" opacity="0.7"/>` +
+    `<ellipse cx="-5" cy="-7" rx="3.4" ry="1.8" fill="#ffffff" opacity="0.45" transform="rotate(-25 -5 -7)"/>` +
+    `</g>`
+  )
+}
+
 /**
  * A brow: a slim crescent, thickest in the middle and tapering to fine round ends, barely raised
  * off the face. `thick` is the bow of its top edge; the drawn stroke is about half that.
@@ -875,7 +889,7 @@ function hand(spec: HandSpec): string {
   let svg = piece(
     out.map((f) => finger(f.x, KNUCKLES, f.len, f.w, f.angle)).join('') +
       palmPath() +
-      curled.map((f) => `<rect x="${f.x - f.w / 2}" y="${KNUCKLES - 6.5}" width="${f.w}" height="10" rx="${f.w / 2}"/>`).join('') +
+      curled.map((f) => `<ellipse cx="${f.x}" cy="${KNUCKLES - 1.6}" rx="${f.w / 2 + 0.4}" ry="${f.w / 2 + 1.6}"/>`).join('') +
       (thumbOut ? finger(-PALM_W / 2 + 2.6, -4.5, thumbOut.len, 5, thumbOut.angle) : '') +
       (spec.ring ? `<path fill-rule="evenodd" d="M-12.6 ${KNUCKLES - 6} a4.9 4.9 0 1 0 9.8 0 a4.9 4.9 0 1 0 -9.8 0 Z M-10 ${KNUCKLES - 6} a2.3 2.3 0 1 0 4.6 0 a2.3 2.3 0 1 0 -4.6 0 Z"/>` : ''),
   )
@@ -892,7 +906,7 @@ function hand(spec: HandSpec): string {
   // The gaps between knuckle rolls.
   for (let i = 1; i < curled.length; i++) {
     const x = (curled[i - 1].x + curled[i].x) / 2
-    svg += `<path d="M${x} ${KNUCKLES - 5.5} Q${x - 0.3} ${KNUCKLES - 2} ${x} ${KNUCKLES + 1.5}" ${SEAM}/>`
+    svg += `<path d="M${x} ${KNUCKLES - 4.6} Q${x - 0.3} ${KNUCKLES - 1.6} ${x} ${KNUCKLES + 1.2}" ${SEAM_SOFT}/>`
   }
   if (spec.thumb === 'fold') {
     svg += piece(`<path d="M-10.6 -6.6 C-11.4 -9.6 -9.4 -12 -6 -12 L2.6 -11.8 C5.4 -11.8 6 -6.6 2.6 -6.3 L-7.6 -5.4 C-9.6 -5.4 -10.3 -5.8 -10.6 -6.6 Z"/>`)
@@ -912,11 +926,11 @@ const curl = (f: { x: number; w: number }): Curl => ({ x: f.x, w: f.w + 0.3, cur
 /* A fist from the side with the thumb up, the curled fingers stacked down its front. */
 const THUMB =
   piece(
-    `<path d="M-7.6 -1 C-9.6 -7 -9.6 -15 -6.6 -18.5 Q0 -20.5 6 -18.5 C8.6 -15 8.6 -7 7.6 -1 Z"/>` +
-      [-18.6, -14.2, -9.8, -5.4].map((y, i) => `<rect x="1" y="${y}" width="${11.6 - i * 0.6}" height="5.2" rx="2.6"/>`).join('') +
+    `<path d="M-7.4 -1 C-9.8 -7 -9.8 -15 -6.8 -18.6 Q0 -21 6.4 -18.8 C9.6 -15 9.6 -6 7.4 -1 Z"/>` +
+      [-18.2, -13.8, -9.4, -5].map((y, i) => `<ellipse cx="${5.6 - i * 0.2}" cy="${y + 2.4}" rx="${5.9 - i * 0.35}" ry="2.7"/>`).join('') +
       finger(-3.2, -16, 15, 5.8, -6),
   ) +
-  [-14.2, -9.8, -5.4].map((y) => `<path d="M3 ${y + 0.2} Q7.6 ${y - 0.5} 11.4 ${y + 0.3}" ${SEAM}/>`).join('') +
+  [-13.8, -9.4, -5].map((y) => `<path d="M3 ${y + 0.2} Q7 ${y - 0.4} 10.4 ${y + 0.3}" ${SEAM_SOFT}/>`).join('') +
   knuckleCrease(-3.2, -16, 15, 5.8, -6, 0.48) +
   cuff(15)
 
@@ -1022,7 +1036,7 @@ export const EXTRAS = {
   partyHat: {
     name: 'Party hat',
     draw: () =>
-      `<g ${RAISED} transform="rotate(14 60 10)">` +
+      `<g ${RAISED} transform="translate(0 10) rotate(14 60 10)">` +
       `<path d="M46 16 L60 -22 L74 16 Q60 21 46 16 Z" fill="#ff5fa2" stroke="#b5246a" stroke-width="1.2" stroke-linejoin="round"/>` +
       `<path d="M52 0 L66 -3 M49 9 L70 6" stroke="#ffe066" stroke-width="3" stroke-linecap="round"/>` +
       `<circle cx="60" cy="-22" r="4.5" fill="#ffe066" stroke="#b87900" stroke-width="1"/>` +
@@ -1034,10 +1048,8 @@ export const EXTRAS = {
       `<g ${RAISED}>` +
       `<path d="M36 90 L98 70" stroke="#2f8a2f" stroke-width="3.6" stroke-linecap="round"/>` +
       `<path d="M58 84 Q60 72 72 72 Q66 82 58 84 Z M74 78 Q82 88 92 86 Q84 76 74 78 Z" fill="#43a843" stroke="#1f6a1f" stroke-width="0.8"/>` +
-      `<circle cx="102" cy="66" r="12" fill="#d61f36" stroke="#7a0a18" stroke-width="1"/>` +
-      `<path d="M94 62 Q102 54 110 62 Q104 66 102 74 Q98 66 94 62 Z" fill="#ff4d63" stroke="#7a0a18" stroke-width="0.8"/>` +
-      `<path d="M98 68 Q102 62 106 68 Q102 72 98 68 Z" fill="#a8122a"/>` +
-      `</g>`,
+      `</g>` +
+      rose(102, 66, 12),
   },
   mustache: {
     name: 'Mustache',
@@ -1096,28 +1108,38 @@ export const EXTRAS = {
   bulb: {
     name: 'Idea',
     draw: () =>
+      `<g transform="translate(60 7) scale(0.68) translate(-60 0)">` +
       `<g ${RAISED}>` +
       `<path d="M60 -26 C72 -26 78 -16 74 -6 C72 -1 68 2 67 7 H53 C52 2 48 -1 46 -6 C42 -16 48 -26 60 -26 Z" fill="#ffe46b" stroke="#b88a00" stroke-width="1.2"/>` +
       `<rect x="53" y="7" width="14" height="7" rx="2" fill="#b9c0c9" stroke="#6f7787" stroke-width="1"/>` +
       `<path d="M56 0 Q60 -10 64 0" fill="none" stroke="#c98a00" stroke-width="1.4"/>` +
       `</g>` +
-      `<path d="M38 -18 L32 -22 M82 -18 L88 -22 M60 -34 V-40 M44 -30 L40 -35 M76 -30 L80 -35" stroke="#ffcf2e" stroke-width="2.4" stroke-linecap="round"/>`,
+      `<path d="M38 -18 L32 -22 M82 -18 L88 -22 M60 -34 V-40 M44 -30 L40 -35 M76 -30 L80 -35" stroke="#ffcf2e" stroke-width="2.4" stroke-linecap="round"/>` +
+      `</g>`,
   },
   helmet: {
     name: 'Helmet',
-    draw: () =>
-      `<g ${RAISED}>` +
-      `<path d="M4 52 C2 -2 118 -2 116 52 Q60 40 4 52 Z" fill="url(#olive)" stroke="#2f3a1f" stroke-width="1.2"/>` +
-      `<path d="M2 50 Q60 37 118 50 L119 56 Q60 44 1 56 Z" fill="#4a5a2e" stroke="#2f3a1f" stroke-width="1"/>` +
-      `<path d="M6 46 Q60 34 114 46" stroke="#b56a5a" stroke-width="3" fill="none" opacity="0.8"/>` +
-      `</g>` +
-      [18, 30, 44, 70, 86, 98, 52, 64, 36, 80].map((x, i) => `<circle cx="${x}" cy="${12 + ((i * 7) % 22)}" r="${0.8 + (i % 3) * 0.5}" fill="#2a3318" opacity="0.6"/>`).join('') +
-      `<path d="M8 56 L6 92 M112 56 L114 92" stroke="#3a4528" stroke-width="2.2"/>`,
+    draw: (c: Ctx) => {
+      c.defs.push(`<clipPath id="helmetShell"><path d="M5 45 A55 55 0 0 1 115 45 Q60 53 5 45 Z"/></clipPath>`)
+      return (
+        // Chin straps, hugging the cheeks, under the shell.
+        `<path d="M16 50 C15 74 28 96 48 104 M104 50 C105 74 92 96 72 104" fill="none" stroke="#4a5530" stroke-width="1.7" stroke-linecap="round" opacity="0.85"/>` +
+        `<g ${RAISED}>` +
+        `<path d="M5 45 A55 55 0 0 1 115 45 Q60 53 5 45 Z" fill="url(#olive)" stroke="#2c3519" stroke-width="1"/>` +
+        `<g clip-path="url(#helmetShell)" opacity="0.5">` +
+        [[26, 16, 9, 5, -20], [52, 4, 11, 5, 10], [80, 14, 10, 6, 25], [38, 32, 8, 4, 0], [94, 34, 7, 4, -15], [66, 28, 9, 4, 5]]
+          .map(([x, y, rx, ry, a]) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="#3d4a24" transform="rotate(${a} ${x} ${y})"/>`)
+          .join('') +
+        `</g>` +
+        `<path d="M1 44 Q60 55 119 44 Q120 49 118 51 Q60 62 2 51 Q0 49 1 44 Z" fill="#56652f" stroke="#2c3519" stroke-width="1"/>` +
+        `</g>` +
+        `<ellipse cx="38" cy="10" rx="17" ry="7" fill="#ffffff" opacity="0.22" transform="rotate(-24 38 10)"/>`
+      )
+    },
   },
   catEars: {
     name: 'Cat ears',
     draw: (c: Ctx) =>
-      `<path d="M14 40 L16 -6 L46 16 Z M106 40 L104 -6 L74 16 Z" fill="${c.skin}" stroke="${c.line}" stroke-width="1" ${RAISED}/>` +
       `<path d="M58 66 L62 66 L60 69 Z" fill="#ff8fb0" stroke="#c4466d" stroke-width="1.2" stroke-linejoin="round"/>` +
       `<path d="M60 69 V72 M60 72 Q55 76 51 73 M60 72 Q65 76 69 73" fill="none" stroke="${c.line}" stroke-width="1.6" stroke-linecap="round"/>` +
       [-1, 1]
@@ -1226,22 +1248,22 @@ export const EXTRAS = {
       `<g ${RAISED} transform="rotate(-52 30 84)"><rect x="19" y="79.5" width="22" height="9" rx="4.5" fill="#f3bf96" stroke="#cf9468" stroke-width="0.7"/>` +
       `<rect x="26.5" y="80.5" width="7" height="7" rx="1" fill="#e9a97c"/></g>`,
   },
-  thumbsUp: { name: 'Thumbs up', draw: () => place(HAND.thumb, 20, 112, -10) },
+  thumbsUp: { name: 'Thumbs up', draw: () => place(HAND.thumb, 20, 114, -10, 1.7) },
   thumbsDown: { name: 'Thumbs down', draw: () => place(HAND.thumb, 100, 80, 170, 1.8, true) },
-  point: { name: 'Pointing', draw: () => place(HAND.point, 16, 114, -28) },
-  wave: { name: 'Waving', draw: () => place(HAND.open, 106, 84, 22) },
+  point: { name: 'Pointing', draw: () => place(HAND.point, 22, 116, -18, 1.65) },
+  wave: { name: 'Waving', draw: () => place(HAND.open, 100, 90, 16, 1.6) },
   fist: { name: 'Fist', draw: () => place(HAND.fist, 104, 118, 12) },
   peace: { name: 'Peace', draw: () => place(HAND.peace, 106, 88, 16) },
   shrug: {
     name: 'Shrug',
-    draw: () => place(HAND.open, 30, 106, -50, 1.4) + place(HAND.open, 90, 106, 50, 1.4, true),
+    draw: () => place(HAND.open, 32, 108, -46, 1.32) + place(HAND.open, 88, 108, 46, 1.32, true),
   },
   // The flames are drawn behind the head — see `BEHIND_PARTS` — so only the fist sits over it.
-  firePunch: { name: 'Fire punch', draw: () => place(HAND.fist, 24, 110, -18, 1.9) },
-  facepalm: { name: 'Facepalm', draw: () => place(HAND.open, 44, 90, -16, 2.05) },
-  salute: { name: 'Salute', draw: () => place(HAND.flat, 100, 46, 64, 1.6, true) },
+  firePunch: { name: 'Fire punch', draw: () => place(HAND.fist, 28, 110, -18, 1.8) },
+  facepalm: { name: 'Facepalm', draw: () => place(HAND.flat, 22, 106, 36, 2.05) },
+  salute: { name: 'Salute', draw: () => place(HAND.flat, 90, 48, 54, 1.4, true) },
   think: { name: 'Thinking', draw: () => place(HAND.point, 66, 126, -14, 1.6) },
-  okSign: { name: 'OK sign', draw: () => place(HAND.ok, 18, 110, -24, 1.7) },
+  okSign: { name: 'OK sign', draw: () => place(HAND.ok, 24, 112, -18, 1.6) },
   doubleThumbs: { name: 'Double thumbs up', draw: () => place(HAND.thumb, 16, 120, -6, 1.8) + place(HAND.thumb, 104, 120, 6, 1.8, true) },
   cheer: { name: 'Cheering fists', draw: () => place(HAND.fist, 10, 40, -16, 1.4) + place(HAND.fist, 110, 40, 16, 1.4, true) },
   coverEyes: { name: 'Covering eyes', draw: () => place(HAND.flat, 30, 92, 38, 1.75) + place(HAND.flat, 90, 92, -38, 1.75, true) },
@@ -1249,20 +1271,18 @@ export const EXTRAS = {
   bothMouth: { name: 'Hands on mouth', draw: () => place(HAND.flat, 50, 120, -34, 1.55) + place(HAND.flat, 70, 120, 34, 1.55, true) },
   pray: { name: 'Praying hands', draw: () => place(HAND.flat, 55.5, 128, 3, 1.6) + place(HAND.flat, 64.5, 128, -3, 1.6, true) },
   shyHands: { name: 'Shy fingers', draw: () => place(HAND.point, 28, 126, 44, 1.4) + place(HAND.point, 52, 128, -44, 1.4, true) },
-  palmsUp: { name: 'Palms up', draw: () => place(HAND.open, 30, 114, -56, 1.35) + place(HAND.open, 90, 114, 56, 1.35, true) },
+  palmsUp: { name: 'Palms up', draw: () => place(HAND.open, 34, 114, -50, 1.28) + place(HAND.open, 86, 114, 50, 1.28, true) },
   holdHeart: {
     name: 'Holding a heart',
-    draw: () => place(HAND.open, 42, 124, -62, 1.45) + place(HAND.open, 78, 124, 62, 1.45, true) + heart(60, 98, 16),
+    draw: () => place(HAND.open, 44, 118, -56, 1.26) + place(HAND.open, 76, 118, 56, 1.26, true) + heart(60, 98, 15),
   },
   offerRose: {
     name: 'Offering a rose',
     draw: () =>
-      place(HAND.open, 42, 126, -62, 1.45) +
-      place(HAND.open, 78, 126, 62, 1.45, true) +
-      `<g ${RAISED}><path d="M48 108 Q56 96 64 104 Q58 112 48 108 Z M74 102 Q82 96 86 104 Q78 108 74 102 Z" fill="#43a843" stroke="#1f6a1f" stroke-width="0.8"/>` +
-      `<circle cx="60" cy="98" r="14" fill="#d61f36" stroke="#7a0a18" stroke-width="1"/>` +
-      `<path d="M50 94 Q60 82 70 94 Q64 98 60 108 Q56 98 50 94 Z" fill="#ff4d63" stroke="#7a0a18" stroke-width="0.8"/>` +
-      `<path d="M55 98 Q60 90 65 98 Q60 102 55 98 Z" fill="#a8122a"/></g>`,
+      place(HAND.open, 44, 118, -56, 1.26) +
+      place(HAND.open, 76, 118, 56, 1.26, true) +
+      `<g ${RAISED}><path d="M46 108 Q54 96 62 104 Q56 112 46 108 Z M72 102 Q82 96 86 104 Q78 108 72 102 Z" fill="#43a843" stroke="#1f6a1f" stroke-width="0.8"/></g>` +
+      rose(60, 98, 13),
   },
   pointLaugh: { name: 'Pointing and wiping', draw: () => place(HAND.point, 34, 128, -18, 1.6) + place(HAND.fist, 102, 62, 28, 1.3, true) },
   mewing: { name: 'Finger at chin', draw: () => place(HAND.point, 96, 122, 22, 1.45, true) },
@@ -1285,12 +1305,12 @@ export const EXTRAS = {
   adjustShades: { name: 'Hand on shades', draw: () => place(HAND.point, 104, 78, 26, 1.35, true) },
   yawnHand: { name: 'Hand to a yawn', draw: () => place(HAND.flat, 100, 122, -38, 1.45, true) },
   cheekHands: { name: 'Hands to cheeks', draw: () => place(HAND.open, 34, 122, 22, 1.4) + place(HAND.open, 86, 122, -22, 1.4, true) },
-  rubFingers: { name: 'Rubbing fingers', draw: () => place(HAND.ok, 16, 114, -40, 1.55) },
+  rubFingers: { name: 'Rubbing fingers', draw: () => place(HAND.ok, 24, 114, -32, 1.45) },
   pullMouth: { name: 'Pulling the mouth', draw: () => place(HAND.point, 2, 98, 78, 1.35) + place(HAND.point, 118, 98, -78, 1.35, true) },
   handsOnHead: { name: 'Hands on head', draw: () => place(HAND.flat, 12, 42, 34, 1.45) + place(HAND.flat, 108, 42, -34, 1.45, true) },
   shush: { name: 'Finger to lips', draw: () => place(HAND.point, 58, 126, -4, 1.4) },
   hug: { name: 'Open arms', draw: () => place(HAND.open, 13, 96, -12, 1.3) + place(HAND.open, 107, 96, 12, 1.3, true) },
-  waveLeft: { name: 'Waving, left', draw: () => place(HAND.open, 18, 36, -26, 1.45) },
+  waveLeft: { name: 'Waving, left', draw: () => place(HAND.open, 24, 40, -18, 1.35) },
 } as const satisfies Record<string, { name: string; draw: (c: Ctx) => string }>
 
 /** The extras that are hands, listed apart from the rest in the panel. */
@@ -1331,10 +1351,29 @@ function flame(x: number, y: number, size: number, angle: number): string {
 }
 
 /** Parts of an extra that are drawn behind the head, while the extra itself is drawn over it. */
-const BEHIND_PARTS: Partial<Record<ExtraId, () => string>> = {
+const BEHIND_PARTS: Partial<Record<ExtraId, (c: Ctx) => string>> = {
+  // Rounded cat ears, their bases tucked behind the head.
+  catEars: (c) =>
+    [1, -1]
+      .map((d) => {
+        const x = (v: number) => 60 + d * (v - 60)
+        return (
+          `<path d="M${x(16)} 34 C${x(12)} 16 ${x(14)} 0 ${x(22)} -4 C${x(30)} -3 ${x(42)} 6 ${x(50)} 14 Z" fill="${c.skin}" stroke="${c.line}" stroke-width="0.9" stroke-linejoin="round" ${RAISED}/>` +
+          `<path d="M${x(21)} 26 C${x(19)} 15 ${x(20)} 6 ${x(24)} 3 C${x(30)} 5 ${x(37)} 10 ${x(42)} 15 Z" fill="#ff9dbd" opacity="0.75"/>`
+        )
+      })
+      .join(''),
   // Flames streaming back from the punch, behind the head and round the fist.
-  firePunch: () => flame(12, 114, 2.3, -60) + flame(4, 98, 1.7, -78) + flame(22, 124, 1.5, -38),
+  firePunch: () => flame(24, 108, 1.3, -60) + flame(20, 95, 0.95, -78) + flame(32, 120, 0.9, -42),
 }
+
+/**
+ * Every face's frame: the same square for every face, so every head is the same size — on the
+ * map and in the gallery — whatever is held beside it. The head (radius 50) sits in the middle with
+ * 30 units round it, about the room a cartoon sticker sheet gives its hands and hats; every extra
+ * is drawn to fit inside (in the head's coordinates, x and y from −20 to 140).
+ */
+const FRAME = '-10 -12 160 160'
 
 /** The face as standalone SVG markup. */
 export function faceSvg(options: FaceOptions): string {
@@ -1389,12 +1428,12 @@ export function faceSvg(options: FaceOptions): string {
     .join('')
   const extras = options.extras.filter((id) => id in EXTRAS)
   const behind =
-    extras.map((id) => BEHIND_PARTS[id]?.() ?? '').join('') +
+    extras.map((id) => BEHIND_PARTS[id]?.(c) ?? '').join('') +
     extras.filter((id) => BEHIND.includes(id)).map((id) => EXTRAS[id].draw(c)).join('')
   const over = extras.filter((id) => !BEHIND.includes(id)).map((id) => EXTRAS[id].draw(c)).join('')
 
   return (
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 140">` +
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${FRAME}">` +
     `<defs>` +
     // The head.
     `<radialGradient id="body" cx="0.38" cy="0.3" r="0.8">` +
@@ -1426,6 +1465,7 @@ export function faceSvg(options: FaceOptions): string {
     `<radialGradient id="rosy" cx="0.4" cy="0.35" r="0.7"><stop offset="0" stop-color="#ffc2d2"/><stop offset="0.6" stop-color="#f08aa6"/><stop offset="1" stop-color="#d4607f"/></radialGradient>` +
     `<radialGradient id="sick" cx="0.4" cy="0.35" r="0.7"><stop offset="0" stop-color="#b9e58a"/><stop offset="0.6" stop-color="#6fb544"/><stop offset="1" stop-color="#3f7f26"/></radialGradient>` +
     `<radialGradient id="bruise" cx="0.5" cy="0.5" r="0.5"><stop offset="0.6" stop-color="#7a3ff0"/><stop offset="0.86" stop-color="#5420c2"/><stop offset="1" stop-color="#9a6bff"/></radialGradient>` +
+    `<radialGradient id="roseG" cx="0.4" cy="0.35" r="0.75"><stop offset="0" stop-color="#ff5a70"/><stop offset="0.6" stop-color="#d4152f"/><stop offset="1" stop-color="#8e0c20"/></radialGradient>` +
     `<linearGradient id="cash" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9df27c"/><stop offset="1" stop-color="#1f9a3a"/></linearGradient>` +
     `<linearGradient id="heart" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff6d8a"/><stop offset="1" stop-color="#d4123b"/></linearGradient>` +
     `<linearGradient id="water" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d6f3ff"/><stop offset="1" stop-color="#3fa9f5"/></linearGradient>` +
@@ -1509,43 +1549,8 @@ export function faceSvg(options: FaceOptions): string {
   )
 }
 
-/**
- * The face's frame widened to everything drawn — a hand held out to the side, a crown, steam —
- * so nothing is cut off at the edge. Measured by laying the markup out in the page, because the
- * hands are rotated and scaled and their extent is easiest to ask the browser for. Kept square,
- * and never smaller than the plain face's frame, so a face with no extras is the size it always
- * was. Null outside a browser, or when measuring fails; the 140-unit frame is then used.
- */
-function fittedViewBox(svg: string): string | null {
-  if (typeof document === 'undefined' || !document.body) return null
-  const host = document.createElement('div')
-  host.style.cssText = 'position:absolute;left:-10000px;top:0;width:140px;height:140px;visibility:hidden;pointer-events:none'
-  host.innerHTML = svg
-  document.body.appendChild(host)
-  try {
-    const root = host.querySelector('svg')
-    if (!(root instanceof SVGSVGElement)) return null
-    const box = root.getBBox()
-    const PAD = 3
-    const minX = Math.min(0, box.x - PAD)
-    const minY = Math.min(0, box.y - PAD)
-    const maxX = Math.max(140, box.x + box.width + PAD)
-    const maxY = Math.max(140, box.y + box.height + PAD)
-    const size = Math.max(maxX - minX, maxY - minY)
-    const x = (minX + maxX - size) / 2
-    const y = (minY + maxY - size) / 2
-    return [x, y, size, size].map((v) => +v.toFixed(2)).join(' ')
-  } catch {
-    return null
-  } finally {
-    host.remove()
-  }
-}
-
 export function faceDataUri(options: FaceOptions): string {
-  let svg = faceSvg(options)
-  const viewBox = fittedViewBox(svg)
-  if (viewBox) svg = svg.replace('viewBox="0 0 140 140"', `viewBox="${viewBox}"`)
+  const svg = faceSvg(options)
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
 }
 

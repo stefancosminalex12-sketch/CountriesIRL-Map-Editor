@@ -2273,7 +2273,9 @@ Every stop stays under a relative luminance of about 0.90, clear of the lightest
 tone any theme uses.
 
 **Predefined** is the other way to read a number, and the difference is what the
-colour is measured against. The palette scale asks *"where does this country sit
+colour is measured against. The **Custom** scale (Data → Custom; it was called Palette, named
+now for what it is — the author's own values, the lowest at one end of the colours and the
+highest at the other, as against a published Predefined scale) asks *"where does this country sit
 between the lowest and highest value on this map?"* — relative, and it moves when the
 data moves. A threshold preset asks *"which published band is this number in?"*, and
 the answer does not depend on who else is in the frame. Put the twenty highest-HDI
@@ -3053,7 +3055,7 @@ first. With **Follow the data** on and Styles & Data in Data mode:
 - **Predefined**: each band of the preset gets a rung. With as many stickers as bands it is one
   each; with fewer, neighbouring bands share one; with more, the ends are kept and the middle rungs
   spaced out (HDI's four bands on six stickers use rungs 1, 3, 4 and 6).
-- **Palette**: the value's position between the map's lowest and highest number, sampled exactly
+- **Custom** (the `palette` scale): the value's position between the map's lowest and highest number, sampled exactly
   as the colour ramp samples it (`paletteBucket`), so the face and the fill always agree.
 
 Categorical data, Compare and Flags have no low-to-high order and place no stickers of their own.
@@ -3139,7 +3141,15 @@ the index when it opens and shows thumbnails as lazily loaded images. Search mat
 
 **Colour** turns the whole grid into one colour, the way a recolourable emoji site does: pick blue
 and every face in it is blue, shading kept. Only the thumbnails on screen are recoloured, once per
-colour; tapping one adds it to the library in that colour.
+colour; tapping one picks it in that colour, and the bar under the grid puts it on the selection,
+removes one, or adds it to the tiers — the same bar as the Library's (`PickedStickerActions`).
+
+**A tapped emoji is kept for the session, not saved.** It used to be stored the moment it was
+tapped, which filled **Yours** with emoji nobody chose to keep (a Disguised Face, say). Now it
+lives in the library for the session only (`add(…, false)`), and is saved when it joins the tiers
+(`keep`), since tiers outlast a refresh. On load, stored copies of that kind — emoji
+(`user:icon-…`) and the old gallery's face copies (`user:face-…`) — are dropped unless the saved
+tiers use them, and **Yours** shows only uploads and faces saved from Create (`isOwnSticker`).
 
 **Create** makes new stickers, saved to the library like uploads:
 
@@ -3160,9 +3170,14 @@ colour; tapping one adds it to the library in that colour.
   filter: a thin, light outline, a soft shade on its lower right edge, a highlight on its upper left
   and a faint shadow. Inside are only hairlines where fingers lie together and a faint fold at each
   knuckle; a thumb folded over a fist and the slim cuff are outlined as their own pieces. The
-  fire punch's flames are drawn behind the head (`BEHIND_PARTS`), so only the fist covers it. The
-  sticker's frame is measured from what is drawn (`fittedViewBox`), so a hand held out to the side
-  or a crown is never cut off. Original artwork, as SVG, lit consistently from the top left: the head is a shaded
+  fire punch's flames and the cat's ears are drawn behind the head (`BEHIND_PARTS`). **Every face
+  has the same frame** (`FRAME`, a 160-unit square with the head in the middle and 30 units round
+  it), so every head is the same size — in the gallery and on the map — whatever it holds; every
+  hand, hat and prop is placed to fit inside it. (The frame used to grow to fit what was drawn, so
+  a face holding its hands out came out with a smaller head than one without.) The helmet is a
+  domed olive shell over the brow with camouflage clipped to it, a brim and chin straps along the
+  cheeks; the cat's ears are small and rounded; a rose is layered petals round a spiral (`rose`);
+  a fist's curled fingers are overlapping rounded knuckles rather than blocks. Original artwork, as SVG, lit consistently from the top left: the head is a shaded
   sphere with a rim, a bounce light and a specular highlight; brows, lids, stars, hearts and hands
   are raised with a lighting filter (`bevel`); eyes and open mouths are sunk in with an inner
   shadow (`inset`); closed smiles are carved (`groove`). A sculpting pass then works from what the
@@ -3982,7 +3997,7 @@ so the page never loads data nobody asked for. **To add a dataset**, add it to t
 add its threshold scale(s) to `state/presets.ts` and add an entry to `PREDEFINED_DATASETS` in
 `data/predefinedData.ts`. The template and the panel list whatever is there and need no change.
 
-This is not the Palette. **Data → Palette**, where the author types values and the colours follow
+This is not the Custom scale. **Data → Custom**, where the author types values and the colours follow
 their range, is untouched and one chip away. **Data → Predefined**, which picks a threshold scale
 for values already on the map, is still there on its own. The new scales appear in its list too.
 

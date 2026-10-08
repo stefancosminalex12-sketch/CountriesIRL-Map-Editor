@@ -156,7 +156,7 @@ const PREDEFINED_DATA: MapTemplate = {
     },
   },
   openSection: 'data',
-  next: 'Switch the region and the values follow; Data → Palette still takes values of your own.',
+  next: 'Switch the region and the values follow; Data → Custom still takes values of your own.',
 }
 
 /** Every built-in template, in the order the list shows them. */
