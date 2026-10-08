@@ -4143,3 +4143,14 @@ body {
     padding: 10px 8px;
   }
 }
+
+.sticker-grid--gallery {
+  grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.sticker-gallery__actions {
+  gap: 6px;
+}

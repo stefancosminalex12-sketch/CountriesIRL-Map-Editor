@@ -24,6 +24,7 @@ import type { Sticker } from '../stickers/types'
 import { STICKER_SIZE, type CountryId } from '../types/map'
 import { Disclosure } from './Panels'
 import { StickerFinder } from './StickerFinder'
+import { StickerGallery } from './StickerGallery'
 import { StickerCreator } from './StickerCreator'
 import { useNoun } from '../maps/useNoun'
 
@@ -361,10 +362,13 @@ export function StickerControls() {
       <Disclosure title="Tiers">
         <StickerTiers />
       </Disclosure>
+      <Disclosure title="Sticker Gallery">
+        <StickerGallery />
+      </Disclosure>
       <Disclosure title="Library">
         <StickerLibraryControls />
       </Disclosure>
-      <Disclosure title="Find Stickers">
+      <Disclosure title="Emoji">
         <StickerFinder />
       </Disclosure>
       <Disclosure title="Create">

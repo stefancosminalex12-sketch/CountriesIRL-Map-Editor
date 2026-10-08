@@ -13,7 +13,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   BROWS,
-  DEFAULT_FACE,
   EXTRAS,
   EYES,
   FACE_COLORS,
@@ -60,7 +59,8 @@ function PartChoice<T extends string>({
 }
 
 function FaceMaker() {
-  const [face, setFace] = useState<FaceOptions>(DEFAULT_FACE)
+  const face = useStickerLibrary((s) => s.face)
+  const setFace = useStickerLibrary((s) => s.setFace)
   const [name, setName] = useState('')
   const [saved, setSaved] = useState<string | null>(null)
   const { add, pick } = useStickerLibrary()

@@ -3031,17 +3031,27 @@ and they ignore the pointer, so clicking a face selects the territory under it.
 
 **The library is not the document.** The document names stickers by id; the artwork lives in
 `stickers/stickerLibrary.ts`, like flag artwork in the flag store. Six built-in faces ship with
-the editor (`stickers/builtin.ts`): Fluent Emoji 3D faces from furious to starstruck, recoloured
-red, orange, yellow, green, blue and purple so the tiers stay apart even where an expression is too
-small to read, inlined as data URIs in `builtinArt.ts`. Uploads are redrawn to at most 256 px, stored as PNG data URIs (SVGs
+the editor (`stickers/builtin.ts`): faces from the sticker gallery, furious to starstruck, drawn by
+the face maker in red, orange, yellow, green, blue and purple so the tiers stay apart even where an
+expression is too small to read. Uploads are redrawn to at most 256 px, stored as PNG data URIs (SVGs
 as they are) and kept in localStorage, so they survive a refresh and are there for every map made
 in that browser. The tier order is remembered there too, and a new map starts from it. Each sticker
 is defined once as a `<symbol>` and every territory wearing it is a `<use>`, so a world of faces is
 a few decoded images rather than hundreds of copies of a data URI.
 
-#### Finding and making stickers
+#### The sticker gallery
 
-**Find Stickers** searches a catalogue that ships with the editor: Microsoft's **Fluent Emoji 3D**
+**Sticker Gallery** is 108 ready-made faces (`stickers/facePresets.ts`), each a named combination
+of face-maker parts (Grinning, Side Eye, Fire Punch, Shrug, Heavy Breathing, Checking You Out,
+Rose in Teeth, Hold Up, Facepalm, Nerd, DJ, …), all drawn in the colour picked above the grid and
+searchable by name. A preset is only parts, never a colour, so the whole gallery recolours at once.
+Tapping a face adds it to the library in that colour and picks it; the bar under the grid puts it
+on the selected territories (turning stickers on if needed), adds it to the tiers, or opens it in
+Create → Face maker to change. Thumbnails are drawn once per colour per session.
+
+#### Emoji, and making stickers
+
+**Emoji** (formerly Find Stickers) searches a catalogue that ships with the editor: Microsoft's **Fluent Emoji 3D**
 (1,567 rendered emoji: faces, people, animals, objects, symbols; skin-tone variants and national
 flags left out), MIT licensed, so they can be used on maps and in videos without conditions.
 `scripts/prepare-stickers.mjs` copies the 256-pixel WebP files (about 6 KB each) from
@@ -3056,11 +3066,13 @@ colour; tapping one adds it to the library in that colour.
 
 **Create** makes new stickers, saved to the library like uploads:
 
-- **Face maker** (`stickers/faceMaker.ts`): a glossy 3D face assembled from parts (19 eyes, 7
-  brows, 17 mouths, 7 hand poses and 14 other extras such as a nose, a crown, a party hat, steam
-  and Zzz, plus an optional outline) in any colour. The hands are cartoon gloves built from a
-  palm, finger capsules, knuckle rolls, a thumb and a cuff, so each pose (thumbs up and down,
-  pointing, waving, fist, peace, shrug) is a different arrangement of the same parts. The
+- **Face maker** (`stickers/faceMaker.ts`): a glossy 3D face assembled from parts (20 eyes, 7
+  brows, 21 mouths, 11 hand poses — thumbs up and down, pointing, waving, fist, fire punch, peace,
+  shrug, facepalm, salute, thinking — and 24 other extras such as a nose, glasses, a monocle, a
+  mustache, a rose, headphones, a crown, a party hat, an idea bulb, steam, hearts, music notes and
+  Zzz, plus an optional outline) in any colour. The hands are cartoon gloves built from a
+  palm, finger capsules, knuckle rolls, a thumb and a cuff, so each pose is a different
+  arrangement of the same parts. The
   sticker's frame is measured from what is drawn (`fittedViewBox`), so a hand held out to the side
   or a crown is never cut off. Original artwork, as SVG, lit consistently from the top left: the head is a shaded
   sphere with a rim, a bounce light and a specular highlight; brows, lids, stars, hearts and hands

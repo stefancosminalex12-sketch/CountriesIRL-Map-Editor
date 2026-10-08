@@ -447,6 +447,29 @@ cheeks(c, [42, 78], [78, 78]) +
       Array.from({ length: 9 }, (_, i) => `<rect x="${42.5 + i * 4.3}" y="77" width="2.4" height="6" rx="0.6" fill="#c9ced8" stroke="#6f7787" stroke-width="0.6"/>`).join('') +
       `<g ${RAISED}><rect x="78" y="76" width="7" height="8" rx="1.5" fill="#d7dce5" stroke="#6f7787" stroke-width="0.8"/><rect x="80" y="83" width="3.2" height="9" rx="1.6" fill="#d7dce5" stroke="#6f7787" stroke-width="0.8"/></g>`,
   },
+  puff: {
+    name: 'Puffed',
+    draw: (c: Ctx) =>
+      cheeks(c, [36, 74], [84, 74]) +
+      `<ellipse cx="60" cy="80" rx="7" ry="4.6" fill="url(#brow)" stroke="${c.brow}" stroke-width="1.2" filter="url(#bevelSoft)"/>` +
+      ridge(c, 'M51 79 Q53 76 55 79', 1.6) +
+      ridge(c, 'M65 79 Q67 76 69 79', 1.6),
+  },
+  whistle: {
+    name: 'Whistle',
+    draw: (c: Ctx) =>
+      cavity(c, 'M64 74 C70 74 70 84 64 84 C58 84 58 74 64 74 Z', '', 'whistle'),
+  },
+  drool: {
+    name: 'Drool',
+    draw: (c: Ctx) =>
+      cavity(c, 'M40 74 Q60 79 80 74 Q76 92 60 93 Q44 92 40 74 Z', teethRow(72, 7, 36, 84, [48, 56, 64, 72]) + tongue(60, 92, 11, 6), 'drool') +
+      `<path d="M76 84 Q80 96 78 104 Q75 109 72 104 Q71 96 76 84 Z" fill="url(#water)" stroke="#2a8ad6" stroke-width="0.8" ${RAISED}/>`,
+  },
+  wow: {
+    name: 'Wow',
+    draw: (c: Ctx) => cavity(c, 'M60 68 C76 68 76 98 60 98 C44 98 44 68 60 68 Z', tongue(60, 98, 11, 7), 'wow'),
+  },
   grit: {
     name: 'Gritted',
     draw: (c: Ctx) =>
@@ -638,6 +661,81 @@ export const EXTRAS = {
       `<circle cx="60" cy="-22" r="4.5" fill="#ffe066" stroke="#b87900" stroke-width="1"/>` +
       `</g>`,
   },
+  rose: {
+    name: 'Rose',
+    draw: () =>
+      `<g ${RAISED}>` +
+      `<path d="M36 90 L98 70" stroke="#2f8a2f" stroke-width="3.6" stroke-linecap="round"/>` +
+      `<path d="M58 84 Q60 72 72 72 Q66 82 58 84 Z M74 78 Q82 88 92 86 Q84 76 74 78 Z" fill="#43a843" stroke="#1f6a1f" stroke-width="0.8"/>` +
+      `<circle cx="102" cy="66" r="12" fill="#d61f36" stroke="#7a0a18" stroke-width="1"/>` +
+      `<path d="M94 62 Q102 54 110 62 Q104 66 102 74 Q98 66 94 62 Z" fill="#ff4d63" stroke="#7a0a18" stroke-width="0.8"/>` +
+      `<path d="M98 68 Q102 62 106 68 Q102 72 98 68 Z" fill="#a8122a"/>` +
+      `</g>`,
+  },
+  mustache: {
+    name: 'Mustache',
+    draw: () =>
+      `<path d="M60 74 C54 68 42 68 36 76 C40 74 44 76 46 79 C50 80 56 79 60 76 C64 79 70 80 74 79 C76 76 80 74 84 76 C78 68 66 68 60 74 Z" fill="#3a2414" stroke="#1a0e06" stroke-width="1" ${RAISED}/>`,
+  },
+  glasses: {
+    name: 'Glasses',
+    draw: () =>
+      `<g ${RAISED} fill="none" stroke="#1d1f26" stroke-width="3">` +
+      `<circle cx="43" cy="52" r="15"/><circle cx="77" cy="52" r="15"/><path d="M58 50 Q60 46 62 50 M28 50 L16 46 M92 50 L104 46"/></g>` +
+      `<path d="M34 46 L40 42 M68 46 L74 42" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" opacity="0.7"/>`,
+  },
+  monocle: {
+    name: 'Monocle',
+    draw: () =>
+      `<g ${RAISED}><circle cx="77" cy="52" r="15" fill="#d8ecff" fill-opacity="0.25" stroke="url(#gold)" stroke-width="3.4"/></g>` +
+      `<path d="M90 60 Q96 80 88 100" fill="none" stroke="#c99a12" stroke-width="1.4" stroke-dasharray="2 2"/>` +
+      `<path d="M70 45 L75 42" stroke="#ffffff" stroke-width="2" stroke-linecap="round" opacity="0.8"/>`,
+  },
+  bandage: {
+    name: 'Bandage',
+    draw: () =>
+      `<g ${RAISED} transform="translate(82 24)">` +
+      [45, -45]
+        .map(
+          (a) =>
+            `<g transform="rotate(${a})"><rect x="-16" y="-5" width="32" height="10" rx="4" fill="#f2c9a0" stroke="#b8865a" stroke-width="1"/>` +
+            `<rect x="-5" y="-4" width="10" height="8" fill="#e8b88a"/></g>`,
+        )
+        .join('') +
+      `</g>`,
+  },
+  headphones: {
+    name: 'Headphones',
+    draw: () =>
+      `<g ${RAISED}>` +
+      `<path d="M14 62 C10 18 110 18 106 62" fill="none" stroke="#2b2f38" stroke-width="7" stroke-linecap="round"/>` +
+      `<rect x="2" y="50" width="18" height="30" rx="8" fill="#e8344a" stroke="#7a0a18" stroke-width="1.2"/>` +
+      `<rect x="100" y="50" width="18" height="30" rx="8" fill="#e8344a" stroke="#7a0a18" stroke-width="1.2"/>` +
+      `</g>`,
+  },
+  floatHearts: {
+    name: 'Hearts',
+    draw: () => heart(100, 22, 7) + heart(112, 6, 5) + heart(16, 16, 5.5),
+  },
+  notes: {
+    name: 'Music',
+    draw: () =>
+      `<g ${RAISED} fill="#2b2f38" stroke="#2b2f38">` +
+      `<ellipse cx="96" cy="30" rx="5" ry="4" transform="rotate(-20 96 30)"/><path d="M100 29 V10 L112 6 V24" fill="none" stroke-width="2.4"/>` +
+      `<ellipse cx="108" cy="25" rx="5" ry="4" transform="rotate(-20 108 25)"/>` +
+      `<ellipse cx="14" cy="22" rx="4.5" ry="3.6" transform="rotate(-20 14 22)"/><path d="M18 21 V6" fill="none" stroke-width="2.2"/><path d="M18 6 Q24 8 22 14" fill="none" stroke-width="2"/>` +
+      `</g>`,
+  },
+  bulb: {
+    name: 'Idea',
+    draw: () =>
+      `<g ${RAISED}>` +
+      `<path d="M60 -26 C72 -26 78 -16 74 -6 C72 -1 68 2 67 7 H53 C52 2 48 -1 46 -6 C42 -16 48 -26 60 -26 Z" fill="#ffe46b" stroke="#b88a00" stroke-width="1.2"/>` +
+      `<rect x="53" y="7" width="14" height="7" rx="2" fill="#b9c0c9" stroke="#6f7787" stroke-width="1"/>` +
+      `<path d="M56 0 Q60 -10 64 0" fill="none" stroke="#c98a00" stroke-width="1.4"/>` +
+      `</g>` +
+      `<path d="M38 -18 L32 -22 M82 -18 L88 -22 M60 -34 V-40 M44 -30 L40 -35 M76 -30 L80 -35" stroke="#ffcf2e" stroke-width="2.4" stroke-linecap="round"/>`,
+  },
   thumbsUp: { name: 'Thumbs up', draw: () => place(HAND.thumb, 14, 116, -10) },
   thumbsDown: { name: 'Thumbs down', draw: () => place(HAND.thumb, 106, 84, 170, 1.15, true) },
   point: { name: 'Pointing', draw: () => place(HAND.point, 10, 118, -28) },
@@ -648,10 +746,31 @@ export const EXTRAS = {
     name: 'Shrug',
     draw: () => place(HAND.open, 14, 100, -72) + place(HAND.open, 106, 100, 72, 1.15, true),
   },
+  firePunch: {
+    name: 'Fire punch',
+    draw: () =>
+      // Flames streaming back from a fist thrown at the viewer.
+      `<g transform="translate(16 92) rotate(-30) scale(1.5)">` +
+      [
+        [-8, -6, 26, '#ff3b1f'],
+        [-4, -4, 20, '#ff8a1f'],
+        [0, -2, 13, '#ffd23f'],
+      ]
+        .map(
+          ([dx, dy, r, color]) =>
+            `<path d="M${dx} ${dy} C${-(r as number) * 1.2} ${-(r as number) * 0.4} ${-(r as number) * 0.6} ${-(r as number) * 1.4} ${-(r as number) * 0.1} ${-(r as number) * 1.6} C0 ${-(r as number) * 0.9} ${(r as number) * 0.5} ${-(r as number) * 1.1} ${(r as number) * 0.7} ${-(r as number) * 0.5} C${(r as number) * 1.1} ${(r as number) * 0.2} ${(r as number) * 0.4} ${(r as number) * 0.9} ${dx} ${(r as number) * 0.6} Z" fill="${color}" opacity="0.95" filter="url(#blur1)"/>`,
+        )
+        .join('') +
+      `</g>` +
+      place(HAND.fist, 14, 112, -18, 1.35),
+  },
+  facepalm: { name: 'Facepalm', draw: () => place(HAND.open, 44, 86, -16, 1.45) },
+  salute: { name: 'Salute', draw: () => place(HAND.open, 104, 44, 64, 1.05, true) },
+  think: { name: 'Thinking', draw: () => place(HAND.point, 66, 126, -14, 1.05) },
 } as const satisfies Record<string, { name: string; draw: (c: Ctx) => string }>
 
 /** The extras that are hands, listed apart from the rest in the panel. */
-export const HAND_EXTRAS: ExtraId[] = ['thumbsUp', 'thumbsDown', 'point', 'wave', 'fist', 'peace', 'shrug']
+export const HAND_EXTRAS: ExtraId[] = ['thumbsUp', 'thumbsDown', 'point', 'wave', 'fist', 'peace', 'shrug', 'firePunch', 'facepalm', 'salute', 'think']
 
 export type EyeId = keyof typeof EYES
 export type BrowId = keyof typeof BROWS

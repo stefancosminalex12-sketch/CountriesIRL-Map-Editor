@@ -14,6 +14,7 @@
  */
 import { create } from 'zustand'
 import { BUILTIN_STICKERS } from './builtin'
+import { DEFAULT_FACE, type FaceOptions } from './faceMaker'
 import type { Sticker } from './types'
 
 const STORAGE_KEY = 'map-editor.stickers.v1'
@@ -59,6 +60,9 @@ interface StickerLibrary {
    */
   pickedId: string | null
   pick: (id: string | null) => void
+  /** The face open in Create → Face maker, so the gallery can hand a preset to it. Not saved. */
+  face: FaceOptions
+  setFace: (face: FaceOptions) => void
   /** Adds stickers; returns false when the browser would not store them (they still work until a refresh). */
   add: (stickers: Sticker[]) => boolean
   remove: (id: string) => void
@@ -69,6 +73,8 @@ export const useStickerLibrary = create<StickerLibrary>((set, get) => ({
   uploads: read(),
   pickedId: null,
   pick: (pickedId) => set({ pickedId }),
+  face: DEFAULT_FACE,
+  setFace: (face) => set({ face }),
   add: (stickers) => {
     const uploads = [...get().uploads, ...stickers]
     set({ uploads })

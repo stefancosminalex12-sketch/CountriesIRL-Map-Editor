@@ -1,24 +1,31 @@
 /**
- * The built-in stickers: six 3D faces, one per mood, from furious to starstruck.
+ * The built-in stickers: six faces from the sticker gallery, one per mood from furious to
+ * starstruck, each in its tier's colour — red, orange, yellow, green, blue, purple — so the tiers
+ * stay apart even where a face is too small to read.
  *
- * Microsoft's Fluent Emoji 3D artwork (MIT), each recoloured to its tier — red, orange, yellow,
- * green, blue, purple — so the tiers stay apart at sizes too small to read an expression. The
- * artwork lives in `builtinArt.ts` as data URIs, for the same reason flag artwork is inlined (see
- * `flags/flagStore.ts`): an image the map references by URL is blank in every export, because the
- * exporter rasterises the map inside an `<img>`, which may not fetch anything.
+ * Drawn by the face maker (`faceMaker.ts`) as SVG data URIs, for the same reason flag artwork is
+ * inlined (see `flags/flagStore.ts`): an image the map references by URL is blank in every
+ * export, because the exporter rasterises the map inside an `<img>`, which may not fetch anything.
  *
- * Ordered lowest to highest, which is the order the default ladder uses: the lowest value on the
- * map gets the furious face and the highest the starstruck one.
+ * Ordered lowest to highest, which is the order the default ladder uses.
  */
-import { BUILTIN_ART } from './builtinArt'
+import { faceDataUri } from './faceMaker'
+import { FACE_PRESETS, presetFace } from './facePresets'
 import type { Sticker } from './types'
 
-export const BUILTIN_STICKERS: Sticker[] = BUILTIN_ART.map(({ id, name, src }) => ({
-  id: `builtin:${id.replace(/^builtin:/, '')}`,
-  name,
-  src,
-  builtin: true,
-}))
+const TIERS: Array<[id: string, name: string, preset: string, color: string]> = [
+  ['furious', 'Furious', 'furious', '#d42020'],
+  ['sad', 'Sad', 'sad', '#f57c1f'],
+  ['meh', 'Meh', 'unimpressed', '#f8c51b'],
+  ['happy', 'Happy', 'grinning', '#5fb82a'],
+  ['joyful', 'Joyful', 'big-laugh', '#1f6fe0'],
+  ['starstruck', 'Starstruck', 'star-struck', '#8f5cf5'],
+]
+
+export const BUILTIN_STICKERS: Sticker[] = TIERS.map(([id, name, presetId, color]) => {
+  const preset = FACE_PRESETS.find((p) => p.id === presetId)!
+  return { id: `builtin:${id}`, name, src: faceDataUri(presetFace(preset, color)), builtin: true }
+})
 
 /** The ladder a new map starts with: every built-in face, lowest value first. */
 export const DEFAULT_STICKER_LADDER: string[] = BUILTIN_STICKERS.map((s) => s.id)
