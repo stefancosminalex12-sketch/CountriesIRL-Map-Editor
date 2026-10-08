@@ -1417,7 +1417,7 @@ function flame(x: number, y: number, size: number, angle: number): string {
 }
 
 /** Where the helmet sits: its rim's middle, how far it is tipped back, and its size. */
-const HELMET = { x: 62, y: 26, angle: -15, scale: 0.8 }
+const HELMET = { x: 55, y: 25, angle: -15, scale: 0.8 }
 const HELMET_PLACE = `translate(${HELMET.x} ${HELMET.y}) rotate(${HELMET.angle}) scale(${HELMET.scale}) translate(-60 -45)`
 
 /** A point of the helmet as drawn, where it lands on the face — for the straps to hang from. */
