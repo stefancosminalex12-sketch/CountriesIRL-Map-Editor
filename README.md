@@ -1309,7 +1309,7 @@ the templates and how the map is displayed are in the File menu. A section's par
 Select          Tool [Normal ▾] · region groups · Entities Selected
 Merge           groups: new, name, flag, members
 Hide            Hide selected · Show all
-Overlay         Management · Appearance · Transform · Mode
+Overlay         create · the list · the chosen overlay: Appearance, Size and place, Display mode
 Styles & Data   [Off / Data / Compare / Flags and each mode's workflow]
 Stickers        Library · Emoji · Create · Size · Tiers
 Legend          Visibility · Content · Appearance · Layout · Position & Size
@@ -3621,15 +3621,25 @@ copied leaves the selection and the new overlay is the one being edited, so it c
 once and the original is not left painted in the selection colour under it. Only the selection
 changes, as part of the same edit: one undo takes the overlay away and gives the selection back.
 Every overlay is listed in the order it was made. Choosing one, from the list or by tapping it,
-opens its controls:
+shows its controls straight under the list — one panel, nothing to unfold (they were four folded
+parts: Management, Appearance, Transform, Mode):
 
-- mode, **Shape** or **Projection-aware**;
-- colour;
-- opacity;
-- texture: hatching, dots, **Flag** or none;
-- **Reset position**, which puts it back over the entity it copies;
-- **Move over**, which centres it on the entity selected last;
-- **Delete overlay**.
+- its name, with **Duplicate** and **Delete**;
+- **Appearance**: colour, opacity, texture (Land, Hatching, Dots, **Flag**, None, Solid Color);
+- **Size and place**: size, the scale multiplier, **Reset scale**, and **Move over**, which
+  centres it on the entity selected last (**Reset position** was removed: dragging it back, or
+  undo, does the same);
+- **Display mode**: **Shape** or **Projection-aware**.
+
+**Right-click an overlay** on the map for its menu, where it was clicked (`ui/OverlayMenu.tsx`):
+**Delete**, **Duplicate**, **Texture ›** and **Display mode ›**, the last two cascading to their
+choices like the File menu's rows. **Duplicate** — here or in the panel — makes an identical copy,
+named as the next copy ("France 3" beside "France 2"), and puts it down **beside** the original
+rather than on top of it, so it is plain there are two: one main-land width to its right, or to
+its left where the right is off the globe (`overlayBeside` in `render/MapOverlays.tsx`, measured
+from the dominant land cluster, so France's copy lands next to France, not past Réunion). The copy
+is chosen, ready to drag; one undo takes it away. Choosing Flag for an entity that flies none
+opens the Overlay panel to pick one.
 
 **A copy is more of the map.** New overlays are filled with **Land** — the map's own land colour
 — at full opacity, so a copy dragged into the sea reads as land that is there. Its whole edge is
@@ -3742,8 +3752,7 @@ Verified in the browser:
 - **Dragging.** A 200 × 60 px drag moved it exactly 200 × 60 px. After zooming to 2.25×, a
   90 × −40 px drag moved it exactly that much again. Neither drag moved the camera or changed
   the selection.
-- **Undo and redo** took the move back and put it again; **Reset position** returned the
-  overlay to its home.
+- **Undo and redo** took the move back and put it again.
 - **Merged group.** An overlay of an Iberia group had all 49 subpaths of the merged body.
 - **Micro-nation.** Vatican City was drawn at its size on the map — then its true 0.004 px,
   now six times that (see *No minimum rendered size*).

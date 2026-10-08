@@ -20,16 +20,18 @@
  * exclave of it, and nowhere else. The flag is the overlay's own (`MapOverlay.flag`).
  *
  * Nothing marks the chosen overlay on the map: it looks exactly as it does when it is not chosen, and
- * which one is being edited is shown in the Overlay tool (Edit → Overlay) alone. A dashed outline and a round handle
+ * which one is being edited is shown in the Overlay tool alone. A right-click on one opens its menu
+ * (`OverlayMenu`): Delete, Duplicate, Texture, Display mode. A dashed outline and a round handle
  * used to be drawn on it; both read as a selection marker over the map rather than as part of it.
  */
-import { memo, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react'
+import { memo, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type RefObject } from 'react'
 import { geoPath, type GeoProjection } from 'd3-geo'
 import type { MultiPolygon } from 'geojson'
 import type { MapOverlay } from '../types/map'
 import { anchorAt, carry, overlayKey, placeOverlay, type OverlayPlacement, type OverlaySource } from './overlayGeometry'
 import { fitFlag, patternGeometry, type FlagFit } from './MapFlags'
 import { flagFraming } from './flagPlacement'
+import { getLiveProjection } from './liveProjection'
 
 /** Marks overlay elements, so the map's own gestures and clicks leave them to this layer. */
 export const OVERLAY_MARKER = 'data-overlay-id'
@@ -83,6 +85,41 @@ function overlayFlag(
   return { fit, territories: framed }
 }
 
+/**
+ * Where each overlay was last drawn, and how wide its main land is drawn there, for
+ * `overlayBeside`. A handle, not state: nothing renders from it.
+ */
+const lastPlaced = new Map<string, { place: OverlayPlacement; width: number }>()
+
+/** How wide an entity's main land is drawn at home: its dominant cluster, not its far territories. */
+const mainWidths = new WeakMap<OverlaySource, number>()
+function mainWidth(source: OverlaySource): number {
+  let width = mainWidths.get(source)
+  if (width === undefined) {
+    const [[x0], [x1]] = geoPath(source.homeProjection).bounds(flagFraming(source.geometry).main)
+    width = Number.isFinite(x1 - x0) ? x1 - x0 : 0
+    mainWidths.set(source, width)
+  }
+  return width
+}
+
+/**
+ * A spot just beside an overlay, as [longitude, latitude]: the width of its main land to its
+ * right, or to its left where the right is off the globe — where a duplicate is put down, so it is plain there
+ * are two. Null when the overlay is not drawn or neither side is on the globe.
+ */
+export function overlayBeside(id: string): [number, number] | null {
+  const drawn = lastPlaced.get(id)
+  const projection = getLiveProjection()
+  if (!drawn || !projection) return null
+  const { place, width } = drawn
+  for (const dx of [width * 1.15, -width * 1.15]) {
+    const anchor = anchorAt([place.centre[0] + dx, place.centre[1]], projection)
+    if (anchor) return anchor
+  }
+  return null
+}
+
 /** The placement as an SVG transform: a translation and a uniform scale. */
 const transformOf = (place: OverlayPlacement) =>
   place.matrix ? `matrix(${place.matrix[0]},0,0,${place.matrix[0]},${place.matrix[1]},${place.matrix[2]})` : undefined
@@ -95,6 +132,8 @@ export interface MapOverlaysProps {
   zoomedRef: RefObject<SVGGElement>
   onSelect: (id: string) => void
   onMove: (id: string, anchor: [number, number]) => void
+  /** A right-click on an overlay, at a point in the window: the map opens the overlay's menu. */
+  onMenu: (id: string, x: number, y: number) => void
   /** The artwork of each overlay filled with a flag, by overlay id, once it has arrived. */
   flags: ReadonlyMap<string, string>
   /**
@@ -125,6 +164,7 @@ export const MapOverlays = memo(function MapOverlays({
   zoomedRef,
   onSelect,
   onMove,
+  onMenu,
   flags,
   lines,
 }: MapOverlaysProps) {
@@ -179,6 +219,15 @@ export const MapOverlays = memo(function MapOverlays({
     }
     return out
   }, [overlays, sources, projection, resting, restingFits, preview])
+
+  useEffect(() => {
+    lastPlaced.clear()
+    for (const { overlay, place } of placed) {
+      const source = sources.get(overlayKey(overlay))
+      const scale = overlay.scale ?? 1
+      if (source) lastPlaced.set(overlay.id, { place, width: mainWidth(source) * scale })
+    }
+  }, [placed, sources])
 
   if (placed.length === 0) return null
 
@@ -235,6 +284,12 @@ export const MapOverlays = memo(function MapOverlays({
     onPointerMove: move,
     onPointerUp: end,
     onPointerCancel: end,
+    onContextMenu: (event: ReactMouseEvent<SVGElement>) => {
+      event.preventDefault()
+      event.stopPropagation()
+      onSelect(overlay.id)
+      onMenu(overlay.id, event.clientX, event.clientY)
+    },
   })
 
   return (

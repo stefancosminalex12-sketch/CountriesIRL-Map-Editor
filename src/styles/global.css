@@ -4252,3 +4252,38 @@ body {
   contain: content;
   will-change: scroll-position;
 }
+
+/* The menu a right-click on an overlay opens: the File menu's look, at the pointer. */
+.overlay-menu {
+  min-width: 210px;
+}
+
+.overlay-menu__danger .top-file__name {
+  color: var(--danger, #d63b3b);
+}
+
+/* The chosen overlay, under the list: its name and quick actions, then everything about it. */
+.overlay-editor {
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.overlay-editor__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.overlay-editor__head .sidebar__group-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overlay-editor__actions {
+  display: flex;
+  gap: 4px;
+  flex: none;
+}

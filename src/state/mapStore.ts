@@ -342,6 +342,12 @@ interface MapStore {
    * the last. One undo step. Returns the new overlays' ids.
    */
   createOverlaysFromSelection: (asGroup?: boolean) => string[]
+  /**
+   * A copy of an overlay — same shape, look, size and mode — put down at `anchor` (beside the
+   * original, so it is plain there are two), named as the next copy of what it copies, and chosen.
+   * One undo step. Returns the new overlay's id, or null when there is no such overlay.
+   */
+  duplicateOverlay: (id: string, anchor: [number, number] | null) => string | null
   deleteOverlay: (id: string) => void
   /** Chooses the group the panel is editing, or `null` for none. Touches no selection. */
   setActiveMerge: (id: string | null) => void
@@ -918,6 +924,29 @@ export const useMapStore = create<MapStore>((set, get) => {
     withLastEdit({ selectedCountryIds: get().selectedCountryIds.filter((id) => !copied.has(id)) })
     set({ activeOverlayId: overlays[overlays.length - 1].id })
     return overlays.map((o) => o.id)
+  },
+
+  duplicateOverlay(id, anchor) {
+    const state = get()
+    const existing = state.doc.overlays ?? []
+    const original = existing.find((o) => o.id === id)
+    if (!original) return null
+    const geo = state.geo
+    const mergeById = new Map(state.doc.merges.map((m) => [m.id, m]))
+    const members = original.members ?? [original.sourceId]
+    const key = members.join('+')
+    // Numbered after every copy of the same entities: "France 3" beside "France 2".
+    const n = existing.filter((o) => (o.members ?? [o.sourceId]).join('+') === key).length + 1
+    const baseName = (entity: string) =>
+      mergeById.get(entity)?.name ?? geo?.meta[entity]?.name ?? geo?.byId.get(entity)?.properties.name ?? entity
+    const name = members.map((m) => `${baseName(m)} ${n + 1}`).join(' & ')
+    const taken = new Set(existing.map((o) => o.id))
+    let newId = `overlay-${Date.now().toString(36)}-d`
+    for (let k = 2; taken.has(newId); k++) newId = `overlay-${Date.now().toString(36)}-d${k}`
+    const copy: MapOverlay = { ...original, id: newId, name, anchor: anchor ?? original.anchor }
+    get().dispatch({ op: 'create_overlay', overlay: copy })
+    set({ activeOverlayId: newId })
+    return newId
   },
 
   deleteOverlay(id) {

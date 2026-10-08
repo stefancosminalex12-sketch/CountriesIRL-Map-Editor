@@ -65,6 +65,7 @@ import { MapLabels } from './MapLabels'
 import { MapStickers, type PlacedSticker } from './MapStickers'
 import { resolveStickers, stickersOf } from '../state/stickers'
 import { stickerIndex, useStickerLibrary } from '../stickers/stickerLibrary'
+import { OverlayMenu, type OverlayMenuRequest } from '../ui/OverlayMenu'
 import { CountryCoast, CountryPath, MAP_SCALE_VAR, screenStrokeWidth } from './CountryPath'
 import { flagCodeFor, useFlagStore } from '../flags/flagStore'
 import { entityFlagCode } from '../flags/flagChoices'
@@ -919,6 +920,10 @@ export function MapCanvas() {
       useMapStore.getState().dispatch({ op: 'update_overlay', id, patch: { anchor } }),
     [],
   )
+  /* The menu a right-click on an overlay opens, where it was clicked. See `OverlayMenu`. */
+  const [overlayMenu, setOverlayMenu] = useState<OverlayMenuRequest | null>(null)
+  const openOverlayMenu = useCallback((overlayId: string, x: number, y: number) => setOverlayMenu({ overlayId, x, y }), [])
+  const closeOverlayMenu = useCallback(() => setOverlayMenu(null), [])
 
   /* ----------------------------------------------------------------- labels */
 
@@ -3691,10 +3696,12 @@ export function MapCanvas() {
               zoomedRef={zoomedRef}
               onSelect={chooseOverlay}
               onMove={moveOverlay}
+              onMenu={openOverlayMenu}
               flags={overlayFlags}
               lines={overlayLines}
             />
           )}
+          {overlayMenu && <OverlayMenu request={overlayMenu} onClose={closeOverlayMenu} />}
         </g>
         </g>
 
