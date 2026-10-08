@@ -140,7 +140,7 @@ interface EyeSpec {
   look?: [number, number]
   /** Pupil size, as a share of the eye's smaller radius (scaled down to a countryball's dot). */
   iris?: number
-  lid?: 'half' | 'heavy' | 'angry' | 'sad' | 'happy'
+  lid?: 'drowsy' | 'half' | 'heavy' | 'angry' | 'sad' | 'happy'
 }
 
 /**
@@ -167,6 +167,9 @@ function eye(c: Ctx, e: EyeSpec, side: Side, key: string): string {
     region = `${cut} L${inner} ${bottom} L${outer} ${bottom} Z`
   }
   switch (e.lid) {
+    case 'drowsy':
+      keepBelow(cy - ry * 0.5, cy - ry * 0.5, ry * 0.12)
+      break
     case 'half':
       keepBelow(cy - ry * 0.18, cy - ry * 0.18, ry * 0.12)
       break
@@ -456,6 +459,20 @@ export const EYES = {
       eye(c, { ...ROUND, cx: 42, rx: 12, ry: 12.5, look: [0.5, 2.5], lid: 'heavy' }, 1, 'l') +
       eye(c, { cx: 78, cy: 51, rx: 13, ry: 14.5, iris: 0.4, look: [-1, 0] }, -1, 'r'),
   },
+  // The thousand-yard stare: big, red-rimmed eyes under heavy lids, pupils fixed straight ahead.
+  stare: {
+    name: 'Thousand-yard',
+    draw: (c: Ctx) =>
+      [43, 77].map((x) => `<ellipse cx="${x}" cy="57" rx="16" ry="15" fill="#e8708a" opacity="0.45" filter="url(#soft)"/>`).join('') +
+      pair(c, { cx: 43, cy: 57, rx: 13.5, ry: 13.5, iris: 0.68, look: [0, 1.5], lid: 'drowsy' }) +
+      [43, 77]
+        .map(
+          (x) =>
+            `<path d="M${x - 11} 63 Q${x} 71.5 ${x + 11} 63" fill="none" stroke="#d3415e" stroke-width="1.8" stroke-linecap="round" opacity="0.85"/>` +
+            `<path d="M${x - 12.5} 67 Q${x} 75.5 ${x + 12.5} 67" fill="none" stroke="${c.ink}" stroke-width="1.2" stroke-linecap="round" opacity="0.7"/>`,
+        )
+        .join(''),
+  },
   stars: { name: 'Stars', draw: () => edge(star(44, 51, 13) + star(76, 51, 13)) },
   hearts: { name: 'Hearts', draw: () => edge(heart(44, 52, 10) + heart(76, 52, 10)) },
   dizzy: {
@@ -470,6 +487,7 @@ export const BROWS = {
   raised: { name: 'Raised', draw: (c: Ctx) => browPair(c, 32, 31, 43, 19, 55, 27) },
   angry: { name: 'Angry', draw: (c: Ctx) => browPair(c, 30, 30, 43, 33, 57, 42, 5.6) },
   worried: { name: 'Worried', draw: (c: Ctx) => browPair(c, 31, 38, 42, 30, 55, 26) },
+  weary: { name: 'Weary', draw: (c: Ctx) => browPair(c, 29, 43, 42, 38.5, 56, 37.5, 5.2) },
   suspicious: {
     name: 'One up',
     draw: (c: Ctx) => brow(c, 32, 37, 43, 34, 55, 37) + brow(c, 65, 28, 77, 16, 89, 26),
@@ -1025,13 +1043,17 @@ export const EXTRAS = {
       `<path d="M38 -18 L32 -22 M82 -18 L88 -22 M60 -34 V-40 M44 -30 L40 -35 M76 -30 L80 -35" stroke="#ffcf2e" stroke-width="2.4" stroke-linecap="round"/>` +
       `</g>`,
   },
+  // Pushed back on the head, as a worn-out soldier wears it: the rim tilted up off the brow, the
+  // dome squatter so it stays in the frame, the straps hanging loose either side.
   helmet: {
     name: 'Helmet',
     draw: (c: Ctx) => {
       c.defs.push(`<clipPath id="helmetShell"><path d="M5 45 A55 55 0 0 1 115 45 Q60 53 5 45 Z"/></clipPath>`)
       return (
-        // Chin straps, hugging the cheeks, under the shell.
-        `<path d="M16 50 C15 74 28 96 48 104 M104 50 C105 74 92 96 72 104" fill="none" stroke="#4a5530" stroke-width="1.7" stroke-linecap="round" opacity="0.85"/>` +
+        `<g transform="rotate(-5 60 30)">` +
+        // Chin straps, unbuckled, hanging down past the cheeks.
+        `<path d="M7 30 C4 50 8 70 13 84 M113 30 C116 50 112 70 107 84" fill="none" stroke="#4a5530" stroke-width="1.8" stroke-linecap="round"/>` +
+        `<g transform="translate(0 -9) scale(1 0.6) translate(0 9)">` +
         `<g ${RAISED}>` +
         `<path d="M5 45 A55 55 0 0 1 115 45 Q60 53 5 45 Z" fill="url(#olive)" stroke="#2c3519" stroke-width="1"/>` +
         `<g clip-path="url(#helmetShell)" opacity="0.5">` +
@@ -1041,7 +1063,8 @@ export const EXTRAS = {
         `</g>` +
         `<path d="M1 44 Q60 55 119 44 Q120 49 118 51 Q60 62 2 51 Q0 49 1 44 Z" fill="#56652f" stroke="#2c3519" stroke-width="1"/>` +
         `</g>` +
-        `<ellipse cx="38" cy="10" rx="17" ry="7" fill="#ffffff" opacity="0.22" transform="rotate(-24 38 10)"/>`
+        `<ellipse cx="38" cy="10" rx="17" ry="7" fill="#ffffff" opacity="0.22" transform="rotate(-24 38 10)"/>` +
+        `</g></g>`
       )
     },
   },

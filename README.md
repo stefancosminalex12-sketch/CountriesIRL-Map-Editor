@@ -3203,8 +3203,8 @@ is SVG — so an emoji copy saved by any route is dropped on load unless the tie
 
 **Create** makes new stickers, saved to the library like uploads:
 
-- **Face maker** (`stickers/faceMaker.ts`): a countryball assembled from parts (38 eyes —
-  among them staring, goofy, uneven, fury and a black eye — 11 brows, including four that float
+- **Face maker** (`stickers/faceMaker.ts`): a countryball assembled from parts (39 eyes —
+  among them staring, goofy, uneven, fury, a black eye and the thousand-yard stare — 12 brows, including four that float
   just above the head, 53 mouths, 56 hand poses — thumbs up and down, pointing, waving, fist, fire
   punch, peace, shrug, facepalm, salute, thinking, OK sign, cheering, covering eyes or mouth,
   praying, palms up, holding a heart, a finger to the lips, hands on the head, pulling the mouth
