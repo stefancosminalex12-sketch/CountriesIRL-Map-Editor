@@ -26,7 +26,7 @@ const COLLECTION: Row[] = [
   ['Fire Punch', 'angry', 'angry', 'grit', ['firePunch', 'fist']],
   ['Shrug', 'wide', 'raised', 'frownSmall', ['shrug']],
   ['Heavy Breathing', 'wide', 'angry', 'fewTeeth', ['foreheadSweat', 'nose']],
-  ['Checking You Out', 'smug', 'suspicious', 'smirk', ['point', 'fist']],
+  ['Checking You Out', 'smug', 'suspicious', 'smirk', ['fist']],
   ['Trying Not To Laugh', 'squeeze', 'none', 'lips', ['blush']],
   ['Hold Up', 'oneBig', 'angry', 'flat', ['shades', 'adjustShades']],
   ['Thumbs Down', 'angry', 'angry', 'pout', ['thumbsDown']],

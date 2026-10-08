@@ -1015,9 +1015,10 @@ export const EXTRAS = {
     name: 'Headphones',
     draw: () =>
       `<g ${RAISED}>` +
-      `<path d="M14 62 C10 18 110 18 106 62" fill="none" stroke="#2b2f38" stroke-width="7" stroke-linecap="round"/>` +
-      `<rect x="2" y="50" width="18" height="30" rx="8" fill="#e8344a" stroke="#7a0a18" stroke-width="1.2"/>` +
-      `<rect x="100" y="50" width="18" height="30" rx="8" fill="#e8344a" stroke="#7a0a18" stroke-width="1.2"/>` +
+      // The band rests on top of the head, just outside it; the cups sit over the ears at the sides.
+      `<path d="M7.5 60 A52.5 52.5 0 0 1 112.5 60" fill="none" stroke="#2b2f38" stroke-width="7" stroke-linecap="round"/>` +
+      `<rect x="0" y="46" width="18" height="30" rx="8" fill="#e8344a" stroke="#7a0a18" stroke-width="1.2"/>` +
+      `<rect x="102" y="46" width="18" height="30" rx="8" fill="#e8344a" stroke="#7a0a18" stroke-width="1.2"/>` +
       `</g>`,
   },
   floatHearts: {
@@ -1028,9 +1029,10 @@ export const EXTRAS = {
     name: 'Music',
     draw: () =>
       `<g ${RAISED} fill="#2b2f38" stroke="#2b2f38">` +
-      `<ellipse cx="96" cy="30" rx="5" ry="4" transform="rotate(-20 96 30)"/><path d="M100 29 V10 L112 6 V24" fill="none" stroke-width="2.4"/>` +
-      `<ellipse cx="108" cy="25" rx="5" ry="4" transform="rotate(-20 108 25)"/>` +
-      `<ellipse cx="14" cy="22" rx="4.5" ry="3.6" transform="rotate(-20 14 22)"/><path d="M18 21 V6" fill="none" stroke-width="2.2"/><path d="M18 6 Q24 8 22 14" fill="none" stroke-width="2"/>` +
+      // Clear of the head and of a headphone band over it.
+      `<g transform="translate(22 -6)"><ellipse cx="96" cy="30" rx="5" ry="4" transform="rotate(-20 96 30)"/><path d="M100 29 V10 L112 6 V24" fill="none" stroke-width="2.4"/>` +
+      `<ellipse cx="108" cy="25" rx="5" ry="4" transform="rotate(-20 108 25)"/></g>` +
+      `<g transform="translate(-14 -6)"><ellipse cx="14" cy="22" rx="4.5" ry="3.6" transform="rotate(-20 14 22)"/><path d="M18 21 V6" fill="none" stroke-width="2.2"/><path d="M18 6 Q24 8 22 14" fill="none" stroke-width="2"/></g>` +
       `</g>`,
   },
   bulb: {
@@ -1145,10 +1147,11 @@ export const EXTRAS = {
         .map(([x, y]) => `<path d="M${x} ${y - 3} Q${x - 2.2} ${y + 1} ${x} ${y + 2.4} Q${x + 2.2} ${y + 1} ${x} ${y - 3} Z" fill="#bfe8ff" stroke="#5aaee6" stroke-width="0.5"/>`)
         .join(''),
   },
+  // The whole face fades out towards the bottom (the mask in `faceSvg`); these are the bits
+  // drifting off it.
   fadeAway: {
     name: 'Fading away',
     draw: () =>
-      `<rect x="6" y="56" width="108" height="60" fill="url(#fade)"/>` +
       [[24, 96], [36, 106], [52, 110], [70, 108], [86, 102], [98, 92], [44, 118], [78, 118], [60, 122]]
         .map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="${1 + (i % 3) * 0.6}" fill="#c8d6ea"/>`)
         .join(''),
@@ -1461,6 +1464,7 @@ export function faceSvg(options: FaceOptions): string {
     extras.map((id) => edge(BEHIND_PARTS[id]?.(c) ?? '')).join('') +
     extras.filter((id) => BEHIND.includes(id)).map((id) => drawExtra(id, c)).join('')
   const over = extras.filter((id) => !BEHIND.includes(id)).map((id) => drawExtra(id, c)).join('')
+  const fading = extras.includes('fadeAway')
 
   /*
    * The ball's fill: its colour, or a flag laid over the whole ball and clipped to it — the
@@ -1529,8 +1533,17 @@ export function faceSvg(options: FaceOptions): string {
         `<filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.4"/></filter>` +
     `<filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3.2"/></filter>` +
     c.defs.join('') +
+    // Fading away: everything — ball, face, hands — fully there at the top, then ever fainter
+    // towards the bottom.
+    (fading
+      ? `<linearGradient id="fadeOut" gradientUnits="userSpaceOnUse" x1="0" y1="48" x2="0" y2="130">` +
+        `<stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#121212"/></linearGradient>` +
+        `<mask id="fadeMask" maskUnits="userSpaceOnUse" x="-40" y="-40" width="220" height="220">` +
+        `<rect x="-40" y="-40" width="220" height="220" fill="url(#fadeOut)"/></mask>`
+      : '') +
     `</defs>` +
     `<g transform="translate(10 8)">` +
+    (fading ? `<g mask="url(#fadeMask)">` : '') +
     behind +
     fill +
     `<circle cx="60" cy="60" r="50" fill="url(#ballLight)"/>` +
@@ -1539,6 +1552,7 @@ export function faceSvg(options: FaceOptions): string {
     brows +
     mouth +
     over +
+    (fading ? `</g>` : '') +
     `</g>` +
     `</svg>`
   )
