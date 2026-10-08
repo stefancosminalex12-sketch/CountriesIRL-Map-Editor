@@ -3075,9 +3075,13 @@ colour; tapping one adds it to the library in that colour.
   brows, 21 mouths, 11 hand poses — thumbs up and down, pointing, waving, fist, fire punch, peace,
   shrug, facepalm, salute, thinking — and 24 other extras such as a nose, glasses, a monocle, a
   mustache, a rose, headphones, a crown, a party hat, an idea bulb, steam, hearts, music notes and
-  Zzz, plus an optional outline) in any colour. The hands are cartoon gloves built from a
-  palm, finger capsules, knuckle rolls, a thumb and a cuff, so each pose is a different
-  arrangement of the same parts. The
+  Zzz, plus an optional outline) in any colour. The hands are cartoon gloves: each pose is a
+  few smooth shapes (a palm, fat tapered fingers with round tips, knuckle rolls, a thumb) drawn as
+  one piece through the `gloveFx` filter, which traces a single clean outline round the whole
+  silhouette, shades its lower right edge, lights its upper left and casts a soft shadow. Finger
+  separations, knuckle folds and the three stitched lines on the back are drawn inside as soft
+  creases; a thumb folded over a fist and the rolled cuff are outlined as their own pieces. The
+  fire punch's flames are drawn behind the head (`BEHIND_PARTS`), so only the fist covers it. The
   sticker's frame is measured from what is drawn (`fittedViewBox`), so a hand held out to the side
   or a crown is never cut off. Original artwork, as SVG, lit consistently from the top left: the head is a shaded
   sphere with a rim, a bounce light and a specular highlight; brows, lids, stars, hearts and hands

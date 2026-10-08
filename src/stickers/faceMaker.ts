@@ -491,86 +491,143 @@ cheeks(c, [42, 78], [78, 78]) +
 /* ------------------------------------------------------------------- hands */
 
 /*
- * Cartoon gloves, built from parts: a palm, fingers as capsules, curled fingers as knuckle rolls,
- * a thumb and a cuff. Every pose is drawn at the origin with the wrist at (0, 0) and the hand
- * reaching up (−y), about 26 units across, then placed beside the face by its extra. The whole
- * glove is raised by the same light as the face's features.
+ * Cartoon gloves. Each pose is a few smooth shapes — a palm, tapered fingers with round tips, a
+ * thumb — filled one flat white and drawn as **one** piece through the `gloveFx` filter, which
+ * traces a single clean outline round the whole silhouette, shades its lower right edge, lights its
+ * upper left and casts a soft shadow. So a hand reads as one hand, not as a stack of outlined
+ * blocks. What the outline cannot show — where one finger lies against the next, a knuckle's fold,
+ * the three stitched lines on the back — is drawn inside as soft crease lines. A part that sits in
+ * front of the rest (a thumb folded over a fist, the cuff) is its own piece, outlined on its own.
+ *
+ * Every pose is drawn at the origin with the wrist at (0, 0) and the hand reaching up (−y), about
+ * 32 units across, then placed beside the face by its extra.
  */
-const GLOVE_PAINT = 'fill="url(#glove)" stroke="#7f8ca3" stroke-width="1.2" stroke-linejoin="round"'
-const CREASE = 'stroke="#a7b2c4" stroke-width="1" fill="none" stroke-linecap="round"'
+const GLOVE_FILL = '#f7f9fc'
+const SEAM = 'fill="none" stroke="#a3afc2" stroke-width="1.15" stroke-linecap="round"'
+const SEAM_SOFT = 'fill="none" stroke="#b8c2d2" stroke-width="0.9" stroke-linecap="round"'
 
-/** A finger: a capsule from (x, y) reaching `len` along `angle` degrees from straight up. */
-const finger = (x: number, y: number, len: number, width: number, angle: number) =>
-  `<g transform="translate(${x} ${y}) rotate(${angle})">` +
-  `<rect x="${-width / 2}" y="${-len}" width="${width}" height="${len + width / 2}" rx="${width / 2}" ${GLOVE_PAINT}/>` +
-  `<path d="M${-width * 0.28} ${-len * 0.42} Q0 ${-len * 0.36} ${width * 0.28} ${-len * 0.42}" ${CREASE}/>` +
-  `</g>`
+/** One piece of glove, outlined and shaded as a whole. */
+const piece = (inner: string) => `<g filter="url(#gloveFx)" fill="${GLOVE_FILL}">${inner}</g>`
 
-const cuff = (y = 0, w = 25) =>
-  `<rect x="${-w / 2}" y="${y - 2}" width="${w}" height="9" rx="3.2" ${GLOVE_PAINT}/>` +
-  `<path d="M${-w / 2 + 2} ${y + 2.5} H${w / 2 - 2}" ${CREASE}/>`
+/** A finger: tapered from its base to a round tip, `len` long, reaching along `angle` degrees from straight up. */
+function finger(x: number, y: number, len: number, width: number, angle: number): string {
+  // Cartoon gloves have fat fingers: every finger is drawn a little wider than it is placed.
+  const w = width * 1.22
+  const tip = w * 0.48
+  return (
+    `<path transform="translate(${x} ${y}) rotate(${angle})" ` +
+    `d="M${-w / 2} 4 L${-tip} ${-len + tip} A${tip} ${tip} 0 0 1 ${tip} ${-len + tip} L${w / 2} 4 Z"/>`
+  )
+}
 
-const palm = (x: number, y: number, w: number, h: number, r = 9) =>
-  `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" ${GLOVE_PAINT}/>`
+/** The fold across a finger's middle knuckle. */
+function knuckleCrease(x: number, y: number, len: number, width: number, angle: number, at = 0.55): string {
+  const w = width * 1.22
+  const yy = -len * at
+  return `<path transform="translate(${x} ${y}) rotate(${angle})" d="M${-w * 0.3} ${yy + 1} Q0 ${yy - 1.2} ${w * 0.3} ${yy + 1}" ${SEAM_SOFT}/>`
+}
 
-/** Curled fingers seen from the front: a row of knuckle rolls along the top of a fist. */
-const knuckles = (xs: number[], y: number, w = 6.6, h = 10) =>
-  xs.map((x) => `<rect x="${x - w / 2}" y="${y}" width="${w}" height="${h}" rx="${w / 2}" ${GLOVE_PAINT}/>`).join('')
+/** The rolled cuff at the wrist, in front of the hand. */
+const cuff = (w = 30) =>
+  piece(`<rect x="${-w / 2}" y="-5" width="${w}" height="11" rx="4.5"/>`) +
+  `<path d="M${-w / 2 + 2.5} -0.5 Q0 1.5 ${w / 2 - 2.5} -0.5" ${SEAM}/>` +
+  `<path d="M${-w / 2 + 4} 3 Q0 4.6 ${w / 2 - 4} 3" ${SEAM_SOFT}/>`
 
-/** The thumb folded across the front of a fist. */
-const foldedThumb = (y: number, from = -13, to = 3) =>
-  `<rect x="${from}" y="${y}" width="${to - from}" height="7.4" rx="3.7" ${GLOVE_PAINT}/>`
+/** The three stitched lines on the back of a glove. */
+const stitches = (y: number, spread = 5.2, len = 9) =>
+  [-1, 0, 1].map((k) => `<path d="M${k * spread} ${y} q${k * 0.8} ${-len * 0.5} ${k * 0.4} ${-len}" ${SEAM_SOFT}/>`).join('')
 
-const glove = (inner: string) => `<g ${RAISED}>${inner}</g>`
+/* An open hand, palm out, fingers spread. */
+const OPEN_FINGERS: Array<[number, number, number, number, number]> = [
+  // x, y, length, width, angle
+  [-11.6, -26.5, 18, 8, -18],
+  [-4, -29, 22, 8.4, -6],
+  [4, -29, 21, 8.4, 6],
+  [11.4, -26, 15.5, 7.4, 19],
+]
+/** Where neighbouring fingers lie against each other, between their bases: x, y, angle. */
+const OPEN_SEAMS: Array<[number, number, number]> = [
+  [-7.9, -28.5, -12],
+  [0, -30, 0],
+  [7.8, -28.5, 12.5],
+]
+const OPEN =
+  piece(
+    OPEN_FINGERS.map(([x, y, l, w, a]) => finger(x, y, l, w, a)).join('') +
+      `<path d="M-15 -4 C-17 -14 -16.5 -26 -13 -31 Q0 -34 13 -31 C16.5 -26 17 -14 15 -4 Z"/>` +
+      finger(-14, -12, 16, 9.4, -60),
+  ) +
+  OPEN_FINGERS.map(([x, y, l, w, a]) => knuckleCrease(x, y, l, w, a)).join('') +
+  OPEN_SEAMS.map(([x, y, a]) => `<path transform="translate(${x} ${y}) rotate(${a})" d="M0 1 Q0.6 -6 0 -12" ${SEAM}/>`).join('') +
+  `<path d="M-8 -17 Q-1 -13 7 -19" ${SEAM}/>` +
+  `<path d="M-6 -11 Q0 -8.5 6 -12" ${SEAM_SOFT}/>` +
+  `<path d="M-11.5 -9 Q-8 -14 -9.5 -21" ${SEAM_SOFT}/>` +
+  cuff(29)
 
-const HAND = {
-  /** An open hand, fingers spread: waving, or palm up when turned on its side. */
-  open: glove(
-    finger(-8.2, -19, 13, 6.2, -16) +
-      finger(-2.8, -21, 16, 6.4, -5) +
-      finger(2.8, -21, 15.5, 6.4, 5) +
-      finger(8, -19, 12, 6, 15) +
-      palm(-12, -24, 24, 25) +
-      finger(-10, -7, 12.5, 7, -58) +
-      `<path d="M-6 -12 Q0 -9 6 -13 M-4 -6 Q1 -4 5 -7" ${CREASE}/>` +
-      cuff(1),
-  ),
-  /** A fist seen from the front, thumb across it. */
-  fist: glove(
-    palm(-13, -21, 26, 23, 10) +
-      knuckles([-9.6, -3.2, 3.2, 9.6], -25) +
-      foldedThumb(-13, -14, 4) +
-      cuff(2, 26),
-  ),
-  /** A fist from the side with the thumb up, the curled fingers stacked down its front. */
-  thumb: glove(
-    finger(-4, -16, 14, 8, -4) +
-      palm(-11, -20, 22, 23, 9) +
-      [-17, -11.4, -5.8, -0.2]
-        .map((y) => `<rect x="2" y="${y}" width="14" height="6.2" rx="3.1" ${GLOVE_PAINT}/>`)
-        .join('') +
-      cuff(3, 23),
-  ),
-  /** A fist with the index finger out. */
-  point: glove(
-    finger(-9.6, -20, 17, 6.6, -6) +
-      palm(-13, -21, 26, 23, 10) +
-      knuckles([-3.2, 3.2, 9.6], -25) +
-      foldedThumb(-13, -14, 4) +
-      cuff(2, 26),
-  ),
-  /** Two fingers up in a V, the others curled under the thumb. */
-  peace: glove(
-    finger(-6.5, -20, 16, 6.4, -14) +
-      finger(0.5, -21, 17, 6.4, 6) +
-      palm(-12, -22, 25, 24, 9.5) +
-      knuckles([6.4, 12], -24, 6, 8) +
-      foldedThumb(-11, -13, 6) +
-      cuff(2, 25),
-  ),
-} as const
+/*
+ * A fist seen from the front: four curled fingers in a row along the top, their tips tucked in
+ * along a crease below, and the thumb folded across in front.
+ */
+const FIST_KNUCKLES = [-11.4, -3.8, 3.8, 11.4]
+const fistBody = (skipFirst = false) =>
+  piece(
+    `<path d="M-16 -4 C-18.5 -14 -18 -24 -15 -28 Q0 -31 15 -28 C18 -24 18.5 -14 16 -4 Z"/>` +
+      FIST_KNUCKLES.filter((_, i) => !(skipFirst && i === 0))
+        .map((x) => `<rect x="${x - 4.9}" y="-36.5" width="9.8" height="17" rx="4.9"/>`)
+        .join(''),
+  ) +
+  FIST_KNUCKLES.slice(1)
+    .map((x) => `<path d="M${x - 3.8} -34 Q${x - 4.4} -28 ${x - 3.8} -21" ${SEAM}/>`)
+    .join('') +
+  `<path d="M${skipFirst ? -7.6 : -15} -24 Q0 -21.5 15 -24" ${SEAM_SOFT}/>`
 
-const place = (hand: string, x: number, y: number, rotate: number, scale = 1.15, flip = false) =>
+const foldedThumb = (y: number) =>
+  piece(`<path d="M-18 ${y + 4} C-19 ${y - 1} -15 ${y - 4.5} -9 ${y - 4.5} L4 ${y - 4} C8 ${y - 4} 9 ${y + 4} 4 ${y + 4.5} L-12 ${y + 6} C-15.5 ${y + 6} -17.5 ${y + 5.5} -18 ${y + 4} Z"/>`) +
+  `<path d="M-6 ${y - 3.5} Q-5 ${y} -6 ${y + 4.5}" ${SEAM_SOFT}/>`
+
+const FIST = fistBody() + foldedThumb(-14) + stitches(-9, 4.6, 6) + cuff(30)
+
+/* A fist from the side, the thumb up and the curled fingers stacked down its front. */
+const THUMB =
+  piece(
+    `<path d="M-12 -4 C-15 -12 -15 -22 -11 -27 Q0 -30 9 -27 C13 -22 13 -12 12 -4 Z"/>` +
+      [-27, -20.5, -14, -7.5].map((y, i) => `<rect x="2" y="${y}" width="${17 - i * 0.8}" height="7.6" rx="3.8"/>`).join('') +
+      finger(-4.5, -24, 18, 10.4, -8),
+  ) +
+  [-20.5, -14, -7.5].map((y) => `<path d="M4 ${y + 0.2} Q11 ${y - 1} ${17.5} ${y + 0.6}" ${SEAM}/>`).join('') +
+  knuckleCrease(-4.5, -24, 18, 10.4, -8, 0.5) +
+  `<path d="M-1.2 -22 Q1.4 -14 0.5 -6" ${SEAM}/>` +
+  stitches(-8, 3.8, 7) +
+  cuff(27)
+
+/* A fist with the index finger out. */
+const POINT =
+  piece(finger(-11.4, -28, 22, 8.2, -5)) +
+  knuckleCrease(-11.4, -28, 22, 8.2, -5) +
+  fistBody(true) +
+  `<path d="M-7.6 -34 Q-8.2 -28 -7.6 -21" ${SEAM}/>` +
+  foldedThumb(-14) +
+  stitches(-9, 4.6, 6) +
+  cuff(30)
+
+/* Two fingers up in a V, the other two curled under the thumb. */
+const PEACE =
+  piece(
+    finger(-6.2, -28, 21, 8.2, -13) +
+      finger(2.2, -29, 22, 8.2, 9) +
+      `<path d="M-15 -4 C-17.5 -14 -17 -24 -14 -28 Q0 -31 14 -28 C17 -24 17.5 -14 15 -4 Z"/>` +
+      `<rect x="5.5" y="-31" width="7.6" height="12" rx="3.8"/><rect x="11" y="-29" width="7" height="10.5" rx="3.5"/>`,
+  ) +
+  knuckleCrease(-6.2, -28, 21, 8.2, -13) +
+  knuckleCrease(2.2, -29, 22, 8.2, 9) +
+  `<path d="M-2 -27 Q-1.6 -22 -2.4 -18" ${SEAM}/>` +
+  `<path d="M11.2 -29 Q10.6 -25 11.2 -20" ${SEAM}/>` +
+  foldedThumb(-13) +
+  cuff(29)
+
+const HAND = { open: OPEN, fist: FIST, thumb: THUMB, point: POINT, peace: PEACE } as const
+
+const place = (hand: string, x: number, y: number, rotate: number, scale = 1.5, flip = false) =>
   `<g transform="translate(${x} ${y}) rotate(${rotate}) scale(${flip ? -scale : scale} ${scale})">${hand}</g>`
 
 export const EXTRAS = {
@@ -741,37 +798,21 @@ export const EXTRAS = {
       `</g>` +
       `<path d="M38 -18 L32 -22 M82 -18 L88 -22 M60 -34 V-40 M44 -30 L40 -35 M76 -30 L80 -35" stroke="#ffcf2e" stroke-width="2.4" stroke-linecap="round"/>`,
   },
-  thumbsUp: { name: 'Thumbs up', draw: () => place(HAND.thumb, 14, 116, -10) },
-  thumbsDown: { name: 'Thumbs down', draw: () => place(HAND.thumb, 106, 84, 170, 1.15, true) },
-  point: { name: 'Pointing', draw: () => place(HAND.point, 10, 118, -28) },
-  wave: { name: 'Waving', draw: () => place(HAND.open, 112, 82, 22) },
-  fist: { name: 'Fist', draw: () => place(HAND.fist, 110, 122, 12) },
-  peace: { name: 'Peace', draw: () => place(HAND.peace, 112, 84, 16) },
+  thumbsUp: { name: 'Thumbs up', draw: () => place(HAND.thumb, 20, 112, -10) },
+  thumbsDown: { name: 'Thumbs down', draw: () => place(HAND.thumb, 100, 80, 170, 1.5, true) },
+  point: { name: 'Pointing', draw: () => place(HAND.point, 16, 114, -28) },
+  wave: { name: 'Waving', draw: () => place(HAND.open, 106, 84, 22) },
+  fist: { name: 'Fist', draw: () => place(HAND.fist, 104, 118, 12) },
+  peace: { name: 'Peace', draw: () => place(HAND.peace, 106, 88, 16) },
   shrug: {
     name: 'Shrug',
-    draw: () => place(HAND.open, 14, 100, -72) + place(HAND.open, 106, 100, 72, 1.15, true),
+    draw: () => place(HAND.open, 24, 98, -66) + place(HAND.open, 96, 98, 66, 1.5, true),
   },
-  firePunch: {
-    name: 'Fire punch',
-    draw: () =>
-      // Flames streaming back from a fist thrown at the viewer.
-      `<g transform="translate(16 92) rotate(-30) scale(1.5)">` +
-      [
-        [-8, -6, 26, '#ff3b1f'],
-        [-4, -4, 20, '#ff8a1f'],
-        [0, -2, 13, '#ffd23f'],
-      ]
-        .map(
-          ([dx, dy, r, color]) =>
-            `<path d="M${dx} ${dy} C${-(r as number) * 1.2} ${-(r as number) * 0.4} ${-(r as number) * 0.6} ${-(r as number) * 1.4} ${-(r as number) * 0.1} ${-(r as number) * 1.6} C0 ${-(r as number) * 0.9} ${(r as number) * 0.5} ${-(r as number) * 1.1} ${(r as number) * 0.7} ${-(r as number) * 0.5} C${(r as number) * 1.1} ${(r as number) * 0.2} ${(r as number) * 0.4} ${(r as number) * 0.9} ${dx} ${(r as number) * 0.6} Z" fill="${color}" opacity="0.95" filter="url(#blur1)"/>`,
-        )
-        .join('') +
-      `</g>` +
-      place(HAND.fist, 14, 112, -18, 1.35),
-  },
-  facepalm: { name: 'Facepalm', draw: () => place(HAND.open, 44, 86, -16, 1.45) },
-  salute: { name: 'Salute', draw: () => place(HAND.open, 104, 44, 64, 1.05, true) },
-  think: { name: 'Thinking', draw: () => place(HAND.point, 66, 126, -14, 1.05) },
+  // The flames are drawn behind the head — see `BEHIND_PARTS` — so only the fist sits over it.
+  firePunch: { name: 'Fire punch', draw: () => place(HAND.fist, 20, 108, -18, 1.75) },
+  facepalm: { name: 'Facepalm', draw: () => place(HAND.open, 44, 88, -16, 1.75) },
+  salute: { name: 'Salute', draw: () => place(HAND.open, 100, 46, 64, 1.35, true) },
+  think: { name: 'Thinking', draw: () => place(HAND.point, 66, 126, -14, 1.35) },
 } as const satisfies Record<string, { name: string; draw: (c: Ctx) => string }>
 
 /** The extras that are hands, listed apart from the rest in the panel. */
@@ -793,6 +834,25 @@ export const DEFAULT_FACE: FaceOptions = {
 
 /** Drawn behind the head rather than over it. */
 const BEHIND: ExtraId[] = ['halo']
+
+/** A flame: a teardrop licking up and back, in three nested colours. */
+function flame(x: number, y: number, size: number, angle: number): string {
+  const layer = (scale: number, color: string) =>
+    `<path transform="scale(${scale})" d="M0 0 C-9 -2 -12 -12 -6 -22 C-4 -16 -1 -15 0 -18 C1 -26 6 -32 12 -36 C9 -26 14 -20 13 -10 C12 -3 7 1 0 0 Z" fill="${color}"/>`
+  return (
+    `<g transform="translate(${x} ${y}) rotate(${angle}) scale(${size})">` +
+    layer(1, '#ff3b1f') +
+    `<g transform="translate(1 -2)">${layer(0.72, '#ff8a1f')}</g>` +
+    `<g transform="translate(2 -3)">${layer(0.42, '#ffe066')}</g>` +
+    `</g>`
+  )
+}
+
+/** Parts of an extra that are drawn behind the head, while the extra itself is drawn over it. */
+const BEHIND_PARTS: Partial<Record<ExtraId, () => string>> = {
+  // Flames streaming back from the punch, behind the head and round the fist.
+  firePunch: () => flame(6, 114, 2.7, -60) + flame(-4, 96, 2, -78) + flame(18, 124, 1.7, -38),
+}
 
 /** The face as standalone SVG markup. */
 export function faceSvg(options: FaceOptions): string {
@@ -844,7 +904,9 @@ export function faceSvg(options: FaceOptions): string {
     )
     .join('')
   const extras = options.extras.filter((id) => id in EXTRAS)
-  const behind = extras.filter((id) => BEHIND.includes(id)).map((id) => EXTRAS[id].draw(c)).join('')
+  const behind =
+    extras.map((id) => BEHIND_PARTS[id]?.() ?? '').join('') +
+    extras.filter((id) => BEHIND.includes(id)).map((id) => EXTRAS[id].draw(c)).join('')
   const over = extras.filter((id) => !BEHIND.includes(id)).map((id) => EXTRAS[id].draw(c)).join('')
 
   return (
@@ -873,7 +935,6 @@ export function faceSvg(options: FaceOptions): string {
     `<linearGradient id="heart" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff6d8a"/><stop offset="1" stop-color="#d4123b"/></linearGradient>` +
     `<linearGradient id="water" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d6f3ff"/><stop offset="1" stop-color="#3fa9f5"/></linearGradient>` +
     `<linearGradient id="lens" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b4250"/><stop offset="0.5" stop-color="#11141a"/><stop offset="1" stop-color="#262b35"/></linearGradient>` +
-    `<linearGradient id="glove" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#cfd7e4"/></linearGradient>` +
     // Light: raised shapes catch it from the top left; cavities are shadowed from their top edge.
     `<filter id="bevel" x="-30%" y="-30%" width="160%" height="160%">` +
     `<feGaussianBlur in="SourceAlpha" stdDeviation="1.4" result="b"/>` +
@@ -893,6 +954,23 @@ export function faceSvg(options: FaceOptions): string {
     `<feOffset in="SourceAlpha" dx="0.6" dy="1.6" result="o"/><feGaussianBlur in="o" stdDeviation="1.1" result="ob"/>` +
     `<feFlood flood-color="#000" flood-opacity="0.35"/><feComposite in2="ob" operator="in" result="drop"/>` +
     `<feMerge><feMergeNode in="drop"/><feMergeNode in="SourceGraphic"/><feMergeNode in="si"/></feMerge>` +
+    `</filter>` +
+    // One glove piece: a single outline round the whole silhouette, its lower right edge shaded,
+    // its upper left lit, and a soft shadow beneath.
+    `<filter id="gloveFx" x="-25%" y="-25%" width="150%" height="150%">` +
+    `<feMorphology in="SourceAlpha" operator="dilate" radius="1.05" result="d"/>` +
+    `<feFlood flood-color="#6c7890"/><feComposite in2="d" operator="in" result="outline"/>` +
+    `<feOffset in="d" dx="0.8" dy="1.8" result="do"/><feGaussianBlur in="do" stdDeviation="1.3" result="db"/>` +
+    `<feFlood flood-color="#000" flood-opacity="0.2"/><feComposite in2="db" operator="in" result="drop"/>` +
+    `<feComponentTransfer in="SourceAlpha" result="inv"><feFuncA type="table" tableValues="1 0"/></feComponentTransfer>` +
+    `<feOffset in="inv" dx="-2" dy="-2.4" result="io"/><feGaussianBlur in="io" stdDeviation="2" result="ib"/>` +
+    `<feFlood flood-color="#8a98b2" flood-opacity="0.8"/><feComposite in2="ib" operator="in" result="sh"/>` +
+    `<feComposite in="sh" in2="SourceAlpha" operator="in" result="shade"/>` +
+    `<feGaussianBlur in="SourceAlpha" stdDeviation="1.5" result="b"/>` +
+    `<feSpecularLighting in="b" surfaceScale="2.2" specularConstant="0.55" specularExponent="22" lighting-color="#ffffff" result="s">` +
+    `<feDistantLight azimuth="225" elevation="42"/></feSpecularLighting>` +
+    `<feComposite in="s" in2="SourceAlpha" operator="in" result="spec"/>` +
+    `<feMerge><feMergeNode in="drop"/><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/><feMergeNode in="shade"/><feMergeNode in="spec"/></feMerge>` +
     `</filter>` +
     `<filter id="inset" x="-20%" y="-20%" width="140%" height="140%">` +
     `<feComponentTransfer in="SourceAlpha" result="inv"><feFuncA type="table" tableValues="1 0"/></feComponentTransfer>` +
