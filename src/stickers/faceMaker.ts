@@ -263,6 +263,37 @@ export const EYES = {
     name: 'Wink',
     draw: (c: Ctx) => eye(c, ROUND, 1, 'l') + ridge(c, 'M67 55 Q76 45 85 55'),
   },
+  rolling: { name: 'Eye roll', draw: (c: Ctx) => pair(c, { ...ROUND, look: [1, -6], iris: 0.55 }) },
+  puppy: {
+    name: 'Puppy',
+    draw: (c: Ctx) =>
+      pair(c, { cx: 44, cy: 53, rx: 11, ry: 12.5, iris: 0.82, look: [0, 1.5], lid: 'sad' }) +
+      // Extra catch-lights: the wet, pleading look.
+      [44, 76]
+        .map((x) => `<circle cx="${x + 4}" cy="57" r="1.8" fill="#ffffff" opacity="0.9"/><circle cx="${x - 3}" cy="58.5" r="1.1" fill="#ffffff" opacity="0.8"/>`)
+        .join(''),
+  },
+  money: {
+    name: 'Money',
+    draw: () =>
+      [44, 76]
+        .map(
+          (x) =>
+            `<text x="${x}" y="61" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="25" fill="url(#cash)" stroke="#145c22" stroke-width="1.2" ${RAISED}>$</text>`,
+        )
+        .join(''),
+  },
+  spiral: {
+    name: 'Spiral',
+    draw: (c: Ctx) =>
+      [44, 76]
+        .map(
+          (x) =>
+            `<circle cx="${x}" cy="52" r="10.5" fill="url(#sclera)" ${SUNKEN}/>` +
+            `<path d="M${x} 52 m0 -1.5 a1.5 1.5 0 1 1 -1.5 1.5 a3 3 0 1 1 3 3 a4.5 4.5 0 1 1 -4.5 -4.5 a6 6 0 1 1 6 6 a7.5 7.5 0 1 1 -7.5 -7.5" fill="none" stroke="${c.line}" stroke-width="1.8" stroke-linecap="round"/>`,
+        )
+        .join(''),
+  },
   stars: { name: 'Stars', draw: () => star(44, 51, 13) + star(76, 51, 13) },
   hearts: { name: 'Hearts', draw: () => heart(44, 52, 10) + heart(76, 52, 10) },
   dizzy: {
@@ -363,6 +394,37 @@ export const MOUTHS = {
     draw: (c: Ctx) =>
       `<path d="M55 72 Q66 72 61 79 Q68 85 55 88 Q60 84 57 80 Q61 76 55 72 Z" fill="${c.brow}" ${RAISED}/>`,
   },
+  sly: {
+    name: 'Sly grin',
+    draw: (c: Ctx) =>
+      cavity(c, 'M40 76 Q62 80 84 66 Q82 88 64 91 Q48 92 40 76 Z', teethRow(64, 11, 36, 90, [50, 58, 66, 74, 81]) + tongue(64, 92, 12, 6), 'sly') +
+      ridge(c, 'M85 63 Q88 66 86 70', 2),
+  },
+  grimace: {
+    name: 'Grimace',
+    draw: (c: Ctx) =>
+      cavity(
+        c,
+        'M30 74 Q60 70 90 74 Q92 88 90 88 Q60 92 30 88 Q28 88 30 74 Z',
+        teethRow(70, 10.5, 26, 94, [38, 46, 53, 60, 67, 74, 82]) + teethRow(80.5, 10, 26, 94, [38, 46, 53, 60, 67, 74, 82]) +
+          `<path d="M26 80.5 H94" stroke="#7a1b2e" stroke-width="1.2"/>`,
+        'grimace',
+      ),
+  },
+  bite: {
+    name: 'Lip bite',
+    draw: (c: Ctx) =>
+      ridge(c, 'M42 78 Q60 88 78 78') +
+      `<path d="M50 78.5 Q60 82 70 78.5 L69 84 Q60 86.5 51 84 Z" fill="url(#teeth)" stroke="#9aa6b8" stroke-width="0.9" ${RAISED}/>` +
+      `<path d="M57 79.5 V85 M63 79.5 V85" stroke="#b9c3d1" stroke-width="0.9"/>`,
+  },
+  zip: {
+    name: 'Zipped',
+    draw: (c: Ctx) =>
+      ridge(c, 'M40 80 H80', 3.4) +
+      Array.from({ length: 9 }, (_, i) => `<rect x="${42.5 + i * 4.3}" y="77" width="2.4" height="6" rx="0.6" fill="#c9ced8" stroke="#6f7787" stroke-width="0.6"/>`).join('') +
+      `<g ${RAISED}><rect x="78" y="76" width="7" height="8" rx="1.5" fill="#d7dce5" stroke="#6f7787" stroke-width="0.8"/><rect x="80" y="83" width="3.2" height="9" rx="1.6" fill="#d7dce5" stroke="#6f7787" stroke-width="0.8"/></g>`,
+  },
   grit: {
     name: 'Gritted',
     draw: (c: Ctx) =>
@@ -376,14 +438,90 @@ export const MOUTHS = {
   },
 } as const satisfies Record<string, { name: string; draw: (c: Ctx) => string }>
 
-/** A cartoon glove making a fist with the thumb up, at the origin, about 30 × 40. */
-const GLOVE =
-  `<g ${RAISED}>` +
-  `<rect x="-3" y="-30" width="11" height="22" rx="5.5" fill="url(#glove)" stroke="#8e9bb0" stroke-width="1.3"/>` +
-  `<rect x="-11" y="-12" width="30" height="27" rx="9" fill="url(#glove)" stroke="#8e9bb0" stroke-width="1.3"/>` +
-  `<path d="M-9 -2 H11 M-9 5 H11" stroke="#a9b4c6" stroke-width="1.2" stroke-linecap="round"/>` +
-  `<rect x="-10" y="14" width="27" height="8" rx="3" fill="url(#glove)" stroke="#8e9bb0" stroke-width="1.3"/>` +
+/* ------------------------------------------------------------------- hands */
+
+/*
+ * Cartoon gloves, built from parts: a palm, fingers as capsules, curled fingers as knuckle rolls,
+ * a thumb and a cuff. Every pose is drawn at the origin with the wrist at (0, 0) and the hand
+ * reaching up (−y), about 26 units across, then placed beside the face by its extra. The whole
+ * glove is raised by the same light as the face's features.
+ */
+const GLOVE_PAINT = 'fill="url(#glove)" stroke="#7f8ca3" stroke-width="1.2" stroke-linejoin="round"'
+const CREASE = 'stroke="#a7b2c4" stroke-width="1" fill="none" stroke-linecap="round"'
+
+/** A finger: a capsule from (x, y) reaching `len` along `angle` degrees from straight up. */
+const finger = (x: number, y: number, len: number, width: number, angle: number) =>
+  `<g transform="translate(${x} ${y}) rotate(${angle})">` +
+  `<rect x="${-width / 2}" y="${-len}" width="${width}" height="${len + width / 2}" rx="${width / 2}" ${GLOVE_PAINT}/>` +
+  `<path d="M${-width * 0.28} ${-len * 0.42} Q0 ${-len * 0.36} ${width * 0.28} ${-len * 0.42}" ${CREASE}/>` +
   `</g>`
+
+const cuff = (y = 0, w = 25) =>
+  `<rect x="${-w / 2}" y="${y - 2}" width="${w}" height="9" rx="3.2" ${GLOVE_PAINT}/>` +
+  `<path d="M${-w / 2 + 2} ${y + 2.5} H${w / 2 - 2}" ${CREASE}/>`
+
+const palm = (x: number, y: number, w: number, h: number, r = 9) =>
+  `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" ${GLOVE_PAINT}/>`
+
+/** Curled fingers seen from the front: a row of knuckle rolls along the top of a fist. */
+const knuckles = (xs: number[], y: number, w = 6.6, h = 10) =>
+  xs.map((x) => `<rect x="${x - w / 2}" y="${y}" width="${w}" height="${h}" rx="${w / 2}" ${GLOVE_PAINT}/>`).join('')
+
+/** The thumb folded across the front of a fist. */
+const foldedThumb = (y: number, from = -13, to = 3) =>
+  `<rect x="${from}" y="${y}" width="${to - from}" height="7.4" rx="3.7" ${GLOVE_PAINT}/>`
+
+const glove = (inner: string) => `<g ${RAISED}>${inner}</g>`
+
+const HAND = {
+  /** An open hand, fingers spread: waving, or palm up when turned on its side. */
+  open: glove(
+    finger(-8.2, -19, 13, 6.2, -16) +
+      finger(-2.8, -21, 16, 6.4, -5) +
+      finger(2.8, -21, 15.5, 6.4, 5) +
+      finger(8, -19, 12, 6, 15) +
+      palm(-12, -24, 24, 25) +
+      finger(-10, -7, 12.5, 7, -58) +
+      `<path d="M-6 -12 Q0 -9 6 -13 M-4 -6 Q1 -4 5 -7" ${CREASE}/>` +
+      cuff(1),
+  ),
+  /** A fist seen from the front, thumb across it. */
+  fist: glove(
+    palm(-13, -21, 26, 23, 10) +
+      knuckles([-9.6, -3.2, 3.2, 9.6], -25) +
+      foldedThumb(-13, -14, 4) +
+      cuff(2, 26),
+  ),
+  /** A fist from the side with the thumb up, the curled fingers stacked down its front. */
+  thumb: glove(
+    finger(-4, -16, 14, 8, -4) +
+      palm(-11, -20, 22, 23, 9) +
+      [-17, -11.4, -5.8, -0.2]
+        .map((y) => `<rect x="2" y="${y}" width="14" height="6.2" rx="3.1" ${GLOVE_PAINT}/>`)
+        .join('') +
+      cuff(3, 23),
+  ),
+  /** A fist with the index finger out. */
+  point: glove(
+    finger(-9.6, -20, 17, 6.6, -6) +
+      palm(-13, -21, 26, 23, 10) +
+      knuckles([-3.2, 3.2, 9.6], -25) +
+      foldedThumb(-13, -14, 4) +
+      cuff(2, 26),
+  ),
+  /** Two fingers up in a V, the others curled under the thumb. */
+  peace: glove(
+    finger(-6.5, -20, 16, 6.4, -14) +
+      finger(0.5, -21, 17, 6.4, 6) +
+      palm(-12, -22, 25, 24, 9.5) +
+      knuckles([6.4, 12], -24, 6, 8) +
+      foldedThumb(-11, -13, 6) +
+      cuff(2, 25),
+  ),
+} as const
+
+const place = (hand: string, x: number, y: number, rotate: number, scale = 1.15, flip = false) =>
+  `<g transform="translate(${x} ${y}) rotate(${rotate}) scale(${flip ? -scale : scale} ${scale})">${hand}</g>`
 
 export const EXTRAS = {
   blush: {
@@ -423,9 +561,75 @@ export const EXTRAS = {
     name: 'Halo',
     draw: () => `<ellipse cx="60" cy="4" rx="28" ry="6.5" fill="none" stroke="url(#gold)" stroke-width="5" ${RAISED}/>`,
   },
-  thumbsUp: { name: 'Thumbs up', draw: () => `<g transform="translate(10 96) rotate(-14) scale(1.12)">${GLOVE}</g>` },
-  thumbsDown: { name: 'Thumbs down', draw: () => `<g transform="translate(110 92) rotate(166) scale(1.12)">${GLOVE}</g>` },
+  nose: {
+    name: 'Nose',
+    draw: (c: Ctx) =>
+      `<path d="M55 66 Q60 58 65 66 Q66 72 60 72 Q54 72 55 66 Z" fill="${c.skinLight}" ${RAISED}/>` +
+      `<path d="M56.5 69.5 Q58 71 59 69.8 M61 69.8 Q62 71 63.5 69.5" stroke="${c.line}" stroke-width="1.1" fill="none" stroke-linecap="round"/>`,
+  },
+  steam: {
+    name: 'Steam',
+    draw: () =>
+      [
+        [8, 30, -20],
+        [112, 30, 20],
+      ]
+        .map(
+          ([x, y, r]) =>
+            `<g transform="translate(${x} ${y}) rotate(${r})" ${RAISED}>` +
+            `<circle cx="0" cy="0" r="7" fill="#f4f6fa"/><circle cx="-6" cy="-7" r="5.5" fill="#f4f6fa"/><circle cx="4" cy="-11" r="6" fill="#f4f6fa"/><circle cx="-1" cy="-19" r="4.5" fill="#f4f6fa"/>` +
+            `</g>`,
+        )
+        .join(''),
+  },
+  zzz: {
+    name: 'Zzz',
+    draw: () =>
+      `<g ${RAISED} font-family="Arial Black, Arial, sans-serif" font-weight="900" fill="#8fd0ff" stroke="#1f6fbf" stroke-width="1">` +
+      `<text x="92" y="30" font-size="16">Z</text><text x="104" y="16" font-size="12">z</text><text x="113" y="6" font-size="9">z</text></g>`,
+  },
+  question: {
+    name: 'Question',
+    draw: () =>
+      `<text x="96" y="30" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="30" fill="url(#gold)" stroke="#b87900" stroke-width="1.2" ${RAISED}>?</text>`,
+  },
+  exclaim: {
+    name: 'Exclaim',
+    draw: () =>
+      `<text x="98" y="30" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="30" fill="url(#heart)" stroke="#9c0f2e" stroke-width="1.2" ${RAISED}>!</text>`,
+  },
+  crown: {
+    name: 'Crown',
+    draw: () =>
+      `<g ${RAISED}>` +
+      `<path d="M36 18 L40 -4 L50 10 L60 -8 L70 10 L80 -4 L84 18 Q60 24 36 18 Z" fill="url(#gold)" stroke="#a86b00" stroke-width="1.2" stroke-linejoin="round"/>` +
+      `<circle cx="40" cy="-4" r="2.6" fill="url(#gold)" stroke="#a86b00" stroke-width="0.8"/><circle cx="60" cy="-8" r="2.8" fill="url(#gold)" stroke="#a86b00" stroke-width="0.8"/><circle cx="80" cy="-4" r="2.6" fill="url(#gold)" stroke="#a86b00" stroke-width="0.8"/>` +
+      `<circle cx="60" cy="11" r="3.2" fill="#e8264a"/><circle cx="47" cy="13" r="2.4" fill="#2a7de1"/><circle cx="73" cy="13" r="2.4" fill="#2a7de1"/>` +
+      `</g>`,
+  },
+  partyHat: {
+    name: 'Party hat',
+    draw: () =>
+      `<g ${RAISED} transform="rotate(14 60 10)">` +
+      `<path d="M46 16 L60 -22 L74 16 Q60 21 46 16 Z" fill="#ff5fa2" stroke="#b5246a" stroke-width="1.2" stroke-linejoin="round"/>` +
+      `<path d="M52 0 L66 -3 M49 9 L70 6" stroke="#ffe066" stroke-width="3" stroke-linecap="round"/>` +
+      `<circle cx="60" cy="-22" r="4.5" fill="#ffe066" stroke="#b87900" stroke-width="1"/>` +
+      `</g>`,
+  },
+  thumbsUp: { name: 'Thumbs up', draw: () => place(HAND.thumb, 14, 116, -10) },
+  thumbsDown: { name: 'Thumbs down', draw: () => place(HAND.thumb, 106, 84, 170, 1.15, true) },
+  point: { name: 'Pointing', draw: () => place(HAND.point, 10, 118, -28) },
+  wave: { name: 'Waving', draw: () => place(HAND.open, 112, 82, 22) },
+  fist: { name: 'Fist', draw: () => place(HAND.fist, 110, 122, 12) },
+  peace: { name: 'Peace', draw: () => place(HAND.peace, 112, 84, 16) },
+  shrug: {
+    name: 'Shrug',
+    draw: () => place(HAND.open, 14, 100, -72) + place(HAND.open, 106, 100, 72, 1.15, true),
+  },
 } as const satisfies Record<string, { name: string; draw: (c: Ctx) => string }>
+
+/** The extras that are hands, listed apart from the rest in the panel. */
+export const HAND_EXTRAS: ExtraId[] = ['thumbsUp', 'thumbsDown', 'point', 'wave', 'fist', 'peace', 'shrug']
 
 export type EyeId = keyof typeof EYES
 export type BrowId = keyof typeof BROWS
@@ -460,8 +664,8 @@ export function faceSvg(options: FaceOptions): string {
   const brows = (BROWS[options.brows] ?? BROWS.none).draw(c)
   const mouth = (MOUTHS[options.mouth] ?? MOUTHS.smile).draw(c)
   const extras = options.extras.filter((id) => id in EXTRAS)
-  const behind = extras.filter((id) => BEHIND.includes(id)).map((id) => EXTRAS[id].draw()).join('')
-  const over = extras.filter((id) => !BEHIND.includes(id)).map((id) => EXTRAS[id].draw()).join('')
+  const behind = extras.filter((id) => BEHIND.includes(id)).map((id) => EXTRAS[id].draw(c)).join('')
+  const over = extras.filter((id) => !BEHIND.includes(id)).map((id) => EXTRAS[id].draw(c)).join('')
 
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 140">` +
@@ -485,6 +689,7 @@ export function faceSvg(options: FaceOptions): string {
     `<linearGradient id="teeth" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#d9e0ea"/></linearGradient>` +
     `<radialGradient id="tongue" cx="0.45" cy="0.35" r="0.7"><stop offset="0" stop-color="#ff8fb0"/><stop offset="1" stop-color="#d94672"/></radialGradient>` +
     `<linearGradient id="gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff3a6"/><stop offset="0.5" stop-color="#ffd23f"/><stop offset="1" stop-color="#e59a00"/></linearGradient>` +
+    `<linearGradient id="cash" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9df27c"/><stop offset="1" stop-color="#1f9a3a"/></linearGradient>` +
     `<linearGradient id="heart" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff6d8a"/><stop offset="1" stop-color="#d4123b"/></linearGradient>` +
     `<linearGradient id="water" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d6f3ff"/><stop offset="1" stop-color="#3fa9f5"/></linearGradient>` +
     `<linearGradient id="lens" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b4250"/><stop offset="0.5" stop-color="#11141a"/><stop offset="1" stop-color="#262b35"/></linearGradient>` +
@@ -535,14 +740,52 @@ export function faceSvg(options: FaceOptions): string {
   )
 }
 
+/**
+ * The face's frame widened to everything drawn — a hand held out to the side, a crown, steam —
+ * so nothing is cut off at the edge. Measured by laying the markup out in the page, because the
+ * hands are rotated and scaled and their extent is easiest to ask the browser for. Kept square,
+ * and never smaller than the plain face's frame, so a face with no extras is the size it always
+ * was. Null outside a browser, or when measuring fails; the 140-unit frame is then used.
+ */
+function fittedViewBox(svg: string): string | null {
+  if (typeof document === 'undefined' || !document.body) return null
+  const host = document.createElement('div')
+  host.style.cssText = 'position:absolute;left:-10000px;top:0;width:140px;height:140px;visibility:hidden;pointer-events:none'
+  host.innerHTML = svg
+  document.body.appendChild(host)
+  try {
+    const root = host.querySelector('svg')
+    if (!(root instanceof SVGSVGElement)) return null
+    const box = root.getBBox()
+    const PAD = 3
+    const minX = Math.min(0, box.x - PAD)
+    const minY = Math.min(0, box.y - PAD)
+    const maxX = Math.max(140, box.x + box.width + PAD)
+    const maxY = Math.max(140, box.y + box.height + PAD)
+    const size = Math.max(maxX - minX, maxY - minY)
+    const x = (minX + maxX - size) / 2
+    const y = (minY + maxY - size) / 2
+    return [x, y, size, size].map((v) => +v.toFixed(2)).join(' ')
+  } catch {
+    return null
+  } finally {
+    host.remove()
+  }
+}
+
 export function faceDataUri(options: FaceOptions): string {
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(faceSvg(options))}`
+  let svg = faceSvg(options)
+  const viewBox = fittedViewBox(svg)
+  if (viewBox) svg = svg.replace('viewBox="0 0 140 140"', `viewBox="${viewBox}"`)
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
 }
 
 /** A random face, for the dice button. */
 export function randomFace(): FaceOptions {
   const pick = <T,>(items: readonly T[]) => items[Math.floor(Math.random() * items.length)]
-  const extras = (Object.keys(EXTRAS) as ExtraId[]).filter(() => Math.random() < 0.12)
+  // At most one hand, and a few other extras now and then.
+  const others = (Object.keys(EXTRAS) as ExtraId[]).filter((id) => !HAND_EXTRAS.includes(id) && Math.random() < 0.1)
+  const extras = Math.random() < 0.35 ? [...others, pick(HAND_EXTRAS)] : others
   return {
     color: pick(FACE_COLORS).color,
     eyes: pick(Object.keys(EYES) as EyeId[]),

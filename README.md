@@ -3036,9 +3036,13 @@ colour; tapping one adds it to the library in that colour.
 
 **Create** makes new stickers, saved to the library like uploads:
 
-- **Face maker** (`stickers/faceMaker.ts`): a glossy 3D face assembled from parts (15 eyes, 7
-  brows, 13 mouths, 9 extras including thumbs-up and thumbs-down hands, an optional outline) in any
-  colour. Original artwork, as SVG, lit consistently from the top left: the head is a shaded
+- **Face maker** (`stickers/faceMaker.ts`): a glossy 3D face assembled from parts (19 eyes, 7
+  brows, 17 mouths, 7 hand poses and 14 other extras such as a nose, a crown, a party hat, steam
+  and Zzz, plus an optional outline) in any colour. The hands are cartoon gloves built from a
+  palm, finger capsules, knuckle rolls, a thumb and a cuff, so each pose (thumbs up and down,
+  pointing, waving, fist, peace, shrug) is a different arrangement of the same parts. The
+  sticker's frame is measured from what is drawn (`fittedViewBox`), so a hand held out to the side
+  or a crown is never cut off. Original artwork, as SVG, lit consistently from the top left: the head is a shaded
   sphere with a rim, a bounce light and a specular highlight; brows, lids, stars, hearts and hands
   are raised with a lighting filter (`bevel`); eyes and open mouths are sunk in with an inner
   shadow (`inset`); closed smiles are carved (`groove`). Every tone is derived from the one face

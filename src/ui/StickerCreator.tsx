@@ -17,6 +17,7 @@ import {
   EXTRAS,
   EYES,
   FACE_COLORS,
+  HAND_EXTRAS,
   MOUTHS,
   faceDataUri,
   randomFace,
@@ -88,9 +89,25 @@ function FaceMaker() {
       <PartChoice label="Brows" parts={BROWS} value={face.brows} onChange={(brows) => update({ brows })} />
       <PartChoice label="Mouth" parts={MOUTHS} value={face.mouth} onChange={(mouth) => update({ mouth })} />
       <div className="stack sticker-parts">
+        <span className="sidebar__group-label">Hands</span>
+        <div className="sticker-parts__chips">
+          {HAND_EXTRAS.map((id) => (
+            <button
+              key={id}
+              type="button"
+              className={`chip${face.extras.includes(id) ? ' chip--active' : ''}`}
+              aria-pressed={face.extras.includes(id)}
+              onClick={() => toggleExtra(id)}
+            >
+              {EXTRAS[id].name}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="stack sticker-parts">
         <span className="sidebar__group-label">Extras</span>
         <div className="sticker-parts__chips">
-          {(Object.keys(EXTRAS) as ExtraId[]).map((id) => (
+          {(Object.keys(EXTRAS) as ExtraId[]).filter((id) => !HAND_EXTRAS.includes(id)).map((id) => (
             <button
               key={id}
               type="button"
