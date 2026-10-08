@@ -3045,8 +3045,11 @@ colour; tapping one adds it to the library in that colour.
   or a crown is never cut off. Original artwork, as SVG, lit consistently from the top left: the head is a shaded
   sphere with a rim, a bounce light and a specular highlight; brows, lids, stars, hearts and hands
   are raised with a lighting filter (`bevel`); eyes and open mouths are sunk in with an inner
-  shadow (`inset`); closed smiles are carved (`groove`). Every tone is derived from the one face
-  colour.
+  shadow (`inset`); closed smiles are carved (`groove`). A sculpting pass then works from what the
+  parts drew: a shadowed socket round every open eye and a fold of skin over those with no lid,
+  raised lips round an open mouth, cheeks pushed up beside a smile, and a rim light along the
+  head's lower edge. Brows use a matte bevel (`bevelSoft`) so they stay dark. Every tone is
+  derived from the one face colour.
 - **Recolour** (`stickers/recolor.ts`): the picked sticker with its main colour swapped. The
   dominant hue among its saturated pixels is found, and every pixel near that hue moves to the
   target with its offset in saturation and lightness kept, so the shading survives. Other hues,
