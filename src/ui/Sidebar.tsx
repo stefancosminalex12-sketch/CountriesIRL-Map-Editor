@@ -14,16 +14,12 @@
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { RegionSelector } from './RegionSelector'
-import { MapPicker } from './MapPicker'
 import {
   GeographicFeatureToggles,
   HideTerritories,
   LabelsAndHelpers,
   LegendVisibilityToggle,
   MapColorSwatches,
-  MapDetailSettings,
-  OutsideRegionAppearance,
 } from './MapSettings'
 import { SvgExchange } from './SvgExchange'
 import { TemplatePicker } from './TemplatePicker'
@@ -53,14 +49,6 @@ const ICONS: Record<string, ReactNode> = {
       <path d="M3.4 6.2h13.2M3.4 13.8h13.2" />
       <circle cx="8" cy="6.2" r="1.9" />
       <circle cx="12.6" cy="13.8" r="1.9" />
-    </>
-  ),
-  // Stacked sheets: the data behind the drawing, and how it is projected.
-  maps: (
-    <>
-      <path d="M3 6.4 10 3.2l7 3.2-7 3.2z" />
-      <path d="M3 10.4 10 13.6l7-3.2" />
-      <path d="M3 14.1 10 17.3l7-3.2" />
     </>
   ),
   // Two stacked cards, the top one filled in: a ready-made setup to start from.
@@ -175,30 +163,6 @@ interface SidebarSection {
  * its body, so opening it again starts closed again.
  */
 const SECTIONS: SidebarSection[] = [
-  {
-    id: 'maps',
-    name: 'Maps',
-    body: (
-      <div className="stack">
-        {/*
-          The map first: which geography this is a map of is the question asked before every
-          other one, since the answer decides what the rest of them mean.
-        */}
-        <Disclosure title="Map">
-          <MapPicker />
-        </Disclosure>
-        <Disclosure title="Region">
-          <RegionSelector />
-        </Disclosure>
-        <Disclosure title="Map Detail">
-          <MapDetailSettings />
-        </Disclosure>
-        <Disclosure title="Outside Region Appearance">
-          <OutsideRegionAppearance />
-        </Disclosure>
-      </div>
-    ),
-  },
   {
     /*
      * Built-in presets, right after the map: the second question a map starts with is what kind

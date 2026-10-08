@@ -632,7 +632,7 @@ Generalising adds crossings where a thin spit's two shores run a few hundred met
 **Tested** in the editor (`.cache/check-europe*.js`) on desktop and mobile:
 
 - **All six datasets:** load and draw every entity; ids are unique; every entity has its table entry; every unit names its country.
-- **The Maps list:** shows the Europe group; Map Detail lists the presets; region presets frame the Balkans, Iberia, the Baltic States, the British Isles and the Nordic countries.
+- **The map menu:** shows the Europe group; Resolution lists the presets; region presets frame the Balkans, Iberia, the Baltic States, the British Isles and the Nordic countries.
 - **Clicks select the right entity:** Ostalbkreis, Cantal, Piotrkowski, Cluj; Poland, France, Romania, Slovenia.
 - **The other features work:** Data mode, Compare groups, labels, Flags mode, Hide Territories (hidden and restored), overlays, Water Regions, PNG, JPG and SVG export, and the blank SVG.
 - **The hard places resolve correctly:** Llívia (Spain, in Girona), Büsingen, Campione d'Italia, the Vatican, San Marino, Monaco, Liechtenstein, Kaliningrad, Treviño (Burgos, inside Álava) and Berlin.
@@ -880,7 +880,7 @@ for inland and coastal water — as another input to the same script.
 
 ### What a map opens at
 
-**The automatic Map Detail is 25m on a desktop and 50m on a small touch device.** 25m is the
+**The automatic Resolution is 25m on a desktop and 50m on a small touch device.** 25m is the
 standard balance between quality and weight — every entity, island and border of 10m at about
 two fifths of its points (see *25m* below) — and 10m stays in the picker as the maximum-detail
 mode. A phone opens at 50m, and the difference is the whole point of the setting: 644 KB
@@ -1251,13 +1251,34 @@ nothing, dragging in the controls moves the map by nothing, a tap selects no cou
 frames cost what a drag on the map itself costs. `touch-action: none` is what keeps the
 browser from scrolling the panel or swiping the page underneath the gesture.
 
-**The rail is two levels deep**, nine sections in the order the work goes — which map, what is
-selected, what is done to it (merging, hiding, overlaying), how it is drawn, what colours it, how
-it is explained, how it is framed — then the editor's own preferences and the assistant to come. Each
+**The top bar holds the map itself** (`ui/TopBar.tsx`), so which map, which part of it and how it
+is drawn are always one click away rather than a section of the rail:
+
+```
+[≡ Modern World ▾] | World · Europe · Asia · …      Resolution 25m ▾ · Projection Auto ▾ · Outside region Muted ▾ · ↶ ↷ · Export ▾
+```
+
+- **The map icon** opens a menu of every map, grouped World / Europe / USA, with the map in use
+  ticked. Switching parks the current map's work and restores the target's, as before.
+- **The regions** of the open map are chips along the bar. A click on one that is off puts it on
+  (regions still combine: Europe + Asia frames Eurasia). A click on one that is already on opens
+  its **subregions** in a dropdown, where they combine the same way and the region can be
+  removed; a badge counts the subregions on. A region without subregions simply toggles.
+- **Resolution**, **Projection** and **Outside region**, right-aligned, each name their current
+  value and open their choices in a dropdown. Resolution is the dataset (110m … 10m on the World
+  map, the levels on the others), with each option's description under it.
+
+Menus are drawn in a portal over the page, so the bar never clips them. On a narrow window the
+regions row gives up width and scrolls sideways; on a phone the whole bar scrolls, the map's name
+gives way to its icon, and scrolling the bar closes an open menu. The map's name field and the
+"Map Editor" label left the bar (the name is still the document's, used for export filenames).
+
+**The rail is two levels deep**, eight sections in the order the work goes — what is selected,
+what is done to it (merging, hiding, overlaying), how it is drawn, what colours it, how it is
+explained, how it is framed — then the editor's own preferences and the assistant to come. Each
 section's parts sit behind a `Disclosure`:
 
 ```
-Maps            Map · Region · Map Detail · Outside Region Appearance
 Select          [Normal / Rectangle / Brush] · How the tools work · Entities Selected
 Edit            Merge Groups · Hide · Overlay [Management · Appearance · Transform · Mode]
 Display         Appearance · Geographic Features · Labels & Helpers · Legend Visibility
@@ -1278,8 +1299,7 @@ history, no reload, and the map, selection, data, overlays and camera are untouc
 
 Every control is the component it was, with the same hooks and the same operation — moved, not
 rebuilt. Where one component held controls for two sections it was split along that seam:
-`MapSettings` now exports the map's own settings (`MapDetailSettings`,
-`OutsideRegionAppearance`) for Maps and the layer switches (`GeographicFeatureToggles`,
+`MapSettings` exports the layer switches (`GeographicFeatureToggles`,
 `LabelsAndHelpers`, `LegendVisibilityToggle`) for Display, and `HideTerritories` for Edit →
 **Hide** (it sat under Display as **Territories** until it moved beside Merge); the legend and
 overlay editors wrap their existing blocks in subsections inside the same component, so their
@@ -1292,11 +1312,10 @@ history shown twice, beside a tool it had nothing particular to do with.
 
 What changed besides position:
 
-- **Outside Region Appearance** is the old "Outside the region" select, and **Normal (match
-  region style)** is its old "Same as in-region" — the same three `outsideScope` values, named
-  for what the land looks like, with a line under it saying so.
-- **Map Detail**'s dataset picker is labelled **Resolution** on the World map (110m, 50m, 25m, 10m)
-  and keeps the atlas's own label — **Detail** — on a map whose datasets are levels.
+- **Outside region** (in the top bar) is the old "Outside the region" select, and **Normal** is
+  its old "Same as in-region" — the same three `outsideScope` values, named for what the land
+  looks like, each with a line saying so.
+- **Resolution** (in the top bar) is the dataset picker on every map, levels included.
 - **Select** shows three tools. **Normal Selection** is on whenever neither Rectangle nor Brush
   is, and choosing it turns both off; a click selects and deselects exactly as before whichever
   is on. The three paragraphs of help fold under *How the tools work*. The count reads

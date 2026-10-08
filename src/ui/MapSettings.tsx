@@ -1,8 +1,4 @@
-/** Dataset, projection and rendering controls. Every change goes through an operation. */
-import { datasetsForAtlas } from '../geo/datasets'
-import { getAtlas } from '../maps/atlas'
-import { noteDetailChosen } from '../maps/startingDetail'
-import { AUTO_PROJECTION_ID, PROJECTIONS } from '../geo/projections'
+/** Rendering controls. Every change goes through an operation. The map, its detail and projection are in the top bar (`TopBar`). */
 import { useMapStore } from '../state/mapStore'
 import { MapToggle } from './MapToggle'
 import { waterName } from '../geo/waters'
@@ -19,108 +15,7 @@ import {
   type LabelFontId,
   type MapCaption,
   type MapStyle,
-  type ProjectionId,
 } from '../types/map'
-
-/**
- * **Map Detail**: which data the map is drawn from, and how it is projected.
- *
- * The two questions that decide what the geometry *is*, which is why they are in Maps beside
- * the map and the region rather than among the layer switches in Display. The dataset selector
- * is the resolution on the World map (110m, 50m, 25m, 10m) and the level of detail on a map whose
- * datasets are levels — the atlas names it (`datasetLabel`), so one control serves both.
- */
-export function MapDetailSettings() {
-  const scope = useMapStore((s) => s.doc.scope)
-  // Only the datasets belonging to the map that is open: offering the world's 110m
-  // countries while a states map is on screen would be offering to break it.
-  const datasets = datasetsForAtlas(scope.atlasId)
-  const atlas = getAtlas(scope.atlasId)
-  const current = datasets.find((d) => d.id === scope.datasetId)
-  const dispatch = useMapStore((s) => s.dispatch)
-
-  return (
-    <div className="stack">
-      <SelectField
-        label={atlas.datasetLabel ?? 'Resolution'}
-        value={scope.datasetId}
-        onChange={(datasetId) => {
-          dispatch({ op: 'set_scope_dataset', datasetId })
-          /*
-           * From here on this session, the detail is the author's choice and not the
-           * device's: opening another map will not quietly hand a phone the lightest
-           * geography again. See `startingDetail`.
-           */
-          noteDetailChosen(atlas, datasetId)
-        }}
-      >
-        {datasets.map((d) => (
-          <option key={d.id} value={d.id}>
-            {d.label ?? `${d.name} · ${d.detail}`}
-          </option>
-        ))}
-      </SelectField>
-      {current?.description && <p className="hint">{current.description}</p>}
-
-      <SelectField
-        label="Projection"
-        value={scope.projectionId}
-        onChange={(value) => {
-          dispatch({
-            op: 'set_scope_projection',
-            projectionId: value as ProjectionId | 'auto',
-          })
-        }}
-      >
-        <option value="auto">
-          Auto ({PROJECTIONS.find((p) => p.id === AUTO_PROJECTION_ID)?.name ?? 'Albers'})
-        </option>
-        {PROJECTIONS.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.name}
-          </option>
-        ))}
-      </SelectField>
-    </div>
-  )
-}
-
-/**
- * **Outside Region Appearance**: how the land beyond the framed region is drawn.
- *
- * The same `style.outsideScope` and the same three values it always had — only the names have
- * changed. It read "Outside the region: Muted / Hidden / Same as in-region", where the field
- * asked a question its options did not answer and the third option described a comparison
- * rather than a treatment. Now the field says what it governs and each option says what the
- * land looks like: **Normal** is that third value, drawn exactly as the region is.
- */
-export function OutsideRegionAppearance() {
-  const style = useMapStore((s) => s.doc.style)
-  const dispatch = useMapStore((s) => s.dispatch)
-
-  return (
-    <div className="stack">
-      <SelectField
-        label="Outside Region Appearance"
-        value={style.outsideScope}
-        onChange={(value) => {
-          dispatch({ op: 'set_style', patch: { outsideScope: value as MapStyle['outsideScope'] } })
-        }}
-      >
-        <option value="muted">Muted</option>
-        <option value="hidden">Hidden</option>
-        <option value="normal">Normal (match region style)</option>
-      </SelectField>
-      <p className="hint">
-        {style.outsideScope === 'hidden'
-          ? 'Land outside the region is not drawn at all.'
-          : style.outsideScope === 'muted'
-            ? 'Land outside the region is drawn in a quieter tone, so the region reads first.'
-            : 'Land outside the region is drawn exactly as the land inside it.'}
-      </p>
-    </div>
-  )
-}
 
 /**
  * The layers the map draws, as switches.

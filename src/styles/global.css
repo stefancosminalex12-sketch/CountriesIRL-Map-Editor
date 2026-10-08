@@ -118,6 +118,8 @@ body {
 .app {
   display: grid;
   grid-template-rows: 40px 1fr 26px;
+  /* One column that never grows past the window: the top bar shrinks its regions instead. */
+  grid-template-columns: minmax(0, 1fr);
   height: 100%;
 }
 
@@ -3842,4 +3844,280 @@ body {
 .sticker-thumb--loading {
   border-radius: 50%;
   background: var(--surface-hover);
+}
+
+/* ------------------------------------------------------------------- top bar */
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The map and its regions: takes the free width, and scrolls sideways when there is not enough. */
+.top-scope {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.top-scope::-webkit-scrollbar {
+  display: none;
+}
+
+.top-regions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  padding-left: 10px;
+  border-left: 1px solid var(--line);
+}
+
+.top-region {
+  flex: none;
+  white-space: nowrap;
+}
+
+.top-region .top-button__chevron {
+  margin-left: 1px;
+  opacity: 0.8;
+}
+
+.top-region--open {
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.top-region__count {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--accent-text);
+  color: var(--accent);
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+}
+
+/* Resolution, projection, outside region: right-aligned, before undo and export. */
+.top-drawing {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
+
+.top-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--control-h-sm);
+  padding: 0 8px 0 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  white-space: nowrap;
+  flex: none;
+  transition:
+    background-color var(--dur) var(--ease),
+    border-color var(--dur) var(--ease);
+}
+
+.top-button:hover,
+.top-button--open {
+  background: var(--surface-hover);
+  border-color: var(--line-strong);
+}
+
+.top-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.top-button__label {
+  color: var(--text-dim);
+}
+
+.top-button__value {
+  font-weight: 600;
+}
+
+.top-button__chevron {
+  flex: none;
+  opacity: 0.7;
+}
+
+.top-button--map {
+  padding-left: 8px;
+}
+
+.top-button__icon {
+  flex: none;
+  color: var(--accent);
+}
+
+/* The menus themselves, floating over the page. */
+.top-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 220px;
+  max-width: min(360px, calc(100vw - 16px));
+  max-height: min(70vh, 560px);
+  overflow-y: auto;
+  padding: 6px;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  box-shadow: 0 10px 28px rgb(0 0 0 / 0.3);
+}
+
+.top-menu__families {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.top-menu__group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.top-menu__group + .top-menu__group {
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}
+
+.top-menu__heading {
+  padding: 4px 8px 2px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.top-menu__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 8px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+}
+
+.top-menu__item:hover,
+.top-menu__item:focus-visible {
+  background: var(--surface-hover);
+  outline: none;
+}
+
+.top-menu__item--on .top-menu__name {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.top-menu__tick {
+  width: 12px;
+  flex: none;
+  color: var(--accent);
+}
+
+.top-menu__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.top-menu__note {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.top-menu__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 6px;
+}
+
+.top-menu__hint {
+  margin: 4px 8px 2px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.top-menu__remove {
+  margin: 4px 6px 2px;
+  align-self: flex-start;
+}
+
+@media (max-width: 900px) {
+  /* The values say enough on their own once the bar is short of room. */
+  .top-button__label {
+    display: none;
+  }
+}
+
+@media (max-width: 620px) {
+  .top-scope {
+    gap: 6px;
+  }
+
+  .top-regions {
+    padding-left: 6px;
+  }
+
+  .top-button {
+    padding: 0 6px;
+  }
+
+  /* The whole bar scrolls sideways on a phone; nothing in it is squeezed. */
+  .app__header {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .app__header::-webkit-scrollbar {
+    display: none;
+  }
+
+  .top-scope {
+    flex: none;
+    overflow: visible;
+  }
+
+  /* On a phone the map's name gives way to its icon; the menu still names it. */
+  .top-button--map .top-button__value {
+    display: none;
+  }
+}
+
+@media (pointer: coarse) {
+  .top-menu__item {
+    padding: 10px 8px;
+  }
 }
