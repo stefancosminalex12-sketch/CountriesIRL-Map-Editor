@@ -1,10 +1,10 @@
 import { useEffect } from 'react'
 import { MapCanvas } from './render/MapCanvas'
 import { Sidebar } from './ui/Sidebar'
+import { TopBarScope } from './ui/TopBar'
 import { HistoryControls } from './ui/HistoryControls'
 import { ExportControls } from './ui/ExportControls'
 import { StatusBar } from './ui/StatusBar'
-import { TopBarDrawing, TopBarScope } from './ui/TopBar'
 import { useMapStore } from './state/mapStore'
 
 export function App() {
@@ -18,13 +18,12 @@ export function App() {
   return (
     <div className="app">
       {/*
-        The map, its regions, and how it is drawn, along the top — see `TopBar`. The editor's name
-        lives in the page title, so the bar is all controls.
+        The File menu (map, resolution, projection, outside region) and the regions, along the
+        top — see `TopBar`. The editor's name lives in the page title, so the bar is all controls.
       */}
       <header className="app__header">
         <h1 className="visually-hidden">Map Editor</h1>
         <TopBarScope />
-        <TopBarDrawing />
         <HistoryControls />
         <ExportControls />
       </header>

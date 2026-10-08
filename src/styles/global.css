@@ -3932,14 +3932,6 @@ body {
   text-align: center;
 }
 
-/* Resolution, projection, outside region: right-aligned, before undo and export. */
-.top-drawing {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex: none;
-}
-
 .top-button {
   display: inline-flex;
   align-items: center;
@@ -3984,13 +3976,65 @@ body {
   opacity: 0.7;
 }
 
-.top-button--map {
-  padding-left: 8px;
+/* File: the first thing in the bar, a plain menu title. */
+.top-button--file {
+  padding: 0 8px 0 12px;
 }
 
-.top-button__icon {
+/* The File menu's rows: a name, its current value, and an arrow to the choices at its side. */
+.top-file {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 250px;
+}
+
+.top-menu__item.top-file__row {
+  align-items: center;
+  gap: 10px;
+}
+
+.top-file__row--open {
+  background: var(--surface-hover);
+}
+
+.top-file__name {
   flex: none;
+  font-weight: 600;
+}
+
+.top-file__value {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  color: var(--text-dim);
+}
+
+.top-file__arrow {
+  flex: none;
+  opacity: 0.7;
+}
+
+.top-menu__item.top-file__back {
+  align-items: center;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.top-file__back-arrow {
+  width: 12px;
+  font-size: 16px;
+  line-height: 1;
   color: var(--accent);
+}
+
+/* The choices beside a row: the same panel as a menu, fixed beside the File menu. */
+.top-flyout {
+  min-width: 240px;
 }
 
 /* The menus themselves, floating over the page. */
@@ -4132,10 +4176,6 @@ body {
     overflow: visible;
   }
 
-  /* On a phone the map's name gives way to its icon; the menu still names it. */
-  .top-button--map .top-button__value {
-    display: none;
-  }
 }
 
 @media (pointer: coarse) {

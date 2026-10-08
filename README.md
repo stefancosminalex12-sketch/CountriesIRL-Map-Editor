@@ -1251,28 +1251,42 @@ nothing, dragging in the controls moves the map by nothing, a tap selects no cou
 frames cost what a drag on the map itself costs. `touch-action: none` is what keeps the
 browser from scrolling the panel or swiping the page underneath the gesture.
 
-**The top bar holds the map itself** (`ui/TopBar.tsx`), so which map, which part of it and how it
-is drawn are always one click away rather than a section of the rail:
+**The top bar holds the map itself** (`ui/TopBar.tsx`): a **File** menu first, then the open
+map's regions, then undo, redo and Export on the right.
 
 ```
-[≡ Modern World ▾] | World · [Europe|▾] · [Asia|▾] · …      Resolution 25m ▾ · Projection Auto ▾ · Outside region Muted ▾ · ↶ ↷ · Export ▾
+[File ▾] | [✓ World] · [Europe|▾] · [Asia|▾] · …                                    ↶ ↷ · Export ▾
+
+File ▾
+  Map              Modern World   ›   ┌ WORLD: Modern World · Modern Administrative World
+  Resolution       25m            ›   │ EUROPE: Europe Countries · Europe Administrative
+  Projection       Auto (…)       ›   └ USA: USA States · USA Administrative Map
+  Outside region   Muted          ›
 ```
 
-- **The map icon** opens a menu of every map, grouped World / Europe / USA, with the map in use
-  ticked. Switching parks the current map's work and restores the target's, as before.
+- **File** is the map's own settings, one row each with its current value. A row opens its
+  choices in a menu at its side, the way a desktop app's menus cascade: hovering a row with a
+  mouse opens it, and so do a click, a tap, Enter or →. Choosing closes the whole menu.
+  - **Map** — every map, grouped World / Europe / USA, the open one ticked. Switching parks the
+    current map's work and restores the target's, as before.
+  - **Resolution** — the dataset (110m … 10m on the World map, the levels on the others), each
+    with its description; shown only on a map with more than one.
+  - **Projection**.
+  - **Outside region** — how the land outside the chosen region is drawn: Muted, Hidden, Normal.
+  More of the editor's settings are meant to join it over time.
 - **The regions** of the open map are split buttons along the bar. The **name** selects and
   deselects (regions still combine: Europe + Asia frames Eurasia); deselecting a region also takes
   off any of its subregions, in one click. The **arrow box** attached to its right opens the
   region's **subregions** in a dropdown, where they combine the same way; a badge on the name
   counts the subregions on. A region without subregions has no arrow.
-- **Resolution**, **Projection** and **Outside region**, right-aligned, each name their current
-  value and open their choices in a dropdown. Resolution is the dataset (110m … 10m on the World
-  map, the levels on the others), with each option's description under it.
 
-Menus are drawn in a portal over the page, so the bar never clips them. On a narrow window the
-regions row gives up width and scrolls sideways; on a phone the whole bar scrolls, the map's name
-gives way to its icon, and scrolling the bar closes an open menu. The map's name field and the
-"Map Editor" label left the bar (the name is still the document's, used for export filenames).
+Menus are drawn in a portal over the page, so the bar never clips them; a File row's side menu
+sits inside the File menu's panel (so a press in it counts as a press in the menu) but is fixed to
+the window, to the right of the panel or, without room, to its left. On a phone there is no room
+at the side, so a row opens its choices in place of the rows, under a **‹ File** row that goes
+back. On a narrow window the regions row gives up width and scrolls sideways; on a phone the
+whole bar scrolls, and scrolling it closes an open menu. The map's name field and the "Map
+Editor" label left the bar (the name is still the document's, used for export filenames).
 
 **The rail is two levels deep**, eight sections in the order the work goes — what is selected,
 what is done to it (merging, hiding, overlaying), how it is drawn, what colours it, how it is
@@ -1313,10 +1327,10 @@ history shown twice, beside a tool it had nothing particular to do with.
 
 What changed besides position:
 
-- **Outside region** (in the top bar) is the old "Outside the region" select, and **Normal** is
+- **Outside region** (File menu) is the old "Outside the region" select, and **Normal** is
   its old "Same as in-region" — the same three `outsideScope` values, named for what the land
   looks like, each with a line saying so.
-- **Resolution** (in the top bar) is the dataset picker on every map, levels included.
+- **Resolution** (File menu) is the dataset picker on every map, levels included.
 - **Select** shows three tools. **Normal Selection** is on whenever neither Rectangle nor Brush
   is, and choosing it turns both off; a click selects and deselects exactly as before whichever
   is on. The three paragraphs of help fold under *How the tools work*. The count reads

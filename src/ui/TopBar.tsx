@@ -1,19 +1,21 @@
 /**
- * The top bar: which map, which part of it, and how it is drawn.
+ * The top bar: a File menu, and which part of the map is open.
  *
- * What used to be the sidebar's Maps section, laid out along the header so it is always one
- * click away:
- *
- * - **Map** — an icon that opens a menu of every map, grouped World / Europe / USA.
+ * - **File** — the map's own settings, one row each, every row opening its choices in a menu at
+ *   its side, the way a desktop app's menus cascade:
+ *   - **Map** — every map, grouped World / Europe / USA;
+ *   - **Resolution** — the open map's levels of detail (only when it has more than one);
+ *   - **Projection**;
+ *   - **Outside region** — how the land outside the chosen region is drawn.
+ *   On a narrow screen there is no room at the side, so a row opens its choices in place of the
+ *   rows, with a way back.
  * - **Regions** — the open map's regions as split buttons. The name selects and deselects
  *   (regions combine: Europe + Asia frames Eurasia); the arrow box attached to its right opens
  *   the region's subregions, which combine the same way.
- * - On the right: **Resolution**, **Projection** and **Outside region**, each a button naming its
- *   current value that opens the choices.
  *
  * Menus are drawn in a portal at the top of the page rather than inside the bar, so the bar can
- * scroll sideways on a narrow screen without clipping them; scrolling it closes an open menu. Every change is the same operation
- * or store action the old panels used.
+ * scroll sideways on a narrow screen without clipping them; scrolling it closes an open menu.
+ * Every change is the same operation or store action the old panels used.
  */
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
@@ -115,50 +117,6 @@ const Chevron = () => (
   </svg>
 )
 
-/** A header button that opens a menu of choices. */
-function MenuButton({
-  label,
-  value,
-  title,
-  icon,
-  children,
-  align,
-  className = '',
-}: {
-  label?: string
-  value: ReactNode
-  title: string
-  icon?: ReactNode
-  children: (close: () => void) => ReactNode
-  align?: 'start' | 'end'
-  className?: string
-}) {
-  const [open, setOpen] = useState(false)
-  const anchor = useRef<HTMLButtonElement>(null)
-  const close = () => setOpen(false)
-  return (
-    <>
-      <button
-        ref={anchor}
-        type="button"
-        className={`top-button${open ? ' top-button--open' : ''} ${className}`}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        title={title}
-        onClick={() => setOpen(!open)}
-      >
-        {icon}
-        {label && <span className="top-button__label">{label}</span>}
-        <span className="top-button__value">{value}</span>
-        <Chevron />
-      </button>
-      <Popover anchor={anchor} open={open} onClose={close} label={title} align={align}>
-        {children(close)}
-      </Popover>
-    </>
-  )
-}
-
 /** One choice in a menu: a name, an optional note under it, and a tick when it is the current one. */
 function MenuItem({
   name,
@@ -192,49 +150,37 @@ function MenuItem({
 
 /* ---------------------------------------------------------------------- map */
 
-const MAP_ICON = (
-  <svg className="top-button__icon" viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
-    <path d="M3 6.4 10 3.2l7 3.2-7 3.2z" />
-    <path d="M3 10.4 10 13.6l7-3.2" />
-    <path d="M3 14.1 10 17.3l7-3.2" />
-  </svg>
-)
-
 function noteFor(atlas: Atlas): string {
   if (atlas.note) return atlas.note
   const noun = atlas.noun.many.replace(/^./, (c) => c.toUpperCase())
   return atlas.insets.length > 0 ? `${noun} · ${atlas.insets.map((i) => i.name).join(' and ')} inset` : noun
 }
 
-function MapMenu() {
+/** Every map, grouped by family. `done` is called once one is chosen. */
+function MapChoices({ done }: { done: () => void }) {
   const atlasId = useMapStore((s) => s.doc.scope.atlasId)
   const setAtlas = useMapStore((s) => s.setAtlas)
-  const atlas = getAtlas(atlasId)
   return (
-    <MenuButton title="Change map" icon={MAP_ICON} value={atlas.menuName ?? atlas.name} className="top-button--map">
-      {(close) => (
-        <div className="top-menu__families">
-          {ATLAS_FAMILIES.map((family) => (
-            <div key={family.id} className="top-menu__group">
-              <span className="top-menu__heading">{family.name}</span>
-              {ATLASES.filter((a) => a.family === family.id).map((a) => (
-                <MenuItem
-                  key={a.id}
-                  name={a.menuName ?? a.name}
-                  note={noteFor(a)}
-                  active={a.id === atlasId}
-                  onChoose={() => {
-                    if (a.id !== atlasId) setAtlas(a.id)
-                    close()
-                  }}
-                />
-              ))}
-            </div>
+    <div className="top-menu__families">
+      {ATLAS_FAMILIES.map((family) => (
+        <div key={family.id} className="top-menu__group">
+          <span className="top-menu__heading">{family.name}</span>
+          {ATLASES.filter((a) => a.family === family.id).map((a) => (
+            <MenuItem
+              key={a.id}
+              name={a.menuName ?? a.name}
+              note={noteFor(a)}
+              active={a.id === atlasId}
+              onChoose={() => {
+                if (a.id !== atlasId) setAtlas(a.id)
+                done()
+              }}
+            />
           ))}
-          <p className="top-menu__hint">Each map keeps its own work. Switching away and back returns it as it was.</p>
         </div>
-      )}
-    </MenuButton>
+      ))}
+      <p className="top-menu__hint">Each map keeps its own work. Switching away and back returns it as it was.</p>
+    </div>
   )
 }
 
@@ -371,68 +317,57 @@ function RegionBar() {
 
 /* ---------------------------------------------------------- how it is drawn */
 
-function ResolutionMenu() {
+const shortDataset = (d: ReturnType<typeof datasetsForAtlas>[number]) => d.label ?? d.detail ?? d.name
+
+function ResolutionChoices({ done }: { done: () => void }) {
   const scope = useMapStore((s) => s.doc.scope)
   const dispatch = useMapStore((s) => s.dispatch)
   const atlas = getAtlas(scope.atlasId)
-  const datasets = datasetsForAtlas(scope.atlasId)
-  if (datasets.length <= 1) return null
-  const current = datasets.find((d) => d.id === scope.datasetId)
-  const label = 'Resolution'
-  const short = (d: (typeof datasets)[number]) => d.label ?? d.detail ?? d.name
   return (
-    <MenuButton label={label} value={current ? short(current) : '—'} title={label} align="end">
-      {(close) => (
-        <div className="top-menu__group">
-          <span className="top-menu__heading">{label}</span>
-          {datasets.map((d) => (
-            <MenuItem
-              key={d.id}
-              name={short(d)}
-              note={d.description}
-              active={d.id === scope.datasetId}
-              onChoose={() => {
-                if (d.id !== scope.datasetId) {
-                  dispatch({ op: 'set_scope_dataset', datasetId: d.id })
-                  // From now on this session the detail is the author's choice. See `startingDetail`.
-                  noteDetailChosen(atlas, d.id)
-                }
-                close()
-              }}
-            />
-          ))}
-        </div>
-      )}
-    </MenuButton>
+    <div className="top-menu__group">
+      <span className="top-menu__heading">Resolution</span>
+      {datasetsForAtlas(scope.atlasId).map((d) => (
+        <MenuItem
+          key={d.id}
+          name={shortDataset(d)}
+          note={d.description}
+          active={d.id === scope.datasetId}
+          onChoose={() => {
+            if (d.id !== scope.datasetId) {
+              dispatch({ op: 'set_scope_dataset', datasetId: d.id })
+              // From now on this session the detail is the author's choice. See `startingDetail`.
+              noteDetailChosen(atlas, d.id)
+            }
+            done()
+          }}
+        />
+      ))}
+    </div>
   )
 }
 
-function ProjectionMenu() {
+const autoProjectionName = PROJECTIONS.find((p) => p.id === AUTO_PROJECTION_ID)?.name ?? 'Albers'
+const projectionName = (id: ProjectionId | 'auto') =>
+  id === 'auto' ? `Auto (${autoProjectionName})` : (PROJECTIONS.find((p) => p.id === id)?.name ?? id)
+
+function ProjectionChoices({ done }: { done: () => void }) {
   const projectionId = useMapStore((s) => s.doc.scope.projectionId)
   const dispatch = useMapStore((s) => s.dispatch)
-  const autoName = PROJECTIONS.find((p) => p.id === AUTO_PROJECTION_ID)?.name ?? 'Albers'
-  const nameOf = (id: ProjectionId | 'auto') =>
-    id === 'auto' ? `Auto (${autoName})` : (PROJECTIONS.find((p) => p.id === id)?.name ?? id)
-  const choose = (id: ProjectionId | 'auto') => dispatch({ op: 'set_scope_projection', projectionId: id })
   return (
-    <MenuButton label="Projection" value={nameOf(projectionId)} title="Projection" align="end">
-      {(close) => (
-        <div className="top-menu__group">
-          <span className="top-menu__heading">Projection</span>
-          {(['auto', ...PROJECTIONS.map((p) => p.id)] as Array<ProjectionId | 'auto'>).map((id) => (
-            <MenuItem
-              key={id}
-              name={nameOf(id)}
-              active={id === projectionId}
-              onChoose={() => {
-                choose(id)
-                close()
-              }}
-            />
-          ))}
-        </div>
-      )}
-    </MenuButton>
+    <div className="top-menu__group">
+      <span className="top-menu__heading">Projection</span>
+      {(['auto', ...PROJECTIONS.map((p) => p.id)] as Array<ProjectionId | 'auto'>).map((id) => (
+        <MenuItem
+          key={id}
+          name={projectionName(id)}
+          active={id === projectionId}
+          onChoose={() => {
+            dispatch({ op: 'set_scope_projection', projectionId: id })
+            done()
+          }}
+        />
+      ))}
+    </div>
   )
 }
 
@@ -442,50 +377,177 @@ const OUTSIDE: Array<{ id: MapStyle['outsideScope']; name: string; note: string 
   { id: 'normal', name: 'Normal', note: 'Drawn exactly like the land inside the region.' },
 ]
 
-function OutsideMenu() {
+function OutsideChoices({ done }: { done: () => void }) {
   const outside = useMapStore((s) => s.doc.style.outsideScope)
   const dispatch = useMapStore((s) => s.dispatch)
-  const current = OUTSIDE.find((o) => o.id === outside)
   return (
-    <MenuButton label="Outside region" value={current?.name ?? outside} title="Outside region appearance" align="end">
-      {(close) => (
-        <div className="top-menu__group">
-          <span className="top-menu__heading">Land outside the region</span>
-          {OUTSIDE.map((o) => (
-            <MenuItem
-              key={o.id}
-              name={o.name}
-              note={o.note}
-              active={o.id === outside}
-              onChoose={() => {
-                dispatch({ op: 'set_style', patch: { outsideScope: o.id } })
-                close()
-              }}
-            />
-          ))}
-        </div>
-      )}
-    </MenuButton>
-  )
-}
-
-/** The left of the bar: the map menu and the open map's regions. */
-export function TopBarScope() {
-  return (
-    <div className="top-scope">
-      <MapMenu />
-      <RegionBar />
+    <div className="top-menu__group">
+      <span className="top-menu__heading">Land outside the region</span>
+      {OUTSIDE.map((o) => (
+        <MenuItem
+          key={o.id}
+          name={o.name}
+          note={o.note}
+          active={o.id === outside}
+          onChoose={() => {
+            dispatch({ op: 'set_style', patch: { outsideScope: o.id } })
+            done()
+          }}
+        />
+      ))}
     </div>
   )
 }
 
-/** The right of the bar: resolution, projection and outside-region appearance. */
-export function TopBarDrawing() {
+/* --------------------------------------------------------------------- file */
+
+type FileSection = 'map' | 'resolution' | 'projection' | 'outside'
+
+const CHOICES: Record<FileSection, (props: { done: () => void }) => JSX.Element> = {
+  map: MapChoices,
+  resolution: ResolutionChoices,
+  projection: ProjectionChoices,
+  outside: OutsideChoices,
+}
+
+const ChevronRight = () => (
+  <svg className="top-file__arrow" viewBox="0 0 12 12" width="10" height="10" aria-hidden="true" focusable="false">
+    <path d="M4.5 3 7.5 6 4.5 9" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
+
+/** Whether a side menu would have no room: the same width at which the bar starts to scroll. */
+function useNarrow(): boolean {
+  const query = '(max-width: 620px)'
+  const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches)
+  useEffect(() => {
+    const list = window.matchMedia(query)
+    const update = () => setNarrow(list.matches)
+    list.addEventListener('change', update)
+    return () => list.removeEventListener('change', update)
+  }, [])
+  return narrow
+}
+
+/**
+ * The menu at a row's side. It lives inside the File menu's panel, so a press in it counts as a
+ * press in the menu, but is fixed to the viewport, so the panel's scrolling does not clip it.
+ * To the row's right where there is room, else to the panel's left.
+ */
+function Flyout({ row, children }: { row: HTMLElement; children: ReactNode }) {
+  const panel = useRef<HTMLDivElement>(null)
+  const [position, setPosition] = useState<{ top: number; left: number } | null>(null)
+  useLayoutEffect(() => {
+    const host = row.closest('.top-menu')?.getBoundingClientRect() ?? row.getBoundingClientRect()
+    const rect = row.getBoundingClientRect()
+    const width = panel.current?.offsetWidth ?? 260
+    const height = panel.current?.offsetHeight ?? 200
+    let left = host.right + 4
+    if (left + width > window.innerWidth - 8) left = Math.max(8, host.left - width - 4)
+    const top = Math.max(8, Math.min(rect.top - 7, window.innerHeight - height - 8))
+    setPosition({ top, left })
+  }, [row, children])
   return (
-    <div className="top-drawing">
-      <ResolutionMenu />
-      <ProjectionMenu />
-      <OutsideMenu />
+    <div ref={panel} className="top-menu top-flyout" style={{ top: position?.top ?? -9999, left: position?.left ?? -9999 }}>
+      {children}
+    </div>
+  )
+}
+
+function FileMenu() {
+  const [open, setOpen] = useState(false)
+  const [section, setSection] = useState<FileSection | null>(null)
+  const [row, setRow] = useState<HTMLElement | null>(null)
+  const anchor = useRef<HTMLButtonElement>(null)
+  const narrow = useNarrow()
+  const scope = useMapStore((s) => s.doc.scope)
+  const outside = useMapStore((s) => s.doc.style.outsideScope)
+  const atlas = getAtlas(scope.atlasId)
+  const datasets = datasetsForAtlas(scope.atlasId)
+  const dataset = datasets.find((d) => d.id === scope.datasetId)
+
+  const close = () => {
+    setOpen(false)
+    setSection(null)
+  }
+  const show = (next: FileSection, element: HTMLElement) => {
+    setSection(next)
+    setRow(element)
+  }
+
+  const rows: Array<{ id: FileSection; name: string; value: string }> = [
+    { id: 'map', name: 'Map', value: atlas.menuName ?? atlas.name },
+    ...(datasets.length > 1 ? [{ id: 'resolution' as const, name: 'Resolution', value: dataset ? shortDataset(dataset) : '—' }] : []),
+    { id: 'projection', name: 'Projection', value: projectionName(scope.projectionId) },
+    { id: 'outside', name: 'Outside region', value: OUTSIDE.find((o) => o.id === outside)?.name ?? outside },
+  ]
+  const Choices = section ? CHOICES[section] : null
+
+  return (
+    <>
+      <button
+        ref={anchor}
+        type="button"
+        className={`top-button top-button--file${open ? ' top-button--open' : ''}`}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        title={`File · ${atlas.menuName ?? atlas.name}`}
+        onClick={() => (open ? close() : setOpen(true))}
+      >
+        <span className="top-button__value">File</span>
+        <Chevron />
+      </button>
+      <Popover anchor={anchor} open={open} onClose={close} label="File">
+        {narrow && Choices ? (
+          <div className="top-file">
+            <button type="button" className="top-menu__item top-file__back" onClick={() => setSection(null)}>
+              <span className="top-file__back-arrow" aria-hidden="true">‹</span>
+              <span className="top-menu__name">File</span>
+            </button>
+            <Choices done={close} />
+          </div>
+        ) : (
+          <div className="top-file" role="menu">
+            {rows.map((r) => (
+              <button
+                key={r.id}
+                type="button"
+                role="menuitem"
+                aria-haspopup="true"
+                aria-expanded={section === r.id}
+                className={`top-menu__item top-file__row${section === r.id ? ' top-file__row--open' : ''}`}
+                onPointerEnter={(event) => {
+                  if (event.pointerType === 'mouse' && !narrow) show(r.id, event.currentTarget)
+                }}
+                onClick={(event) => show(r.id, event.currentTarget)}
+                onKeyDown={(event) => {
+                  if (event.key === 'ArrowRight') show(r.id, event.currentTarget)
+                  if (event.key === 'ArrowLeft') setSection(null)
+                }}
+              >
+                <span className="top-file__name">{r.name}</span>
+                <span className="top-file__value">{r.value}</span>
+                <ChevronRight />
+              </button>
+            ))}
+            {!narrow && Choices && row && (
+              <Flyout row={row}>
+                <Choices done={close} />
+              </Flyout>
+            )}
+          </div>
+        )}
+      </Popover>
+    </>
+  )
+}
+
+/** The left of the bar: the File menu and the open map's regions. */
+export function TopBarScope() {
+  return (
+    <div className="top-scope">
+      <FileMenu />
+      <RegionBar />
     </div>
   )
 }
