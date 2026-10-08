@@ -4336,3 +4336,12 @@ body {
 .sticker-colors__dot--flag {
   background: linear-gradient(#ffffff 50%, #dc143c 50%);
 }
+
+.chosen-sticker__thumbs {
+  display: inline-flex;
+  flex: none;
+}
+
+.chosen-sticker__thumbs .sticker-thumb + .sticker-thumb {
+  margin-left: -12px;
+}

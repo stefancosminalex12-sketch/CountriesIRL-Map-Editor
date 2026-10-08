@@ -11,7 +11,7 @@
  * the map's `<svg>`, so every export contains them.
  *
  * **A sticker is its own thing to click.** A click on one chooses that sticker — not the country
- * under it — for the Stickers panel to recolour, resize or swap (`activeStickerId`); the map
+ * under it — for the Stickers panel to recolour, resize or swap (`activeStickerIds`); every click adds one or takes it out, so several are edited at once; the map
  * leaves such a click alone (`STICKER_MARKER`). A drag that starts on one still moves the map.
  * The chosen one is ringed on screen, never in an export (`data-export="none"`).
  */
@@ -34,11 +34,11 @@ export interface PlacedSticker {
 interface Props {
   placements: PlacedSticker[]
   stickers: Map<string, Sticker>
-  /** The entity whose sticker is chosen, ringed on screen; null for none. */
-  activeId: string | null
+  /** The entities whose stickers are chosen, each ringed on screen. */
+  activeIds: readonly string[]
 }
 
-export const MapStickers = memo(function MapStickers({ placements, stickers, activeId }: Props) {
+export const MapStickers = memo(function MapStickers({ placements, stickers, activeIds }: Props) {
   const used = [...new Set(placements.map((p) => p.stickerId))].filter((id) => stickers.has(id))
   const symbolOf = new Map(used.map((id, index) => [id, `map-sticker-${index}`]))
 
@@ -69,10 +69,10 @@ export const MapStickers = memo(function MapStickers({ placements, stickers, act
         )
       })}
       {placements
-        .filter((p) => p.id === activeId)
+        .filter((p) => activeIds.includes(p.id))
         .map((p) => (
           <circle
-            key="active"
+            key={`active-${p.id}`}
             cx={p.x}
             cy={p.y}
             r={p.size * 0.56}

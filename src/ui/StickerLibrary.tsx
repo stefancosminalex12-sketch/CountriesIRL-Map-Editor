@@ -50,7 +50,7 @@ const isFace = (stickerId: string | null | undefined, presetId: string) =>
   !!stickerId && (parseFaceSticker(stickerId)?.preset.id === presetId || stickerId.startsWith(`user:face-${presetId}-`))
 
 export function StickerLibrary() {
-  const [color, setColor] = useState(FACE_COLORS[0].color)
+  const [color, setColor] = useState(FACE_COLORS[1].color)
   const [query, setQuery] = useState('')
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -58,6 +58,7 @@ export function StickerLibrary() {
   const { uploads, add, pickedId, pick } = useStickerLibrary()
   const dispatch = useMapStore((s) => s.dispatch)
   const onSelection = useSelectionStickers()
+  const chosenOnMap = useMapStore((s) => s.activeStickerIds.length > 0)
   const noun = useNoun()
   const gridColor = useSettled(color.toLowerCase(), 150)
 
@@ -133,10 +134,19 @@ export function StickerLibrary() {
 
   return (
     <div className="stack">
-      <div className="stack sticker-parts">
-        <span className="sidebar__group-label">Colour</span>
-        <StickerColorRow value={color} onChange={(next) => next && changeColour(next)} allowFlag />
-      </div>
+      {/*
+        The grid's colour — the colour a face is picked and put on in. While stickers are chosen on
+        the map, their own colour row above is the one in play, and this one steps aside: changing
+        a colour then changes only those stickers, never the grid or anything else.
+      */}
+      {chosenOnMap ? (
+        <p className="hint">Picking a sticker here changes the type of the stickers chosen on the map.</p>
+      ) : (
+        <div className="stack sticker-parts">
+          <span className="sidebar__group-label">Colour</span>
+          <StickerColorRow value={color} onChange={(next) => next && changeColour(next)} allowFlag />
+        </div>
+      )}
       <input
         className="input"
         type="search"

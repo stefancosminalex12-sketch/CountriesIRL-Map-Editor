@@ -145,7 +145,7 @@ function FaceMaker() {
 function Recolour() {
   const { uploads, pickedId, add, pick } = useStickerLibrary()
   const source = pickedId ? stickerIndex(uploads).get(pickedId) : undefined
-  const [color, setColor] = useState(FACE_COLORS[1].color)
+  const [color, setColor] = useState(FACE_COLORS[6].color)
   const [preview, setPreview] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 

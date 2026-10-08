@@ -311,10 +311,10 @@ interface MapStore {
   /** The overlay being edited, or `null`. */
   activeOverlayId: string | null
   /**
-   * The sticker clicked on the map — named by the entity wearing it — whose colour, size and
-   * picture the Stickers panel then edits, or `null`. Not undoable, not saved.
+   * The stickers clicked on the map — each named by the entity wearing it — whose colour, size and
+   * picture the Stickers panel then edits, together. Empty for none. Not undoable, not saved.
    */
-  activeStickerId: CountryId | null
+  activeStickerIds: CountryId[]
 
   /* operation log — the audit trail the AI assistant will write into */
   log: OperationResult[]
@@ -342,8 +342,10 @@ interface MapStore {
   createMergeGroup: () => string
   setOverlayMode: (on: boolean) => void
   setActiveOverlay: (id: string | null) => void
-  /** Chooses the sticker on `id` to edit, or `null` for none. Touches no selection. */
-  setActiveSticker: (id: CountryId | null) => void
+  /** Chooses the stickers on `ids` to edit; empty for none. Touches no selection. */
+  setActiveStickers: (ids: CountryId[]) => void
+  /** Adds the sticker on `id` to those chosen, or takes it out if it is already chosen. */
+  toggleActiveSticker: (id: CountryId) => void
   /**
    * Makes an overlay of each selected entity — a country, a region, a merged group — and chooses
    * the last. One undo step. Returns the new overlays' ids.
@@ -527,7 +529,7 @@ export const useMapStore = create<MapStore>((set, get) => {
 
   overlayMode: false,
   activeOverlayId: null,
-  activeStickerId: null,
+  activeStickerIds: [],
 
   log: [],
 
@@ -630,7 +632,7 @@ export const useMapStore = create<MapStore>((set, get) => {
       activeMergeId: null,
       parked,
       activeOverlayId: null,
-      activeStickerId: null,
+      activeStickerIds: [],
       /*
        * The other map's geometry is not this map's. Clearing it rather than leaving the
        * previous atlas's features on screen is what stops a frame of Europe appearing
@@ -870,8 +872,14 @@ export const useMapStore = create<MapStore>((set, get) => {
     if (get().activeOverlayId !== id) set({ activeOverlayId: id })
   },
 
-  setActiveSticker(id) {
-    if (get().activeStickerId !== id) set({ activeStickerId: id })
+  setActiveStickers(ids) {
+    const now = get().activeStickerIds
+    if (now.length !== ids.length || now.some((id, i) => id !== ids[i])) set({ activeStickerIds: ids })
+  },
+
+  toggleActiveSticker(id) {
+    const now = get().activeStickerIds
+    set({ activeStickerIds: now.includes(id) ? now.filter((x) => x !== id) : [...now, id] })
   },
 
   /**

@@ -13,15 +13,30 @@ import { resolveStickers, stickersOf } from '../state/stickers'
 import type { MapOperation } from '../state/operations'
 import type { CountryId } from '../types/map'
 import { useNoun } from '../maps/useNoun'
+import { faceOf, faceStickerId } from '../stickers/stickerLibrary'
 
 /**
- * With a sticker clicked on the map (`activeStickerId`), picking another sticker swaps it: the
- * territory wears the new one. True when it did, so a picker knows the pick went to the map.
+ * With stickers clicked on the map (`activeStickerIds`), picking another sticker swaps them all:
+ * each of those territories wears the new one — one edit, one undo step. True when it did, so
+ * a picker knows the pick went to the map.
  */
 export function swapChosenSticker(stickerId: string): boolean {
-  const { activeStickerId, dispatch } = useMapStore.getState()
-  if (!activeStickerId) return false
-  dispatch({ op: 'assign_sticker', countryIds: [activeStickerId], stickerId })
+  const { activeStickerIds, dispatch, doc } = useMapStore.getState()
+  if (activeStickerIds.length === 0) return false
+  /*
+   * A face swapped for a face keeps its own colour — or its flag — so changing the type of
+   * stickers in several colours changes only the type. Anything else simply becomes the pick.
+   */
+  const picked = faceOf(stickerId)
+  const wearing = resolveStickers(doc)
+  const byId = new Map<string, CountryId[]>()
+  for (const id of activeStickerIds) {
+    const current = wearing.get(id)
+    const own = picked && current ? faceOf(current) : null
+    const next = picked && own ? faceStickerId(picked.preset.id, own.color) : stickerId
+    byId.set(next, [...(byId.get(next) ?? []), id])
+  }
+  dispatch([...byId].map(([next, countryIds]) => ({ op: 'assign_sticker' as const, countryIds, stickerId: next })))
   return true
 }
 

@@ -34,21 +34,20 @@ export interface FaceOptions {
 }
 
 /**
- * The colour presets: the nine base colours of the recolourable emoji site the gallery follows,
- * sampled exactly from its swatches, plus orange, which the default tiers use between red and
- * yellow.
+ * The colour presets, in the order the panels show them: light blue, blue, lime, yellow, orange,
+ * red, purple, gray, black. Blue, lime, yellow, orange, red and purple are the default tiers'
+ * colours; a picker beside them gives any other, and the flag dot a country's flag.
  */
 export const FACE_COLORS: Array<{ name: string; color: string }> = [
+  { name: 'Light blue', color: '#41b6e6' },
   { name: 'Blue', color: '#1b4fd8' },
-  { name: 'Purple', color: '#9062f9' },
+  { name: 'Lime', color: '#82c431' },
   { name: 'Yellow', color: '#faca15' },
-  { name: 'Red', color: '#b00302' },
-  { name: 'Pink', color: '#db8eb6' },
-  { name: 'Teal', color: '#1ca6be' },
-  { name: 'Green', color: '#82c431' },
-  { name: 'White', color: '#f3f4f6' },
-  { name: 'Black', color: '#111827' },
   { name: 'Orange', color: '#f57c1f' },
+  { name: 'Red', color: '#b00302' },
+  { name: 'Purple', color: '#9062f9' },
+  { name: 'Gray', color: '#8a9099' },
+  { name: 'Black', color: '#111827' },
 ]
 
 /* ------------------------------------------------------------------ colour */
@@ -1335,7 +1334,7 @@ export type MouthId = keyof typeof MOUTHS
 export type ExtraId = keyof typeof EXTRAS
 
 export const DEFAULT_FACE: FaceOptions = {
-  color: FACE_COLORS[0].color,
+  color: FACE_COLORS[1].color,
   eyes: 'smug',
   brows: 'suspicious',
   mouth: 'smirk',

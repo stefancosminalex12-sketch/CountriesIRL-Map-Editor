@@ -3068,21 +3068,28 @@ Categorical data, Compare and Flags have no low-to-high order and place no stick
 The Tiers panel shows what each rung covers under the active scale and how many territories wear
 it. **Reverse order** is for data where a high number is the bad end, such as inflation.
 
-**Click a sticker on the map** to work on that one sticker. The click is the sticker's, not the
-country's (`STICKER_MARKER` in `render/MapStickers.tsx`): nothing is selected, the Stickers panel
-opens with the sticker at its top, ringed on the map (on screen only, never in an export), and
-`activeStickerId` names it. There it can be:
+**Click stickers on the map** to work on them — one, or several at once. The click is the
+sticker's, not the country's (`STICKER_MARKER` in `render/MapStickers.tsx`): nothing is selected;
+each click adds that sticker to the chosen ones or, clicked again, drops it (`activeStickerIds`,
+`toggleActiveSticker`). The Stickers panel opens with them at its top, each ringed on the map (on
+screen only, never in an export), and **only the chosen stickers change**:
 
-- **recoloured** — a face (a Library face, a built-in tier face or an older stored copy, `faceOf`)
-  by naming it in the new colour; any other picture by shifting its hue, kept for the session;
-- **resized** on its own — a multiplier over the size it would have (`StickerMode.sizes`, the
+- **colour** — a face (a Library face, a built-in tier face or an older stored copy, `faceOf`) by
+  naming it in the new colour, or in the **country flag**; any other picture by shifting its hue,
+  kept for the session (and left as it is for the flag);
+- **size** — their own multiplier over the size they would have (`StickerMode.sizes`, the
   `size_sticker` operation), with **Usual size** to drop it;
-- **swapped** — picking any sticker in the Library or Emoji puts that one there instead
-  (`swapChosenSticker`), keeping its own size;
-- **removed**.
+- **type** — picking any sticker in the Library or Emoji puts it on all of them
+  (`swapChosenSticker`); a face swapped for a face keeps each sticker's own colour or flag;
+- **Remove**.
 
-Each is one operation on that territory alone, one undo step. **Done**, or a click anywhere else on
-the map, lets it go; a drag that starts on a sticker still moves the map.
+Each change is one edit on those territories alone, one undo step. While stickers are chosen, the
+Library's own colour row — the grid's colour — steps aside, so there is one colour row in play and
+it touches nothing else. **Done**, or a click anywhere else on the map, lets them all go; a drag
+that starts on a sticker still moves the map.
+
+**The colour presets** run light blue, blue, lime, yellow, orange, red, purple, gray, black
+(`FACE_COLORS`), then any colour, then the country flag.
 
 **By hand.** Pick a sticker in the Library and **Put on** the selection (the
 button names it: "Put on France"). **Remove**, right under it, takes off whatever sticker the

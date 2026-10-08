@@ -1208,7 +1208,7 @@ export function MapCanvas() {
 
   /* ---------------------------------------------------------------- stickers */
 
-  const activeStickerId = useMapStore((s) => s.activeStickerId)
+  const activeStickerIds = useMapStore((s) => s.activeStickerIds)
   const stickerUploads = useStickerLibrary((s) => s.uploads)
   const stickerArtwork = useMemo(() => stickerIndex(stickerUploads), [stickerUploads])
   const stickerAssignments = useMemo(() => resolveStickers(doc), [doc])
@@ -3209,15 +3209,18 @@ export function MapCanvas() {
           if ((event.target as Element | null)?.closest?.(`[${OVERLAY_MARKER}]`)) return
           /*
            * A click on a sticker chooses the sticker, not the country under it: the Stickers panel
-           * opens on it, to recolour, resize or swap it. A click anywhere else lets it go.
+           * opens on the chosen ones, to recolour, resize or swap them. A click anywhere else lets
+           * them all go.
            */
           const sticker = (event.target as Element | null)?.closest?.(`[${STICKER_MARKER}]`)
           if (sticker) {
-            useMapStore.getState().setActiveSticker(sticker.getAttribute(STICKER_MARKER))
+            // Every click on a sticker adds it to those chosen, or takes it out: several are edited together.
+            const id = sticker.getAttribute(STICKER_MARKER)
+            if (id) useMapStore.getState().toggleActiveSticker(id)
             openSidebarSection('stickers')
             return
           }
-          if (useMapStore.getState().activeStickerId) useMapStore.getState().setActiveSticker(null)
+          if (useMapStore.getState().activeStickerIds.length > 0) useMapStore.getState().setActiveStickers([])
           // A brush press has already selected what it touched — see `useSelectionGestures`.
           if (suppressClickRef.current) {
             suppressClickRef.current = false
@@ -3756,7 +3759,7 @@ export function MapCanvas() {
             Stickers under the names, so a name laid over a face stays readable.
           */}
           {stickerPlacements.length > 0 && (
-            <MapStickers placements={drawnStickers.placements} stickers={drawnStickers.artwork} activeId={activeStickerId} />
+            <MapStickers placements={drawnStickers.placements} stickers={drawnStickers.artwork} activeIds={activeStickerIds} />
           )}
 
           {textOn && <MapLabels placements={labelsToDraw} labels={labels} />}
