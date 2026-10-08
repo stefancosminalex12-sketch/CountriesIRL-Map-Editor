@@ -2880,6 +2880,14 @@ Export carries it for the same reason everything else does — the exporter copi
 SVG. Measured: the world pattern present, **zero** per-country patterns, 506 references
 to it, and a rasterised result with 45k red and 51k white pixels for the Japanese flag.
 
+**Every territory, on every screen.** The compact-screen flag budget (at most 40 flags, none
+smaller than 14 px, on a viewport under 480 px) exists to cap how many *different* flag documents
+a phone holds; under domination there is only one, so the budget is skipped and every country
+wears the world flag. Territories with no flag of their own — Bir Tawil, the Spratlys — have no
+flag tile, and are given the world fill directly, so the covered world has no blank holes.
+Applying the budget anyway was a bug: on a phone, or a small desktop window, only the 40 largest
+countries were painted and most of Africa, Europe and the islands stayed plain land.
+
 #### Changing an entity's flag
 
 Select an entity in Flags mode and the inspector gains a **Change Flag** picker: type a

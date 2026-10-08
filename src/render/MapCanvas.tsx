@@ -2030,7 +2030,12 @@ export function MapCanvas() {
 
   const visibleFlagTiles = useMemo(() => {
     const shown = drawnFlagTiles
-    if (!compactViewport) return shown
+    /*
+     * World domination paints one flag document over everything, so the budget — which exists
+     * to cap how many *different* flag documents a phone holds — has nothing to save. Applying it
+     * anyway left all but the 40 largest countries as plain land on any compact screen.
+     */
+    if (!compactViewport || dominationCode) return shown
     const big = shown.filter(
       (tile) => Math.max(tile.width, tile.height) * flagZoomStep >= COMPACT_FLAG_MIN_PX,
     )
@@ -2043,7 +2048,7 @@ export function MapCanvas() {
     return [...big]
       .sort((a, b) => Math.max(b.width, b.height) - Math.max(a.width, a.height))
       .slice(0, COMPACT_FLAG_MAX_COUNT)
-  }, [compactViewport, drawnFlagTiles, flagZoomStep])
+  }, [compactViewport, drawnFlagTiles, flagZoomStep, dominationCode])
 
   /**
    * Which entities the maritime layer may paint, and with whose artwork.
@@ -2232,6 +2237,15 @@ export function MapCanvas() {
   const flagFillById = useMemo(() => {
     const map = new Map<string, string>()
     if (!flagsOn) return map
+    /*
+     * Under domination the world flag covers every territory the map draws — including the ones
+     * with no flag of their own, which have no tile (Bir Tawil, the Spratlys) and would otherwise
+     * stay plain land in the middle of the covered world.
+     */
+    if (worldFlagFill) {
+      for (const shape of shapes) map.set(shape.id, worldFlagFill)
+      for (const shape of mergedShapes) map.set(shape.id, worldFlagFill)
+    }
     for (const tile of visibleFlagTiles) {
       /*
        * Under domination every country points at the single world pattern, so the flag
@@ -2241,7 +2255,7 @@ export function MapCanvas() {
       else if (loadedFlags[tile.iso2]) map.set(tile.id, `url(#${flagPatternId(tile.id)})`)
     }
     return map
-  }, [flagsOn, visibleFlagTiles, loadedFlags, worldFlagFill])
+  }, [flagsOn, visibleFlagTiles, loadedFlags, worldFlagFill, shapes, mergedShapes])
 
   /**
    * Fetches artwork for whatever is on screen, once per code, ever.
