@@ -459,17 +459,18 @@ export const EYES = {
       eye(c, { ...ROUND, cx: 42, rx: 12, ry: 12.5, look: [0.5, 2.5], lid: 'heavy' }, 1, 'l') +
       eye(c, { cx: 78, cy: 51, rx: 13, ry: 14.5, iris: 0.4, look: [-1, 0] }, -1, 'r'),
   },
-  // The thousand-yard stare: big, red-rimmed eyes under heavy lids, pupils fixed straight ahead.
+  // The thousand-yard stare: big eyes under heavy lids, pupils fixed straight ahead, the lower lids
+  // red and wet, a bag under each. Set low, under a helmet's brim.
   stare: {
     name: 'Thousand-yard',
     draw: (c: Ctx) =>
-      [43, 77].map((x) => `<ellipse cx="${x}" cy="57" rx="16" ry="15" fill="#e8708a" opacity="0.45" filter="url(#soft)"/>`).join('') +
-      pair(c, { cx: 43, cy: 57, rx: 13.5, ry: 13.5, iris: 0.68, look: [0, 1.5], lid: 'drowsy' }) +
+      [43, 77].map((x) => `<ellipse cx="${x}" cy="67" rx="16" ry="14.5" fill="#e8708a" opacity="0.4" filter="url(#soft)"/>`).join('') +
+      pair(c, { cx: 43, cy: 67, rx: 13.5, ry: 12.5, iris: 0.86, look: [0, 1], lid: 'drowsy' }) +
       [43, 77]
         .map(
           (x) =>
-            `<path d="M${x - 11} 63 Q${x} 71.5 ${x + 11} 63" fill="none" stroke="#d3415e" stroke-width="1.8" stroke-linecap="round" opacity="0.85"/>` +
-            `<path d="M${x - 12.5} 67 Q${x} 75.5 ${x + 12.5} 67" fill="none" stroke="${c.ink}" stroke-width="1.2" stroke-linecap="round" opacity="0.7"/>`,
+            `<path d="M${x - 10} 73 Q${x} 81 ${x + 10} 73" fill="none" stroke="#e0607a" stroke-width="2.2" stroke-linecap="round" opacity="0.8"/>` +
+            `<path d="M${x - 12} 82 Q${x} 88 ${x + 12} 82" fill="none" stroke="${c.ink}" stroke-width="1.2" stroke-linecap="round" opacity="0.65"/>`,
         )
         .join(''),
   },
@@ -487,7 +488,7 @@ export const BROWS = {
   raised: { name: 'Raised', draw: (c: Ctx) => browPair(c, 32, 31, 43, 19, 55, 27) },
   angry: { name: 'Angry', draw: (c: Ctx) => browPair(c, 30, 30, 43, 33, 57, 42, 5.6) },
   worried: { name: 'Worried', draw: (c: Ctx) => browPair(c, 31, 38, 42, 30, 55, 26) },
-  weary: { name: 'Weary', draw: (c: Ctx) => browPair(c, 29, 43, 42, 38.5, 56, 37.5, 5.2) },
+  furrowed: { name: 'Furrowed', draw: (c: Ctx) => browPair(c, 28, 50, 42, 50, 56, 56, 6) },
   suspicious: {
     name: 'One up',
     draw: (c: Ctx) => brow(c, 32, 37, 43, 34, 55, 37) + brow(c, 65, 28, 77, 16, 89, 26),
@@ -686,6 +687,7 @@ cheeks(c, [42, 78], [78, 78]) +
   blank: { name: 'Blank smile', draw: (c: Ctx) => cheeks(c, [31, 78], [89, 78]) + ridge(c, 'M31 78 Q60 90 89 78', 3.6) },
   wobble: { name: 'Wobbly', draw: (c: Ctx) => ridge(c, 'M40 80 Q46 91 52 83 Q56 78 60 82 Q64 78 68 83 Q74 91 80 80', 4.4) },
   frownSmall: { name: 'Small frown', draw: (c: Ctx) => ridge(c, 'M50 87 Q60 80 70 87', 3.6) },
+  lowFrown: { name: 'Low frown', draw: (c: Ctx) => ridge(c, 'M50 99 Q60 93 70 99', 3.6) },
   fewTeeth: {
     name: 'Few teeth',
     draw: (c: Ctx) =>
@@ -1034,7 +1036,7 @@ export const EXTRAS = {
   bulb: {
     name: 'Idea',
     draw: () =>
-      `<g transform="translate(60 7) scale(0.68) translate(-60 0)">` +
+      `<g transform="translate(60 9.5) scale(0.68) translate(-60 0)">` +
       `<g ${RAISED}>` +
       `<path d="M60 -26 C72 -26 78 -16 74 -6 C72 -1 68 2 67 7 H53 C52 2 48 -1 46 -6 C42 -16 48 -26 60 -26 Z" fill="#ffe46b" stroke="#b88a00" stroke-width="1.2"/>` +
       `<rect x="53" y="7" width="14" height="7" rx="2" fill="#b9c0c9" stroke="#6f7787" stroke-width="1"/>` +
@@ -1043,28 +1045,30 @@ export const EXTRAS = {
       `<path d="M38 -18 L32 -22 M82 -18 L88 -22 M60 -34 V-40 M44 -30 L40 -35 M76 -30 L80 -35" stroke="#ffcf2e" stroke-width="2.4" stroke-linecap="round"/>` +
       `</g>`,
   },
-  // Pushed back on the head, as a worn-out soldier wears it: the rim tilted up off the brow, the
-  // dome squatter so it stays in the frame, the straps hanging loose either side.
+  // Sitting up on the head, tipped up on the right: the shell as it always was, raised and
+  // tilted, its shadow on the forehead under the brim. Its dark inside and the loose straps show
+  // past the head on both sides (`BEHIND_PARTS.helmet`).
   helmet: {
     name: 'Helmet',
     draw: (c: Ctx) => {
       c.defs.push(`<clipPath id="helmetShell"><path d="M5 45 A55 55 0 0 1 115 45 Q60 53 5 45 Z"/></clipPath>`)
       return (
-        `<g transform="rotate(-5 60 30)">` +
-        // Chin straps, unbuckled, hanging down past the cheeks.
-        `<path d="M7 30 C4 50 8 70 13 84 M113 30 C116 50 112 70 107 84" fill="none" stroke="#4a5530" stroke-width="1.8" stroke-linecap="round"/>` +
-        `<g transform="translate(0 -9) scale(1 0.6) translate(0 9)">` +
+        `<g clip-path="url(#head)"><g transform="${HELMET_PLACE}">` +
+        `<path d="M4 50 Q60 64 116 50 L116 58 Q60 74 4 58 Z" fill="#000000" opacity="0.32" filter="url(#soft)"/>` +
+        `</g></g>` +
+        `<g transform="${HELMET_PLACE}">` +
         `<g ${RAISED}>` +
-        `<path d="M5 45 A55 55 0 0 1 115 45 Q60 53 5 45 Z" fill="url(#olive)" stroke="#2c3519" stroke-width="1"/>` +
+        `<path d="M5 45 A55 55 0 0 1 115 45 Q60 53 5 45 Z" fill="url(#olive)" stroke="${c.ink}" stroke-width="1.6"/>` +
         `<g clip-path="url(#helmetShell)" opacity="0.5">` +
         [[26, 16, 9, 5, -20], [52, 4, 11, 5, 10], [80, 14, 10, 6, 25], [38, 32, 8, 4, 0], [94, 34, 7, 4, -15], [66, 28, 9, 4, 5]]
           .map(([x, y, rx, ry, a]) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="#3d4a24" transform="rotate(${a} ${x} ${y})"/>`)
           .join('') +
         `</g>` +
-        `<path d="M1 44 Q60 55 119 44 Q120 49 118 51 Q60 62 2 51 Q0 49 1 44 Z" fill="#56652f" stroke="#2c3519" stroke-width="1"/>` +
+        `<path d="M-4 43.5 Q60 56 124 43.5 Q126 49 123 52 Q60 63.5 -3 52 Q-6 49 -4 43.5 Z" fill="#56652f" stroke="${c.ink}" stroke-width="1.6"/>` +
+        `<path d="M0 46 Q60 57 120 46" fill="none" stroke="#7f8f4c" stroke-width="1.1" stroke-linecap="round"/>` +
         `</g>` +
         `<ellipse cx="38" cy="10" rx="17" ry="7" fill="#ffffff" opacity="0.22" transform="rotate(-24 38 10)"/>` +
-        `</g></g>`
+        `</g>`
       )
     },
   },
@@ -1204,21 +1208,21 @@ export const EXTRAS = {
   coverEyes: { name: 'Covering eyes', draw: () => hand('backLeft', 36, 58, 50, 6) + hand('backRight', 84, 58, 50, -6) },
   coverMouth: { name: 'Hand on mouth', draw: () => hand('backRight', 74, 92, 46, -10) },
   bothMouth: { name: 'Hands on mouth', draw: () => hand('backLeft', 46, 96, 40, 4) + hand('backRight', 74, 96, 40, -4) },
-  pray: { name: 'Praying hands', draw: () => hand('pray', 60, 116, 56) },
+  pray: { name: 'Praying hands', draw: () => hand('pray', 60, 111.5, 56) },
   shyHands: { name: 'Shy fingers', draw: () => hand('pointRight', 40, 116, 38, 8) + hand('pointRight', 80, 116, 38, -8, true) },
   palmsUp: { name: 'Palms up', draw: () => hand('palmUp', 12, 108, 46, -6, true) + hand('palmUp', 108, 108, 46, 6) },
   holdHeart: { name: 'Holding a heart', draw: () => hand('heldHeart', 60, 108, 62) },
   offerRose: {
     name: 'Offering a rose',
     draw: () =>
-      hand('cupped', 60, 118, 70) +
+      hand('cupped', 60, 113.5, 70) +
       edge(
-        `<g ${RAISED}><path d="M46 104 Q54 92 62 100 Q56 108 46 104 Z M72 98 Q82 92 86 100 Q78 104 72 98 Z" fill="#43a843" stroke="#1f6a1f" stroke-width="0.8"/></g>` +
-          rose(60, 96, 13),
+        `<g ${RAISED}><path d="M46 99.5 Q54 87.5 62 95.5 Q56 103.5 46 99.5 Z M72 93.5 Q82 87.5 86 95.5 Q78 99.5 72 93.5 Z" fill="#43a843" stroke="#1f6a1f" stroke-width="0.8"/></g>` +
+          rose(60, 91.5, 13),
       ),
   },
   pointLaugh: { name: 'Pointing and wiping', draw: () => hand('atYou', 26, 112, 54) + hand('backRight', 102, 72, 36, -16) },
-  mewing: { name: 'Finger at chin', draw: () => hand('indexUp', 92, 118, 50, -14) },
+  mewing: { name: 'Finger at chin', draw: () => hand('indexUp', 92, 114.5, 50, -14) },
   cookie: {
     name: 'Cookie',
     // The fingers pinch the cookie up to the mouth, the cookie in front of them.
@@ -1237,7 +1241,7 @@ export const EXTRAS = {
       ) +
       hand('fistSide', 24, 114, 42, 0, true),
   },
-  bawlFists: { name: 'Fists down', draw: () => hand('fistFront', 10, 126, 40, -8) + hand('fistFront', 110, 126, 40, 8, true) },
+  bawlFists: { name: 'Fists down', draw: () => hand('fistFront', 10, 121, 40, -8) + hand('fistFront', 110, 121, 40, 8, true) },
   adjustShades: { name: 'Hand on shades', draw: () => hand('pinch', 112, 60, 40) },
   yawnHand: { name: 'Hand to a yawn', draw: () => hand('backRight', 80, 96, 42, -12) },
   cheekHands: { name: 'Hands to cheeks', draw: () => hand('backLeft', 14, 92, 46, 14) + hand('backRight', 106, 92, 46, -14) },
@@ -1249,10 +1253,10 @@ export const EXTRAS = {
   waveLeft: { name: 'Waving, left', draw: () => hand('wave', 18, 38, 46, 0, true) },
   // The rest of the author's gestures, each on its own.
   indexUp: { name: 'Index up', draw: () => hand('indexUp', 108, 106, 50) },
-  atYou: { name: 'Pointing at you', draw: () => hand('atYou', 60, 114, 60) },
-  writing: { name: 'Writing', draw: () => hand('write', 100, 116, 56) },
-  clasped: { name: 'Clasped hands', draw: () => hand('clasped', 60, 116, 56) },
-  cupped: { name: 'Cupped hands', draw: () => hand('cupped', 60, 120, 70) },
+  atYou: { name: 'Pointing at you', draw: () => hand('atYou', 60, 111.5, 60) },
+  writing: { name: 'Writing', draw: () => hand('write', 100, 111.5, 56) },
+  clasped: { name: 'Clasped hands', draw: () => hand('clasped', 60, 111.5, 56) },
+  cupped: { name: 'Cupped hands', draw: () => hand('cupped', 60, 113.5, 70) },
   raisedHand: { name: 'Raised hand', draw: () => hand('raised', 108, 96, 52) },
   spreadHand: { name: 'Spread hand', draw: () => hand('spread', 108, 100, 52) },
   palmUp: { name: 'Palm up', draw: () => hand('palmUp', 106, 112, 50) },
@@ -1261,9 +1265,9 @@ export const EXTRAS = {
   loveYou: { name: 'Love you', draw: () => hand('loveYou', 106, 102, 56) },
   pointDown: { name: 'Pointing down', draw: () => hand('pointDown', 108, 110, 50) },
   claw: { name: 'Claw', draw: () => hand('claw', 104, 108, 56) },
-  crossedArms: { name: 'Crossed arms', draw: () => hand('crossed', 60, 114, 64) },
+  crossedArms: { name: 'Crossed arms', draw: () => hand('crossed', 60, 107.5, 64) },
   heartHands: { name: 'Heart hands', draw: () => hand('heartHands', 60, 116, 70) },
-  fistBump: { name: 'Fist bump', draw: () => hand('fistBump', 60, 120, 76) },
+  fistBump: { name: 'Fist bump', draw: () => hand('fistBump', 60, 117.5, 76) },
   clap: { name: 'Clapping', draw: () => hand('clap', 104, 108, 56) },
   pinch: { name: 'Pinch', draw: () => hand('pinch', 106, 108, 48) },
   snap: { name: 'Finger heart', draw: () => hand('snap', 106, 106, 50) },
@@ -1321,7 +1325,7 @@ const EXTRA_EDGE: Partial<Record<ExtraId, EdgeSize | null>> = {
   question: 's',
   exclaim: 's',
   anger: 's',
-  helmet: 'l',
+  helmet: null,
   headphones: 'l',
   crown: 'l',
   partyHat: 'l',
@@ -1363,8 +1367,18 @@ function flame(x: number, y: number, size: number, angle: number): string {
   )
 }
 
+/**
+ * Where the helmet sits: raised as far as the frame allows and tipped up on the right, the same
+ * shell a touch smaller so its dome stays inside the frame.
+ */
+const HELMET_PLACE = 'translate(0 -11) rotate(-10 60 45) translate(60 45) scale(0.94) translate(-60 -45)'
+
 /** Parts of an extra that are drawn behind the head, while the extra itself is drawn over it. */
 const BEHIND_PARTS: Partial<Record<ExtraId, (c: Ctx) => string>> = {
+  // The helmet's dark inside under the brim, and its unbuckled straps, seen past the head.
+  helmet: () =>
+    `<g transform="${HELMET_PLACE}"><ellipse cx="60" cy="52" rx="62" ry="13" fill="#252e14"/></g>` +
+    `<path d="M1 53 C-2 70 0 85 5 97 M120 33 C124 52 123 69 118 85" fill="none" stroke="#4a5530" stroke-width="2.2" stroke-linecap="round"/>`,
   // Rounded cat ears, their bases tucked behind the head.
   catEars: (c) =>
     [1, -1]

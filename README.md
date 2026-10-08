@@ -3205,7 +3205,7 @@ is SVG — so an emoji copy saved by any route is dropped on load unless the tie
 
 - **Face maker** (`stickers/faceMaker.ts`): a countryball assembled from parts (39 eyes —
   among them staring, goofy, uneven, fury, a black eye and the thousand-yard stare — 12 brows, including four that float
-  just above the head, 53 mouths, 56 hand poses — thumbs up and down, pointing, waving, fist, fire
+  just above the head, 54 mouths, 56 hand poses — thumbs up and down, pointing, waving, fist, fire
   punch, peace, shrug, facepalm, salute, thinking, OK sign, cheering, covering eyes or mouth,
   praying, palms up, holding a heart, a finger to the lips, hands on the head, pulling the mouth
   wide, open arms, rock on, call me, love you, clapping, fist bump, heart hands, finger heart,
