@@ -4,6 +4,7 @@ public/geo
 .DS_Store
 *.local
 public/flags/
+public/stickers/
 .cache/
 
 # Local preview-server config, not part of the project

@@ -53,6 +53,12 @@ function write(uploads: Sticker[]): boolean {
 
 interface StickerLibrary {
   uploads: Sticker[]
+  /**
+   * The sticker picked in the panel, shared by the Library, Find and Create parts so a sticker
+   * found or made is the one the next action applies to. Not saved.
+   */
+  pickedId: string | null
+  pick: (id: string | null) => void
   /** Adds stickers; returns false when the browser would not store them (they still work until a refresh). */
   add: (stickers: Sticker[]) => boolean
   remove: (id: string) => void
@@ -61,6 +67,8 @@ interface StickerLibrary {
 
 export const useStickerLibrary = create<StickerLibrary>((set, get) => ({
   uploads: read(),
+  pickedId: null,
+  pick: (pickedId) => set({ pickedId }),
   add: (stickers) => {
     const uploads = [...get().uploads, ...stickers]
     set({ uploads })
@@ -68,7 +76,7 @@ export const useStickerLibrary = create<StickerLibrary>((set, get) => ({
   },
   remove: (id) => {
     const uploads = get().uploads.filter((s) => s.id !== id)
-    set({ uploads })
+    set({ uploads, pickedId: get().pickedId === id ? null : get().pickedId })
     write(uploads)
   },
   rename: (id, name) => {
@@ -142,7 +150,7 @@ function nameFromFile(file: File): string {
 }
 
 let counter = 0
-function newId(): string {
+export function newId(): string {
   counter += 1
   return `user:${Date.now().toString(36)}-${counter.toString(36)}`
 }

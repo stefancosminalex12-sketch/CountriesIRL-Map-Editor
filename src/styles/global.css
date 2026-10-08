@@ -3758,3 +3758,79 @@ body {
   box-shadow: 0 0 0 1px var(--accent);
   background: var(--accent-soft);
 }
+
+.sticker-grid--finder {
+  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+}
+
+/* The creator's colour row: a dot per preset, then any colour. */
+.sticker-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sticker-colors__dot,
+.sticker-colors__custom {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  padding: 0;
+  cursor: pointer;
+  flex: none;
+}
+
+.sticker-colors__dot--on {
+  border-color: var(--text);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.sticker-colors__custom {
+  position: relative;
+  overflow: hidden;
+  background: conic-gradient(#f44, #fd4, #4d4, #4dd, #44f, #d4d, #f44);
+}
+
+.sticker-colors__custom input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.sticker-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 8px;
+  background: var(--inset);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--text-dim);
+}
+
+.sticker-preview img {
+  object-fit: contain;
+}
+
+.sticker-preview__empty {
+  width: 84px;
+  height: 84px;
+}
+
+.sticker-parts {
+  gap: 4px;
+}
+
+.sticker-parts__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.sticker-parts__chips .chip {
+  padding: 0 8px;
+  font-size: 11.5px;
+}

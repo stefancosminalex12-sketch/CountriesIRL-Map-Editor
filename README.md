@@ -3017,6 +3017,29 @@ in that browser. The tier order is remembered there too, and a new map starts fr
 is defined once as a `<symbol>` and every territory wearing it is a `<use>`, so a world of faces is
 a few decoded images rather than hundreds of copies of a data URI.
 
+#### Finding and making stickers
+
+**Find Stickers** searches a catalogue that ships with the editor: Microsoft's Fluent Emoji Flat
+(1,591 emoji, skin-tone variants left out) and Icons8's Flat Color Icons (329), both MIT, so they
+can be used on maps and in videos without conditions. `scripts/prepare-stickers.mjs` writes one SVG
+per icon to `public/stickers/` from the `@iconify-json/*` packages, plus an index of names and
+categories, as part of `prepare-assets`; the panel fetches the index when it opens and shows
+thumbnails as lazily loaded images. Choosing one reads its SVG into a data URI and adds it to the
+library. Search matches icon names (`crown`, `stopwatch`, `money`); an empty search browses by
+category.
+
+**Create** makes new stickers, saved to the library like uploads:
+
+- **Face maker** (`stickers/faceMaker.ts`): a glossy face assembled from parts (eleven eyes, six
+  brows, twelve mouths, seven extras, an optional outline) in any colour. The body, the brows and
+  the inside of the mouth are all shaded from the one colour, so a colour change recolours the
+  whole face consistently. Original artwork, as SVG.
+- **Recolour** (`stickers/recolor.ts`): the picked sticker with its main colour swapped. The
+  dominant hue among its saturated pixels is found, and every pixel near that hue moves to the
+  target with its offset in saturation and lightness kept, so the shading survives. Other hues and
+  greys (white gloves, a black outline, a red rose) are left alone. An all-grey image is tinted as
+  a whole. Output is a PNG of at most 256 px.
+
 ### Legend
 
 Drawn **inside the map's `<svg>`**, in screen space, outside the zoomed group. That is

@@ -11,13 +11,14 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "prepare-assets": "npm run prepare-data && npm run prepare-flags",
+    "prepare-assets": "npm run prepare-data && npm run prepare-flags && npm run prepare-stickers",
     "build-geography": "node --max-old-space-size=8192 scripts/build-geography.mjs",
     "build-25m": "node --max-old-space-size=8192 scripts/build-25m.mjs",
     "build-waters": "node scripts/build-waters.mjs",
     "build-usa": "node --max-old-space-size=12000 scripts/usa/build-usa.mjs",
     "build-europe": "node --max-old-space-size=14000 scripts/europe/build-europe.mjs",
     "prepare-flags": "node scripts/prepare-flags.mjs",
+    "prepare-stickers": "node scripts/prepare-stickers.mjs",
     "fetch-eez": "node scripts/fetch-eez.mjs"
   },
   "dependencies": {
@@ -32,6 +33,8 @@
     "zustand": "^4.5.5"
   },
   "devDependencies": {
+    "@iconify-json/flat-color-icons": "^1.2.3",
+    "@iconify-json/fluent-emoji-flat": "^1.2.6",
     "@types/d3-geo": "^3.1.0",
     "@types/d3-selection": "^3.0.11",
     "@types/d3-zoom": "^3.0.8",

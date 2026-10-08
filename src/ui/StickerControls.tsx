@@ -23,6 +23,8 @@ import { allStickers, saveLadder, stickerFromFile, stickerIndex, useStickerLibra
 import type { Sticker } from '../stickers/types'
 import { STICKER_SIZE, type CountryId } from '../types/map'
 import { Disclosure } from './Panels'
+import { StickerFinder } from './StickerFinder'
+import { StickerCreator } from './StickerCreator'
 import { useNoun } from '../maps/useNoun'
 
 function Thumb({ sticker, size = 28 }: { sticker: Sticker | undefined; size?: number }) {
@@ -171,10 +173,9 @@ export function StickerLibraryControls() {
   const geo = useMapStore((s) => s.geo)
   const dispatch = useMapStore((s) => s.dispatch)
   const noun = useNoun()
-  const { uploads, add, remove } = useStickerLibrary()
+  const { uploads, add, remove, pickedId, pick: setPickedId } = useStickerLibrary()
   const stickers = useMemo(() => allStickers(uploads), [uploads])
   const index = useMemo(() => stickerIndex(uploads), [uploads])
-  const [pickedId, setPickedId] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
@@ -362,6 +363,12 @@ export function StickerControls() {
       </Disclosure>
       <Disclosure title="Library">
         <StickerLibraryControls />
+      </Disclosure>
+      <Disclosure title="Find Stickers">
+        <StickerFinder />
+      </Disclosure>
+      <Disclosure title="Create">
+        <StickerCreator />
       </Disclosure>
       <Disclosure title="Size">
         <StickerSize />
