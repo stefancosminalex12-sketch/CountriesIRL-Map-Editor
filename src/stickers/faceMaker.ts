@@ -354,11 +354,30 @@ export const EYES = {
       `<ellipse cx="77" cy="50" rx="17" ry="18" fill="#e8708a" opacity="0.4" filter="url(#soft)"/>` +
       eye(c, { cx: 77, cy: 50, rx: 15.5, ry: 16.5, iris: 0.48, look: [-2, 1] }, -1, 'r'),
   },
+  // A kitten's eyes: big and round, glossy pupils with two sparkles, three little lashes at the outer corner.
   cat: {
     name: 'Cat',
     draw: (c: Ctx) =>
-      pair(c, { cx: 43, cy: 55, rx: 12.5, ry: 12, iris: 0.84, look: [1, 1], lid: 'half' }) +
-      [43, 77].map((x) => `<path d="M${x - 5} 55 L${x + 5} 62 M${x + 5} 55 L${x - 5} 62" stroke="#ffffff" stroke-width="1" opacity="0.35"/>`).join(''),
+      pair(c, { cx: 43, cy: 53, rx: 12, ry: 13, iris: 0.95, look: [1.2, 1.4] }, { look: [-1.2, 1.4] }) +
+      [
+        [43, 1],
+        [77, -1],
+      ]
+        .map(
+          ([x, d]) =>
+            `<circle cx="${x + d * -1.8}" cy="57.6" r="1.5" fill="#ffffff"/>` +
+            [0, 1, 2]
+              .map((k) => {
+                const a = ((-158 + k * 16) * Math.PI) / 180
+                const bx = x + Math.cos(a) * 12 * d
+                const by = 53 + Math.sin(a) * 13
+                const tx = x + Math.cos(a) * 17 * d
+                const ty = 53 + Math.sin(a) * 17.6
+                return `<path d="M${bx.toFixed(1)} ${by.toFixed(1)} L${tx.toFixed(1)} ${ty.toFixed(1)}" stroke="${c.ink}" stroke-width="1.5" stroke-linecap="round"/>`
+              })
+              .join(''),
+        )
+        .join(''),
   },
   squeeze: {
     name: 'Squeezed',
@@ -788,6 +807,13 @@ cheeks(c, [42, 78], [78, 78]) +
         'two',
       ),
   },
+  // A kitten's mouth: a little pink nose, and under it one "3" on its side — ω.
+  kitty: {
+    name: 'Kitten',
+    draw: (c: Ctx) =>
+      `<path d="M56.4 67.4 Q60 66 63.6 67.4 Q62 71.2 60 71.6 Q58 71.2 56.4 67.4 Z" fill="#ff8fb0" stroke="${c.line}" stroke-width="1.2" stroke-linejoin="round"/>` +
+      `<path d="M60 71.6 V74.2 M50.6 73.6 Q52.4 79.4 56.6 78.4 Q59.2 77.6 60 74.2 Q60.8 77.6 63.4 78.4 Q67.6 79.4 69.4 73.6" fill="none" stroke="${c.line}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`,
+  },
   smallSmile: { name: 'Small smile', draw: (c: Ctx) => ridge(c, 'M53 82 Q60 88 67 82', 2.6) },
   grit: {
     name: 'Gritted',
@@ -1001,10 +1027,13 @@ export const EXTRAS = {
   catEars: {
     name: 'Cat ears',
     draw: (c: Ctx) =>
-      `<path d="M58 66 L62 66 L60 69 Z" fill="#ff8fb0" stroke="#c4466d" stroke-width="1.2" stroke-linejoin="round"/>` +
-      `<path d="M60 69 V72 M60 72 Q55 76 51 73 M60 72 Q65 76 69 73" fill="none" stroke="${c.line}" stroke-width="1.6" stroke-linecap="round"/>` +
+      // Whiskers growing out of the muzzle, either side of the nose, fanning out past the cheeks.
       [-1, 1]
-        .map((d) => `<path d="M${60 + d * 16} 70 Q${60 + d * 40} 66 ${60 + d * 66} 62 M${60 + d * 16} 73 Q${60 + d * 40} 73 ${60 + d * 66} 74 M${60 + d * 16} 76 Q${60 + d * 40} 80 ${60 + d * 64} 86" fill="none" stroke="#e8edf5" stroke-width="0.8" stroke-linecap="round"/>`)
+        .map(
+          (d) =>
+            `<path d="M${60 + d * 13} 71 Q${60 + d * 34} 66 ${60 + d * 56} 62 M${60 + d * 13} 74 Q${60 + d * 34} 73 ${60 + d * 58} 74 M${60 + d * 13} 77 Q${60 + d * 34} 80 ${60 + d * 55} 86" ` +
+            `fill="none" stroke="${c.line}" stroke-width="1.1" stroke-linecap="round"/>`,
+        )
         .join(''),
   },
   partyBlower: {
