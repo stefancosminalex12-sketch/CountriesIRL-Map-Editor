@@ -3884,17 +3884,39 @@ body {
   border-left: 1px solid var(--line);
 }
 
-.top-region {
+/* A region: its name, and the arrow box for its subregions attached on the right. */
+.top-split {
+  display: inline-flex;
   flex: none;
+  border-radius: var(--radius);
+}
+
+.top-split__name {
   white-space: nowrap;
 }
 
-.top-region .top-button__chevron {
-  margin-left: 1px;
-  opacity: 0.8;
+.top-split:not(.top-split--single) .top-split__name {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
 }
 
-.top-region--open {
+.top-split__more {
+  padding: 0 6px;
+  margin-left: -1px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.top-split__more .top-button__chevron {
+  opacity: 0.85;
+}
+
+/* A hairline between the two halves when the region is on, so they still read as two buttons. */
+.top-split--on .top-split__more {
+  box-shadow: inset 1px 0 0 rgb(255 255 255 / 0.35);
+}
+
+.top-split--open .top-split__more {
   box-shadow: 0 0 0 2px var(--accent-soft);
 }
 

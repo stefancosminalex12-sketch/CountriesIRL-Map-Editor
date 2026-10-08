@@ -1255,15 +1255,16 @@ browser from scrolling the panel or swiping the page underneath the gesture.
 is drawn are always one click away rather than a section of the rail:
 
 ```
-[≡ Modern World ▾] | World · Europe · Asia · …      Resolution 25m ▾ · Projection Auto ▾ · Outside region Muted ▾ · ↶ ↷ · Export ▾
+[≡ Modern World ▾] | World · [Europe|▾] · [Asia|▾] · …      Resolution 25m ▾ · Projection Auto ▾ · Outside region Muted ▾ · ↶ ↷ · Export ▾
 ```
 
 - **The map icon** opens a menu of every map, grouped World / Europe / USA, with the map in use
   ticked. Switching parks the current map's work and restores the target's, as before.
-- **The regions** of the open map are chips along the bar. A click on one that is off puts it on
-  (regions still combine: Europe + Asia frames Eurasia). A click on one that is already on opens
-  its **subregions** in a dropdown, where they combine the same way and the region can be
-  removed; a badge counts the subregions on. A region without subregions simply toggles.
+- **The regions** of the open map are split buttons along the bar. The **name** selects and
+  deselects (regions still combine: Europe + Asia frames Eurasia); deselecting a region also takes
+  off any of its subregions, in one click. The **arrow box** attached to its right opens the
+  region's **subregions** in a dropdown, where they combine the same way; a badge on the name
+  counts the subregions on. A region without subregions has no arrow.
 - **Resolution**, **Projection** and **Outside region**, right-aligned, each name their current
   value and open their choices in a dropdown. Resolution is the dataset (110m … 10m on the World
   map, the levels on the others), with each option's description under it.

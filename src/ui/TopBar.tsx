@@ -5,10 +5,9 @@
  * click away:
  *
  * - **Map** — an icon that opens a menu of every map, grouped World / Europe / USA.
- * - **Regions** — the open map's regions as chips. A click on a region that is not on adds it
- *   (regions combine: Europe + Asia frames Eurasia). A click on one that is already on opens its
- *   subregions underneath, where it can also be taken off again. A region with no subregions
- *   simply toggles.
+ * - **Regions** — the open map's regions as split buttons. The name selects and deselects
+ *   (regions combine: Europe + Asia frames Eurasia); the arrow box attached to its right opens
+ *   the region's subregions, which combine the same way.
  * - On the right: **Resolution**, **Projection** and **Outside region**, each a button naming its
  *   current value that opens the choices.
  *
@@ -249,6 +248,10 @@ function Tick() {
   )
 }
 
+/**
+ * A region as a split button: the name, and — for a region with subregions — an arrow box
+ * attached to its right. The name selects and deselects; the arrow opens the subregions.
+ */
 function RegionChip({
   region,
   active,
@@ -263,34 +266,57 @@ function RegionChip({
   toggle: (id: RegionId) => void
 }) {
   const [open, setOpen] = useState(false)
-  const anchor = useRef<HTMLButtonElement>(null)
+  const anchor = useRef<HTMLDivElement>(null)
+  const setRegions = useMapStore((s) => s.setRegions)
+  const regionIds = useMapStore((s) => s.doc.scope.regionIds)
+  const deselect = (ids: RegionId[]) => {
+    const next = regionIds.filter((id) => !ids.includes(id))
+    setRegions(next.length > 0 ? next : ['world'])
+  }
   const children = subregionsOf(region.id)
   const hasChildren = children.length > 0
   const lit = active || activeChildren > 0
 
-  const click = () => {
-    // First click puts the region on; a click on one already on opens its subregions.
-    if (lit && hasChildren) setOpen(!open)
+  /*
+   * The name toggles the region. Lit — itself on, or any of its subregions — a click takes the
+   * region and every one of its subregions off in one go; off, it puts the region on.
+   */
+  const clickName = () => {
+    if (lit) deselect([region.id, ...children.map((c) => c.id)])
     else toggle(region.id)
   }
 
   return (
     <>
-      <button
+      <div
         ref={anchor}
-        type="button"
-        className={`chip top-region${lit ? ' chip--active' : ''}${open ? ' top-region--open' : ''}`}
-        aria-pressed={lit}
-        aria-haspopup={hasChildren ? 'dialog' : undefined}
-        aria-expanded={hasChildren ? open : undefined}
-        title={hasChildren && lit ? `${region.name}: click again for subregions` : region.definition}
-        onClick={click}
+        className={`top-split${lit ? ' top-split--on' : ''}${open ? ' top-split--open' : ''}${hasChildren ? '' : ' top-split--single'}`}
       >
-        <Tick />
-        {region.name}
-        {activeChildren > 0 && <span className="top-region__count">{activeChildren}</span>}
-        {hasChildren && lit && <Chevron />}
-      </button>
+        <button
+          type="button"
+          className={`chip top-split__name${lit ? ' chip--active' : ''}`}
+          aria-pressed={lit}
+          title={region.definition}
+          onClick={clickName}
+        >
+          {lit && <Tick />}
+          {region.name}
+          {activeChildren > 0 && <span className="top-region__count">{activeChildren}</span>}
+        </button>
+        {hasChildren && (
+          <button
+            type="button"
+            className={`chip top-split__more${lit ? ' chip--active' : ''}`}
+            aria-haspopup="dialog"
+            aria-expanded={open}
+            aria-label={`${region.name} subregions`}
+            title={`${region.name} subregions`}
+            onClick={() => setOpen(!open)}
+          >
+            <Chevron />
+          </button>
+        )}
+      </div>
       {hasChildren && (
         <Popover anchor={anchor} open={open} onClose={() => setOpen(false)} label={`${region.name} subregions`}>
           <div className="top-menu__group">
@@ -305,24 +331,12 @@ function RegionChip({
                   title={child.definition}
                   onClick={() => toggle(child.id)}
                 >
-                  <Tick />
+                  {isActive(child.id) && <Tick />}
                   {child.name}
                 </button>
               ))}
             </div>
-            <p className="top-menu__hint">Subregions combine with each other and with other regions.</p>
-            {active && (
-              <button
-                type="button"
-                className="btn btn--ghost top-menu__remove"
-                onClick={() => {
-                  toggle(region.id)
-                  setOpen(false)
-                }}
-              >
-                Remove {region.name}
-              </button>
-            )}
+            <p className="top-menu__hint">Click a subregion to add or remove it. Subregions combine with each other and with other regions.</p>
           </div>
         </Popover>
       )}
