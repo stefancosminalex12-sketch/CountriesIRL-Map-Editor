@@ -1269,6 +1269,41 @@ const BEHIND_PARTS: Partial<Record<ExtraId, (c: Ctx) => string>> = {
  */
 const FRAME = '-10 -12 160 160'
 
+/**
+ * The width ÷ height of a flag's artwork. A flag that is an SVG keeps its own proportions whatever
+ * the `<image>` asks — the referenced file's own `preserveAspectRatio` wins — so it is read from
+ * the file: its `viewBox`, else its `width` and `height`. 3:2 when it cannot be read.
+ */
+function flagAspect(href: string): number {
+  const comma = href.indexOf(',')
+  if (!href.startsWith('data:image/svg') || comma < 0) return 1.5
+  let text = href.slice(comma + 1)
+  try {
+    text = href.slice(0, comma).includes(';base64') ? atob(text) : decodeURIComponent(text)
+  } catch {
+    return 1.5
+  }
+  const root = /<svg[^>]*>/i.exec(text)?.[0] ?? ''
+  const box = /viewBox\s*=\s*["']\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)/i.exec(root)
+  if (box) return Number(box[1]) / Number(box[2]) || 1.5
+  const w = /\swidth\s*=\s*["']([\d.]+)/i.exec(root)
+  const h = /\sheight\s*=\s*["']([\d.]+)/i.exec(root)
+  return w && h ? Number(w[1]) / Number(h[1]) || 1.5 : 1.5
+}
+
+/**
+ * A flag laid over the whole ball, edge to edge: drawn at its own proportions, just large enough
+ * to cover the ball's square, and centred — so no band of the ball is ever left bare, whatever
+ * shape the flag is. (Clipped to the ball by the caller.)
+ */
+function flagCover(href: string): string {
+  const ratio = flagAspect(href)
+  const width = ratio >= 1 ? 100 * ratio : 100
+  const height = ratio >= 1 ? 100 : 100 / ratio
+  // White under it, for a flag that is not a rectangle (Nepal's) or has clear parts.
+  return `<rect x="10" y="10" width="100" height="100" fill="#ffffff"/><image href="${href}" x="${(60 - width / 2).toFixed(2)}" y="${(60 - height / 2).toFixed(2)}" width="${width.toFixed(2)}" height="${height.toFixed(2)}" preserveAspectRatio="none"/>`
+}
+
 /** The face as standalone SVG markup. */
 export function faceSvg(options: FaceOptions): string {
   const flag = options.color === 'flag'
@@ -1303,7 +1338,7 @@ export function faceSvg(options: FaceOptions): string {
     ? `<circle cx="60" cy="60" r="50" fill="${base}"/>`
     : `<g clip-path="url(#head)">` +
       (options.flagHref
-        ? `<rect x="10" y="10" width="100" height="100" fill="#ffffff"/><image href="${options.flagHref}" x="-5" y="10" width="130" height="100" preserveAspectRatio="xMidYMid slice"/>`
+        ? flagCover(options.flagHref)
         : `<rect x="10" y="10" width="100" height="50" fill="#ffffff"/><rect x="10" y="60" width="100" height="50" fill="#dc143c"/>`) +
       `</g>`
 
