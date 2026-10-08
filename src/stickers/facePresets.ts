@@ -20,7 +20,7 @@ type Row = [name: string, eyes: EyeId, brows: BrowId, mouth: MouthId, extras?: E
 
 /*
  * The collection: a hundred faces after the reference sheets the author follows — each one's name and
- * idea, drawn in this face maker's own parts.
+ * idea, drawn in this face maker's own parts — then one for each of the author's hand gestures.
  */
 const COLLECTION: Row[] = [
   ['Fire Punch', 'angry', 'angry', 'grit', ['firePunch', 'fist']],
@@ -124,6 +124,23 @@ const COLLECTION: Row[] = [
   ['Punched in Face Black-Eye', 'blackEye', 'floatingWorried', 'sadOpen', ['plaster']],
   ['Tongue Out', 'hopeful', 'raised', 'tongueOut'],
   ['Growling Mad', 'fury', 'none', 'growl'],
+  // The author's own hand gestures, each on a face of its own.
+  ['Rock On', 'joy', 'angry', 'tongueOut', ['rockOn']],
+  ['Clapping', 'joy', 'raised', 'openTeeth', ['clap']],
+  ['Fist Bump', 'smug', 'calm', 'smile', ['fistBump']],
+  ['Heart Hands', 'closed', 'raised', 'smile', ['heartHands', 'blush']],
+  ['Taking Notes', 'halfSide', 'suspicious', 'flat', ['writing']],
+  ['Call Me', 'wink', 'calm', 'smirk', ['callMe']],
+  ['I Choose You', 'angry', 'angry', 'openTeeth', ['atYou']],
+  ['Nope', 'tired', 'angry', 'flat', ['crossedArms']],
+  ['Hold On', 'oneBig', 'raised', 'frownSmall', ['indexUp']],
+  ['Gimme', 'crazy', 'angry', 'grit', ['claw']],
+  ['Just A Tiny Bit', 'squeeze', 'worried', 'grimace', ['pinch']],
+  ['Pretty Please', 'glossy', 'worried', 'wobble', ['clasped']],
+  ['Love You', 'hearts', 'raised', 'smile', ['loveYou']],
+  ['Stop Right There', 'angry', 'angry', 'flat', ['raisedHand']],
+  ['Down There', 'side', 'raised', 'frownSmall', ['pointDown']],
+  ['Finger Heart', 'wink', 'raised', 'smile', ['snap', 'floatHearts']],
 ]
 
 /* More faces, made before the collection; any sharing a collection name gives way to it. */

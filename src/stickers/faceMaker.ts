@@ -15,13 +15,13 @@
  *   below for happy. A pupil is a plain black dot, drawn only where the eye looks somewhere.
  * - Everything is drawn over the fill — eyes, brows, mouth, hands — so it is always on top of the
  *   colour or the flag.
- * - Mouths, brows and lines are flat and black-edged; hands are white gloves with the same black
- *   outline, seen from the front.
+ * - Mouths, brows and lines are flat and black-edged. Hands are the author's own 3D glove hands
+ *   (`handArt.ts`), placed as pictures by `hand()`.
  *
  * The result is an SVG data URI: small, sharp at any size, and in every export.
  */
 
-import { glove } from './hands'
+import { HAND_ART, type HandId } from './handArt'
 
 export interface FaceOptions {
   /** `#rrggbb`, or `'flag'` for a ball in a country's flag (see `flagHref`). */
@@ -1138,74 +1138,86 @@ export const EXTRAS = {
       `<g ${RAISED} transform="rotate(-52 30 84)"><rect x="19" y="79.5" width="22" height="9" rx="4.5" fill="#f3bf96" stroke="#cf9468" stroke-width="0.7"/>` +
       `<rect x="26.5" y="80.5" width="7" height="7" rx="1" fill="#e9a97c"/></g>`,
   },
-  thumbsUp: { name: 'Thumbs up', draw: () => glove('thumb', 16, 118, -6, 1.75) },
-  thumbsDown: { name: 'Thumbs down', draw: () => glove('thumb', 18, 54, 180, 1.7, { flip: true }) },
-  point: { name: 'Pointing', draw: () => glove('gun', 8, 92, 36, 1.5, { flip: true }) },
-  wave: { name: 'Waving', draw: () => glove('open', 98, 102, 10, 1.45, { flip: true }) },
-  byeLeft: { name: 'Waving goodbye', draw: () => glove('open', 18, 112, -12, 1.45) },
-  fist: { name: 'Fist', draw: () => glove('fistSide', 106, 126, 8, 1.55, { flip: true }) },
-  peace: { name: 'Peace', draw: () => glove('peace', 104, 104, 14, 1.55, { flip: true }) },
-  shrug: {
-    name: 'Shrug',
-    draw: () => glove('open', 30, 96, -72, 1.3, { flip: true, across: 0.62 }) + glove('open', 90, 96, 72, 1.3, { across: 0.62 }),
-  },
+  thumbsUp: { name: 'Thumbs up', draw: () => hand('thumbUp', 20, 112, 54) },
+  thumbsDown: { name: 'Thumbs down', draw: () => hand('thumbUp', 20, 106, 52, 180, true) },
+  point: { name: 'Pointing', draw: () => hand('pointRight', 104, 110, 52) },
+  wave: { name: 'Waving', draw: () => hand('wave', 106, 94, 56) },
+  byeLeft: { name: 'Waving goodbye', draw: () => hand('wave', 16, 106, 54, 0, true) },
+  fist: { name: 'Fist', draw: () => hand('fistSide', 108, 116, 44) },
+  peace: { name: 'Peace', draw: () => hand('peace', 108, 102, 52, 8) },
+  shrug: { name: 'Shrug', draw: () => hand('palmUp', 10, 90, 46, -10, true) + hand('palmUp', 110, 90, 46, 10) },
   // The fist on fire: flames bursting up and back round it, over the ball and under the fist.
   firePunch: {
     name: 'Fire punch',
-    draw: () => flame(18, 104, 1.15, -44) + flame(12, 116, 0.85, -76) + flame(30, 92, 0.8, -12) + glove('punch', 22, 114, -10, 2),
+    draw: () => flame(18, 104, 1.15, -44) + flame(12, 116, 0.85, -76) + flame(30, 92, 0.8, -12) + hand('fistFront', 26, 112, 58, -6),
   },
-  facepalm: { name: 'Facepalm', draw: () => glove('flat', 26, 112, 40, 2) },
-  salute: { name: 'Salute', draw: () => glove('flat', 50, 36, -86, 1.5, { across: 0.5 }) + glove('edge', 110, 64, 176, 1.35, { flip: true }) },
-  think: { name: 'Thinking', draw: () => glove('think', 32, 128, 22, 1.45, { flip: true }) },
-  okSign: { name: 'OK sign', draw: () => glove('ok', 30, 116, -14, 1.48) },
-  doubleThumbs: { name: 'Double thumbs up', draw: () => glove('thumb', 12, 128, -4, 1.6) + glove('thumb', 108, 128, 4, 1.6, { flip: true }) },
-  cheer: { name: 'Cheering fists', draw: () => glove('fist', 4, 38, -14, 1.35) + glove('fist', 116, 38, 14, 1.35, { flip: true }) },
-  coverEyes: { name: 'Covering eyes', draw: () => glove('open', 22, 104, 34, 1.65) + glove('open', 98, 104, -34, 1.65, { flip: true }) },
-  coverMouth: { name: 'Hand on mouth', draw: () => glove('flat', 100, 118, -52, 1.6, { flip: true }) },
-  bothMouth: { name: 'Hands on mouth', draw: () => glove('flat', 36, 124, 34, 1.45) + glove('flat', 84, 124, -34, 1.45, { flip: true }) },
-  pray: { name: 'Praying hands', draw: () => glove('edge', 56.8, 132, 2, 1.6) + glove('edge', 63.2, 132, -2, 1.6, { flip: true }) },
-  shyHands: { name: 'Shy fingers', draw: () => glove('index', 26, 124, 30, 1.3) + glove('index', 52, 126, -30, 1.3, { flip: true }) },
-  palmsUp: { name: 'Palms up', draw: () => glove('open', 32, 112, -64, 1.3, { flip: true, across: 0.62 }) + glove('open', 88, 112, 64, 1.3, { across: 0.62 }) },
-  holdHeart: {
-    name: 'Holding a heart',
-    draw: () => glove('open', 26, 124, 64, 1.45, { across: 0.6 }) + glove('open', 94, 124, -64, 1.45, { flip: true, across: 0.6 }) + heart(60, 100, 15),
-  },
+  facepalm: { name: 'Facepalm', draw: () => hand('backLeft', 42, 70, 60, 8) },
+  salute: { name: 'Salute', draw: () => hand('raised', 98, 30, 50, -62) },
+  think: { name: 'Thinking', draw: () => hand('indexUp', 82, 114, 54, -34) },
+  okSign: { name: 'OK sign', draw: () => hand('ok', 22, 110, 52, -6) },
+  doubleThumbs: { name: 'Double thumbs up', draw: () => hand('thumbUp', 12, 116, 48) + hand('thumbUp', 108, 116, 48, 0, true) },
+  cheer: { name: 'Cheering fists', draw: () => hand('fistFront', 6, 34, 42, -14) + hand('fistFront', 114, 34, 42, 14, true) },
+  coverEyes: { name: 'Covering eyes', draw: () => hand('backLeft', 36, 58, 50, 6) + hand('backRight', 84, 58, 50, -6) },
+  coverMouth: { name: 'Hand on mouth', draw: () => hand('backRight', 74, 92, 46, -10) },
+  bothMouth: { name: 'Hands on mouth', draw: () => hand('backLeft', 46, 96, 40, 4) + hand('backRight', 74, 96, 40, -4) },
+  pray: { name: 'Praying hands', draw: () => hand('pray', 60, 116, 56) },
+  shyHands: { name: 'Shy fingers', draw: () => hand('pointRight', 40, 116, 38, 8) + hand('pointRight', 80, 116, 38, -8, true) },
+  palmsUp: { name: 'Palms up', draw: () => hand('palmUp', 12, 108, 46, -6, true) + hand('palmUp', 108, 108, 46, 6) },
+  holdHeart: { name: 'Holding a heart', draw: () => hand('heldHeart', 60, 108, 62) },
   offerRose: {
     name: 'Offering a rose',
     draw: () =>
-      glove('open', 26, 124, 64, 1.45, { across: 0.6 }) +
-      glove('open', 94, 124, -64, 1.45, { flip: true, across: 0.6 }) +
-      `<g ${RAISED}><path d="M46 108 Q54 96 62 104 Q56 112 46 108 Z M72 102 Q82 96 86 104 Q78 108 72 102 Z" fill="#43a843" stroke="#1f6a1f" stroke-width="0.8"/></g>` +
-      rose(60, 98, 13),
+      hand('cupped', 60, 118, 70) +
+      `<g ${RAISED}><path d="M46 104 Q54 92 62 100 Q56 108 46 104 Z M72 98 Q82 92 86 100 Q78 104 72 98 Z" fill="#43a843" stroke="#1f6a1f" stroke-width="0.8"/></g>` +
+      rose(60, 96, 13),
   },
-  pointLaugh: { name: 'Pointing and wiping', draw: () => glove('gun', 40, 126, -30, 1.5, { flip: true }) + glove('flat', 112, 84, -34, 1.25, { flip: true }) },
-  mewing: { name: 'Finger at chin', draw: () => glove('index', 98, 128, 14, 1.4, { flip: true }) },
+  pointLaugh: { name: 'Pointing and wiping', draw: () => hand('atYou', 26, 112, 54) + hand('backRight', 102, 72, 36, -16) },
+  mewing: { name: 'Finger at chin', draw: () => hand('indexUp', 92, 118, 50, -14) },
   cookie: {
     name: 'Cookie',
-    // The hand holds the cookie up to the mouth from below, the cookie in front of its fingers.
+    // The fingers pinch the cookie up to the mouth, the cookie in front of them.
     draw: () =>
-      glove('flat', 108, 128, -42, 1.45, { flip: true }) +
-      `<circle cx="78" cy="88" r="12" fill="url(#cookie)" stroke="#151515" stroke-width="1.6"/>` +
-      [[74, 84], [81, 90], [76, 94], [83, 83]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.6" fill="#4a2a10"/>`).join('') +
-      [[66, 98], [70, 102], [62, 105], [74, 108]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1" fill="#c48a3a"/>`).join(''),
+      hand('pinch', 98, 110, 46, 0, true) +
+      `<circle cx="80" cy="92" r="12" fill="url(#cookie)" stroke="#151515" stroke-width="1.6"/>` +
+      [[76, 88], [83, 94], [78, 98], [85, 87]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.6" fill="#4a2a10"/>`).join(''),
   },
   bat: {
     name: 'Baseball bat',
     draw: () =>
       `<g ${RAISED}><path d="M4 2 C10 -4 18 0 18 6 L30 112 C30 116 24 117 22 113 Z" fill="url(#wood)" stroke="#6b3d14" stroke-width="1"/>` +
       `<ellipse cx="26" cy="116" rx="6" ry="3" fill="#8a5220" stroke="#6b3d14" stroke-width="1"/></g>` +
-      glove('fistSide', 22, 118, -8, 1.45),
+      hand('fistSide', 24, 114, 42, 0, true),
   },
-  bawlFists: { name: 'Fists down', draw: () => glove('fist', 8, 132, -10, 1.35) + glove('fist', 112, 132, 10, 1.35, { flip: true }) },
-  adjustShades: { name: 'Hand on shades', draw: () => glove('gun', 112, 92, -38, 1.35) },
-  yawnHand: { name: 'Hand to a yawn', draw: () => glove('flat', 104, 124, -40, 1.45, { flip: true }) },
-  cheekHands: { name: 'Hands to cheeks', draw: () => glove('open', 30, 128, 20, 1.35) + glove('open', 90, 128, -20, 1.35, { flip: true }) },
-  rubFingers: { name: 'Rubbing fingers', draw: () => glove('ok', 30, 118, -24, 1.35) },
-  pullMouth: { name: 'Pulling the mouth', draw: () => glove('gun', -2, 108, -6, 1.3) + glove('gun', 122, 108, 6, 1.3, { flip: true }) },
-  handsOnHead: { name: 'Hands on head', draw: () => glove('open', 10, 52, 34, 1.4) + glove('open', 110, 52, -34, 1.4, { flip: true }) },
-  shush: { name: 'Finger to lips', draw: () => glove('index', 64, 130, -4, 1.4) },
-  hug: { name: 'Open arms', draw: () => glove('open', 14, 102, -12, 1.25) + glove('open', 106, 102, 12, 1.25, { flip: true }) },
-  waveLeft: { name: 'Waving, left', draw: () => glove('open', 22, 46, -20, 1.35) },
+  bawlFists: { name: 'Fists down', draw: () => hand('fistFront', 10, 126, 40, -8) + hand('fistFront', 110, 126, 40, 8, true) },
+  adjustShades: { name: 'Hand on shades', draw: () => hand('pinch', 112, 60, 40) },
+  yawnHand: { name: 'Hand to a yawn', draw: () => hand('backRight', 80, 96, 42, -12) },
+  cheekHands: { name: 'Hands to cheeks', draw: () => hand('backLeft', 14, 92, 46, 14) + hand('backRight', 106, 92, 46, -14) },
+  rubFingers: { name: 'Rubbing fingers', draw: () => hand('snap', 22, 112, 50) },
+  pullMouth: { name: 'Pulling the mouth', draw: () => hand('pointRight', 8, 96, 40, 10) + hand('pointRight', 112, 96, 40, -10, true) },
+  handsOnHead: { name: 'Hands on head', draw: () => hand('backLeft', 20, 24, 46, -40) + hand('backRight', 100, 24, 46, 40) },
+  shush: { name: 'Finger to lips', draw: () => hand('indexUp', 64, 104, 54) },
+  hug: { name: 'Open arms', draw: () => hand('spread', 6, 90, 48, -18) + hand('spread', 114, 90, 48, 18, true) },
+  waveLeft: { name: 'Waving, left', draw: () => hand('wave', 18, 38, 46, 0, true) },
+  // The rest of the author's gestures, each on its own.
+  indexUp: { name: 'Index up', draw: () => hand('indexUp', 108, 106, 50) },
+  atYou: { name: 'Pointing at you', draw: () => hand('atYou', 60, 114, 60) },
+  writing: { name: 'Writing', draw: () => hand('write', 100, 116, 56) },
+  clasped: { name: 'Clasped hands', draw: () => hand('clasped', 60, 116, 56) },
+  cupped: { name: 'Cupped hands', draw: () => hand('cupped', 60, 120, 70) },
+  raisedHand: { name: 'Raised hand', draw: () => hand('raised', 108, 96, 52) },
+  spreadHand: { name: 'Spread hand', draw: () => hand('spread', 108, 100, 52) },
+  palmUp: { name: 'Palm up', draw: () => hand('palmUp', 106, 112, 50) },
+  callMe: { name: 'Call me', draw: () => hand('callMe', 106, 104, 54) },
+  rockOn: { name: 'Rock on', draw: () => hand('rock', 108, 100, 54) },
+  loveYou: { name: 'Love you', draw: () => hand('loveYou', 106, 102, 56) },
+  pointDown: { name: 'Pointing down', draw: () => hand('pointDown', 108, 110, 50) },
+  claw: { name: 'Claw', draw: () => hand('claw', 104, 108, 56) },
+  crossedArms: { name: 'Crossed arms', draw: () => hand('crossed', 60, 114, 64) },
+  heartHands: { name: 'Heart hands', draw: () => hand('heartHands', 60, 116, 70) },
+  fistBump: { name: 'Fist bump', draw: () => hand('fistBump', 60, 120, 76) },
+  clap: { name: 'Clapping', draw: () => hand('clap', 104, 108, 56) },
+  pinch: { name: 'Pinch', draw: () => hand('pinch', 106, 108, 48) },
+  snap: { name: 'Finger heart', draw: () => hand('snap', 106, 106, 50) },
 } as const satisfies Record<string, { name: string; draw: (c: Ctx) => string }>
 
 /** The extras that are hands, listed apart from the rest in the panel. */
@@ -1213,6 +1225,8 @@ export const HAND_EXTRAS: ExtraId[] = [
   'thumbsUp', 'thumbsDown', 'doubleThumbs', 'point', 'pointLaugh', 'wave', 'fist', 'cheer', 'bawlFists', 'peace', 'okSign', 'shrug', 'palmsUp',
   'firePunch', 'facepalm', 'salute', 'think', 'mewing', 'coverEyes', 'coverMouth', 'bothMouth', 'pray', 'shyHands', 'holdHeart', 'offerRose',
   'cookie', 'bat', 'adjustShades', 'byeLeft', 'yawnHand', 'cheekHands', 'rubFingers', 'pullMouth', 'handsOnHead', 'shush', 'hug', 'waveLeft',
+  'indexUp', 'atYou', 'writing', 'clasped', 'cupped', 'raisedHand', 'spreadHand', 'palmUp', 'callMe', 'rockOn', 'loveYou', 'pointDown', 'claw',
+  'crossedArms', 'heartHands', 'fistBump', 'clap', 'pinch', 'snap',
 ]
 
 export type EyeId = keyof typeof EYES
@@ -1233,6 +1247,21 @@ export const DEFAULT_FACE: FaceOptions = {
 const BEHIND: ExtraId[] = ['halo']
 
 /** A flame: a teardrop licking up and back, in three nested colours. */
+/**
+ * One of the author's hands (`handArt.ts`) centred on (`x`, `y`), `size` across its longer side,
+ * turned `rotate` degrees and, with `flip`, mirrored — a left hand made right.
+ */
+function hand(id: HandId, x: number, y: number, size: number, rotate = 0, flip = false): string {
+  const art = HAND_ART[id]
+  const scale = size / Math.max(art.w, art.h)
+  const w = art.w * scale
+  const h = art.h * scale
+  return (
+    `<g transform="translate(${x} ${y}) rotate(${rotate})${flip ? ' scale(-1 1)' : ''}">` +
+    `<image href="${art.src}" x="${(-w / 2).toFixed(2)}" y="${(-h / 2).toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}"/></g>`
+  )
+}
+
 function flame(x: number, y: number, size: number, angle: number): string {
   const layer = (scale: number, color: string) =>
     `<path transform="scale(${scale})" d="M0 0 C-9 -2 -12 -12 -6 -22 C-4 -16 -1 -15 0 -18 C1 -26 6 -32 12 -36 C9 -26 14 -20 13 -10 C12 -3 7 1 0 0 Z" fill="${color}"/>`
@@ -1382,17 +1411,6 @@ export function faceSvg(options: FaceOptions): string {
     `<filter id="bevelSoft"><feMerge><feMergeNode in="SourceGraphic"/></feMerge></filter>` +
     `<filter id="inset"><feMerge><feMergeNode in="SourceGraphic"/></feMerge></filter>` +
     `<filter id="groove"><feMerge><feMergeNode in="SourceGraphic"/></feMerge></filter>` +
-    // One glove piece: a single black outline round the whole silhouette, a soft shade on its
-    // lower right edge, and nothing else.
-    `<filter id="gloveFx" x="-25%" y="-25%" width="150%" height="150%">` +
-    `<feMorphology in="SourceAlpha" operator="dilate" radius="0.75" result="d"/>` +
-    `<feFlood flood-color="${ink}"/><feComposite in2="d" operator="in" result="outline"/>` +
-    `<feComponentTransfer in="SourceAlpha" result="inv"><feFuncA type="table" tableValues="1 0"/></feComponentTransfer>` +
-    `<feOffset in="inv" dx="-1.2" dy="-1.6" result="io"/><feGaussianBlur in="io" stdDeviation="1.4" result="ib"/>` +
-    `<feFlood flood-color="#b9c1cc" flood-opacity="0.55"/><feComposite in2="ib" operator="in" result="sh"/>` +
-    `<feComposite in="sh" in2="SourceAlpha" operator="in" result="shade"/>` +
-    `<feMerge><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/><feMergeNode in="shade"/></feMerge>` +
-    `</filter>` +
     `<filter id="blur1" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1"/></filter>` +
     `<clipPath id="head"><circle cx="60" cy="60" r="50"/></clipPath>` +
         `<filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.4"/></filter>` +

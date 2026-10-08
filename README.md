@@ -3118,7 +3118,7 @@ highlight and shade so it still reads as round; countryball eyes — white shape
 outline, the emotion in their shape (cut flat when half-closed, slanting hard to the nose when
 angry, up to it when sad, pushed up from below when happy), with a plain black pupil only where an
 eye looks somewhere; flat black-edged brows, lines and mouths (a deep red inside, white teeth);
-and white gloves with the same black outline. Everything is drawn over the ball's fill, so eyes,
+and the author's own 3D white glove hands. Everything is drawn over the ball's fill, so eyes,
 mouth and hands are always on top of the colour or the flag. The lighting filters the glossy faces
 used are now flat, which also makes every face cheaper to draw.
 
@@ -3138,12 +3138,12 @@ cuff (`HAND.fist`), or punching at the viewer with no wrist to be seen (`HAND.pu
 
 **Library** (first in the Stickers panel; **Tiers** is last) holds every sticker in one grid: the
 author's own under **Yours** — uploads (the **Upload images…** button is under the grid), emoji
-added from Emoji, faces saved from Create — and then the **Faces**: 184 ready-made faces (`stickers/facePresets.ts`), each a named combination
-of face-maker parts. The first 100 (`COLLECTION`) are the library collection, in the order of the
+added from Emoji, faces saved from Create — and then the **Faces**: 200 ready-made faces (`stickers/facePresets.ts`), each a named combination
+of face-maker parts. The first 116 (`COLLECTION`) are the library collection, in the order of the
 reference sheets: Fire Punch, Shrug, Heavy Breathing, Checking You Out, … Evil Smirk, Please, then
 Sleepy and Yawning, Very Touched, Devious, Waving Hello, Can't Unsee This, Wacky Face, Seasick
 Smiley, Instant Regret with Hands on Head, Hot Face, Woozy Face, Give Me A Hug, Punched in Face
-Black-Eye, … Growling Mad. The older set follows, minus any name the collection already uses. All are drawn in the colour picked above the grid and
+Black-Eye, … Growling Mad, then one face for each of the author's hand gestures. The older set follows, minus any name the collection already uses. All are drawn in the colour picked above the grid and
 searchable by name. A preset is only parts, never a colour, so the whole gallery recolours at once.
 The colour presets are the nine base colours of the recolourable emoji site the gallery follows,
 sampled exactly from its swatches — blue `#1b4fd8`, purple `#9062f9`, yellow `#faca15`, red
@@ -3205,21 +3205,22 @@ is SVG — so an emoji copy saved by any route is dropped on load unless the tie
 
 - **Face maker** (`stickers/faceMaker.ts`): a countryball assembled from parts (38 eyes —
   among them staring, goofy, uneven, fury and a black eye — 11 brows, including four that float
-  just above the head, 53 mouths, 36 hand poses — thumbs up and down, pointing, waving, fist, fire
+  just above the head, 53 mouths, 56 hand poses — thumbs up and down, pointing, waving, fist, fire
   punch, peace, shrug, facepalm, salute, thinking, OK sign, cheering, covering eyes or mouth,
   praying, palms up, holding a heart, a finger to the lips, hands on the head, pulling the mouth
-  wide, open arms, and more — and 39 other extras such as big blushing or seasick-green cheeks,
+  wide, open arms, rock on, call me, love you, clapping, fist bump, heart hands, finger heart,
+  pinch, claw, crossed arms, writing, clasped and cupped hands, and more — and 39 other extras such as big blushing or seasick-green cheeks,
   sweat, a plaster, glasses, a helmet, cat ears, confetti, a crown, steam, hearts and Zzz, plus an
   optional outline) in any colour. Brows are slim crescents tapering to fine ends. Teeth are one
   clean white band clipped by the mouth, with a thin divider at each gap. Every shadow — under a
   raised part, inside the mouth, along a carved line — is the face's own deepest tone rather than
-  black, and soft shading near the edge is clipped to the head so nothing glows outside it. The hands are slim, soft cartoon gloves built
-  by one function, `hand()`, from a description of the pose: each finger out (length and angle) or
-  curled into the palm, and where the thumb is. Fingers are long and lightly tapered with round
-  tips on a small palm, and the whole silhouette is drawn as one piece through the `gloveFx`
-  filter: a thin, light outline, a soft shade on its lower right edge, a highlight on its upper left
-  and a faint shadow. Inside are only hairlines where fingers lie together and a faint fold at each
-  knuckle; a thumb folded over a fist and the slim cuff are outlined as their own pieces. The
+  black, and soft shading near the edge is clipped to the head so nothing glows outside it. The hands are the author's own 3D glove hands,
+  cut from their four reference sheets — the best copy of each gesture that repeats — into 30 small
+  transparent WebP pictures (`stickers/handArt.ts`, about 190 KB in all). `hand()` places one by
+  name, centre, size, turn and mirror, so a left hand serves as a right; nothing about a hand is
+  drawn by code. Each gesture also has a library face of its own (Rock On, Clapping, Fist Bump,
+  Heart Hands, Taking Notes, Call Me, I Choose You, Nope, Hold On, Gimme, Just A Tiny Bit, Pretty
+  Please, Love You, Stop Right There, Down There, Finger Heart). The
   fire punch's flames and the cat's ears are drawn behind the head (`BEHIND_PARTS`). **Every face
   has the same frame** (`FRAME`, a 160-unit square with the head in the middle and 30 units round
   it), so every head is the same size — in the gallery and on the map — whatever it holds; every
