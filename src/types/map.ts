@@ -410,6 +410,42 @@ export interface FlagMode {
   overrides: Record<CountryId, CountryId>
 }
 
+/* ----------------------------------------------------------------- stickers */
+
+/** The range the sticker size control covers, as a multiplier over the fitted size. */
+export const STICKER_SIZE = { min: 0.3, max: 3, step: 0.05, default: 1 }
+
+/**
+ * Pictures on the territories — faces, icons, emoji — chosen by the data or by hand.
+ *
+ * A layer *over* the colouring modes rather than a fifth one: a sticker map is usually a
+ * choropleth as well, a face on each country and the country coloured by the same number. So
+ * this never suspends anything and nothing suspends it.
+ *
+ * The images themselves are not in the document: `ladder` and `overrides` name stickers by id,
+ * and the library (`stickers/stickerLibrary.ts`) holds the artwork, the way the flag store holds
+ * flags. An id the library does not know draws nothing.
+ */
+export interface StickerMode {
+  enabled: boolean
+  /**
+   * Whether stickers follow the data. On, every entity with a number in Data mode gets the
+   * ladder's sticker for its position on the active scale: one rung per class of the predefined
+   * scale, or the palette scale's range split evenly into as many tiers as the ladder has.
+   */
+  auto: boolean
+  /** Sticker ids, the lowest value's first. */
+  ladder: string[]
+  /**
+   * Stickers chosen by hand, as entity id → sticker id, or `null` for "no sticker here" even
+   * where the data would give one. Outranks the ladder; deleting an entry hands the entity back
+   * to it.
+   */
+  overrides: Record<CountryId, string | null>
+  /** Multiplier over the size each territory earns. See {@link STICKER_SIZE}. */
+  size: number
+}
+
 /* -------------------------------------------------------------------- merge */
 
 /**
@@ -839,6 +875,11 @@ export interface MapDocument {
   comparison: ComparisonMode
   /** Flag overlay. See {@link FlagMode}. */
   flags: FlagMode
+  /**
+   * Pictures on the territories. See {@link StickerMode}. Absent on documents made before it
+   * existed; read it through `stickersOf`.
+   */
+  stickers?: StickerMode
   legend: LegendConfig
   /** The composition frame. See {@link ScreenFrame}. */
   screen: ScreenFrame

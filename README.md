@@ -2977,6 +2977,46 @@ member shows the value in every combination of switches; at world zoom six of th
 where names alone show three — because Belgium or Switzerland are a few pixels wide there, and the
 names' readability rule holds text back rather than print it too small to read.
 
+### Stickers
+
+**Stickers** (its own section of the sidebar) puts a picture on each territory: a face, an icon, an
+emoji. It is a layer over the colouring modes rather than a fifth one, because a sticker map is
+usually a choropleth too, with each country coloured and faced by the same number. Turning stickers
+on suspends nothing, and nothing suspends them.
+
+**The tiers follow the active scale.** The ladder is an ordered list of stickers, lowest value
+first. With **Follow the data** on and Styles & Data in Data mode:
+
+- **Predefined**: each band of the preset gets a rung. With as many stickers as bands it is one
+  each; with fewer, neighbouring bands share one; with more, the ends are kept and the middle rungs
+  spaced out (HDI's four bands on six stickers use rungs 1, 3, 4 and 6).
+- **Palette**: the value's position between the map's lowest and highest number, sampled exactly
+  as the colour ramp samples it (`paletteBucket`), so the face and the fill always agree.
+
+Categorical data, Compare and Flags have no low-to-high order and place no stickers of their own.
+The Tiers panel shows what each rung covers under the active scale and how many territories wear
+it. **Reverse order** is for data where a high number is the bad end, such as inflation.
+
+**By hand.** Pick a sticker in the Library and **Put on** the selection; **No sticker** keeps a
+territory bare whatever the data says; **Back to data** removes the choice. A hand-placed sticker
+outranks the ladder and shows in every colouring mode. Each of these is one operation
+(`set_stickers`, `assign_sticker`, `clear_sticker`) and one undo step.
+
+**Where they go.** On the territory's pole of inaccessibility, the same point the names use, sized
+by the largest circle that fits there (`STICKER_ROOM`), between a floor that keeps a microstate's
+sticker visible and a ceiling that keeps Russia's from covering a continent. Sizes are in map units,
+so stickers move and scale with the land and are in every PNG, JPG and SVG export. The **Size**
+slider multiplies them all. They are drawn under the names, so a name over a face stays readable,
+and they ignore the pointer, so clicking a face selects the territory under it.
+
+**The library is not the document.** The document names stickers by id; the artwork lives in
+`stickers/stickerLibrary.ts`, like flag artwork in the flag store. Six original faces ship with the
+editor (`stickers/builtin.ts`). Uploads are redrawn to at most 256 px, stored as PNG data URIs (SVGs
+as they are) and kept in localStorage, so they survive a refresh and are there for every map made
+in that browser. The tier order is remembered there too, and a new map starts from it. Each sticker
+is defined once as a `<symbol>` and every territory wearing it is a `<use>`, so a world of faces is
+a few decoded images rather than hundreds of copies of a data URI.
+
 ### Legend
 
 Drawn **inside the map's `<svg>`**, in screen space, outside the zoomed group. That is

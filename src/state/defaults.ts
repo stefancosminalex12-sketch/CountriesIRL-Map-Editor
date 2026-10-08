@@ -3,6 +3,7 @@ import { DEFAULT_ATLAS_ID, getAtlas } from '../maps/atlas'
 import { startingDatasetId } from '../maps/startingDetail'
 import { buildPalettes, DEFAULT_PALETTE_ID } from './palettes'
 import { DEFAULT_PRESET_ID } from './presets'
+import { createStickerMode } from './stickers'
 import {
   CAPTION_OUTLINE,
   CAPTION_SIZE,
@@ -175,6 +176,8 @@ export function createMapDocument(
       // Every country flies its own flag until told otherwise.
       overrides: {},
     },
+    // Off: stickers are something an author adds. On, they follow the data with the built-in faces.
+    stickers: createStickerMode(),
     /*
      * Off, and empty. A caption is something an author decides to add, and a map that
      * invented a headline for itself would be putting words in their mouth. White with a

@@ -62,6 +62,9 @@ import {
   type LabelShape,
 } from './labelPlacement'
 import { MapLabels } from './MapLabels'
+import { MapStickers, type PlacedSticker } from './MapStickers'
+import { resolveStickers, stickersOf } from '../state/stickers'
+import { stickerIndex, useStickerLibrary } from '../stickers/stickerLibrary'
 import { CountryCoast, CountryPath, MAP_SCALE_VAR, screenStrokeWidth } from './CountryPath'
 import { flagCodeFor, useFlagStore } from '../flags/flagStore'
 import { entityFlagCode } from '../flags/flagChoices'
@@ -228,6 +231,12 @@ const NO_LINE_NETWORKS: LineNetworks = { borders: [], national: [] }
 const NO_CHUNKS: string[] = []
 const NO_COAST_PATHS: Map<string, string> = new Map()
 const NO_LABEL_SHAPES: LabelShape[] = []
+
+/** A sticker's edge, as a multiple of the radius of the largest circle inside its territory. */
+const STICKER_ROOM = 1.6
+/** The smallest and largest a sticker is fitted at, in map units at the labels' reference scale. */
+const STICKER_MIN = 7
+const STICKER_MAX = 64
 
 const ZOOM_RANGE: [number, number] = [1, MAX_MAP_ZOOM]
 
@@ -888,10 +897,16 @@ export function MapCanvas() {
    * and an author who never turns labels on never pays for them once.
    */
   const [labelsPrepared, setLabelsPrepared] = useState(false)
+  /*
+   * Stickers sit where the names would, so they need the same geometry: the interior positions
+   * of every territory and how much room each has. Either feature prepares it for both.
+   */
+  const stickerMode = stickersOf(doc)
+  const stickersOn = stickerMode.enabled
   useEffect(() => {
-    if (textOn) setLabelsPrepared(true)
-  }, [textOn])
-  const prepareLabels = textOn || labelsPrepared
+    if (textOn || stickersOn) setLabelsPrepared(true)
+  }, [textOn, stickersOn])
+  const prepareLabels = textOn || stickersOn || labelsPrepared
 
   /**
    * Where every name goes, and how much room it has.
@@ -1132,6 +1147,36 @@ export function MapCanvas() {
     () => (textOn ? visibleLabels(labelPlacements, labelZoomStep) : []),
     [textOn, labelPlacements, labelZoomStep],
   )
+
+  /* ---------------------------------------------------------------- stickers */
+
+  const stickerUploads = useStickerLibrary((s) => s.uploads)
+  const stickerArtwork = useMemo(() => stickerIndex(stickerUploads), [stickerUploads])
+  const stickerAssignments = useMemo(() => resolveStickers(doc), [doc])
+
+  /**
+   * Where each sticker goes and how large it is: centred on the territory's most central point
+   * (the pole the names use), sized by the room there — the largest circle that fits inside —
+   * and held between a floor that keeps a microstate's sticker visible and a ceiling that keeps
+   * Russia's from covering a continent. All in map units, so the camera scales them with the land.
+   */
+  const stickerPlacements = useMemo<PlacedSticker[]>(() => {
+    if (!stickersOn || stickerAssignments.size === 0) return []
+    const merged = new Set(mergeGeometry.map((m) => m.id))
+    const out: PlacedSticker[] = []
+    for (const shape of labelShapes) {
+      const stickerId = stickerAssignments.get(shape.id)
+      if (!stickerId || !stickerArtwork.has(stickerId)) continue
+      if (style.outsideScope === 'hidden' && !merged.has(shape.id) && !scopeCountryIds.has(shape.id)) continue
+      const spot = shape.spots[0] ?? shape.groupSpots[0]
+      const x = spot ? spot.x : (shape.minX + shape.maxX) / 2
+      const y = spot ? spot.y : (shape.minY + shape.maxY) / 2
+      const room = spot ? spot.r * STICKER_ROOM : 0
+      const size = Math.min(Math.max(room, STICKER_MIN * shape.unit), STICKER_MAX * shape.unit) * stickerMode.size
+      out.push({ id: shape.id, stickerId, x, y, size })
+    }
+    return out
+  }, [stickersOn, stickerAssignments, stickerArtwork, labelShapes, mergeGeometry, scopeCountryIds, style.outsideScope, stickerMode.size])
 
   /**
    * The detail the lakes and the rivers are drawn at: every projected point, at every zoom.
@@ -3559,6 +3604,13 @@ export function MapCanvas() {
             border, a lake or a selection outline — and still inside it, so the camera
             moves the names with the land they belong to.
           */}
+          {/*
+            Stickers under the names, so a name laid over a face stays readable.
+          */}
+          {stickerPlacements.length > 0 && (
+            <MapStickers placements={stickerPlacements} stickers={stickerArtwork} />
+          )}
+
           {textOn && <MapLabels placements={labelsToDraw} labels={labels} />}
 
           {/*

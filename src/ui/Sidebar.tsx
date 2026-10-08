@@ -37,6 +37,7 @@ import { MergeControls } from './MergeControls'
 import { MapGrip } from './MapGrip'
 import { OverlayControls } from './OverlayControls'
 import { SelectionControls } from './SelectionControls'
+import { StickerControls } from './StickerControls'
 import { Disclosure } from './Panels'
 
 /**
@@ -103,6 +104,15 @@ const ICONS: Record<string, ReactNode> = {
     <>
       <path d="M3.2 16.4h13.6" />
       <path d="M6 16.4V9.2M10 16.4V4.6M14 16.4v-4.8" />
+    </>
+  ),
+  // A smiling face: pictures put on the territories.
+  stickers: (
+    <>
+      <circle cx="10" cy="10" r="7" />
+      <circle cx="7.6" cy="8.4" r="0.9" fill="currentColor" stroke="none" />
+      <circle cx="12.4" cy="8.4" r="0.9" fill="currentColor" stroke="none" />
+      <path d="M6.8 11.8c1.7 2 4.7 2 6.4 0" />
     </>
   ),
   // A key: swatches against their labels.
@@ -269,6 +279,15 @@ const SECTIONS: SidebarSection[] = [
     name: 'Styles & Data',
     short: 'Styles',
     body: <DataPalette />,
+  },
+  {
+    /*
+     * Pictures on the territories — faces, icons — chosen by the data or put there by hand. Next to
+     * Styles & Data because the tiers follow its active scale. See `state/stickers.ts`.
+     */
+    id: 'stickers',
+    name: 'Stickers',
+    body: <StickerControls />,
   },
   {
     id: 'legend',

@@ -5,10 +5,11 @@
  * document plus a per-operation result. No React, no store, no side effects, so the
  * same path serves the UI, the future AI assistant, tests and replay.
  */
-import { MAX_COMPARISON_GROUPS, OVERLAY_SCALE_RANGE, WATER_OPACITY } from '../types/map'
+import { MAX_COMPARISON_GROUPS, OVERLAY_SCALE_RANGE, STICKER_SIZE, WATER_OPACITY } from '../types/map'
 import { hasFlag } from '../flags/flagStore'
 import { BUILT_IN_PALETTES, createCountryEntry, createGroup } from './defaults'
 import { PRESET_IDS } from './presets'
+import { stickersOf } from './stickers'
 import {
   KNOWN_OPERATIONS,
   PLANNED_OPERATIONS,
@@ -128,6 +129,24 @@ export function validateOperation(op: MapOperation, ctx: ExecutionContext = {}):
   }
 
   switch (op.op) {
+    case 'set_stickers': {
+      if (!op.patch || typeof op.patch !== 'object') return 'patch must be an object'
+      const { ladder, size } = op.patch
+      if (ladder !== undefined && (!Array.isArray(ladder) || ladder.some((id) => typeof id !== 'string' || !id))) {
+        return 'ladder must be a list of sticker ids'
+      }
+      if (
+        size !== undefined &&
+        (typeof size !== 'number' || !Number.isFinite(size) || size < STICKER_SIZE.min || size > STICKER_SIZE.max)
+      ) {
+        return `size must be a number from ${STICKER_SIZE.min} to ${STICKER_SIZE.max}`
+      }
+      return null
+    }
+    case 'assign_sticker':
+      return op.stickerId === null || (typeof op.stickerId === 'string' && op.stickerId)
+        ? null
+        : 'stickerId must be a sticker id or null'
     case 'create_group':
       if (typeof op.groupId !== 'string' || !op.groupId.trim()) return 'groupId is required'
       if (typeof op.name !== 'string' || !op.name.trim()) return 'name must be a non-empty string'
@@ -555,6 +574,20 @@ function applyOperation(doc: MapDocument, op: MapOperation): MapDocument {
     }
     case 'set_flags':
       return { ...doc, flags: { ...doc.flags, ...op.patch } }
+    case 'set_stickers':
+      return { ...doc, stickers: { ...stickersOf(doc), ...op.patch } }
+    case 'assign_sticker': {
+      const mode = stickersOf(doc)
+      const overrides = { ...mode.overrides }
+      for (const id of op.countryIds) overrides[id] = op.stickerId
+      return { ...doc, stickers: { ...mode, overrides } }
+    }
+    case 'clear_sticker': {
+      const mode = stickersOf(doc)
+      const overrides = { ...mode.overrides }
+      for (const id of op.countryIds) delete overrides[id]
+      return { ...doc, stickers: { ...mode, overrides } }
+    }
     case 'set_active_preset':
       return { ...doc, activePresetId: op.presetId }
     case 'set_comparison':

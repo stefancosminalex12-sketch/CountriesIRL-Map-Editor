@@ -150,6 +150,18 @@ export type MapOperation =
         overrides?: Record<CountryId, CountryId>
       }
     }
+  /*
+   * Stickers: pictures on the territories. A layer over the colouring modes, not one of them — see
+   * `StickerMode`. `set_stickers` is the layer's settings; the other two put a sticker on chosen
+   * entities by hand, or hand them back to the data. `stickerId: null` means "no sticker here",
+   * even where the data would give one.
+   */
+  | {
+      op: 'set_stickers'
+      patch: { enabled?: boolean; auto?: boolean; ladder?: string[]; size?: number }
+    }
+  | { op: 'assign_sticker'; countryIds: CountryId[]; stickerId: string | null }
+  | { op: 'clear_sticker'; countryIds: CountryId[] }
   | { op: 'set_comparison'; patch: { enabled?: boolean; groupCount?: number } }
   /*
    * Comparison groups. Compare owns these outright — see `ComparisonMode` — so they
@@ -209,6 +221,9 @@ const IMPLEMENTED: Record<MapOperationType, true> = {
   set_water_paint: true,
   clear_water_paint: true,
   set_flags: true,
+  set_stickers: true,
+  assign_sticker: true,
+  clear_sticker: true,
   set_comparison: true,
   set_comparison_group: true,
   add_to_comparison: true,
@@ -258,6 +273,9 @@ export const UNDOABLE_OPERATIONS = new Set<MapOperationType>([
   'set_water_paint',
   'clear_water_paint',
   'set_flags',
+  'set_stickers',
+  'assign_sticker',
+  'clear_sticker',
   'set_comparison',
   'set_comparison_group',
   'add_to_comparison',
@@ -316,6 +334,9 @@ export function coalesceKey(ops: MapOperation[]): string | null {
      */
     case 'set_water_paint':
       return `set_water_paint:${first.waterIds.join(',')}`
+    // The size slider fires on every step of a drag; one drag is one edit.
+    case 'set_stickers':
+      return first.patch.size !== undefined && Object.keys(first.patch).length === 1 ? 'set_stickers:size' : null
     default:
       return null
   }

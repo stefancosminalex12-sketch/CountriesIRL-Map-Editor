@@ -1,0 +1,371 @@
+/**
+ * Stickers: pictures on the territories, chosen by the data or put there by hand.
+ *
+ * Four parts, in the order the work goes:
+ *
+ * - the switch, and a line saying what the stickers are following right now;
+ * - **Tiers** — the ladder, lowest value first, with what each rung covers under the active
+ *   scale, so the author can see which countries will get which face before looking at the map;
+ * - **Library** — the built-in faces and the author's uploads. Pick one, then add it to the
+ *   tiers or put it on the selected territories;
+ * - **Size**.
+ *
+ * Everything that changes the map is one operation (`set_stickers`, `assign_sticker`,
+ * `clear_sticker`), so every change is one undo step. The library is the exception: it is the
+ * author's collection of images, kept in this browser, not part of any one map.
+ */
+import { useMemo, useRef, useState } from 'react'
+import { useMapStore } from '../state/mapStore'
+import { colourModeOf } from '../state/colourMode'
+import { describeRungs, resolveStickers, stickersOf } from '../state/stickers'
+import { getPreset } from '../state/presets'
+import { allStickers, saveLadder, stickerFromFile, stickerIndex, useStickerLibrary } from '../stickers/stickerLibrary'
+import type { Sticker } from '../stickers/types'
+import { STICKER_SIZE, type CountryId } from '../types/map'
+import { Disclosure } from './Panels'
+import { useNoun } from '../maps/useNoun'
+
+function Thumb({ sticker, size = 28 }: { sticker: Sticker | undefined; size?: number }) {
+  if (!sticker) return <span className="sticker-thumb sticker-thumb--missing" style={{ width: size, height: size }} title="Missing image">?</span>
+  return <img className="sticker-thumb" src={sticker.src} alt="" width={size} height={size} draggable={false} />
+}
+
+/** What the stickers are following, in a sentence. */
+function useStatus(): string {
+  const doc = useMapStore((s) => s.doc)
+  const mode = stickersOf(doc)
+  if (!mode.auto) return 'Only stickers you place by hand are shown.'
+  const colour = colourModeOf(doc)
+  if (colour !== 'data') {
+    return 'Following the data needs Styles & Data in Data mode. Stickers you place by hand still show.'
+  }
+  const layer = doc.layers.find((l) => l.id === doc.activeLayerId) ?? doc.layers[0]
+  if (layer?.colorScale.mode === 'threshold') {
+    const preset = getPreset(doc.activePresetId)
+    return `Following the predefined ${preset?.name ?? ''} bands: each band gets its tier’s sticker.`
+  }
+  if (layer?.colorScale.mode === 'numeric') {
+    return 'Following the palette scale: the range of values is split evenly across the tiers, lowest first.'
+  }
+  return 'Categories have no low-to-high order, so only stickers you place by hand are shown.'
+}
+
+export function StickerSwitch() {
+  const enabled = useMapStore((s) => stickersOf(s.doc).enabled)
+  const dispatch = useMapStore((s) => s.dispatch)
+  const status = useStatus()
+  return (
+    <div className="stack">
+      <div className="mode-switch mode-switch--pair" role="group" aria-label="Stickers">
+        {[false, true].map((on) => (
+          <button
+            key={String(on)}
+            type="button"
+            className={`chip${enabled === on ? ' chip--active' : ''}`}
+            aria-pressed={enabled === on}
+            onClick={() => dispatch({ op: 'set_stickers', patch: { enabled: on } })}
+          >
+            {on ? 'Stickers on' : 'Off'}
+          </button>
+        ))}
+      </div>
+      {enabled && <p className="hint">{status}</p>}
+    </div>
+  )
+}
+
+export function StickerTiers() {
+  const doc = useMapStore((s) => s.doc)
+  const dispatch = useMapStore((s) => s.dispatch)
+  const uploads = useStickerLibrary((s) => s.uploads)
+  const index = useMemo(() => stickerIndex(uploads), [uploads])
+  const mode = stickersOf(doc)
+  const ranges = describeRungs(doc)
+  const counts = useMemo(() => {
+    const byRung = new Map<string, number>()
+    if (!mode.enabled) return byRung
+    for (const stickerId of resolveStickers(doc).values()) byRung.set(stickerId, (byRung.get(stickerId) ?? 0) + 1)
+    return byRung
+  }, [doc, mode.enabled])
+
+  const setLadder = (ladder: string[]) => {
+    dispatch({ op: 'set_stickers', patch: { ladder } })
+    saveLadder(ladder)
+  }
+  const move = (from: number, to: number) => {
+    const ladder = [...mode.ladder]
+    const [item] = ladder.splice(from, 1)
+    ladder.splice(to, 0, item)
+    setLadder(ladder)
+  }
+
+  return (
+    <div className="stack">
+      <div className="mode-switch mode-switch--pair" role="group" aria-label="How stickers are chosen">
+        {[true, false].map((auto) => (
+          <button
+            key={String(auto)}
+            type="button"
+            className={`chip${mode.auto === auto ? ' chip--active' : ''}`}
+            aria-pressed={mode.auto === auto}
+            onClick={() => dispatch({ op: 'set_stickers', patch: { auto } })}
+          >
+            {auto ? 'Follow the data' : 'By hand only'}
+          </button>
+        ))}
+      </div>
+
+      {mode.ladder.length === 0 ? (
+        <p className="hint">No tiers yet. Pick stickers in the Library and add them here, lowest value first.</p>
+      ) : (
+        <ol className="sticker-ladder">
+          {mode.ladder.map((id, i) => {
+            const sticker = index.get(id)
+            const range = ranges?.[i]
+            const count = counts.get(id)
+            return (
+              <li key={`${id}-${i}`} className="sticker-ladder__row">
+                <span className="sticker-ladder__rank">{i + 1}</span>
+                <Thumb sticker={sticker} />
+                <span className="sticker-ladder__text">
+                  <span className="sticker-ladder__name">{sticker?.name ?? 'Missing image'}</span>
+                  {mode.auto && ranges && (
+                    <span className="sticker-ladder__range">
+                      {range ?? 'no band lands here'}
+                      {count ? ` · ${count} on map` : ''}
+                    </span>
+                  )}
+                </span>
+                <span className="sticker-ladder__actions">
+                  <button type="button" className="btn btn--icon" title="Move towards lowest" aria-label="Move up" disabled={i === 0} onClick={() => move(i, i - 1)}>
+                    ↑
+                  </button>
+                  <button type="button" className="btn btn--icon" title="Move towards highest" aria-label="Move down" disabled={i === mode.ladder.length - 1} onClick={() => move(i, i + 1)}>
+                    ↓
+                  </button>
+                  <button type="button" className="btn btn--icon" title="Remove from tiers" aria-label="Remove" onClick={() => setLadder(mode.ladder.filter((_, j) => j !== i))}>
+                    ×
+                  </button>
+                </span>
+              </li>
+            )
+          })}
+        </ol>
+      )}
+
+      {mode.ladder.length > 1 && (
+        <button type="button" className="btn btn--ghost" onClick={() => setLadder([...mode.ladder].reverse())}>
+          Reverse order
+        </button>
+      )}
+      <p className="hint">
+        Tier 1 goes to the lowest values. Reverse the order when a high number is the bad end, like inflation.
+      </p>
+    </div>
+  )
+}
+
+export function StickerLibraryControls() {
+  const doc = useMapStore((s) => s.doc)
+  const selected = useMapStore((s) => s.selectedCountryIds)
+  const geo = useMapStore((s) => s.geo)
+  const dispatch = useMapStore((s) => s.dispatch)
+  const noun = useNoun()
+  const { uploads, add, remove } = useStickerLibrary()
+  const stickers = useMemo(() => allStickers(uploads), [uploads])
+  const index = useMemo(() => stickerIndex(uploads), [uploads])
+  const [pickedId, setPickedId] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const fileInput = useRef<HTMLInputElement>(null)
+  const mode = stickersOf(doc)
+  const picked = pickedId ? index.get(pickedId) : undefined
+
+  const upload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return
+    setBusy(true)
+    setMessage(null)
+    const made: Sticker[] = []
+    const failed: string[] = []
+    for (const file of Array.from(files)) {
+      try {
+        made.push(await stickerFromFile(file))
+      } catch {
+        failed.push(file.name)
+      }
+    }
+    if (made.length > 0) {
+      const stored = add(made)
+      setPickedId(made[made.length - 1].id)
+      setMessage(
+        stored
+          ? `Added ${made.length} sticker${made.length === 1 ? '' : 's'}.`
+          : 'Added, but this browser is out of storage space, so they will be gone after a refresh. Delete some uploads to make room.',
+      )
+    }
+    if (failed.length > 0) setMessage(`Could not read ${failed.join(', ')}.`)
+    setBusy(false)
+    if (fileInput.current) fileInput.current.value = ''
+  }
+
+  const deletePicked = () => {
+    if (!picked || picked.builtin) return
+    const inLadder = mode.ladder.filter((id) => id !== picked.id)
+    if (inLadder.length !== mode.ladder.length) {
+      dispatch({ op: 'set_stickers', patch: { ladder: inLadder } })
+      saveLadder(inLadder)
+    }
+    remove(picked.id)
+    setPickedId(null)
+  }
+
+  /* ---- the selection ---- */
+  const merges = useMapStore((s) => s.doc.merges)
+  const nameOf = (id: CountryId) => merges.find((m) => m.id === id)?.name ?? geo?.meta[id]?.name ?? id
+  const handPlaced = selected.filter((id) => id in mode.overrides)
+  const selectionLabel = selected.length === 1 ? nameOf(selected[0]) : `${selected.length} ${noun.many}`
+
+  return (
+    <div className="stack">
+      <div className="sticker-grid" role="listbox" aria-label="Stickers">
+        {stickers.map((sticker) => (
+          <button
+            key={sticker.id}
+            type="button"
+            role="option"
+            aria-selected={pickedId === sticker.id}
+            className={`sticker-grid__item${pickedId === sticker.id ? ' sticker-grid__item--picked' : ''}`}
+            title={sticker.name}
+            onClick={() => setPickedId(pickedId === sticker.id ? null : sticker.id)}
+          >
+            <Thumb sticker={sticker} size={36} />
+          </button>
+        ))}
+      </div>
+
+      <input
+        ref={fileInput}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+        multiple
+        hidden
+        onChange={(event) => void upload(event.target.files)}
+      />
+      <button type="button" className="btn" disabled={busy} onClick={() => fileInput.current?.click()}>
+        {busy ? 'Adding…' : 'Upload images…'}
+      </button>
+      {message && <p className="hint">{message}</p>}
+
+      {picked ? (
+        <div className="stack">
+          <p className="hint">
+            <strong>{picked.name}</strong>
+            {picked.builtin ? ' (built-in)' : ''}
+          </p>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => {
+              const ladder = [...mode.ladder, picked.id]
+              dispatch({ op: 'set_stickers', patch: { ladder, enabled: true } })
+              saveLadder(ladder)
+            }}
+          >
+            Add to tiers (as highest)
+          </button>
+          {selected.length > 0 && (
+            <button
+              type="button"
+              className="btn"
+              onClick={() => {
+                dispatch([
+                  { op: 'assign_sticker', countryIds: selected, stickerId: picked.id },
+                  ...(mode.enabled ? [] : [{ op: 'set_stickers' as const, patch: { enabled: true } }]),
+                ])
+              }}
+            >
+              Put on {selectionLabel}
+            </button>
+          )}
+          {!picked.builtin && (
+            <button type="button" className="btn btn--ghost" onClick={deletePicked}>
+              Delete this upload
+            </button>
+          )}
+        </div>
+      ) : (
+        <p className="hint">Pick a sticker to add it to the tiers or put it on the selection.</p>
+      )}
+
+      {selected.length > 0 && (
+        <div className="stack">
+          <span className="sidebar__group-label">Selection: {selectionLabel}</span>
+          <div className="mode-switch mode-switch--pair">
+            <button
+              type="button"
+              className="chip"
+              title="No sticker here, whatever the data says"
+              onClick={() => dispatch({ op: 'assign_sticker', countryIds: selected, stickerId: null })}
+            >
+              No sticker
+            </button>
+            <button
+              type="button"
+              className="chip"
+              title="Let the data choose again"
+              disabled={handPlaced.length === 0}
+              onClick={() => dispatch({ op: 'clear_sticker', countryIds: handPlaced })}
+            >
+              Back to data
+            </button>
+          </div>
+        </div>
+      )}
+      <p className="hint">
+        Uploads are saved in this browser for every map. Your tiers are remembered too. Images are shrunk to 256 px, which is plenty for a sticker.
+      </p>
+    </div>
+  )
+}
+
+export function StickerSize() {
+  const size = useMapStore((s) => stickersOf(s.doc).size)
+  const dispatch = useMapStore((s) => s.dispatch)
+  const percent = Math.round(size * 100)
+  return (
+    <label className="field">
+      <span className="field__row">
+        <span className="field__label">Sticker size</span>
+        <span className="field__value">{percent}%</span>
+      </span>
+      <input
+        className="slider"
+        type="range"
+        min={STICKER_SIZE.min}
+        max={STICKER_SIZE.max}
+        step={STICKER_SIZE.step}
+        value={size}
+        aria-label="Sticker size"
+        aria-valuetext={`${percent} percent`}
+        onChange={(event) => dispatch({ op: 'set_stickers', patch: { size: Number(event.target.value) } })}
+      />
+    </label>
+  )
+}
+
+export function StickerControls() {
+  return (
+    <div className="stack">
+      <StickerSwitch />
+      <Disclosure title="Tiers">
+        <StickerTiers />
+      </Disclosure>
+      <Disclosure title="Library">
+        <StickerLibraryControls />
+      </Disclosure>
+      <Disclosure title="Size">
+        <StickerSize />
+      </Disclosure>
+    </div>
+  )
+}
