@@ -35,7 +35,7 @@ const COLLECTION: Row[] = [
   ['Big Puppy Eyes', 'glossy', 'worried', 'wobble'],
   ['Fading Away', 'round', 'worried', 'frownSmall', ['byeLeft', 'motion', 'fadeAway']],
   ['Cat Face', 'cat', 'calm', 'kitty', ['catEars']],
-  ['Thousand-Yard Stare', 'stare', 'furrowed', 'lowFrown', ['helmet']],
+  ['Thousand-Yard Stare', 'stare', 'furrowed', 'frownSmall', ['grime', 'helmet']],
   ['Mewing', 'halfSide', 'worried', 'lips', ['mewing']],
   ['Troll Face', 'side', 'raised', 'troll'],
   ['Desperate', 'tearful', 'worried', 'tallShout', ['palmsUp', 'tears']],

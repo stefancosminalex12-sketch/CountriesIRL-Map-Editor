@@ -460,19 +460,28 @@ export const EYES = {
       eye(c, { cx: 78, cy: 51, rx: 13, ry: 14.5, iris: 0.4, look: [-1, 0] }, -1, 'r'),
   },
   // The thousand-yard stare: big eyes under heavy lids, pupils fixed straight ahead, the lower lids
-  // red and wet, a bag under each. Set low, under a helmet's brim.
+  // red and wet — a red band hugging the inside of each eye's lower outline, meeting it at the
+  // corners — and a faint bag under each.
   stare: {
     name: 'Thousand-yard',
-    draw: (c: Ctx) =>
-      [43, 77].map((x) => `<ellipse cx="${x}" cy="67" rx="16" ry="14.5" fill="#e8708a" opacity="0.4" filter="url(#soft)"/>`).join('') +
-      pair(c, { cx: 43, cy: 67, rx: 13.5, ry: 12.5, iris: 0.86, look: [0, 1], lid: 'drowsy' }) +
-      [43, 77]
-        .map(
-          (x) =>
-            `<path d="M${x - 10} 73 Q${x} 81 ${x + 10} 73" fill="none" stroke="#e0607a" stroke-width="2.2" stroke-linecap="round" opacity="0.8"/>` +
-            `<path d="M${x - 12} 82 Q${x} 88 ${x + 12} 82" fill="none" stroke="${c.ink}" stroke-width="1.2" stroke-linecap="round" opacity="0.65"/>`,
-        )
-        .join(''),
+    draw: (c: Ctx) => {
+      const spec = { cx: 43, cy: 55, rx: 13.5, ry: 12.5, iris: 0.86, look: [0, 1] as [number, number], lid: 'drowsy' as const }
+      c.defs.push(`<clipPath id="stare-low"><rect x="0" y="${spec.cy + 2}" width="120" height="40"/></clipPath>`)
+      return (
+        pair(c, spec) +
+        (['l', 'r'] as const)
+          .map((key, i) => {
+            const x = i === 0 ? 43 : 77
+            return (
+              `<g clip-path="url(#eye-${key}-in)"><g clip-path="url(#stare-low)">` +
+              `<ellipse cx="${x}" cy="${spec.cy}" rx="${spec.rx - 2.3}" ry="${spec.ry - 2.3}" fill="none" stroke="#e46a83" stroke-width="2.4"/>` +
+              `</g></g>` +
+              `<path d="M${x - 11} 72 Q${x} 77 ${x + 11} 72" fill="none" stroke="${c.ink}" stroke-width="1.1" stroke-linecap="round" opacity="0.45"/>`
+            )
+          })
+          .join('')
+      )
+    },
   },
   stars: { name: 'Stars', draw: () => edge(star(44, 51, 13) + star(76, 51, 13)) },
   hearts: { name: 'Hearts', draw: () => edge(heart(44, 52, 10) + heart(76, 52, 10)) },
@@ -488,7 +497,7 @@ export const BROWS = {
   raised: { name: 'Raised', draw: (c: Ctx) => browPair(c, 32, 31, 43, 19, 55, 27) },
   angry: { name: 'Angry', draw: (c: Ctx) => browPair(c, 30, 30, 43, 33, 57, 42, 5.6) },
   worried: { name: 'Worried', draw: (c: Ctx) => browPair(c, 31, 38, 42, 30, 55, 26) },
-  furrowed: { name: 'Furrowed', draw: (c: Ctx) => browPair(c, 28, 50, 42, 50, 56, 56, 6) },
+  furrowed: { name: 'Furrowed', draw: (c: Ctx) => browPair(c, 30, 40, 44, 42, 57, 47, 5.8) },
   suspicious: {
     name: 'One up',
     draw: (c: Ctx) => brow(c, 32, 37, 43, 34, 55, 37) + brow(c, 65, 28, 77, 16, 89, 26),
@@ -687,7 +696,6 @@ cheeks(c, [42, 78], [78, 78]) +
   blank: { name: 'Blank smile', draw: (c: Ctx) => cheeks(c, [31, 78], [89, 78]) + ridge(c, 'M31 78 Q60 90 89 78', 3.6) },
   wobble: { name: 'Wobbly', draw: (c: Ctx) => ridge(c, 'M40 80 Q46 91 52 83 Q56 78 60 82 Q64 78 68 83 Q74 91 80 80', 4.4) },
   frownSmall: { name: 'Small frown', draw: (c: Ctx) => ridge(c, 'M50 87 Q60 80 70 87', 3.6) },
-  lowFrown: { name: 'Low frown', draw: (c: Ctx) => ridge(c, 'M50 99 Q60 93 70 99', 3.6) },
   fewTeeth: {
     name: 'Few teeth',
     draw: (c: Ctx) =>
@@ -1047,32 +1055,49 @@ export const EXTRAS = {
       `<path d="M38 -18 L32 -22 M82 -18 L88 -22 M60 -34 V-40 M44 -30 L40 -35 M76 -30 L80 -35" stroke="#ffcf2e" stroke-width="2.4" stroke-linecap="round"/>` +
       `</g>`,
   },
-  // Sitting up on the head, tipped up on the right: the shell as it always was, raised and
-  // tilted, its shadow on the forehead under the brim. Its dark inside and the loose straps show
-  // past the head on both sides (`BEHIND_PARTS.helmet`).
+  // Worn on the back of the head: the shell as it always was, a little smaller, pushed up and
+  // tipped back so it sits high on the right and low over the left ear, the face showing under
+  // its brim. Battered: scuffs and specks on the paint. Its shadow falls on the forehead; its dark
+  // inside and its straps — the left one snapped short — show past the head (`BEHIND_PARTS.helmet`).
   helmet: {
     name: 'Helmet',
     draw: (c: Ctx) => {
       c.defs.push(`<clipPath id="helmetShell"><path d="M5 45 A55 55 0 0 1 115 45 Q60 53 5 45 Z"/></clipPath>`)
       return (
         `<g clip-path="url(#head)"><g transform="${HELMET_PLACE}">` +
-        `<path d="M4 50 Q60 64 116 50 L116 58 Q60 74 4 58 Z" fill="#000000" opacity="0.32" filter="url(#soft)"/>` +
+        `<path d="M4 48 Q60 62 116 48 L116 57 Q60 73 4 57 Z" fill="#000000" opacity="0.3" filter="url(#soft)"/>` +
         `</g></g>` +
         `<g transform="${HELMET_PLACE}">` +
         `<g ${RAISED}>` +
-        `<path d="M5 45 A55 55 0 0 1 115 45 Q60 53 5 45 Z" fill="url(#olive)" stroke="${c.ink}" stroke-width="1.6"/>` +
-        `<g clip-path="url(#helmetShell)" opacity="0.5">` +
+        `<path d="M5 45 A55 55 0 0 1 115 45 Q60 53 5 45 Z" fill="url(#olive)" stroke="${c.ink}" stroke-width="1.8"/>` +
+        `<g clip-path="url(#helmetShell)">` +
+        `<g opacity="0.5">` +
         [[26, 16, 9, 5, -20], [52, 4, 11, 5, 10], [80, 14, 10, 6, 25], [38, 32, 8, 4, 0], [94, 34, 7, 4, -15], [66, 28, 9, 4, 5]]
           .map(([x, y, rx, ry, a]) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="#3d4a24" transform="rotate(${a} ${x} ${y})"/>`)
           .join('') +
         `</g>` +
-        `<path d="M-4 43.5 Q60 56 124 43.5 Q126 49 123 52 Q60 63.5 -3 52 Q-6 49 -4 43.5 Z" fill="#56652f" stroke="${c.ink}" stroke-width="1.6"/>` +
-        `<path d="M0 46 Q60 57 120 46" fill="none" stroke="#7f8f4c" stroke-width="1.1" stroke-linecap="round"/>` +
+        specks(18, 10, 110, -4, 46, 0.4, 1.1, '#1e2610', 0.45) +
+        `<path d="M70 8 L77 12 M84 22 L88 30 M30 26 L36 24 M60 36 L66 38" stroke="#a7b27a" stroke-width="0.9" stroke-linecap="round" opacity="0.6"/>` +
+        `</g>` +
+        `<path d="M1 44 Q60 55 119 44 Q120 49 118 51 Q60 62 2 51 Q0 49 1 44 Z" fill="#56652f" stroke="${c.ink}" stroke-width="1.8"/>` +
+        `<path d="M4 46 Q60 56.5 116 46" fill="none" stroke="#7f8f4c" stroke-width="1.1" stroke-linecap="round"/>` +
+        specks(8, 6, 114, 45, 56, 0.35, 0.8, '#232c14', 0.5) +
         `</g>` +
         `<ellipse cx="38" cy="10" rx="17" ry="7" fill="#ffffff" opacity="0.22" transform="rotate(-24 38 10)"/>` +
         `</g>`
       )
     },
+  },
+  // Battle grime on the ball: faint specks and smudges of dirt, clipped to the head.
+  grime: {
+    name: 'Battle grime',
+    draw: () =>
+      `<g clip-path="url(#head)">` +
+      `<ellipse cx="26" cy="84" rx="9" ry="5" fill="#2a1d10" opacity="0.1" filter="url(#soft)" transform="rotate(-20 26 84)"/>` +
+      `<ellipse cx="94" cy="80" rx="7" ry="4" fill="#2a1d10" opacity="0.08" filter="url(#soft)"/>` +
+      `<ellipse cx="70" cy="100" rx="10" ry="4" fill="#2a1d10" opacity="0.08" filter="url(#soft)"/>` +
+      specks(22, 16, 104, 36, 106, 0.3, 0.8, '#1c140a', 0.2) +
+      `</g>`,
   },
   catEars: {
     name: 'Cat ears',
@@ -1329,6 +1354,7 @@ const EXTRA_EDGE: Partial<Record<ExtraId, EdgeSize | null>> = {
   exclaim: 's',
   anger: 's',
   helmet: null,
+  grime: null,
   headphones: 'l',
   crown: 'l',
   partyHat: 'l',
@@ -1357,6 +1383,26 @@ function hand(id: HandId, x: number, y: number, size: number, rotate = 0, flip =
   )
 }
 
+/**
+ * `count` small dark specks scattered over a box (`x1`–`x2`, `y1`–`y2`) — dirt, chipped paint.
+ * The same every time: a fixed sequence, not `Math.random`, so a face never changes.
+ */
+function specks(count: number, x1: number, x2: number, y1: number, y2: number, rMin: number, rMax: number, fill: string, opacity: number): string {
+  let seed = count * 7919 + Math.round(x1 * 31 + y1 * 17)
+  const next = () => {
+    seed = (seed * 1103515245 + 12345) % 2147483648
+    return seed / 2147483648
+  }
+  let out = ''
+  for (let i = 0; i < count; i++) {
+    const x = x1 + next() * (x2 - x1)
+    const y = y1 + next() * (y2 - y1)
+    const r = rMin + next() * (rMax - rMin)
+    out += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(2)}"/>`
+  }
+  return `<g fill="${fill}" opacity="${opacity}">${out}</g>`
+}
+
 /** A flame: a teardrop licking up and back, in three nested colours. */
 function flame(x: number, y: number, size: number, angle: number): string {
   const layer = (scale: number, color: string) =>
@@ -1370,18 +1416,27 @@ function flame(x: number, y: number, size: number, angle: number): string {
   )
 }
 
-/**
- * Where the helmet sits: raised as far as the frame allows and tipped up on the right, the same
- * shell a touch smaller so its dome stays inside the frame.
- */
-const HELMET_PLACE = 'translate(0 -11) rotate(-10 60 45) translate(60 45) scale(0.94) translate(-60 -45)'
+/** Where the helmet sits: its rim's middle, how far it is tipped back, and its size. */
+const HELMET = { x: 62, y: 26, angle: -15, scale: 0.8 }
+const HELMET_PLACE = `translate(${HELMET.x} ${HELMET.y}) rotate(${HELMET.angle}) scale(${HELMET.scale}) translate(-60 -45)`
+
+/** A point of the helmet as drawn, where it lands on the face — for the straps to hang from. */
+function helmetPoint(x: number, y: number): string {
+  const a = (HELMET.angle * Math.PI) / 180
+  const qx = (x - 60) * HELMET.scale
+  const qy = (y - 45) * HELMET.scale
+  return `${(HELMET.x + qx * Math.cos(a) - qy * Math.sin(a)).toFixed(1)} ${(HELMET.y + qx * Math.sin(a) + qy * Math.cos(a)).toFixed(1)}`
+}
 
 /** Parts of an extra that are drawn behind the head, while the extra itself is drawn over it. */
 const BEHIND_PARTS: Partial<Record<ExtraId, (c: Ctx) => string>> = {
-  // The helmet's dark inside under the brim, and its unbuckled straps, seen past the head.
+  // The helmet's dark inside, seen under the brim past the head, and its straps hanging from the
+  // brim's ends: the right one long and loose, the left snapped short, its end frayed.
   helmet: () =>
-    `<g transform="${HELMET_PLACE}"><ellipse cx="60" cy="52" rx="62" ry="13" fill="#252e14"/></g>` +
-    `<path d="M1 53 C-2 70 0 85 5 97 M120 33 C124 52 123 69 118 85" fill="none" stroke="#4a5530" stroke-width="2.2" stroke-linecap="round"/>`,
+    `<g transform="${HELMET_PLACE}"><ellipse cx="60" cy="50" rx="57" ry="12" fill="#252e14"/></g>` +
+    `<path d="M${helmetPoint(6, 49)} C9.5 46 8.5 51 8.5 55" fill="none" stroke="#4a5530" stroke-width="2.4" stroke-linecap="round"/>` +
+    `<path d="M7 55 L6 58.5 M8.6 55.5 L8.8 59.5 M10 55 L11.4 58" stroke="#4a5530" stroke-width="1" stroke-linecap="round"/>` +
+    `<path d="M${helmetPoint(114, 49)} C108 34 113 50 110.5 70" fill="none" stroke="#4a5530" stroke-width="2.4" stroke-linecap="round"/>`,
   // Rounded cat ears, their bases tucked behind the head.
   catEars: (c) =>
     [1, -1]

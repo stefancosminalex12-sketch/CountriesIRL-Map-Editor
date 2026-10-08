@@ -3209,8 +3209,8 @@ is SVG — so an emoji copy saved by any route is dropped on load unless the tie
   punch, peace, shrug, facepalm, salute, thinking, OK sign, cheering, covering eyes or mouth,
   praying, palms up, holding a heart, a finger to the lips, hands on the head, pulling the mouth
   wide, open arms, rock on, call me, love you, clapping, fist bump, heart hands, finger heart,
-  pinch, claw, crossed arms, writing, clasped and cupped hands, and more — and 39 other extras such as big blushing or seasick-green cheeks,
-  sweat, a plaster, glasses, a helmet, cat ears, confetti, a crown, steam, hearts and Zzz, plus an
+  pinch, claw, crossed arms, writing, clasped and cupped hands, and more — and 40 other extras such as big blushing or seasick-green cheeks,
+  sweat, a plaster, glasses, a battered helmet worn on the back of the head, battle grime, cat ears, confetti, a crown, steam, hearts and Zzz, plus an
   optional outline) in any colour. Brows are slim crescents tapering to fine ends. Teeth are one
   clean white band clipped by the mouth, with a thin divider at each gap. Every small part — a tear,
   a sweat drop, a heart, a star, a tongue out of the mouth, a crown — has a black outline round its
