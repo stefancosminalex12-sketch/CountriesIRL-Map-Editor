@@ -416,7 +416,9 @@ export const EYES = {
   bags: {
     name: 'Heavy-lidded',
     draw: (c: Ctx) =>
-      pair(c, { ...ROUND, cy: 53, rx: 12, ry: 10, look: [1.5, 2], lid: 'heavy' }),
+      pair(c, { ...ROUND, cy: 53, rx: 12, ry: 10, look: [1.5, 2], lid: 'heavy' }) +
+      ridge(c, 'M34 65 Q43 69 52 65', 1.5) +
+      ridge(c, 'M68 65 Q77 69 86 65', 1.5),
   },
   staring: { name: 'Staring', draw: (c: Ctx) => pair(c, { cx: 43, cy: 50, rx: 12.5, ry: 14.5, iris: 0.36, look: [2, 0] }, { look: [-2, 0] }) },
   narrowed: {
@@ -1231,7 +1233,7 @@ export const EXTRAS = {
   raisedHand: { name: 'Raised hand', draw: () => hand('raised', 108, 96, 52) },
   spreadHand: { name: 'Spread hand', draw: () => hand('spread', 108, 100, 52) },
   palmUp: { name: 'Palm up', draw: () => hand('palmUp', 106, 112, 50) },
-  callMe: { name: 'Call me', draw: () => hand('callMe', 106, 104, 54) },
+  callMe: { name: 'Call me', draw: () => hand('callMe', 104, 106, 62) },
   rockOn: { name: 'Rock on', draw: () => hand('rock', 108, 100, 54) },
   loveYou: { name: 'Love you', draw: () => hand('loveYou', 106, 102, 56) },
   pointDown: { name: 'Pointing down', draw: () => hand('pointDown', 108, 110, 50) },
