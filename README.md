@@ -3045,7 +3045,12 @@ a few decoded images rather than hundreds of copies of a data URI.
 of face-maker parts (Grinning, Side Eye, Fire Punch, Shrug, Heavy Breathing, Checking You Out,
 Rose in Teeth, Hold Up, Facepalm, Nerd, DJ, …), all drawn in the colour picked above the grid and
 searchable by name. A preset is only parts, never a colour, so the whole gallery recolours at once.
-Tapping a face adds it to the library in that colour and picks it; the bar under the grid puts it
+The colour presets are the nine base colours of the recolourable emoji site the gallery follows,
+sampled exactly from its swatches — blue `#1b4fd8`, purple `#9062f9`, yellow `#faca15`, red
+`#b00302`, pink `#db8eb6`, teal `#1ca6be`, green `#82c431`, white `#f3f4f6`, black `#111827` — plus
+orange `#f57c1f` for the default tiers, and a picker for any other. The head is shaded only in
+darker tones of its own colour, with no black rim and no ground shadow, so a sticker sits cleanly
+on a map. Tapping a face adds it to the library in that colour and picks it; the bar under the grid puts it
 on the selected territories (turning stickers on if needed), adds it to the tiers, or opens it in
 Create → Face maker to change. Thumbnails are drawn once per colour per session.
 

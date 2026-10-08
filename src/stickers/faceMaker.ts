@@ -7,8 +7,8 @@
  * **What makes it look rendered rather than flat** is light, applied the same way to every part:
  *
  * - The head is a lit sphere: a radial body gradient lit from the top left, a darker rim, a pale
- *   bounce of light along the bottom edge, a soft specular bloom and a sharp highlight, and a
- *   blurred shadow on the ground.
+ *   bounce of light along the bottom edge, a soft specular bloom and a sharp highlight. Every
+ *   shade is the face's own colour, darker — never black — so no colour turns muddy at the edge.
  * - Brows, eyelids, the closed-eye arcs, stars, hearts and hands are *raised*: the `bevel` filter
  *   lights a blurred copy of each shape's alpha (`feSpecularLighting`) from the same top-left
  *   light, so every edge facing the light catches it.
@@ -31,17 +31,22 @@ export interface FaceOptions {
   outline: boolean
 }
 
+/**
+ * The colour presets: the nine base colours of the recolourable emoji site the gallery follows,
+ * sampled exactly from its swatches, plus orange, which the default tiers use between red and
+ * yellow.
+ */
 export const FACE_COLORS: Array<{ name: string; color: string }> = [
-  { name: 'Blue', color: '#1f6fe0' },
-  { name: 'Purple', color: '#8f5cf5' },
-  { name: 'Yellow', color: '#f8c51b' },
+  { name: 'Blue', color: '#1b4fd8' },
+  { name: 'Purple', color: '#9062f9' },
+  { name: 'Yellow', color: '#faca15' },
+  { name: 'Red', color: '#b00302' },
+  { name: 'Pink', color: '#db8eb6' },
+  { name: 'Teal', color: '#1ca6be' },
+  { name: 'Green', color: '#82c431' },
+  { name: 'White', color: '#f3f4f6' },
+  { name: 'Black', color: '#111827' },
   { name: 'Orange', color: '#f57c1f' },
-  { name: 'Red', color: '#c81e1e' },
-  { name: 'Pink', color: '#e48fbf' },
-  { name: 'Teal', color: '#1ea6bf' },
-  { name: 'Green', color: '#7cc22f' },
-  { name: 'White', color: '#eef1f5' },
-  { name: 'Black', color: '#1c2333' },
 ]
 
 /* ------------------------------------------------------------------ colour */
@@ -849,13 +854,12 @@ export function faceSvg(options: FaceOptions): string {
     `<radialGradient id="body" cx="0.38" cy="0.3" r="0.8">` +
     `<stop offset="0" stop-color="${shade(base, 0.2, 0.95)}"/>` +
     `<stop offset="0.5" stop-color="${base}"/>` +
-    `<stop offset="0.85" stop-color="${shade(base, -0.14, 1.05)}"/>` +
-    `<stop offset="1" stop-color="${shade(base, -0.24, 1.1)}"/>` +
+    `<stop offset="0.85" stop-color="${shade(base, -0.07, 1.04)}"/>` +
+    `<stop offset="1" stop-color="${shade(base, -0.13, 1.06)}"/>` +
     `</radialGradient>` +
-    `<radialGradient id="rim" cx="0.5" cy="0.5" r="0.5"><stop offset="0.78" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.28"/></radialGradient>` +
+    `<radialGradient id="rim" cx="0.5" cy="0.5" r="0.5"><stop offset="0.8" stop-color="${shade(base, -0.2, 1.05)}" stop-opacity="0"/><stop offset="1" stop-color="${shade(base, -0.2, 1.05)}" stop-opacity="0.3"/></radialGradient>` +
     `<radialGradient id="bounce" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="${shade(base, 0.25)}" stop-opacity="0.7"/><stop offset="1" stop-color="${shade(base, 0.25)}" stop-opacity="0"/></radialGradient>` +
     `<radialGradient id="bloom" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#fff" stop-opacity="0.7"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>` +
-    `<radialGradient id="ground" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#000" stop-opacity="0.32"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>` +
     // Parts.
     `<linearGradient id="brow" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${dark ? shade(base, 0.4) : shade(base, -0.18, 1.05)}"/><stop offset="1" stop-color="${c.brow}"/></linearGradient>` +
     `<linearGradient id="lid" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c.skinLight}"/><stop offset="1" stop-color="${c.skin}"/></linearGradient>` +
@@ -911,7 +915,6 @@ export function faceSvg(options: FaceOptions): string {
     `<filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3.2"/></filter>` +
     c.defs.join('') +
     `</defs>` +
-    `<ellipse cx="70" cy="128" rx="40" ry="7" fill="url(#ground)"/>` +
     `<g transform="translate(10 8)">` +
     behind +
     `<circle cx="60" cy="60" r="50" fill="url(#body)"${options.outline ? ' stroke="#121212" stroke-width="5"' : ''}/>` +
