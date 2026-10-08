@@ -10,10 +10,10 @@
  * zooming carry them with the land and they keep their size relative to their country. Inside
  * the map's `<svg>`, so every export contains them.
  *
- * **A sticker is its own thing to click.** A click on one chooses that sticker — not the country
- * under it — for the Stickers panel to recolour, resize or swap (`activeStickerIds`); every click adds one or takes it out, so several are edited at once; the map
- * leaves such a click alone (`STICKER_MARKER`). A drag that starts on one still moves the map.
- * The chosen one is ringed on screen, never in an export (`data-export="none"`).
+ * **A click on a sticker is a click on its country** (`STICKER_MARKER`): it selects or deselects
+ * the country wearing it, even where the sticker is larger than a small country. The stickers of
+ * the selected countries are ringed on screen — they are the ones the Stickers panel's colour and
+ * size change — never in an export (`data-export="none"`).
  */
 import { memo } from 'react'
 import type { Sticker } from '../stickers/types'
@@ -34,7 +34,7 @@ export interface PlacedSticker {
 interface Props {
   placements: PlacedSticker[]
   stickers: Map<string, Sticker>
-  /** The entities whose stickers are chosen, each ringed on screen. */
+  /** The selected entities: their stickers are ringed on screen. */
   activeIds: readonly string[]
 }
 

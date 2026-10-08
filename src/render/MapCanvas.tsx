@@ -63,7 +63,6 @@ import {
 } from './labelPlacement'
 import { MapLabels } from './MapLabels'
 import { MapStickers, STICKER_MARKER, type PlacedSticker } from './MapStickers'
-import { openSidebarSection } from '../ui/sidebarEvents'
 import { resolveStickers, stickersOf } from '../state/stickers'
 import { flagFaceSticker, parseFaceSticker, stickerIndex, useStickerLibrary } from '../stickers/stickerLibrary'
 import type { Sticker } from '../stickers/types'
@@ -1208,7 +1207,7 @@ export function MapCanvas() {
 
   /* ---------------------------------------------------------------- stickers */
 
-  const activeStickerIds = useMapStore((s) => s.activeStickerIds)
+  const selectedForStickers = useMapStore((s) => s.selectedCountryIds)
   const stickerUploads = useStickerLibrary((s) => s.uploads)
   const stickerArtwork = useMemo(() => stickerIndex(stickerUploads), [stickerUploads])
   const stickerAssignments = useMemo(() => resolveStickers(doc), [doc])
@@ -3208,19 +3207,16 @@ export function MapCanvas() {
           // An overlay tapped or dragged is chosen by the overlay layer, not selected here.
           if ((event.target as Element | null)?.closest?.(`[${OVERLAY_MARKER}]`)) return
           /*
-           * A click on a sticker chooses the sticker, not the country under it: the Stickers panel
-           * opens on the chosen ones, to recolour, resize or swap them. A click anywhere else lets
-           * them all go.
+           * A click on a sticker is a click on the country wearing it — even where the sticker is
+           * larger than a small country — so it selects or deselects that country, and the
+           * Stickers panel's colour and size then work on it.
            */
           const sticker = (event.target as Element | null)?.closest?.(`[${STICKER_MARKER}]`)
           if (sticker) {
-            // Every click on a sticker adds it to those chosen, or takes it out: several are edited together.
-            const id = sticker.getAttribute(STICKER_MARKER)
-            if (id) useMapStore.getState().toggleActiveSticker(id)
-            openSidebarSection('stickers')
+            const wearer = sticker.getAttribute(STICKER_MARKER)
+            if (wearer) selectCountry(wearer)
             return
           }
-          if (useMapStore.getState().activeStickerIds.length > 0) useMapStore.getState().setActiveStickers([])
           // A brush press has already selected what it touched — see `useSelectionGestures`.
           if (suppressClickRef.current) {
             suppressClickRef.current = false
@@ -3759,7 +3755,7 @@ export function MapCanvas() {
             Stickers under the names, so a name laid over a face stays readable.
           */}
           {stickerPlacements.length > 0 && (
-            <MapStickers placements={drawnStickers.placements} stickers={drawnStickers.artwork} activeIds={activeStickerIds} />
+            <MapStickers placements={drawnStickers.placements} stickers={drawnStickers.artwork} activeIds={selectedForStickers} />
           )}
 
           {textOn && <MapLabels placements={labelsToDraw} labels={labels} />}

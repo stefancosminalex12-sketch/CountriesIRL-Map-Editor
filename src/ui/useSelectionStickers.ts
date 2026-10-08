@@ -1,77 +1,64 @@
 /**
- * Putting a sticker on the selected territories, and taking it off again — the two buttons the
- * gallery and the library both show under a picked sticker.
+ * Stickers and the selection: what a tap on a sticker in the panel does to the selected
+ * territories, and what the panel's colour and size do to the stickers they wear.
  *
- * **Remove** takes off whatever sticker each selected territory is wearing. Where the data put
- * it there, that needs a "no sticker" override, or the data would put it straight back; where it
- * was only placed by hand, the override is simply cleared, so the territory is left as if it had
- * never had one. Either way it is one operation batch, so one undo step.
+ * **A tap puts a sticker on, a second tap takes it off.** With territories selected on the map,
+ * tapping a sticker puts it on all of them; tapping it again, once they all wear it, takes it off.
+ * There is no Put on or Remove button. A face counts as the one worn in any colour, so a red Fire
+ * Punch is taken off by tapping Fire Punch. Taking a sticker off hides one the data chose with a
+ * "no sticker" override, so the data does not put it straight back, and clears one placed by hand.
+ *
+ * Every change is one edit, one undo step, on the selected territories and nothing else.
  */
-import { useMemo } from 'react'
 import { useMapStore } from '../state/mapStore'
 import { resolveStickers, stickersOf } from '../state/stickers'
 import type { MapOperation } from '../state/operations'
 import type { CountryId } from '../types/map'
-import { useNoun } from '../maps/useNoun'
-import { faceOf, faceStickerId } from '../stickers/stickerLibrary'
+import { faceOf } from '../stickers/stickerLibrary'
 
-/**
- * With stickers clicked on the map (`activeStickerIds`), picking another sticker swaps them all:
- * each of those territories wears the new one — one edit, one undo step. True when it did, so
- * a picker knows the pick went to the map.
- */
-export function swapChosenSticker(stickerId: string): boolean {
-  const { activeStickerIds, dispatch, doc } = useMapStore.getState()
-  if (activeStickerIds.length === 0) return false
-  /*
-   * A face swapped for a face keeps its own colour — or its flag — so changing the type of
-   * stickers in several colours changes only the type. Anything else simply becomes the pick.
-   */
-  const picked = faceOf(stickerId)
-  const wearing = resolveStickers(doc)
-  const byId = new Map<string, CountryId[]>()
-  for (const id of activeStickerIds) {
-    const current = wearing.get(id)
-    const own = picked && current ? faceOf(current) : null
-    const next = picked && own ? faceStickerId(picked.preset.id, own.color) : stickerId
-    byId.set(next, [...(byId.get(next) ?? []), id])
-  }
-  dispatch([...byId].map(([next, countryIds]) => ({ op: 'assign_sticker' as const, countryIds, stickerId: next })))
-  return true
+/** Whether a territory wearing `current` already wears `picked` — a face in any colour counts. */
+function wears(current: string | undefined, picked: string): boolean {
+  if (!current) return false
+  if (current === picked) return true
+  const a = faceOf(current)
+  const b = faceOf(picked)
+  return !!a && !!b && a.preset.id === b.preset.id
 }
 
-export function useSelectionStickers() {
-  const doc = useMapStore((s) => s.doc)
-  const selected = useMapStore((s) => s.selectedCountryIds)
-  const geo = useMapStore((s) => s.geo)
-  const dispatch = useMapStore((s) => s.dispatch)
-  const noun = useNoun()
+/** The operations that take the stickers off `ids`. */
+export function removeOps(ids: CountryId[]): MapOperation[] {
+  const { doc } = useMapStore.getState()
   const mode = stickersOf(doc)
+  const fromData = resolveStickers({ ...doc, stickers: { ...mode, overrides: {} } })
+  const hide = ids.filter((id) => fromData.has(id) && mode.overrides[id] !== null)
+  const clear = ids.filter((id) => !fromData.has(id) && id in mode.overrides)
+  const ops: MapOperation[] = []
+  if (hide.length > 0) ops.push({ op: 'assign_sticker', countryIds: hide, stickerId: null })
+  if (clear.length > 0) ops.push({ op: 'clear_sticker', countryIds: clear })
+  return ops
+}
 
-  const nameOf = (id: CountryId) => doc.merges.find((m) => m.id === id)?.name ?? geo?.meta[id]?.name ?? id
-  const label = selected.length === 1 ? nameOf(selected[0]) : `${selected.length} ${noun.many}`
-
-  /** What the data alone would put where, with every hand-placed sticker set aside. */
-  const fromData = useMemo(() => resolveStickers({ ...doc, stickers: { ...mode, overrides: {} } }), [doc, mode])
-  const wearing = useMemo(() => resolveStickers(doc), [doc])
-
-  const putOn = (stickerId: string) => {
-    if (selected.length === 0) return
-    dispatch([
-      { op: 'assign_sticker', countryIds: selected, stickerId },
-      ...(mode.enabled ? [] : [{ op: 'set_stickers' as const, patch: { enabled: true } }]),
-    ])
+/**
+ * Taps `stickerId` onto the selected territories: on, or — when every one of them wears it
+ * already — off. Says which, or `'none'` when nothing is selected.
+ */
+export function tapSticker(stickerId: string): 'on' | 'off' | 'none' {
+  const { doc, selectedCountryIds: ids, dispatch } = useMapStore.getState()
+  if (ids.length === 0) return 'none'
+  const wearing = resolveStickers(doc)
+  if (ids.every((id) => wears(wearing.get(id), stickerId))) {
+    dispatch(removeOps(ids))
+    return 'off'
   }
+  const mode = stickersOf(doc)
+  dispatch([
+    { op: 'assign_sticker', countryIds: ids, stickerId },
+    ...(mode.enabled ? [] : [{ op: 'set_stickers' as const, patch: { enabled: true } }]),
+  ])
+  return 'on'
+}
 
-  const canRemove = selected.some((id) => wearing.has(id))
-  const remove = () => {
-    const hide = selected.filter((id) => fromData.has(id) && mode.overrides[id] !== null)
-    const clear = selected.filter((id) => !fromData.has(id) && id in mode.overrides)
-    const ops: MapOperation[] = []
-    if (hide.length > 0) ops.push({ op: 'assign_sticker', countryIds: hide, stickerId: null })
-    if (clear.length > 0) ops.push({ op: 'clear_sticker', countryIds: clear })
-    if (ops.length > 0) dispatch(ops)
-  }
-
-  return { selected, label, putOn, remove, canRemove }
+/** Whether every selected territory wears `stickerId` (a face in any colour), for the grid's tick. */
+export function selectionWears(stickerId: string, wearing: Map<CountryId, string>, ids: CountryId[]): boolean {
+  return ids.length > 0 && ids.every((id) => wears(wearing.get(id), stickerId))
 }

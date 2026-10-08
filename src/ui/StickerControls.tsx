@@ -3,9 +3,10 @@
  *
  * In the order the work goes:
  *
- * - the switch, and a line saying what the stickers are following right now;
- * - **Library** — every sticker: the author's own and the gallery of faces, in any colour. Pick
- *   one, then put it on the selected territories, take it off, or add it to the tiers;
+ * - the one colour row, and the size of the stickers on the selected territories — they change
+ *   only those, the stickers on the map, never the Library;
+ * - **Library** — every sticker: the author's own and the gallery of faces. Select territories on
+ *   the map and tap one to put it on them; tap it again to take it off;
  * - **Emoji**, **Create** — more stickers, added to the Library;
  * - **Size**;
  * - **Tiers** — the ladder, lowest value first, with what each rung covers under the active
@@ -54,30 +55,6 @@ function useStatus(): string {
   return 'Categories have no low-to-high order, so only stickers you place by hand are shown.'
 }
 
-export function StickerSwitch() {
-  const enabled = useMapStore((s) => stickersOf(s.doc).enabled)
-  const dispatch = useMapStore((s) => s.dispatch)
-  const status = useStatus()
-  return (
-    <div className="stack">
-      <div className="mode-switch mode-switch--pair" role="group" aria-label="Stickers">
-        {[false, true].map((on) => (
-          <button
-            key={String(on)}
-            type="button"
-            className={`chip${enabled === on ? ' chip--active' : ''}`}
-            aria-pressed={enabled === on}
-            onClick={() => dispatch({ op: 'set_stickers', patch: { enabled: on } })}
-          >
-            {on ? 'Stickers on' : 'Off'}
-          </button>
-        ))}
-      </div>
-      {enabled && <p className="hint">{status}</p>}
-    </div>
-  )
-}
-
 export function StickerTiers() {
   const doc = useMapStore((s) => s.doc)
   const dispatch = useMapStore((s) => s.dispatch)
@@ -103,8 +80,10 @@ export function StickerTiers() {
     setLadder(ladder)
   }
 
+  const status = useStatus()
   return (
     <div className="stack">
+      {mode.enabled && <p className="hint">{status}</p>}
       <div className="mode-switch mode-switch--pair" role="group" aria-label="How stickers are chosen">
         {[true, false].map((auto) => (
           <button
@@ -197,7 +176,6 @@ export function StickerSize() {
 export function StickerControls() {
   return (
     <div className="stack">
-      <StickerSwitch />
       <ChosenSticker />
       <Section title="Library">
         <StickerLibrary />
@@ -208,7 +186,7 @@ export function StickerControls() {
       <Section title="Create">
         <StickerCreator />
       </Section>
-      <Section title="Size">
+      <Section title="Size of all stickers">
         <StickerSize />
       </Section>
       {/* Stickers chosen by the data, lowest value first: the advanced part, so it comes last. */}

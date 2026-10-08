@@ -13,9 +13,7 @@ import { memo, useEffect, useMemo, useState } from 'react'
 import { useStickerLibrary } from '../stickers/stickerLibrary'
 import { recolorSticker } from '../stickers/recolor'
 import { FACE_COLORS } from '../stickers/faceMaker'
-import { StickerColorRow } from './StickerColorRow'
-import { PickedStickerActions } from './StickerLibrary'
-import { swapChosenSticker } from './useSelectionStickers'
+import { PickedStickerActions, useTapMessage } from './StickerLibrary'
 
 interface CatalogueSet {
   prefix: string
@@ -105,7 +103,9 @@ export function StickerFinder() {
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('0:Smileys & Emotion')
-  const [color, setColor] = useState<string | null>(null)
+  // Emoji are put on in their own colours; the panel's one colour row recolours them on the map.
+  const color = null as string | null
+  const { message, tap } = useTapMessage()
   const [shown, setShown] = useState(PAGE)
   const [adding, setAdding] = useState<string | null>(null)
   const { uploads, add, pick } = useStickerLibrary()
@@ -141,7 +141,7 @@ export function StickerFinder() {
     const id = `user:icon-${set.prefix}-${name}${color ? `-${color.slice(1)}` : ''}`
     if (uploads.some((s) => s.id === id)) {
       pick(id)
-      swapChosenSticker(id)
+      tap(id)
       return
     }
     setAdding(id)
@@ -156,8 +156,7 @@ export function StickerFinder() {
       // Picked for this session; kept only if it joins the tiers (see `keep`).
       add([{ id, name: colourName ? `${prettyName(name)} (${colourName})` : prettyName(name), src }], false)
       pick(id)
-      // A sticker chosen on the map takes this one instead.
-      swapChosenSticker(id)
+      tap(id)
     } finally {
       setAdding(null)
     }
@@ -186,13 +185,8 @@ export function StickerFinder() {
         </select>
       )}
 
-      <div className="stack sticker-parts">
-        <span className="sidebar__group-label">Colour</span>
-        <StickerColorRow value={color} onChange={setColor} allowOriginal />
-      </div>
-
       <p className="hint">
-        {results.length} found. Tap one to pick it{colourName ? ` in ${colourName.toLowerCase()}` : ''}, then put it on the selection below.
+        {results.length} found. Tap one to put it on the selected countries; tap it again to take it off.
       </p>
 
       <div className="sticker-grid sticker-grid--finder">
@@ -217,6 +211,7 @@ export function StickerFinder() {
           Show more
         </button>
       )}
+      {message && <p className="hint">{message}</p>}
       <PickedStickerActions />
       <p className="hint">
         {data.sets.map((set) => `${set.name} by ${set.author} (${set.license})`).join(' · ')}. Free to use, including in

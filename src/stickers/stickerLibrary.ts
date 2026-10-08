@@ -100,6 +100,12 @@ interface StickerLibrary {
    */
   pickedId: string | null
   pick: (id: string | null) => void
+  /**
+   * The colour stickers are put on in — `#rrggbb`, or `'flag'` — set by the Stickers panel's one
+   * colour row, which also recolours the stickers on the selected countries. Not saved.
+   */
+  colour: string
+  setColour: (colour: string) => void
   /** The face open in Create → Face maker, so the gallery can hand a preset to it. Not saved. */
   face: FaceOptions
   setFace: (face: FaceOptions) => void
@@ -118,6 +124,8 @@ export const useStickerLibrary = create<StickerLibrary>((set, get) => ({
   uploads: read(),
   pickedId: null,
   pick: (pickedId) => set({ pickedId }),
+  colour: FACE_COLORS[1].color,
+  setColour: (colour) => set({ colour }),
   face: DEFAULT_FACE,
   setFace: (face) => set({ face }),
   add: (stickers, save = true) => {

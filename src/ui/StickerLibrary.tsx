@@ -1,68 +1,54 @@
 /**
- * The Library: every sticker in one place — the author's own (uploads, emoji added from Emoji,
- * faces made in Create) and the gallery of ready-made faces, in the colour picked above them.
+ * The Library: every sticker in one place — the author's own (uploads and faces made in Create)
+ * and the gallery of ready-made faces.
  *
- * Pick a sticker, then put it on the selected territories, take it off, add it to the tiers, or —
- * for a face — open it in the face maker. A gallery face is named by its preset and colour
- * (`face:<preset>:<colour>`, see `stickerLibrary.ts`), so picking or placing one stores nothing.
- *
- * **Changing the colour recolours the picked face where it is being worked on**: every selected
- * territory wearing that face, in any colour, gets it in the new one — one operation, one undo
- * step — and the rest of the map, the tiers and the other faces are left alone.
+ * **Tap a sticker to put it on the selected territories; tap it again to take it off**
+ * (`tapSticker`). No Put on or Remove button. A face goes on in the panel's colour (the one colour
+ * row, at the top of the panel) — the grid itself never changes colour. A gallery face is named by
+ * its preset and colour (`face:<preset>:<colour>`, see `stickerLibrary.ts`), so placing one stores
+ * nothing. A tile is ticked while every selected territory wears it.
  *
  * The grid shows pictures, not live drawings: each thumbnail is drawn once, as it scrolls into
  * view (`LazyThumb`, `stickers/thumbnails.ts`), so a long grid scrolls smoothly.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMapStore } from '../state/mapStore'
-import { stickersOf } from '../state/stickers'
+import { resolveStickers, stickersOf } from '../state/stickers'
 import { FACE_COLORS, faceDataUri } from '../stickers/faceMaker'
 import { FACE_PRESETS, presetFace } from '../stickers/facePresets'
-import {
-  colourName,
-  faceStickerId,
-  isOwnSticker,
-  parseFaceSticker,
-  saveLadder,
-  stickerFromFile,
-  stickerIndex,
-  useStickerLibrary,
-} from '../stickers/stickerLibrary'
+import { faceStickerId, isOwnSticker, parseFaceSticker, saveLadder, stickerFromFile, stickerIndex, useStickerLibrary } from '../stickers/stickerLibrary'
 import type { Sticker } from '../stickers/types'
-import type { CountryId } from '../types/map'
-import { StickerColorRow } from './StickerColorRow'
 import { LazyThumb } from './LazyThumb'
-import { swapChosenSticker, useSelectionStickers } from './useSelectionStickers'
+import { selectionWears, tapSticker } from './useSelectionStickers'
 import { useNoun } from '../maps/useNoun'
 
-/** `value`, once it has stopped changing for `ms` — so dragging the colour picker redraws once. */
-function useSettled<T>(value: T, ms: number): T {
-  const [settled, setSettled] = useState(value)
-  useEffect(() => {
-    const timer = window.setTimeout(() => setSettled(value), ms)
-    return () => window.clearTimeout(timer)
-  }, [value, ms])
-  return settled
+/** The colour the gallery is shown in, always: the Library never recolours. */
+const GRID_COLOUR = FACE_COLORS[1].color
+
+/** What a tap did, for the line under the grid. */
+export function useTapMessage() {
+  const [message, setMessage] = useState<string | null>(null)
+  const noun = useNoun()
+  const geo = useMapStore((s) => s.geo)
+  const tap = (stickerId: string) => {
+    const { selectedCountryIds: ids, doc } = useMapStore.getState()
+    const nameOf = (id: string) => doc.merges.find((m) => m.id === id)?.name ?? geo?.meta[id]?.name ?? id
+    const label = ids.length === 1 ? nameOf(ids[0]) : `${ids.length} ${noun.many}`
+    const done = tapSticker(stickerId)
+    setMessage(done === 'on' ? `Put on ${label}.` : done === 'off' ? `Taken off ${label}.` : `Select ${noun.many} on the map first.`)
+  }
+  return { message, setMessage, tap }
 }
 
-/** Whether `stickerId` is the face `presetId`, in any colour — including the older stored copies. */
-const isFace = (stickerId: string | null | undefined, presetId: string) =>
-  !!stickerId && (parseFaceSticker(stickerId)?.preset.id === presetId || stickerId.startsWith(`user:face-${presetId}-`))
-
 export function StickerLibrary() {
-  const [color, setColor] = useState(FACE_COLORS[1].color)
   const [query, setQuery] = useState('')
-  const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
-  const { uploads, add, pickedId, pick } = useStickerLibrary()
-  const dispatch = useMapStore((s) => s.dispatch)
-  const onSelection = useSelectionStickers()
-  const chosenOnMap = useMapStore((s) => s.activeStickerIds.length > 0)
-  const noun = useNoun()
-  const gridColor = useSettled(color.toLowerCase(), 150)
-
-  const pickedFace = pickedId ? parseFaceSticker(pickedId) : null
+  const { uploads, add, pick, colour } = useStickerLibrary()
+  const doc = useMapStore((s) => s.doc)
+  const selected = useMapStore((s) => s.selectedCountryIds)
+  const { message, setMessage, tap } = useTapMessage()
+  const wearing = useMemo(() => resolveStickers(doc), [doc])
 
   const words = query.toLowerCase().split(/\s+/).filter(Boolean)
   const matches = (name: string) => words.every((w) => name.toLowerCase().includes(w))
@@ -70,39 +56,9 @@ export function StickerLibrary() {
   const mine = uploads.filter((s) => isOwnSticker(s) && matches(s.name))
   const faces = useMemo(() => FACE_PRESETS.filter((p) => matches(p.name)), [query]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* ---- colour: the grid, and the picked face where it is being worked on ---- */
-  const recolourTimer = useRef<number | null>(null)
-  useEffect(() => () => {
-    if (recolourTimer.current) window.clearTimeout(recolourTimer.current)
-  }, [])
-
-  const changeColour = (next: string) => {
-    setColor(next)
-    if (!pickedFace) return
-    const id = faceStickerId(pickedFace.preset.id, next)
-    pick(id)
-    // Once the colour settles: the selected territories wearing this face take the new colour.
-    if (recolourTimer.current) window.clearTimeout(recolourTimer.current)
-    recolourTimer.current = window.setTimeout(() => {
-      const { doc: now, selectedCountryIds } = useMapStore.getState()
-      const overrides = stickersOf(now).overrides
-      const wearing = selectedCountryIds.filter((cid: CountryId) => isFace(overrides[cid], pickedFace.preset.id) && overrides[cid] !== id)
-      if (wearing.length === 0) return
-      dispatch({ op: 'assign_sticker', countryIds: wearing, stickerId: id })
-      setMessage(`Recoloured on ${wearing.length === 1 ? onSelection.label : `${wearing.length} ${noun.many}`}.`)
-    }, 150)
-  }
-
-  /* ---- picking ---- */
   const choose = (id: string) => {
-    // A sticker chosen on the map takes the one picked here instead.
-    if (swapChosenSticker(id)) {
-      pick(id)
-      setMessage(null)
-      return
-    }
-    pick(pickedId === id ? null : id)
-    setMessage(null)
+    pick(id)
+    tap(id)
   }
 
   const upload = async (files: FileList | null) => {
@@ -134,19 +90,6 @@ export function StickerLibrary() {
 
   return (
     <div className="stack">
-      {/*
-        The grid's colour — the colour a face is picked and put on in. While stickers are chosen on
-        the map, their own colour row above is the one in play, and this one steps aside: changing
-        a colour then changes only those stickers, never the grid or anything else.
-      */}
-      {chosenOnMap ? (
-        <p className="hint">Picking a sticker here changes the type of the stickers chosen on the map.</p>
-      ) : (
-        <div className="stack sticker-parts">
-          <span className="sidebar__group-label">Colour</span>
-          <StickerColorRow value={color} onChange={(next) => next && changeColour(next)} allowFlag />
-        </div>
-      )}
       <input
         className="input"
         type="search"
@@ -163,8 +106,8 @@ export function StickerLibrary() {
             key={sticker.id}
             type="button"
             role="option"
-            aria-selected={pickedId === sticker.id}
-            className={`sticker-grid__item${pickedId === sticker.id ? ' sticker-grid__item--picked' : ''}`}
+            aria-selected={selectionWears(sticker.id, wearing, selected)}
+            className={`sticker-grid__item${selectionWears(sticker.id, wearing, selected) ? ' sticker-grid__item--picked' : ''}`}
             title={sticker.name}
             onClick={() => choose(sticker.id)}
           >
@@ -173,7 +116,8 @@ export function StickerLibrary() {
         ))}
         {mine.length > 0 && faces.length > 0 && <span className="sticker-grid__heading">Faces</span>}
         {faces.map((preset) => {
-          const on = pickedFace?.preset.id === preset.id
+          const id = faceStickerId(preset.id, colour)
+          const on = selectionWears(id, wearing, selected)
           return (
             <button
               key={preset.id}
@@ -182,9 +126,9 @@ export function StickerLibrary() {
               aria-selected={on}
               className={`sticker-grid__item${on ? ' sticker-grid__item--picked' : ''}`}
               title={preset.name}
-              onClick={() => choose(faceStickerId(preset.id, color))}
+              onClick={() => choose(id)}
             >
-              <LazyThumb thumbKey={`${preset.id}|${gridColor}`} make={() => faceDataUri(presetFace(preset, gridColor))} alt={preset.name} />
+              <LazyThumb thumbKey={`${preset.id}|${GRID_COLOUR}`} make={() => faceDataUri(presetFace(preset, GRID_COLOUR))} alt={preset.name} />
             </button>
           )
         })}
@@ -203,7 +147,8 @@ export function StickerLibrary() {
         {busy ? 'Adding…' : 'Upload images…'}
       </button>
 
-      <PickedStickerActions note={message} />
+      {message && <p className="hint">{message}</p>}
+      <PickedStickerActions />
       <p className="hint">
         Uploads are saved in this browser for every map, shrunk to 256 px, which is plenty for a sticker.
       </p>
@@ -212,35 +157,23 @@ export function StickerLibrary() {
 }
 
 /**
- * What to do with the picked sticker — put it on the selection, take a sticker off it, add it to
- * the tiers, open a face in the face maker, delete an upload — and Back to data for the
- * selection. Shown under the Library and under Emoji, so a sticker can be used where it was found.
+ * The rest of what can be done with the sticker tapped last: add it to the tiers, open a face in
+ * the face maker, or delete an upload. Putting it on and taking it off is the tap itself.
  */
-export function PickedStickerActions({ note }: { note?: string | null }) {
+export function PickedStickerActions() {
   const [message, setMessage] = useState<string | null>(null)
   const { uploads, remove, pickedId, pick, setFace, keep } = useStickerLibrary()
   const doc = useMapStore((s) => s.doc)
   const dispatch = useMapStore((s) => s.dispatch)
-  const onSelection = useSelectionStickers()
-  const noun = useNoun()
   const mode = stickersOf(doc)
   const index = useMemo(() => stickerIndex(uploads), [uploads])
   const picked = pickedId ? index.get(pickedId) : undefined
   const pickedFace = pickedId ? parseFaceSticker(pickedId) : null
   const isUpload = !!picked && uploads.some((s) => s.id === picked.id && isOwnSticker(s))
   useEffect(() => setMessage(null), [pickedId])
+  if (!picked) return null
 
-  const putOn = () => {
-    if (!picked) return
-    onSelection.putOn(picked.id)
-    setMessage(`Put on ${onSelection.label}.`)
-  }
-  const takeOff = () => {
-    onSelection.remove()
-    setMessage(`Removed from ${onSelection.label}.`)
-  }
   const addToTiers = () => {
-    if (!picked) return
     const ladder = [...mode.ladder, picked.id]
     keep(picked.id)
     dispatch({ op: 'set_stickers', patch: { ladder, enabled: true } })
@@ -249,11 +182,10 @@ export function PickedStickerActions({ note }: { note?: string | null }) {
   }
   const edit = () => {
     if (!pickedFace) return
-    setFace(presetFace(pickedFace.preset, pickedFace.color))
+    setFace(presetFace(pickedFace.preset, pickedFace.color === 'flag' ? GRID_COLOUR : pickedFace.color))
     setMessage('Opened in Create → Face maker.')
   }
   const deletePicked = () => {
-    if (!picked || !isUpload) return
     const ladder = mode.ladder.filter((id) => id !== picked.id)
     if (ladder.length !== mode.ladder.length) {
       dispatch({ op: 'set_stickers', patch: { ladder } })
@@ -262,64 +194,24 @@ export function PickedStickerActions({ note }: { note?: string | null }) {
     remove(picked.id)
     pick(null)
   }
-  const handPlaced = onSelection.selected.filter((id) => id in mode.overrides)
-  const shown = message ?? note
 
   return (
     <div className="stack sticker-gallery__actions">
-      {picked ? (
-        <p className="hint">
-          <strong>{pickedFace ? pickedFace.preset.name : picked.name}</strong>
-          {pickedFace ? ` in ${colourName(pickedFace.color).toLowerCase()}` : ''}
-        </p>
-      ) : (
-        <p className="hint">Pick a sticker. Select {noun.many} on the map first to put it straight on them.</p>
-      )}
-      {onSelection.selected.length > 0 && (
-        <>
-          {picked && (
-            <button type="button" className="btn btn--on" onClick={putOn}>
-              Put on {onSelection.label}
-            </button>
-          )}
-          <button
-            type="button"
-            className="btn"
-            disabled={!onSelection.canRemove}
-            title={`Take the sticker off ${onSelection.label}`}
-            onClick={takeOff}
-          >
-            Remove
-          </button>
-        </>
-      )}
-      {picked && (
-        <div className="mode-switch mode-switch--pair">
-          <button type="button" className="btn" onClick={addToTiers}>
-            Add to tiers
-          </button>
-          {pickedFace ? (
-            <button type="button" className="btn" onClick={edit}>
-              Edit in face maker
-            </button>
-          ) : isUpload ? (
-            <button type="button" className="btn btn--ghost" onClick={deletePicked}>
-              Delete
-            </button>
-          ) : null}
-        </div>
-      )}
-      {handPlaced.length > 0 && (
-        <button
-          type="button"
-          className="btn btn--ghost"
-          title="Let the data choose again"
-          onClick={() => dispatch({ op: 'clear_sticker', countryIds: handPlaced })}
-        >
-          Back to data
+      <div className="mode-switch mode-switch--pair">
+        <button type="button" className="btn btn--ghost" onClick={addToTiers}>
+          Add to tiers
         </button>
-      )}
-      {shown && <p className="hint">{shown}</p>}
+        {pickedFace ? (
+          <button type="button" className="btn btn--ghost" onClick={edit}>
+            Edit in face maker
+          </button>
+        ) : isUpload ? (
+          <button type="button" className="btn btn--ghost" onClick={deletePicked}>
+            Delete upload
+          </button>
+        ) : null}
+      </div>
+      {message && <p className="hint">{message}</p>}
     </div>
   )
 }

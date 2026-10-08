@@ -3068,36 +3068,30 @@ Categorical data, Compare and Flags have no low-to-high order and place no stick
 The Tiers panel shows what each rung covers under the active scale and how many territories wear
 it. **Reverse order** is for data where a high number is the bad end, such as inflation.
 
-**Click stickers on the map** to work on them — one, or several at once. The click is the
-sticker's, not the country's (`STICKER_MARKER` in `render/MapStickers.tsx`): nothing is selected;
-each click adds that sticker to the chosen ones or, clicked again, drops it (`activeStickerIds`,
-`toggleActiveSticker`). The Stickers panel opens with them at its top, each ringed on the map (on
-screen only, never in an export), and **only the chosen stickers change**:
+**Select, then tap.** Select territories on the map and tap a sticker — in the Library or in
+Emoji — and it goes on all of them at once; tap it again, once they all wear it, and it comes off
+(`tapSticker` in `ui/useSelectionStickers.ts`). There is no Stickers on/off switch and no Put on
+or Remove button: placing a sticker turns stickers on. A face counts as worn in any colour, so a
+red Fire Punch is taken off by tapping Fire Punch. A tile is ticked while every selected territory
+wears it. Taking a sticker off hides one the data chose (a "no sticker" override, so the data does
+not put it straight back) and clears one placed by hand. A click on a sticker on the map is a
+click on its country (`STICKER_MARKER`): it selects or deselects that country, even where the
+sticker is larger than a small country, and the stickers of the selected countries are ringed on
+screen (never in an export).
 
-- **colour** — a face (a Library face, a built-in tier face or an older stored copy, `faceOf`) by
-  naming it in the new colour, or in the **country flag**; any other picture by shifting its hue,
-  kept for the session (and left as it is for the flag);
-- **size** — their own multiplier over the size they would have (`StickerMode.sizes`, the
-  `size_sticker` operation), with **Usual size** to drop it;
-- **type** — picking any sticker in the Library or Emoji puts it on all of them
-  (`swapChosenSticker`); a face swapped for a face keeps each sticker's own colour or flag;
-- **Remove**.
-
-Each change is one edit on those territories alone, one undo step. While stickers are chosen, the
-Library's own colour row — the grid's colour — steps aside, so there is one colour row in play and
-it touches nothing else. **Done**, or a click anywhere else on the map, lets them all go; a drag
-that starts on a sticker still moves the map.
+**One colour row, for the stickers on the map.** At the top of the Stickers panel, the colour row
+changes **only the stickers on the selected territories** — a face by naming it in the new colour
+or the country flag, any other picture by shifting its hue — and sets the colour new stickers go on
+in. It never recolours the Library: the grid always shows its faces in blue, and Emoji shows
+emoji in their own colours. Under it, a **Size** slider (with **Usual size**) sizes the stickers on
+the selected territories (`StickerMode.sizes`, `size_sticker`); **Size of all stickers** further
+down is the multiplier for every sticker. Each change is one edit, one undo step.
 
 **The colour presets** run light blue, blue, lime, yellow, orange, red, purple, gray, black
 (`FACE_COLORS`), then any colour, then the country flag.
 
-**By hand.** Pick a sticker in the Library and **Put on** the selection (the
-button names it: "Put on France"). **Remove**, right under it, takes off whatever sticker the
-selection is wearing: a sticker the data chose is hidden with a "no sticker" override, so the
-data does not put it straight back, and one only placed by hand is cleared, leaving the territory
-as if it had never had one (`ui/useSelectionStickers.ts`). **Back to data** removes any choice. A hand-placed sticker
-outranks the ladder and shows in every colouring mode. Each of these is one operation
-(`set_stickers`, `assign_sticker`, `clear_sticker`) and one undo step.
+**By hand** is the tap above; **Back to data** is the tiers' business: a territory a sticker was
+tapped onto by hand outranks the ladder until the sticker is tapped off.
 
 **Where they go.** On the territory's pole of inaccessibility, the same point the names use, sized
 by the largest circle that fits there (`STICKER_ROOM`), between a floor that keeps a microstate's
