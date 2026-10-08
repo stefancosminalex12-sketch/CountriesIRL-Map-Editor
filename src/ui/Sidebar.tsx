@@ -14,18 +14,11 @@
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import {
-  GeographicFeatureToggles,
-  HideTerritories,
-  LabelsAndHelpers,
-  LegendVisibilityToggle,
-  MapColorSwatches,
-} from './MapSettings'
+import { HideTerritories } from './MapSettings'
 import { SvgExchange } from './SvgExchange'
-import { TemplatePicker } from './TemplatePicker'
 import { onOpenSidebarSection } from './sidebarEvents'
 import { closeLatestDisclosure } from './Panels'
-import { DataSources, SelectionHighlight, ThemePicker } from './SettingsPanel'
+import { DataSources, ThemePicker } from './SettingsPanel'
 import { DataPalette } from './DataPalette'
 import { LegendControls, LegendSizeControls } from './LegendControls'
 import { ScreenControls } from './ScreenControls'
@@ -51,14 +44,6 @@ const ICONS: Record<string, ReactNode> = {
       <circle cx="12.6" cy="13.8" r="1.9" />
     </>
   ),
-  // Two stacked cards, the top one filled in: a ready-made setup to start from.
-  templates: (
-    <>
-      <rect x="5.2" y="2.8" width="11.6" height="9.4" rx="1.4" opacity="0.55" />
-      <rect x="3.2" y="6.4" width="11.6" height="10.8" rx="1.4" />
-      <path d="M5.8 10.4h6.4M5.8 13.2h4.2" />
-    </>
-  ),
   // A dashed marquee and the pointer drawing it: taking many things at once.
   select: (
     <>
@@ -73,18 +58,27 @@ const ICONS: Record<string, ReactNode> = {
       <path d="M6.4 2.6v14.8M13.6 2.6v14.8" opacity="0.55" />
     </>
   ),
-  // A pencil over a line: changing the map's entities themselves.
-  edit: (
+  // Two shapes joined into one outline: merging territories into a group.
+  merge: (
     <>
-      <path d="M12.6 3.6l3.8 3.8-8.6 8.6H4v-3.8z" />
-      <path d="M10.8 5.4l3.8 3.8" />
+      <path d="M3 6.2h6.4v3.4h4.2V6.2H17v8.6H3z" />
+      <path d="M9.4 9.6v5.2M13.6 9.6v5.2" opacity="0.4" strokeDasharray="1.4 1.4" />
     </>
   ),
-  // An eye: what the map shows.
-  display: (
+  // An eye struck through: taking territories off the map.
+  hide: (
     <>
       <path d="M2.4 10c2-3.6 4.6-5.4 7.6-5.4s5.6 1.8 7.6 5.4c-2 3.6-4.6 5.4-7.6 5.4S4.4 13.6 2.4 10z" />
       <circle cx="10" cy="10" r="2.4" />
+      <path d="M3.6 16.4 16.4 3.6" />
+    </>
+  ),
+  // A shape and its copy laid over another place.
+  overlay: (
+    <>
+      <path d="M3 4.4h7.4v7.4H3z" opacity="0.55" strokeDasharray="1.8 1.6" />
+      <path d="M9.6 8.2H17v7.4H9.6z" />
+      <path d="M7.6 12.8 9.2 14.4" />
     </>
   ),
   // A bar chart: the values the map is coloured by.
@@ -144,14 +138,14 @@ interface SidebarSection {
 }
 
 /*
- * The sections, top to bottom, in the order the work goes: which map, what is selected, what is
- * done to it, how the map is drawn, what colours it, what is laid over it, how it is explained,
- * how it is framed — and then the editor's own preferences, and the assistant still to come.
+ * The sections, top to bottom, in the order the work goes: what is selected, the tools that act
+ * on it (Merge, Hide, Overlay), what colours the map, what is put on it, how it is explained, how
+ * it is framed — and then the editor's own preferences, and the assistant still to come. Which
+ * map, its templates and how it is displayed are in the top bar's File menu (`TopBar.tsx`).
  *
  * Every control below is the component it always was, with the same hooks and the same
- * operations, referenced exactly once (the one deliberate exception is Show Legend, which is one
- * switch shown in Display and in Legend — see `LegendVisibilityToggle`). Nothing was rewritten to
- * be moved: where a component held controls for two sections, it was split along that seam.
+ * operations, referenced exactly once. Nothing was rewritten to be moved: where a component held
+ * controls for two places, it was split along that seam.
  *
  * Each section's parts sit behind a `Disclosure`: open/closed is local component state, nothing
  * reaches the document, and a closed subsection is *unmounted*, so folding one away stops it
@@ -164,79 +158,24 @@ interface SidebarSection {
  */
 const SECTIONS: SidebarSection[] = [
   {
-    /*
-     * Built-in presets, right after the map: the second question a map starts with is what kind
-     * of map it is. Each sets a handful of existing settings in one click — see `state/templates.ts`.
-     */
-    id: 'templates',
-    name: 'Templates',
-    short: 'Presets',
-    body: <TemplatePicker />,
-  },
-  {
     id: 'select',
     name: 'Select',
     body: <SelectionControls />,
   },
-  {
-    /*
-     * Doing things to the map's entities, as opposed to colouring or drawing them: Merge, Hide
-     * (which lived under Display as "Territories") and Overlay (once a section of its own). Merge is the first tool here; it used
-     * to be folded under Data, where it read as part of the colouring modes. It stays folded:
-     * opening it is what makes a tap on the map build a group, so it is opened on purpose
-     * rather than by opening the section to undo something.
-     */
-    id: 'edit',
-    name: 'Edit',
-    body: (
-      <div className="stack">
-        <Disclosure title="Merge Groups">
-          <MergeControls />
-        </Disclosure>
-        {/* Taking the selected entities off the map, and bringing them back. */}
-        <Disclosure title="Hide">
-          <HideTerritories />
-        </Disclosure>
-        {/*
-          Copies of an entity's shape laid over another place — it had a section of its own,
-          "Overlays". Unmounted while folded like every disclosure, and its being mounted is
-          what the store reads as the overlay tool being open (`setOverlayMode`).
-        */}
-        <Disclosure title="Overlay">
-          <OverlayControls />
-        </Disclosure>
-      </div>
-    ),
-  },
-  {
-    id: 'display',
-    name: 'Display',
-    body: (
-      <div className="stack">
-        <Disclosure title="Appearance">
-          <div className="stack">
-            <div className="sidebar__group">
-              <span className="sidebar__group-label">Map colours</span>
-              <MapColorSwatches />
-            </div>
-            <div className="sidebar__group">
-              <span className="sidebar__group-label">Selection highlight</span>
-              <SelectionHighlight />
-            </div>
-          </div>
-        </Disclosure>
-        <Disclosure title="Geographic Features">
-          <GeographicFeatureToggles />
-        </Disclosure>
-        <Disclosure title="Labels & Helpers">
-          <LabelsAndHelpers />
-        </Disclosure>
-        <Disclosure title="Legend Visibility">
-          <LegendVisibilityToggle />
-        </Disclosure>
-      </div>
-    ),
-  },
+  /*
+   * Doing things to the map's entities, as opposed to colouring or drawing them — three tools,
+   * each its own section. They were one Edit section of three folded parts; as sections, opening
+   * one is choosing that tool, and only one is open at a time.
+   *
+   * Opening Merge is what makes a tap on the map build a group, and the Overlay panel's being
+   * mounted is what the store reads as the overlay tool being open (`setOverlayMode`) — both
+   * exactly as when they were folded parts, since a closed section unmounts its body.
+   */
+  { id: 'merge', name: 'Merge', body: <MergeControls /> },
+  /* Taking the selected entities off the map, and bringing them back. */
+  { id: 'hide', name: 'Hide', body: <HideTerritories /> },
+  /* Copies of an entity's shape laid over another place. */
+  { id: 'overlay', name: 'Overlay', body: <OverlayControls /> },
   {
     /* The colouring modes — Off, Data, Compare, Flags — and each mode's own workflow. */
     id: 'data',

@@ -6,9 +6,12 @@
  *   - **Map** — every map, grouped World / Europe / USA;
  *   - **Resolution** — the open map's levels of detail (only when it has more than one);
  *   - **Projection**;
- *   - **Outside region** — how the land outside the chosen region is drawn.
+ *   - **Outside region** — how the land outside the chosen region is drawn;
+ *   - **Templates** — the built-in presets;
+ *   - **Display** — cascading once more, to Appearance, Geographic Features and Labels &
+ *     Helpers, each a panel of the switches the rail's Display section held.
  *   On a narrow screen there is no room at the side, so a row opens its choices in place of the
- *   rows, with a way back.
+ *   rows, with a way back up a level.
  * - **Regions** — the open map's regions as split buttons. The name selects and deselects
  *   (regions combine: Europe + Asia frames Eurasia); the arrow box attached to its right opens
  *   the region's subregions, which combine the same way.
@@ -17,8 +20,11 @@
  * scroll sideways on a narrow screen without clipping them; scrolling it closes an open menu.
  * Every change is the same operation or store action the old panels used.
  */
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
-import { createPortal } from 'react-dom'
+import { useRef, useState, type ReactNode } from 'react'
+import { Chevron, ChevronRight, Flyout, MenuItem, Popover, useNarrow } from './Menu'
+import { GeographicFeatureToggles, LabelsAndHelpers, MapColorSwatches } from './MapSettings'
+import { SelectionHighlight } from './SettingsPanel'
+import { TemplatePicker } from './TemplatePicker'
 import { useMapStore } from '../state/mapStore'
 import { ATLAS_FAMILIES, ATLASES, getAtlas, type Atlas } from '../maps/atlas'
 import { regionsForAtlas, subregionsOf, type RegionPreset } from '../geo/regions'
@@ -26,127 +32,6 @@ import { datasetsForAtlas } from '../geo/datasets'
 import { noteDetailChosen } from '../maps/startingDetail'
 import { AUTO_PROJECTION_ID, PROJECTIONS } from '../geo/projections'
 import type { MapStyle, ProjectionId, RegionId } from '../types/map'
-
-/* ------------------------------------------------------------------ popover */
-
-/**
- * A menu floating under `anchor`. Closes on a press outside it or its anchor, on Escape, and
- * when the window is resized. Kept inside the viewport horizontally.
- */
-function Popover({
-  anchor,
-  open,
-  onClose,
-  children,
-  label,
-  align = 'start',
-}: {
-  anchor: RefObject<HTMLElement>
-  open: boolean
-  onClose: () => void
-  children: ReactNode
-  label: string
-  align?: 'start' | 'end'
-}) {
-  const panel = useRef<HTMLDivElement>(null)
-  const [position, setPosition] = useState<{ top: number; left: number } | null>(null)
-
-  useLayoutEffect(() => {
-    if (!open || !anchor.current) {
-      setPosition(null)
-      return
-    }
-    const place = () => {
-      const rect = anchor.current!.getBoundingClientRect()
-      const width = panel.current?.offsetWidth ?? 240
-      const desired = align === 'end' ? rect.right - width : rect.left
-      const left = Math.max(8, Math.min(desired, window.innerWidth - width - 8))
-      setPosition({ top: rect.bottom + 6, left })
-    }
-    place()
-    // Once more after the panel has its real width.
-    const frame = requestAnimationFrame(place)
-    return () => cancelAnimationFrame(frame)
-  }, [open, anchor, align])
-
-  useEffect(() => {
-    if (!open) return
-    const onPointer = (event: PointerEvent) => {
-      const target = event.target as Node
-      if (panel.current?.contains(target) || anchor.current?.contains(target)) return
-      onClose()
-    }
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
-    }
-    // Scrolling the bar moves the anchor out from under the menu, so the menu closes.
-    const onScroll = (event: Event) => {
-      if (panel.current?.contains(event.target as Node)) return
-      onClose()
-    }
-    window.addEventListener('pointerdown', onPointer, true)
-    window.addEventListener('keydown', onKey)
-    window.addEventListener('resize', onClose)
-    window.addEventListener('scroll', onScroll, true)
-    return () => {
-      window.removeEventListener('pointerdown', onPointer, true)
-      window.removeEventListener('keydown', onKey)
-      window.removeEventListener('resize', onClose)
-      window.removeEventListener('scroll', onScroll, true)
-    }
-  }, [open, onClose, anchor])
-
-  if (!open) return null
-  return createPortal(
-    <div
-      ref={panel}
-      className="top-menu"
-      role="dialog"
-      aria-label={label}
-      style={{ top: position?.top ?? -9999, left: position?.left ?? -9999 }}
-    >
-      {children}
-    </div>,
-    document.body,
-  )
-}
-
-const Chevron = () => (
-  <svg className="top-button__chevron" viewBox="0 0 12 12" width="10" height="10" aria-hidden="true" focusable="false">
-    <path d="M3 4.5 6 7.5 9 4.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-)
-
-/** One choice in a menu: a name, an optional note under it, and a tick when it is the current one. */
-function MenuItem({
-  name,
-  note,
-  active,
-  onChoose,
-}: {
-  name: ReactNode
-  note?: ReactNode
-  active: boolean
-  onChoose: () => void
-}) {
-  return (
-    <button
-      type="button"
-      role="menuitemradio"
-      aria-checked={active}
-      className={`top-menu__item${active ? ' top-menu__item--on' : ''}`}
-      onClick={onChoose}
-    >
-      <span className="top-menu__tick" aria-hidden="true">
-        {active ? '✓' : ''}
-      </span>
-      <span className="top-menu__text">
-        <span className="top-menu__name">{name}</span>
-        {note && <span className="top-menu__note">{note}</span>}
-      </span>
-    </button>
-  )
-}
 
 /* ---------------------------------------------------------------------- map */
 
@@ -401,63 +286,116 @@ function OutsideChoices({ done }: { done: () => void }) {
 
 /* --------------------------------------------------------------------- file */
 
-type FileSection = 'map' | 'resolution' | 'projection' | 'outside'
-
-const CHOICES: Record<FileSection, (props: { done: () => void }) => JSX.Element> = {
-  map: MapChoices,
-  resolution: ResolutionChoices,
-  projection: ProjectionChoices,
-  outside: OutsideChoices,
-}
-
-const ChevronRight = () => (
-  <svg className="top-file__arrow" viewBox="0 0 12 12" width="10" height="10" aria-hidden="true" focusable="false">
-    <path d="M4.5 3 7.5 6 4.5 9" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-)
-
-/** Whether a side menu would have no room: the same width at which the bar starts to scroll. */
-function useNarrow(): boolean {
-  const query = '(max-width: 620px)'
-  const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches)
-  useEffect(() => {
-    const list = window.matchMedia(query)
-    const update = () => setNarrow(list.matches)
-    list.addEventListener('change', update)
-    return () => list.removeEventListener('change', update)
-  }, [])
-  return narrow
-}
-
 /**
- * The menu at a row's side. It lives inside the File menu's panel, so a press in it counts as a
- * press in the menu, but is fixed to the viewport, so the panel's scrolling does not clip it.
- * To the row's right where there is room, else to the panel's left.
+ * One row of the File menu: a name, optionally its current value, and either more rows (it
+ * cascades again) or what it opens. `render` is given `done`, which closes the whole menu — a
+ * list of choices calls it once one is picked; a panel of switches does not, so several can be
+ * changed in one visit.
  */
-function Flyout({ row, children }: { row: HTMLElement; children: ReactNode }) {
-  const panel = useRef<HTMLDivElement>(null)
-  const [position, setPosition] = useState<{ top: number; left: number } | null>(null)
-  useLayoutEffect(() => {
-    const host = row.closest('.top-menu')?.getBoundingClientRect() ?? row.getBoundingClientRect()
-    const rect = row.getBoundingClientRect()
-    const width = panel.current?.offsetWidth ?? 260
-    const height = panel.current?.offsetHeight ?? 200
-    let left = host.right + 4
-    if (left + width > window.innerWidth - 8) left = Math.max(8, host.left - width - 4)
-    const top = Math.max(8, Math.min(rect.top - 7, window.innerHeight - height - 8))
-    setPosition({ top, left })
-  }, [row, children])
+interface FileNode {
+  id: string
+  name: string
+  value?: string
+  children?: FileNode[]
+  render?: (done: () => void) => ReactNode
+}
+
+/** The map's look: the same three panels the rail's Display section held. */
+const DISPLAY: FileNode[] = [
+  {
+    id: 'appearance',
+    name: 'Appearance',
+    render: () => (
+      <div className="stack top-flyout__body">
+        <div className="sidebar__group">
+          <span className="sidebar__group-label">Map colours</span>
+          <MapColorSwatches />
+        </div>
+        <div className="sidebar__group">
+          <span className="sidebar__group-label">Selection highlight</span>
+          <SelectionHighlight />
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: 'features',
+    name: 'Geographic Features',
+    render: () => (
+      <div className="top-flyout__body">
+        <GeographicFeatureToggles />
+      </div>
+    ),
+  },
+  {
+    id: 'labels',
+    name: 'Labels & Helpers',
+    render: () => (
+      <div className="top-flyout__body">
+        <LabelsAndHelpers />
+      </div>
+    ),
+  },
+]
+
+/** The rows under `path`, or what the last node in it opens. */
+function nodeAt(root: FileNode[], path: string[]): FileNode | null {
+  let rows = root
+  let node: FileNode | null = null
+  for (const id of path) {
+    node = rows.find((n) => n.id === id) ?? null
+    if (!node) return null
+    rows = node.children ?? []
+  }
+  return node
+}
+
+/** A list of rows in the File menu, at `depth` in the cascade. */
+function FileRows({
+  rows,
+  depth,
+  path,
+  narrow,
+  show,
+}: {
+  rows: FileNode[]
+  depth: number
+  path: string[]
+  narrow: boolean
+  show: (depth: number, id: string, element: HTMLElement) => void
+}) {
   return (
-    <div ref={panel} className="top-menu top-flyout" style={{ top: position?.top ?? -9999, left: position?.left ?? -9999 }}>
-      {children}
+    <div className="top-file" role="menu">
+      {rows.map((r) => (
+        <button
+          key={r.id}
+          type="button"
+          role="menuitem"
+          aria-haspopup="true"
+          aria-expanded={path[depth] === r.id}
+          className={`top-menu__item top-file__row${path[depth] === r.id ? ' top-file__row--open' : ''}`}
+          onPointerEnter={(event) => {
+            if (event.pointerType === 'mouse' && !narrow) show(depth, r.id, event.currentTarget)
+          }}
+          onClick={(event) => show(depth, r.id, event.currentTarget)}
+          onKeyDown={(event) => {
+            if (event.key === 'ArrowRight') show(depth, r.id, event.currentTarget)
+          }}
+        >
+          <span className="top-file__name">{r.name}</span>
+          {r.value && <span className="top-file__value">{r.value}</span>}
+          <ChevronRight />
+        </button>
+      ))}
     </div>
   )
 }
 
 function FileMenu() {
   const [open, setOpen] = useState(false)
-  const [section, setSection] = useState<FileSection | null>(null)
-  const [row, setRow] = useState<HTMLElement | null>(null)
+  /** The open rows, one per level of the cascade. */
+  const [path, setPath] = useState<string[]>([])
+  const [anchors, setAnchors] = useState<HTMLElement[]>([])
   const anchor = useRef<HTMLButtonElement>(null)
   const narrow = useNarrow()
   const scope = useMapStore((s) => s.doc.scope)
@@ -468,20 +406,42 @@ function FileMenu() {
 
   const close = () => {
     setOpen(false)
-    setSection(null)
+    setPath([])
   }
-  const show = (next: FileSection, element: HTMLElement) => {
-    setSection(next)
-    setRow(element)
+  const show = (depth: number, id: string, element: HTMLElement) => {
+    setPath((current) => [...current.slice(0, depth), id])
+    setAnchors((current) => [...current.slice(0, depth), element])
   }
+  const back = () => setPath((current) => current.slice(0, -1))
 
-  const rows: Array<{ id: FileSection; name: string; value: string }> = [
-    { id: 'map', name: 'Map', value: atlas.menuName ?? atlas.name },
-    ...(datasets.length > 1 ? [{ id: 'resolution' as const, name: 'Resolution', value: dataset ? shortDataset(dataset) : '—' }] : []),
-    { id: 'projection', name: 'Projection', value: projectionName(scope.projectionId) },
-    { id: 'outside', name: 'Outside region', value: OUTSIDE.find((o) => o.id === outside)?.name ?? outside },
+  const root: FileNode[] = [
+    { id: 'map', name: 'Map', value: atlas.menuName ?? atlas.name, render: (done) => <MapChoices done={done} /> },
+    ...(datasets.length > 1
+      ? [{ id: 'resolution', name: 'Resolution', value: dataset ? shortDataset(dataset) : '—', render: (done: () => void) => <ResolutionChoices done={done} /> }]
+      : []),
+    { id: 'projection', name: 'Projection', value: projectionName(scope.projectionId), render: (done) => <ProjectionChoices done={done} /> },
+    {
+      id: 'outside',
+      name: 'Outside region',
+      value: OUTSIDE.find((o) => o.id === outside)?.name ?? outside,
+      render: (done) => <OutsideChoices done={done} />,
+    },
+    {
+      id: 'templates',
+      name: 'Templates',
+      render: (done) => (
+        <div className="top-flyout__body">
+          <TemplatePicker onApplied={done} />
+        </div>
+      ),
+    },
+    { id: 'display', name: 'Display', children: DISPLAY },
   ]
-  const Choices = section ? CHOICES[section] : null
+
+  /** What each open row opens: rows to cascade into, or its content. */
+  const levels = path.map((_, depth) => nodeAt(root, path.slice(0, depth + 1)))
+  const deepest = levels[levels.length - 1] ?? null
+  const parentName = path.length > 1 ? (levels[levels.length - 2]?.name ?? 'File') : 'File'
 
   return (
     <>
@@ -498,44 +458,35 @@ function FileMenu() {
         <Chevron />
       </button>
       <Popover anchor={anchor} open={open} onClose={close} label="File">
-        {narrow && Choices ? (
+        {narrow && deepest ? (
+          // A phone: no room at the side, so the open row's contents replace the rows.
           <div className="top-file">
-            <button type="button" className="top-menu__item top-file__back" onClick={() => setSection(null)}>
+            <button type="button" className="top-menu__item top-file__back" onClick={back}>
               <span className="top-file__back-arrow" aria-hidden="true">‹</span>
-              <span className="top-menu__name">File</span>
+              <span className="top-menu__name">{parentName}</span>
             </button>
-            <Choices done={close} />
-          </div>
-        ) : (
-          <div className="top-file" role="menu">
-            {rows.map((r) => (
-              <button
-                key={r.id}
-                type="button"
-                role="menuitem"
-                aria-haspopup="true"
-                aria-expanded={section === r.id}
-                className={`top-menu__item top-file__row${section === r.id ? ' top-file__row--open' : ''}`}
-                onPointerEnter={(event) => {
-                  if (event.pointerType === 'mouse' && !narrow) show(r.id, event.currentTarget)
-                }}
-                onClick={(event) => show(r.id, event.currentTarget)}
-                onKeyDown={(event) => {
-                  if (event.key === 'ArrowRight') show(r.id, event.currentTarget)
-                  if (event.key === 'ArrowLeft') setSection(null)
-                }}
-              >
-                <span className="top-file__name">{r.name}</span>
-                <span className="top-file__value">{r.value}</span>
-                <ChevronRight />
-              </button>
-            ))}
-            {!narrow && Choices && row && (
-              <Flyout row={row}>
-                <Choices done={close} />
-              </Flyout>
+            {deepest.children ? (
+              <FileRows rows={deepest.children} depth={path.length} path={path} narrow={narrow} show={show} />
+            ) : (
+              deepest.render?.(close)
             )}
           </div>
+        ) : (
+          <>
+            <FileRows rows={root} depth={0} path={path} narrow={narrow} show={show} />
+            {!narrow &&
+              levels.map((node, depth) =>
+                node && anchors[depth] ? (
+                  <Flyout key={`${depth}:${node.id}`} row={anchors[depth]}>
+                    {node.children ? (
+                      <FileRows rows={node.children} depth={depth + 1} path={path} narrow={narrow} show={show} />
+                    ) : (
+                      node.render?.(close)
+                    )}
+                  </Flyout>
+                ) : null,
+              )}
+          </>
         )}
       </Popover>
     </>

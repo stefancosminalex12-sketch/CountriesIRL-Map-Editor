@@ -11,9 +11,8 @@
  */
 import { useMapStore } from '../state/mapStore'
 import { nounFor } from '../maps/useNoun'
-import { MapToggle } from './MapToggle'
+import { MenuButton, MenuItem } from './Menu'
 import { RegionGroupPicker } from './RegionGroupPicker'
-import { Disclosure } from './Panels'
 
 export function SelectionControls() {
   const tools = useMapStore((s) => s.selectionTools)
@@ -39,55 +38,54 @@ export function SelectionControls() {
    */
   const normal = !tools.rectangle && !brush
 
+  const toolName = normal ? 'Normal' : [tools.rectangle && 'Rectangle', brush && 'Brush'].filter(Boolean).join(' + ')
+
   return (
     <div className="stack">
-      <div className="toggles">
-        <MapToggle
-          icon="pointer"
-          label="Normal Selection"
-          checked={normal}
-          onChange={() => {
-            setSelectionTool('rectangle', false)
-            setSelectionTool('brush', false)
-          }}
-        />
-        <MapToggle
-          icon="rectangle"
-          label="Rectangle Selection"
-          checked={tools.rectangle}
-          onChange={(on) => setSelectionTool('rectangle', on)}
-        />
-        <MapToggle
-          icon="brush"
-          label="Brush Mode"
-          checked={brush}
-          onChange={(on) => setSelectionTool('brush', on)}
-        />
-      </div>
-
       {/*
-        How each tool is used, folded away: the three paragraphs are worth reading once and
-        then only take room from the controls, so they are one tap away rather than always
-        on screen.
+        The tool in hand, as one compact dropdown like the File menu's, rather than three
+        switches and three paragraphs: each choice carries its one line of how it is used.
+        Rectangle and Brush can both be on — the rectangle is the middle button, the brush the
+        left — so those two tick on and off; Normal turns both off.
       */}
-      <Disclosure title="How the tools work">
-        <div className="stack">
-          <p className="hint">
-            <strong>Normal</strong>: click or tap to select; click a selected {noun.one} again to
-            deselect it. Shift-click works the same way. Dragging moves the map.
-          </p>
-          <p className="hint">
-            <strong>Rectangle</strong>: hold the middle mouse button and drag across the map.
-            Every {noun.one} the box touches is added to the selection when you let go.
-          </p>
-          <p className="hint">
-            <strong>Brush</strong>: hold the left button, or a finger, and drag. Every {noun.one}{' '}
-            you pass over is added as you go. While it is on, dragging paints instead of panning;
-            the wheel, the zoom buttons and a two-finger pinch still move the map. On a computer,
-            holding <kbd>Ctrl</kbd> turns the brush on for as long as you hold it.
-          </p>
-        </div>
-      </Disclosure>
+      <div className="field__row select-tool">
+        <span className="field__label">Tool</span>
+        <MenuButton value={toolName} title="Selection tool" className="select-tool__button">
+          {(close) => (
+            <div className="top-menu__group">
+              <span className="top-menu__heading">Selection tool</span>
+              <MenuItem
+                name="Normal"
+                note={`Click to select, click a selected ${noun.one} again to deselect. Dragging moves the map.`}
+                active={normal}
+                onChoose={() => {
+                  setSelectionTool('rectangle', false)
+                  setSelectionTool('brush', false)
+                  close()
+                }}
+              />
+              <MenuItem
+                name="Rectangle"
+                note={`Hold the middle mouse button and drag: every ${noun.one} the box touches is added.`}
+                active={tools.rectangle}
+                onChoose={() => {
+                  setSelectionTool('rectangle', !tools.rectangle)
+                  close()
+                }}
+              />
+              <MenuItem
+                name="Brush"
+                note={`Drag to paint: every ${noun.one} you pass over is added. On a computer, hold Ctrl for it.`}
+                active={brush}
+                onChoose={() => {
+                  setSelectionTool('brush', !brush)
+                  close()
+                }}
+              />
+            </div>
+          )}
+        </MenuButton>
+      </div>
 
       {/* A whole region in one go — Catalonia, Transylvania — on a map of subdivisions. */}
       <RegionGroupPicker />

@@ -805,7 +805,7 @@ node scripts/build-subregion-parts.mjs
 
 ### Hide Territories
 
-The tool is **Edit → Hide** (it was **Display → Territories**): select entities and press Hide;
+The tool is **Hide**, in the rail (it was Display → Territories, then Edit → Hide): select entities and press Hide;
 **Show all** brings every hidden one back.
 
 Hiding a territory removes it from the map completely, not just its land. Nothing drawn for it, or inside it, stays visible:
@@ -1049,7 +1049,7 @@ user to zoom, and they are deliberately independent of one another:
   islands, so a speck or a scattered archipelago can be hit;
 - **the magnifier** — an enlarged copy of a selected feature's own outline, so a
   selected speck is visible. Optional, and off until turned on: *Magnifying Glass* in
-  Display → Labels & Helpers, one switch for every map, session state rather than document content.
+  File → Display → Labels & Helpers, one switch for every map, session state rather than document content.
   It used to have no switch at all, so selecting any small entity summoned a lens.
 
 Nothing draws a small entity larger than it is — see *No minimum rendered size* below.
@@ -1262,6 +1262,8 @@ File ▾
   Resolution       25m            ›   │ EUROPE: Europe Countries · Europe Administrative
   Projection       Auto (…)       ›   └ USA: USA States · USA Administrative Map
   Outside region   Muted          ›
+  Templates                       ›   World Domination · Predefined Data
+  Display                         ›   Appearance ›  ·  Geographic Features ›  ·  Labels & Helpers ›
 ```
 
 - **File** is the map's own settings, one row each with its current value. A row opens its
@@ -1273,7 +1275,14 @@ File ▾
     with its description; shown only on a map with more than one.
   - **Projection**.
   - **Outside region** — how the land outside the chosen region is drawn: Muted, Hidden, Normal.
-  More of the editor's settings are meant to join it over time.
+  - **Templates** — the built-in presets (see *Templates* below); applying one closes the menu.
+  - **Display** — cascades once more, to **Appearance** (map colours and the selection
+    highlight), **Geographic Features** and **Labels & Helpers**, each opening the same switches
+    the rail's Display section held. Switches do not close the menu, so several can be changed
+    in one visit. Legend Visibility was dropped from here: it is the Legend panel's own switch.
+  More of the editor's settings are meant to join it over time. Each row is a `FileNode` in
+  `TopBar.tsx` — a name, its value, and either more rows or what it opens — so adding one is an
+  entry, and the cascade, the hover, the keyboard and the phone's back row come with it.
 - **The regions** of the open map are split buttons along the bar. The **name** selects and
   deselects (regions still combine: Europe + Asia frames Eurasia); deselecting a region also takes
   off any of its subregions, in one click. The **arrow box** attached to its right opens the
@@ -1282,27 +1291,38 @@ File ▾
 
 Menus are drawn in a portal over the page, so the bar never clips them; a File row's side menu
 sits inside the File menu's panel (so a press in it counts as a press in the menu) but is fixed to
-the window, to the right of the panel or, without room, to its left. On a phone there is no room
-at the side, so a row opens its choices in place of the rows, under a **‹ File** row that goes
-back. On a narrow window the regions row gives up width and scrolls sideways; on a phone the
+the window, to the right of the menu it came from or, without room, to its left. On a phone there
+is no room at the side, so a row opens its choices in place of the rows, under a back row naming
+the level above (**‹ File**, **‹ Display**). The menu pieces — `Popover`, `MenuButton`,
+`MenuItem`, `Flyout` — live in `ui/Menu.tsx`, shared by the File menu, the region dropdowns and
+the Select tool picker. On a narrow window the regions row gives up width and scrolls sideways; on a phone the
 whole bar scrolls, and scrolling it closes an open menu. The map's name field and the "Map
 Editor" label left the bar (the name is still the document's, used for export filenames).
 
-**The rail is two levels deep**, eight sections in the order the work goes — what is selected,
-what is done to it (merging, hiding, overlaying), how it is drawn, what colours it, how it is
-explained, how it is framed — then the editor's own preferences and the assistant to come. Each
-section's parts sit behind a `Disclosure`:
+**The rail is the tools**, in the order the work goes — what is selected, what is done to it
+(merging, hiding, overlaying), what colours it, what is put on it, how it is explained, how it is
+framed — then the editor's own preferences, the assistant to come and the SVG round trip. Which map,
+the templates and how the map is displayed are in the File menu. A section's parts sit behind a
+`Disclosure`:
 
 ```
-Select          [Normal / Rectangle / Brush] · How the tools work · Entities Selected
-Edit            Merge Groups · Hide · Overlay [Management · Appearance · Transform · Mode]
-Display         Appearance · Geographic Features · Labels & Helpers · Legend Visibility
+Select          Tool [Normal ▾] · region groups · Entities Selected
+Merge           groups: new, name, flag, members
+Hide            Hide selected · Show all
+Overlay         Management · Appearance · Transform · Mode
 Styles & Data   [Off / Data / Compare / Flags and each mode's workflow]
+Stickers        Tiers · Sticker Gallery · Library · Emoji · Create · Size
 Legend          Visibility · Content · Appearance · Layout · Position & Size
 Canvas          Aspect Ratio · Dimensions · Framing
 Settings        Appearance (theme) · Data Sources
 AI              one line: coming soon
+SVG             export a blank SVG · import an edited one
 ```
+
+Merge, Hide and Overlay were one **Edit** section of three folded parts. As sections of their own,
+opening one is choosing that tool: opening Merge is what makes a tap on the map build a group, and
+the Overlay panel's being mounted is what the store reads as the overlay tool being open
+(`setOverlayMode`) — both as when they were folded parts, since a closed section unmounts its body.
 
 **On a phone, a Back button** floats at the bottom-right whenever a section is open, in the zoom
 buttons' column just above the status bar (`.mobile-back`; touch screens at phone sizes only). It
@@ -1313,14 +1333,13 @@ history, no reload, and the map, selection, data, overlays and camera are untouc
 `Disclosure` registers itself while open, so the order is the order they were opened.
 
 Every control is the component it was, with the same hooks and the same operation — moved, not
-rebuilt. Where one component held controls for two sections it was split along that seam:
-`MapSettings` exports the layer switches (`GeographicFeatureToggles`,
-`LabelsAndHelpers`, `LegendVisibilityToggle`) for Display, and `HideTerritories` for Edit →
-**Hide** (it sat under Display as **Territories** until it moved beside Merge); the legend and
+rebuilt. Where one component held controls for two places it was split along that seam:
+`MapSettings` exports the layer switches (`GeographicFeatureToggles`, `LabelsAndHelpers`) for
+File → Display, `LegendVisibilityToggle` for Legend, and `HideTerritories` for **Hide** (it sat
+under Display as **Territories**, then under Edit beside Merge); the legend and
 overlay editors wrap their existing blocks in subsections inside the same component, so their
 local state — the overlay's pending flag choice, the legend's patch helper — did not have to
-move. **Show Legend** appears in two places on purpose and is one control: Display and Legend write
-the same `legend.visible`. Undo and redo live in the header only — those arrows and the
+move. Undo and redo live in the header only — those arrows and the
 shortcuts call the same `undoMapEdit`/`redoMapEdit`, and the shortcuts are registered once. A
 second pair under Edit → History was removed with the Merge rework: it was the same store
 history shown twice, beside a tool it had nothing particular to do with.
@@ -1331,9 +1350,11 @@ What changed besides position:
   its old "Same as in-region" — the same three `outsideScope` values, named for what the land
   looks like, each with a line saying so.
 - **Resolution** (File menu) is the dataset picker on every map, levels included.
-- **Select** shows three tools. **Normal Selection** is on whenever neither Rectangle nor Brush
-  is, and choosing it turns both off; a click selects and deselects exactly as before whichever
-  is on. The three paragraphs of help fold under *How the tools work*. The count reads
+- **Select** picks its tool from one compact dropdown, **Tool [Normal ▾]**, like the File menu's,
+  each choice with its one line of how it is used. **Normal** is ticked whenever neither Rectangle
+  nor Brush is, and choosing it turns both off; Rectangle (the middle button) and Brush (the left)
+  tick on and off independently, and the button names what is on ("Rectangle + Brush"). A click
+  selects and deselects exactly as before whichever is on. The count reads
   **Entities Selected: N** and includes water regions, because countries, subdivisions,
   territories, merged groups and seas are all selectable. On a computer, holding **Ctrl** turns
   Brush Mode on for as long as it is held (`render/heldBrush.ts`): its button lights, a
@@ -1342,16 +1363,16 @@ What changed besides position:
   a shortcut and ends the hold; so do typing in a field, key repeat, leaving the window or tab,
   and a pointer moving without Ctrl. A trackpad pinch still zooms, and touch devices are
   unchanged.
-- **Merge** moved from under Data to **Edit → Merge Groups**. It stays folded when Edit opens:
-  opening it is what makes a tap on the map build a group, so it is opened on purpose rather than
-  by opening the section to undo something. Closing it leaves Merge Mode, as before.
+- **Merge** moved from under Data to Edit → Merge Groups, and is now a tool of its own in the
+  rail. Opening it is what makes a tap on the map build a group, so it is opened on purpose;
+  closing it leaves Merge Mode, as before.
 - **High-Contrast Borders** is Flags mode's old "International Borders" — the same
   `flags.internationalBorders` and the same black line with a pale edge either side. Every border
   the plain switch draws is international too, so the old name said nothing about what changes.
 - In **Legend**, the title's decorative mark is now **Title Mark**, so that "icons" means what
   the items are — each colour indicator and its text, sized by **Item Icons**. With the legend
   hidden, the editor stays usable and says the legend is hidden.
-- **Settings** holds only the editor's preferences: theme and the data-source credits. Map Colours and Selection Highlight moved to Display →
+- **Settings** holds only the editor's preferences: theme and the data-source credits. Map Colours and Selection Highlight moved to File → Display →
   Appearance.
 - **Canvas** is the old Screen. Its **Fit to Region** did nothing in a production build: it read
   the live projection from `window.__mapProjection`, which the canvas publishes only in
@@ -1888,7 +1909,7 @@ zone still wins over the water.
 
 ### Water Regions
 
-**Display → Geographic Features → Water Regions** puts the sixteen major oceans and seas on the map as entities:
+**File → Display → Geographic Features → Water Regions** puts the sixteen major oceans and seas on the map as entities:
 things that can be hovered, selected, coloured, put in the legend and exported, the way a
 country can. Off by default, and off it changes nothing at all — no geometry is fetched,
 nothing is drawn, the sea is the background colour it always was, and a click on the water
@@ -2307,7 +2328,7 @@ country is. On the dark theme the ink carries about four fills in five.
 
 #### Coastlines and borders are one stroke
 
-**Coastlines are off by default.** A fresh editor, and a fresh document on any map, draws borders without the coast, and the land meets the water at its own fill. Switching to another map keeps the current style, so a map where the author turned Coastlines on keeps it. Display → Geographic Features → **Coastlines** turns it on. No map, dataset, projection or region preset changes it. Of the templates, only World Domination turns it on, because it turns borders off and the land would otherwise have no outline at all. Predefined Data leaves it alone. Load times on the densest maps (US counties about 0.9 s, US county subdivisions about 3.5 s) are the same with Coastlines on or off.
+**Coastlines are off by default.** A fresh editor, and a fresh document on any map, draws borders without the coast, and the land meets the water at its own fill. Switching to another map keeps the current style, so a map where the author turned Coastlines on keeps it. File → Display → Geographic Features → **Coastlines** turns it on. No map, dataset, projection or region preset changes it. Of the templates, only World Domination turns it on, because it turns borders off and the land would otherwise have no outline at all. Predefined Data leaves it alone. Load times on the densest maps (US counties about 0.9 s, US county subdivisions about 3.5 s) are the same with Coastlines on or off.
 
 A country path is stroked once, and that single stroke is both things at once: its coast
 where it meets water, and its share of a boundary where it meets a neighbour — each of
@@ -2964,7 +2985,7 @@ borrowed flag present in the serialized SVG export.
 
 ### Data values on the map
 
-**Display → Labels & Helpers → Data Values** prints each entity's value on the map, where its name
+**File → Display → Labels & Helpers → Data Values** prints each entity's value on the map, where its name
 goes. It is independent of **Region Names**: names, values, both or neither. With both on, the value
 is a line of its own under the name ("France / $44,408"); with names off, it stands where the name
 would. An entity with no value in the active layer gets no value — and, with names off, no label.
@@ -2995,7 +3016,7 @@ symbol before the number ("$45,200"), anything else after it ("42%", "78.2 years
 
 ### Compare group values on the map
 
-**Display → Labels & Helpers → Compare Group Values** prints each Compare group's value on every
+**File → Display → Labels & Helpers → Compare Group Values** prints each Compare group's value on every
 country or region in that group: a group holding France, Germany, Italy and Spain with the value 50
 puts "50" on all four. Its own switch, independent of **Region Names** and **Data Values** — any of
 the three, or none — and nothing to do with Merge Groups.
@@ -3555,7 +3576,7 @@ with the names the chooser searches on.
 
 A movable copy of an entity's shape, for comparing one place with another: Texas laid over
 France, Greenland dragged to the equator, a historical territory over its modern successor.
-The **Overlay** tool in the sidebar's **Edit** section makes them (it was a section of its own,
+The **Overlay** tool in the rail makes them (it was a section of its own, then part of Edit,
 **Overlays**, until it moved beside Merge and Hide). Select a country, region, territory or
 merged group on the map, press **Create overlay**, and drag the overlay anywhere. What was
 copied leaves the selection and the new overlay is the one being edited, so it can be dragged at
@@ -3873,7 +3894,7 @@ path - PNG, JPG, SVG - is cropped without being changed.
 
 ### Templates
 
-**Templates**, the second section of the sidebar — right after Maps — lists built-in presets. Click
+**Templates**, in the File menu under the map's own settings, lists built-in presets. Click
 one and the editor is set up for that kind of map at once, instead of switching half a dozen
 controls by hand. They are part of the application: no accounts, no saving, no creating your own,
 nothing stored anywhere.

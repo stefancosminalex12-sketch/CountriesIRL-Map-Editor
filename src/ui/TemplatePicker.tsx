@@ -12,7 +12,8 @@ import { useMapStore } from '../state/mapStore'
 import { TEMPLATES, templateOps, type MapTemplate } from '../state/templates'
 import { openSidebarSection } from './sidebarEvents'
 
-export function TemplatePicker() {
+/** `onApplied` is called once a template has been applied — the File menu closes on it. */
+export function TemplatePicker({ onApplied }: { onApplied?: () => void } = {}) {
   const geo = useMapStore((s) => s.geo)
   const [asking, setAsking] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -21,6 +22,7 @@ export function TemplatePicker() {
   const finish = (template: MapTemplate, text: string) => {
     setStatus({ ok: true, text: `${text} ${template.next}` })
     if (template.openSection) openSidebarSection(template.openSection)
+    onApplied?.()
   }
 
   const apply = (template: MapTemplate) => {

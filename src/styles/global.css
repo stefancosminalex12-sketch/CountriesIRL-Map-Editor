@@ -4015,6 +4015,7 @@ body {
 
 .top-file__arrow {
   flex: none;
+  margin-left: auto;
   opacity: 0.7;
 }
 
@@ -4193,4 +4194,26 @@ body {
 
 .sticker-gallery__actions {
   gap: 6px;
+}
+
+/* Select: the tool in hand, one compact dropdown on a line with its label. */
+.select-tool {
+  align-items: center;
+}
+
+.select-tool__button {
+  min-width: 0;
+}
+
+/* A File-menu side menu holding controls rather than choices: room round them. */
+.top-flyout__body {
+  padding: 6px 8px 8px;
+  min-width: 260px;
+}
+
+/* A group that opens a panel has nothing above it to be divided from. */
+.sidebar__body > .sidebar__group:first-child,
+.top-flyout__body > .sidebar__group:first-child {
+  padding-top: 0;
+  border-top: 0;
 }
