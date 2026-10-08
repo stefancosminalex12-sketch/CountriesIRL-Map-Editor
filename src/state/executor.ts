@@ -200,6 +200,13 @@ export function validateOperation(op: MapOperation, ctx: ExecutionContext = {}):
       const overlay = op.overlay as unknown as Record<string, unknown> | undefined
       if (!overlay || typeof overlay !== 'object') return 'an overlay is required'
       if (!overlay.id || !overlay.sourceId) return 'an overlay needs an id and the entity it copies'
+      if (overlay.members !== undefined) {
+        const members = overlay.members as unknown
+        if (!Array.isArray(members) || members.length < 2 || members.some((m) => typeof m !== 'string' || !m)) {
+          return 'members must list at least two entity ids'
+        }
+        if (members[0] !== overlay.sourceId) return 'the first member must be the entity the overlay copies'
+      }
       for (const key of ['mode', 'texture', 'opacity', 'color']) {
         if (overlay[key] === undefined) return `an overlay needs a ${key}`
       }
@@ -209,7 +216,7 @@ export function validateOperation(op: MapOperation, ctx: ExecutionContext = {}):
       if (!op.id) return 'an overlay needs an id'
       const patch = op.patch as Record<string, unknown> | undefined
       if (!patch || typeof patch !== 'object') return 'patch must be an object'
-      if ('id' in patch || 'sourceId' in patch) return "an overlay's id and the entity it copies cannot change"
+      if ('id' in patch || 'sourceId' in patch || 'members' in patch) return "an overlay's id and the entities it copies cannot change"
       return overlayFieldsProblem(patch)
     }
     case 'delete_overlay':
@@ -312,7 +319,7 @@ export function validateOperation(op: MapOperation, ctx: ExecutionContext = {}):
 }
 
 const OVERLAY_MODES = new Set(['shape', 'projection'])
-const OVERLAY_TEXTURES = new Set(['hatch', 'dots', 'none', 'flag', 'solid'])
+const OVERLAY_TEXTURES = new Set(['hatch', 'dots', 'none', 'flag', 'solid', 'land'])
 
 /** Why an overlay's fields are malformed, or `null`. Only the fields present are checked. */
 function overlayFieldsProblem(fields: Record<string, unknown>): string | null {
@@ -320,7 +327,7 @@ function overlayFieldsProblem(fields: Record<string, unknown>): string | null {
     return 'mode must be "shape" or "projection"'
   }
   if (fields.texture !== undefined && !OVERLAY_TEXTURES.has(fields.texture as string)) {
-    return 'texture must be "hatch", "dots", "none", "flag" or "solid"'
+    return 'texture must be "hatch", "dots", "none", "flag", "solid" or "land"'
   }
   if (fields.flag !== undefined && fields.flag !== null && !(typeof fields.flag === 'string' && hasFlag(fields.flag))) {
     return 'flag must be the code of a flag in the library, or null'

@@ -777,9 +777,11 @@ export type OverlayMode = 'shape' | 'projection'
 
 /**
  * What an overlay is filled with: a texture over its tint, the tint alone, or a flag — which
- * replaces the tint, framed over the overlay's own outline and clipped to it.
+ * replaces the tint, framed over the overlay's own outline and clipped to it — or **land**: the
+ * map's own land colour, so the copy reads as more of the map. With land, a flag or a solid fill
+ * the overlay's edge is drawn as coastline (see `MapOverlays`).
  */
-export type OverlayTexture = 'hatch' | 'dots' | 'none' | 'flag' | 'solid'
+export type OverlayTexture = 'hatch' | 'dots' | 'none' | 'flag' | 'solid' | 'land'
 
 /**
  * A movable copy of an entity's shape, for comparing one place with another.
@@ -794,6 +796,12 @@ export interface MapOverlay {
   id: string
   /** The entity copied: a country, a subdivision, a territory or a merged group. */
   sourceId: CountryId
+  /**
+   * Every entity copied, when the overlay is a group copy — several entities moved and sized as
+   * one object. Drawn as one piece with its outer edge as coastline and the borders between the
+   * members kept. The first is `sourceId`. Absent for a single copy.
+   */
+  members?: CountryId[]
   /** Shown in the list: the entity's name when the overlay was made. */
   name: string
   mode: OverlayMode

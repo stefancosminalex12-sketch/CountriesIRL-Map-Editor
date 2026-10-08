@@ -3545,6 +3545,27 @@ opens its controls:
 - **Move over**, which centres it on the entity selected last;
 - **Delete overlay**.
 
+**A copy is more of the map.** New overlays are filled with **Land** — the map's own land colour
+— at full opacity, so a copy dragged into the sea reads as land that is there. Its whole edge is
+then **coastline**: drawn in the map's line colour and width, and shown or hidden by the map's
+**Coastlines** switch exactly as the map's own coast is (the same goes for Solid and Flag fills;
+Hatching, Dots and None keep their coloured outline, as highlights over the map).
+
+**Copies are their own things.** Each is named as a copy — "United States 2", "Canada 3" —
+numbered by how many copies of that entity the map already has, so a copy is never mistaken for
+the original or for another copy.
+
+**Group copies.** With several entities selected, **Copy N as one group** makes one overlay of
+all of them (`MapOverlay.members`): it moves, sizes and is styled as one object, while staying the
+same entities inside. Its outline is the members dissolved into one (`mergeCountries`), so the
+group's outer edge is its coastline, and the borders *between* its members are kept as a line of
+their own (`bordersWithout` restricted to the members) — drawn in the map's border style and
+shown or hidden by the map's **Borders** switch. A member that is a merged group counts as its
+members, with the borders inside that group left dissolved. Projection-aware group copies carry
+their borders across the globe with the land. **Copy each separately** keeps the old behaviour:
+one overlay per entity. A group copy is named after its members ("United States 2 & Canada 2"),
+and goes from the map when every one of them is hidden.
+
 **Flag texture.** Choosing **Flag** fills the overlay with a flag instead of its tint.
 
 - **Which flag.** The flag the entity flies at that moment: its custom flag, a merged group's

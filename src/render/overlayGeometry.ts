@@ -21,7 +21,7 @@
  * exclave keeps its place relative to the rest, and resizing never moves the overlay.
  */
 import { geoArea, geoCentroid, geoPath, geoRotation, type GeoProjection } from 'd3-geo'
-import type { Geometry, MultiPolygon, Polygon, Position } from 'geojson'
+import type { Geometry, MultiLineString, MultiPolygon, Polygon, Position } from 'geojson'
 import type { MapOverlay } from '../types/map'
 import { clampOverlayScale } from './overlayScale'
 
@@ -39,11 +39,28 @@ export interface OverlaySource {
   geoCentre: [number, number]
   /** The projection that drew `homePath`: the map's, or an inset's. */
   homeProjection: GeoProjection
+  /**
+   * For a group copy, the borders between its members, in longitude and latitude, and as the map
+   * draws them where they are. Null for a single entity, which has none.
+   */
+  borders: MultiLineString | null
+  homeBordersPath: string | null
+}
+
+/**
+ * What an overlay's source is looked up by: the entity it copies, or for a group copy all of its
+ * members — so two overlays of the same entities share one source, and moving or recolouring an
+ * overlay reprojects nothing.
+ */
+export function overlayKey(overlay: Pick<MapOverlay, 'sourceId' | 'members'>): string {
+  return overlay.members && overlay.members.length > 1 ? overlay.members.join('+') : overlay.sourceId
 }
 
 /** Where an overlay is drawn. */
 export interface OverlayPlacement {
   d: string
+  /** The borders between a group copy's members, placed exactly as `d` is; null for a single entity. */
+  bordersD: string | null
   /**
    * How `d` is placed, as the `s`, `x` and `y` of `matrix(s, 0, 0, s, x, y)` — a translation
    * (Shape mode) and the overlay's scale about its centre — or `null` when `d` is already
@@ -102,6 +119,7 @@ export function overlaySource(
   geometry: Geometry | null | undefined,
   homePath: string | null | undefined,
   homeProjection: GeoProjection,
+  borders: MultiLineString | null = null,
 ): OverlaySource | null {
   if (!homePath || polygonsOf(geometry).length === 0) return null
   const land = geometry as OverlayGeometry
@@ -112,7 +130,16 @@ export function overlaySource(
   if (!finite(centre)) centre = path.centroid(land)
   const geoCentre = geoCentroid(main)
   if (!finite(centre) || !finite(geoCentre)) return null
-  return { geometry: land, homePath, homeCentre: [centre[0], centre[1]], geoCentre: [geoCentre[0], geoCentre[1]], homeProjection }
+  const homeBordersPath = borders ? geoPath(homeProjection)(borders) || null : null
+  return {
+    geometry: land,
+    homePath,
+    homeCentre: [centre[0], centre[1]],
+    geoCentre: [geoCentre[0], geoCentre[1]],
+    homeProjection,
+    borders,
+    homeBordersPath,
+  }
 }
 
 /**
@@ -123,14 +150,14 @@ export function overlaySource(
  * its true size and shape; and a move along a parallel or a meridian comes out as a single turn
  * about the axis that move is around, so north stays north.
  */
-export function carry(geometry: OverlayGeometry, from: [number, number], to: [number, number]): OverlayGeometry {
+export function carry<G extends OverlayGeometry | MultiLineString>(geometry: G, from: [number, number], to: [number, number]): G {
   const lift = geoRotation([-from[0], -from[1]])
   const lower = geoRotation([-to[0], -to[1]])
   const move = (point: Position): Position => lower.invert(lift([point[0], point[1]]))
   const ring = (points: Position[]) => points.map(move)
-  return geometry.type === 'Polygon'
-    ? { type: 'Polygon', coordinates: geometry.coordinates.map(ring) }
-    : { type: 'MultiPolygon', coordinates: geometry.coordinates.map((polygon) => polygon.map(ring)) }
+  if (geometry.type === 'Polygon') return { type: 'Polygon', coordinates: geometry.coordinates.map(ring) } as G
+  if (geometry.type === 'MultiLineString') return { type: 'MultiLineString', coordinates: geometry.coordinates.map(ring) } as G
+  return { type: 'MultiPolygon', coordinates: geometry.coordinates.map((polygon) => polygon.map(ring)) } as G
 }
 
 /**
@@ -145,6 +172,7 @@ export function placeOverlay(
   const scale = clampOverlayScale(overlay.scale)
   /* `d`, where the centre of its main landmass is drawn in it, and where that centre belongs. */
   let d = source.homePath
+  let bordersD = source.homeBordersPath
   let from = source.homeCentre
   let centre = source.homeCentre
   if (overlay.anchor) {
@@ -154,6 +182,7 @@ export function placeOverlay(
     if (overlay.mode === 'projection') {
       d = geoPath(projection)(carry(source.geometry, source.geoCentre, overlay.anchor)) ?? ''
       if (!d) return null
+      bordersD = source.borders ? geoPath(projection)(carry(source.borders, source.geoCentre, overlay.anchor)) || null : null
       from = centre
     }
   }
@@ -161,7 +190,7 @@ export function placeOverlay(
   const x = centre[0] - scale * from[0]
   const y = centre[1] - scale * from[1]
   const matrix: OverlayPlacement['matrix'] = scale === 1 && x === 0 && y === 0 ? null : [scale, x, y]
-  return { d, matrix, centre }
+  return { d, bordersD, matrix, centre }
 }
 
 /**

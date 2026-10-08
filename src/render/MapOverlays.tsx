@@ -27,7 +27,7 @@ import { memo, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent
 import { geoPath, type GeoProjection } from 'd3-geo'
 import type { MultiPolygon } from 'geojson'
 import type { MapOverlay } from '../types/map'
-import { anchorAt, carry, placeOverlay, type OverlayPlacement, type OverlaySource } from './overlayGeometry'
+import { anchorAt, carry, overlayKey, placeOverlay, type OverlayPlacement, type OverlaySource } from './overlayGeometry'
 import { fitFlag, patternGeometry, type FlagFit } from './MapFlags'
 import { flagFraming } from './flagPlacement'
 
@@ -97,7 +97,15 @@ export interface MapOverlaysProps {
   onMove: (id: string, anchor: [number, number]) => void
   /** The artwork of each overlay filled with a flag, by overlay id, once it has arrived. */
   flags: ReadonlyMap<string, string>
+  /**
+   * The map's own lines: whether coastlines and borders are drawn, in what colour and width, and
+   * its land colour — for an overlay that is more of the map rather than a highlight over it.
+   */
+  lines: { coast: boolean; borders: boolean; color: string; width: number; land: string }
 }
+
+/** Textures under which an overlay is a copy of land: its edge is coastline, drawn as the map draws coast. */
+const LAND_LIKE = new Set(['land', 'solid', 'flag'])
 
 interface Drag {
   id: string
@@ -118,6 +126,7 @@ export const MapOverlays = memo(function MapOverlays({
   onSelect,
   onMove,
   flags,
+  lines,
 }: MapOverlaysProps) {
   const drag = useRef<Drag | null>(null)
   const [preview, setPreview] = useState<{ id: string; anchor: [number, number] } | null>(null)
@@ -130,7 +139,7 @@ export const MapOverlays = memo(function MapOverlays({
   const resting = useMemo(() => {
     const out = new Map<string, OverlayPlacement | null>()
     for (const overlay of overlays) {
-      const source = sources.get(overlay.sourceId)
+      const source = sources.get(overlayKey(overlay))
       out.set(
         overlay.id,
         source ? placeOverlay({ mode: overlay.mode, anchor: overlay.anchor, scale: overlay.scale ?? 1 }, source, projection) : null,
@@ -144,7 +153,7 @@ export const MapOverlays = memo(function MapOverlays({
     const out = new Map<string, OverlayFlag | null>()
     for (const overlay of overlays) {
       if (overlay.texture !== 'flag') continue
-      const source = sources.get(overlay.sourceId)
+      const source = sources.get(overlayKey(overlay))
       out.set(overlay.id, source ? overlayFlag(overlay, source, projection) : null)
     }
     return out
@@ -157,7 +166,7 @@ export const MapOverlays = memo(function MapOverlays({
       let flag = restingFits.get(overlay.id) ?? null
       // The one being dragged is placed where the pointer has it.
       if (preview?.id === overlay.id) {
-        const source = sources.get(overlay.sourceId)
+        const source = sources.get(overlayKey(overlay))
         place = source
           ? placeOverlay({ mode: overlay.mode, anchor: preview.anchor, scale: overlay.scale ?? 1 }, source, projection)
           : null
@@ -317,13 +326,45 @@ export const MapOverlays = memo(function MapOverlays({
                 <path key={territory.key} d={territory.d} fill={`url(#${flagFillId(overlay.id)}-${territory.key})`} />
               ))}
             </>
+          ) : overlay.texture === 'land' ? (
+            // More of the map: the map's own land colour.
+            <path d={place.d} fill={lines.land} />
           ) : (
             <path d={place.d} fill={overlay.color} fillOpacity={overlay.texture === 'solid' ? 1 : TINT} />
           )}
           {(overlay.texture === 'hatch' || overlay.texture === 'dots') && (
             <path d={place.d} fill={`url(#${textureId(overlay.id)})`} />
           )}
-          {overlay.texture !== 'solid' && (
+          {/*
+            The borders between a group copy's members, as the map draws borders — and only while
+            it draws them.
+          */}
+          {lines.borders && place.bordersD && (
+            <path
+              d={place.bordersD}
+              fill="none"
+              stroke={lines.color}
+              strokeWidth={lines.width}
+              strokeLinejoin="round"
+              strokeLinecap="round"
+              vectorEffect="non-scaling-stroke"
+              pointerEvents="none"
+            />
+          )}
+          {LAND_LIKE.has(overlay.texture) ? (
+            // A copy of land: its whole edge is coastline, drawn and switched as the map's coast is.
+            lines.coast && (
+              <path
+                d={place.d}
+                fill="none"
+                stroke={lines.color}
+                strokeWidth={lines.width}
+                strokeLinejoin="round"
+                vectorEffect="non-scaling-stroke"
+                pointerEvents="none"
+              />
+            )
+          ) : (
             <path
               d={place.d}
               fill="none"

@@ -341,7 +341,7 @@ interface MapStore {
    * Makes an overlay of each selected entity — a country, a region, a merged group — and chooses
    * the last. One undo step. Returns the new overlays' ids.
    */
-  createOverlaysFromSelection: () => string[]
+  createOverlaysFromSelection: (asGroup?: boolean) => string[]
   deleteOverlay: (id: string) => void
   /** Chooses the group the panel is editing, or `null` for none. Touches no selection. */
   setActiveMerge: (id: string | null) => void
@@ -865,7 +865,7 @@ export const useMapStore = create<MapStore>((set, get) => {
    * the entity keeps its colour, geometry and everything else — and it changes as part of the same
    * edit, so one undo takes the overlays away and gives the selection back.
    */
-  createOverlaysFromSelection() {
+  createOverlaysFromSelection(asGroup = false) {
     const state = get()
     const geo = state.geo
     if (!geo) return []
@@ -873,28 +873,48 @@ export const useMapStore = create<MapStore>((set, get) => {
     const existing = state.doc.overlays ?? []
     const taken = new Set(existing.map((o) => o.id))
     const stamp = Date.now().toString(36)
-    const overlays: MapOverlay[] = []
-    for (const sourceId of state.selectedCountryIds) {
-      const merge = mergeById.get(sourceId)
-      if (!merge && !geo.byId.has(sourceId)) continue
-      let id = `overlay-${stamp}-${overlays.length + 1}`
-      for (let n = 2; taken.has(id); n++) id = `overlay-${stamp}-${overlays.length + 1}-${n}`
-      taken.add(id)
-      overlays.push({
-        id,
-        sourceId,
-        name: merge?.name ?? geo.meta[sourceId]?.name ?? geo.byId.get(sourceId)?.properties.name ?? sourceId,
-        mode: 'shape',
-        anchor: null,
-        color: OVERLAY_COLORS[(existing.length + overlays.length) % OVERLAY_COLORS.length],
-        opacity: 0.7,
-        texture: 'hatch',
-        scale: 1,
-      })
+    const copyable = state.selectedCountryIds.filter((id) => mergeById.has(id) || geo.byId.has(id))
+    if (copyable.length === 0) return []
+
+    /*
+     * Each copy is named as its own thing — "United States 2", "Canada 3" — numbered by how many
+     * copies of that entity the map already has, so a copy is never mistaken for the original or
+     * for another copy of it.
+     */
+    const copies = new Map<string, number>()
+    for (const overlay of existing) {
+      for (const id of overlay.members ?? [overlay.sourceId]) copies.set(id, (copies.get(id) ?? 0) + 1)
     }
-    if (overlays.length === 0) return []
+    const copyName = (id: string) => {
+      const n = (copies.get(id) ?? 0) + 1
+      copies.set(id, n)
+      const base = mergeById.get(id)?.name ?? geo.meta[id]?.name ?? geo.byId.get(id)?.properties.name ?? id
+      return `${base} ${n + 1}`
+    }
+    const newId = (n: number) => {
+      let id = `overlay-${stamp}-${n}`
+      for (let k = 2; taken.has(id); k++) id = `overlay-${stamp}-${n}-${k}`
+      taken.add(id)
+      return id
+    }
+    const base = (sourceId: string, n: number) => ({
+      id: newId(n),
+      sourceId,
+      mode: 'shape' as const,
+      anchor: null,
+      color: OVERLAY_COLORS[(existing.length + n - 1) % OVERLAY_COLORS.length],
+      // A copy of land by default: the map's land colour, edged with coastline.
+      opacity: 1,
+      texture: 'land' as const,
+      scale: 1,
+    })
+
+    const overlays: MapOverlay[] =
+      asGroup && copyable.length > 1
+        ? [{ ...base(copyable[0], 1), members: [...copyable], name: copyable.map(copyName).join(' & ') }]
+        : copyable.map((sourceId, index) => ({ ...base(sourceId, index + 1), name: copyName(sourceId) }))
     get().dispatch(overlays.map((overlay) => ({ op: 'create_overlay' as const, overlay })))
-    const copied = new Set(overlays.map((o) => o.sourceId))
+    const copied = new Set(copyable)
     withLastEdit({ selectedCountryIds: get().selectedCountryIds.filter((id) => !copied.has(id)) })
     set({ activeOverlayId: overlays[overlays.length - 1].id })
     return overlays.map((o) => o.id)

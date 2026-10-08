@@ -31,6 +31,7 @@ const MODES: Array<[OverlayMode, string, string]> = [
 ]
 
 const TEXTURES: Array<[OverlayTexture, string]> = [
+  ['land', 'Land'],
   ['hatch', 'Hatching'],
   ['dots', 'Dots'],
   ['flag', 'Flag'],
@@ -84,7 +85,7 @@ export function OverlayControls() {
   /* "Move over": the entity selected last. */
   const target = copyable.length > 0 ? copyable[copyable.length - 1] : null
 
-  const update = (patch: Partial<Omit<MapOverlay, 'id' | 'sourceId'>>) => {
+  const update = (patch: Partial<Omit<MapOverlay, 'id' | 'sourceId' | 'members'>>) => {
     if (active) dispatch({ op: 'update_overlay', id: active.id, patch })
   }
 
@@ -106,23 +107,34 @@ export function OverlayControls() {
     <div className="stack">
       <Disclosure title="Overlay Management">
         <div className="stack">
-          <button
-            type="button"
-            className="btn btn--on"
-            disabled={copyable.length === 0}
-            onClick={() => {
-              createFromSelection()
-            }}
-          >
-            {copyable.length === 1
-              ? `Create overlay of ${nameOf(copyable[0])}`
-              : copyable.length > 1
-                ? `Create ${copyable.length} overlays`
-                : 'Create overlay'}
-          </button>
+          {copyable.length > 1 ? (
+            <>
+              {/*
+                Several selected: one object that moves and sizes as a whole, with the borders
+                between them kept — or a copy of each, moved on its own.
+              */}
+              <button type="button" className="btn btn--on" onClick={() => createFromSelection(true)}>
+                Copy {copyable.length} {noun.many} as one group
+              </button>
+              <button type="button" className="btn" onClick={() => createFromSelection(false)}>
+                Copy each separately ({copyable.length} overlays)
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              className="btn btn--on"
+              disabled={copyable.length === 0}
+              onClick={() => {
+                createFromSelection()
+              }}
+            >
+              {copyable.length === 1 ? `Create overlay of ${nameOf(copyable[0])}` : 'Create overlay'}
+            </button>
+          )}
           <p className="hint">
             {overlays.length === 0
-              ? `Select a ${noun.one} on the map, then make an overlay of it and drag it anywhere.`
+              ? `Select ${noun.many} on the map, then copy them and drag the copy anywhere — into the sea, too. A copy's edge is coastline, and a group keeps the borders between its ${noun.many}; both follow the map's Coastlines and Borders switches.`
               : 'Drag an overlay on the map to move it; tap one to choose it.'}
           </p>
 

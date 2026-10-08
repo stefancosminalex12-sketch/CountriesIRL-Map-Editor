@@ -119,7 +119,7 @@ export type MapOperation =
    * so a patch never changes them.
    */
   | { op: 'create_overlay'; overlay: MapOverlay }
-  | { op: 'update_overlay'; id: string; patch: Partial<Omit<MapOverlay, 'id' | 'sourceId'>> }
+  | { op: 'update_overlay'; id: string; patch: Partial<Omit<MapOverlay, 'id' | 'sourceId' | 'members'>> }
   | { op: 'delete_overlay'; id: string }
   /*
    * Water regions: paint on a named ocean or sea.

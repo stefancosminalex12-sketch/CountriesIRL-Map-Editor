@@ -71,6 +71,9 @@ import { entityFlagCode } from '../flags/flagChoices'
 import { resolveScreen } from './screenFrame'
 import { mergeCountries } from '../geo/merge'
 import { borderArcsWithout, bordersWithout, coastByEntity } from '../geo/datasets'
+
+/** No territories hidden: the borders of a group copy are its members', whatever the map hides. */
+const NO_HIDDEN: ReadonlySet<string> = new Set()
 import { MapScreen } from './MapScreen'
 import { MapCaption } from './MapCaption'
 import { getPreset } from '../state/presets'
@@ -95,7 +98,7 @@ import { useSelectionGestures } from './selectionGestures'
 import { useHeldBrush } from './heldBrush'
 import { usePinchZoom } from './pinchZoom'
 import { MapOverlays, OVERLAY_MARKER } from './MapOverlays'
-import { overlaySource, type OverlaySource } from './overlayGeometry'
+import { overlayKey, overlaySource, type OverlaySource } from './overlayGeometry'
 import type { MapDocument, MapOverlay } from '../types/map'
 import {
   outlinesAlongSegment,
@@ -839,7 +842,7 @@ export function MapCanvas() {
 
   const overlays = doc.overlays ?? NO_OVERLAYS
   /** Which entities are copied — all the sources depend on, so moving or recolouring an overlay reprojects nothing. */
-  const overlaySourceKey = [...new Set(overlays.map((o) => o.sourceId))].join('\n')
+  const overlaySourceKey = [...new Set(overlays.map(overlayKey))].join('\n')
 
   /**
    * What each overlay is drawn from: the copied entity's land, and its outline exactly as the map
@@ -850,6 +853,33 @@ export function MapCanvas() {
     const out = new Map<string, OverlaySource>()
     if (!overlaySourceKey || !geo || !projection) return out
     for (const id of overlaySourceKey.split('\n')) {
+      /*
+       * A group copy: its members dissolved into one outline — whose edge is the coastline — and
+       * the borders between them kept as a line of their own, to be drawn when Borders is on. A
+       * member that is itself a merged group counts as its members, and the borders inside that
+       * group stay dissolved as they are on the map.
+       */
+      if (id.includes('+')) {
+        const memberIds = id.split('+')
+        const groupOf = new Map<string, string>()
+        const all: string[] = []
+        for (const member of memberIds) {
+          const merge = mergeGeometry.find((m) => m.id === member)
+          if (merge) {
+            for (const inner of merge.members) groupOf.set(inner, merge.id)
+            all.push(...merge.members)
+          } else all.push(member)
+        }
+        const inside = new Set(all)
+        const geometry = mergeCountries(geo, all)
+        const inset = insetForGroup(insets, all)
+        const drawnWith = inset ? inset.projection : projection
+        const homePath = geometry ? geoPath(drawnWith)(geometry) : null
+        const borders = geo.topology ? bordersWithout(geo, NO_HIDDEN, (entity) => inside.has(entity), false, groupOf) : null
+        const source = overlaySource(geometry, homePath, drawnWith, borders)
+        if (source) out.set(id, source)
+        continue
+      }
       const merge = mergeGeometry.find((m) => m.id === id)
       if (merge) {
         const drawn = mergedShapes.find((shape) => shape.id === id)
@@ -866,6 +896,22 @@ export function MapCanvas() {
     }
     return out
   }, [overlaySourceKey, geo, projection, land, insets, mergeGeometry, mergedShapes])
+
+  /*
+   * How an overlay's edges are drawn: its outer edge as coastline and the borders inside a group
+   * copy as borders — in the map's own line colour and width, and on or off with the map's own
+   * Coastlines and Borders switches, so a copy put in the sea reads as more of the map.
+   */
+  const overlayLines = useMemo(
+    () => ({
+      coast: style.showCoastlines,
+      borders: style.showBorders,
+      color: style.border,
+      width: style.borderWidth,
+      land: style.land,
+    }),
+    [style.showCoastlines, style.showBorders, style.border, style.borderWidth, style.land],
+  )
 
   const chooseOverlay = useCallback((id: string) => useMapStore.getState().setActiveOverlay(id), [])
   const moveOverlay = useCallback(
@@ -959,6 +1005,11 @@ export function MapCanvas() {
     if (hiddenIds.size === 0) return overlays
     const membersOf = new Map(mergeGeometry.map((merge) => [merge.id, merge.members]))
     return overlays.filter((overlay) => {
+      if (overlay.members && overlay.members.length > 1) {
+        // A group copy goes when every entity in it is hidden.
+        const all = overlay.members.flatMap((id) => membersOf.get(id) ?? [id])
+        return !all.every((id) => hiddenIds.has(id))
+      }
       const members = membersOf.get(overlay.sourceId)
       return members ? !members.every((id) => hiddenIds.has(id)) : !hiddenIds.has(overlay.sourceId)
     })
@@ -3641,6 +3692,7 @@ export function MapCanvas() {
               onSelect={chooseOverlay}
               onMove={moveOverlay}
               flags={overlayFlags}
+              lines={overlayLines}
             />
           )}
         </g>
