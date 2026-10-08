@@ -3049,9 +3049,11 @@ a few decoded images rather than hundreds of copies of a data URI.
 
 #### The sticker gallery
 
-**Sticker Gallery** is 108 ready-made faces (`stickers/facePresets.ts`), each a named combination
-of face-maker parts (Grinning, Side Eye, Fire Punch, Shrug, Heavy Breathing, Checking You Out,
-Rose in Teeth, Hold Up, Facepalm, Nerd, DJ, …), all drawn in the colour picked above the grid and
+**Sticker Gallery** is 151 ready-made faces (`stickers/facePresets.ts`), each a named combination
+of face-maker parts. The first 60 (`COLLECTION`) are the library collection, in the order of the
+reference screenshots: Fire Punch, Shrug, Heavy Breathing, Checking You Out, Trying Not To Laugh,
+Hold Up, Thumbs Down, Rose in Teeth, … Red Lips Kiss, Evil Smirk, Please. The older set follows,
+minus any name the collection already uses. All are drawn in the colour picked above the grid and
 searchable by name. A preset is only parts, never a colour, so the whole gallery recolours at once.
 The colour presets are the nine base colours of the recolourable emoji site the gallery follows,
 sampled exactly from its swatches — blue `#1b4fd8`, purple `#9062f9`, yellow `#faca15`, red
@@ -3079,16 +3081,18 @@ colour; tapping one adds it to the library in that colour.
 
 **Create** makes new stickers, saved to the library like uploads:
 
-- **Face maker** (`stickers/faceMaker.ts`): a glossy 3D face assembled from parts (20 eyes, 7
-  brows, 21 mouths, 11 hand poses — thumbs up and down, pointing, waving, fist, fire punch, peace,
-  shrug, facepalm, salute, thinking — and 24 other extras such as a nose, glasses, a monocle, a
-  mustache, a rose, headphones, a crown, a party hat, an idea bulb, steam, hearts, music notes and
-  Zzz, plus an optional outline) in any colour. The hands are cartoon gloves: each pose is a
-  few smooth shapes (a palm, fat tapered fingers with round tips, knuckle rolls, a thumb) drawn as
-  one piece through the `gloveFx` filter, which traces a single clean outline round the whole
-  silhouette, shades its lower right edge, lights its upper left and casts a soft shadow. Finger
-  separations, knuckle folds and the three stitched lines on the back are drawn inside as soft
-  creases; a thumb folded over a fist and the rolled cuff are outlined as their own pieces. The
+- **Face maker** (`stickers/faceMaker.ts`): a glossy 3D face assembled from parts (29 eyes, 7
+  brows, 35 mouths, 28 hand poses — thumbs up and down, pointing, waving, fist, fire punch, peace,
+  shrug, facepalm, salute, thinking, OK sign, cheering, covering eyes or mouth, praying, palms up,
+  holding a heart, offering a rose, a bat, and more — and 34 other extras such as glasses, a
+  helmet, cat ears, a party blower, confetti, a goatee, a nose, a monocle, a crown, steam, hearts
+  and Zzz, plus an optional outline) in any colour. The hands are slim, soft cartoon gloves built
+  by one function, `hand()`, from a description of the pose: each finger out (length and angle) or
+  curled into the palm, and where the thumb is. Fingers are long and lightly tapered with round
+  tips on a small palm, and the whole silhouette is drawn as one piece through the `gloveFx`
+  filter: a thin, light outline, a soft shade on its lower right edge, a highlight on its upper left
+  and a faint shadow. Inside are only hairlines where fingers lie together and a faint fold at each
+  knuckle; a thumb folded over a fist and the slim cuff are outlined as their own pieces. The
   fire punch's flames are drawn behind the head (`BEHIND_PARTS`), so only the fist covers it. The
   sticker's frame is measured from what is drawn (`fittedViewBox`), so a hand held out to the side
   or a crown is never cut off. Original artwork, as SVG, lit consistently from the top left: the head is a shaded

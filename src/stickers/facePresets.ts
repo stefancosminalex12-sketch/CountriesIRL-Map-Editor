@@ -18,7 +18,75 @@ export interface FacePreset {
 
 type Row = [name: string, eyes: EyeId, brows: BrowId, mouth: MouthId, extras?: ExtraId[]]
 
-const ROWS: Row[] = [
+/*
+ * The collection: sixty faces after the reference sheet the author follows — each one's name and
+ * idea, drawn in this face maker's own parts.
+ */
+const COLLECTION: Row[] = [
+  ['Fire Punch', 'angry', 'angry', 'grit', ['firePunch', 'fist']],
+  ['Shrug', 'wide', 'raised', 'frownSmall', ['shrug']],
+  ['Heavy Breathing', 'wide', 'angry', 'fewTeeth', ['foreheadSweat', 'nose']],
+  ['Checking You Out', 'smug', 'suspicious', 'smirk', ['point', 'fist']],
+  ['Trying Not To Laugh', 'squeeze', 'none', 'lips', ['blush']],
+  ['Hold Up', 'oneBig', 'angry', 'flat', ['shades', 'adjustShades']],
+  ['Thumbs Down', 'angry', 'angry', 'pout', ['thumbsDown']],
+  ['Rose in Teeth', 'smug', 'suspicious', 'troll', ['rose', 'floatHearts']],
+  ['Sneaky Grin', 'halfSide', 'calm', 'fewTeeth'],
+  ['Big Puppy Eyes', 'glossy', 'worried', 'wobble'],
+  ['Fading Away', 'round', 'worried', 'frownSmall', ['wave', 'motion', 'fadeAway']],
+  ['Cat Face', 'cat', 'calm', 'flat', ['catEars']],
+  ['Thousand-Yard Stare', 'bloodshot', 'worried', 'frownSmall', ['helmet']],
+  ['Mewing', 'halfSide', 'worried', 'lips', ['mewing']],
+  ['Troll Face', 'side', 'raised', 'troll'],
+  ['Desperate', 'tearful', 'worried', 'tallShout', ['palmsUp', 'tears']],
+  ['Ooh Face', 'halfSide', 'worried', 'ooh'],
+  ['Shy', 'wide', 'worried', 'frownSmall', ['shyHands']],
+  ['Party', 'oneBig', 'none', 'lips', ['partyBlower', 'partyHat', 'confetti', 'cheer']],
+  ['Salute', 'angry', 'angry', 'blank', ['salute']],
+  ['Not Impressed', 'tired', 'calm', 'pout'],
+  ['Batter Up', 'tearful', 'angry', 'smirk', ['bat', 'foreheadSweat']],
+  ['Double Thumbs Up', 'joy', 'raised', 'blank', ['doubleThumbs']],
+  ['Suspicious Eye', 'oneBig', 'angry', 'frownSmall'],
+  ['OK Sign', 'winkSide', 'worried', 'pout', ['okSign']],
+  ['Thumbs Up', 'tired', 'calm', 'blank', ['thumbsUp']],
+  ['Pointing And Laughing In Tears', 'squeeze', 'raised', 'openTeeth', ['pointLaugh', 'tears']],
+  ['Thinking Face', 'round', 'suspicious', 'frownSmall', ['think']],
+  ['In Shock', 'wide', 'raised', 'longO'],
+  ['Happy and Cheering', 'joy', 'angry', 'openTeeth', ['cheer']],
+  ['Innocent and Pretty', 'lashes', 'none', 'smile', ['blush']],
+  ['Cookie Muncher', 'round', 'none', 'puff', ['cookie']],
+  ['Snickering', 'halfSide', 'worried', 'puff', ['coverMouth']],
+  ['Bawling', 'squeeze', 'worried', 'tallShout', ['waterfall', 'bawlFists']],
+  ['Head Over Heels', 'hearts', 'raised', 'tongueOut', ['floatHearts']],
+  ['Nervous Sweat', 'sad', 'worried', 'grimace', ['foreheadSweat']],
+  ['Wearing Shades', 'round', 'none', 'lips', ['aviators', 'goatee']],
+  ['Roaring Angry Beast', 'angry', 'angry', 'fangs'],
+  ['Making an Argument', 'angry', 'angry', 'tallShout', ['palmsUp']],
+  ['Shock', 'crazy', 'raised', 'longO'],
+  ['Love from the Heart', 'joy', 'raised', 'blank', ['holdHeart']],
+  ['Sad', 'sad', 'worried', 'pout'],
+  ['Sexy Biting Lip', 'closed', 'none', 'bite'],
+  ['Sad and Silently Crying', 'tearful', 'worried', 'pout', ['tears']],
+  ['Confused', 'wide', 'raised', 'frownSmall', ['palmsUp']],
+  ['Oops', 'wide', 'raised', 'flat', ['bothMouth']],
+  ['Awkward Laugh', 'sad', 'worried', 'openTeeth'],
+  ['Nerd', 'glossy', 'none', 'smile', ['nerdGlasses']],
+  ['Smiling Face with Sunglasses', 'round', 'raised', 'troll', ['aviators']],
+  ['Offering a Rose', 'closed', 'calm', 'blank', ['offerRose']],
+  ['In Love', 'hearts', 'raised', 'drool'],
+  ['Kiss', 'closed', 'calm', 'lips', ['floatHearts']],
+  ['Impressed with Stars In Eyes', 'stars', 'none', 'openTeeth'],
+  ['Blank Smile', 'wide', 'raised', 'blank'],
+  ['Tearing Up', 'tearful', 'worried', 'pout'],
+  ["Can't Look and Too Scared", 'round', 'worried', 'grimace', ['coverEyes']],
+  ['Pleading Eyes', 'glossy', 'worried', 'pout'],
+  ['Red Lips Kiss', 'closed', 'worried', 'redLips'],
+  ['Evil Smirk', 'angry', 'angry', 'smirk'],
+  ['Please', 'rolling', 'raised', 'flat', ['pray']],
+]
+
+/* More faces, made before the collection; any sharing a collection name gives way to it. */
+const MORE: Row[] = [
   ['Grinning', 'round', 'calm', 'grin'],
   ['Big Laugh', 'happy', 'raised', 'laugh'],
   ['Tears of Joy', 'squint', 'raised', 'laugh', ['tears']],
@@ -129,11 +197,17 @@ const ROWS: Row[] = [
   ['Out of It', 'spiral', 'worried', 'tongue'],
 ]
 
+const taken = new Set(COLLECTION.map(([name]) => name.toLowerCase()))
+const ROWS: Row[] = [...COLLECTION, ...MORE.filter(([name]) => !taken.has(name.toLowerCase()))]
+
 const slug = (name: string) =>
   name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
+
+/** How many of `FACE_PRESETS` are the collection, which comes first. */
+export const COLLECTION_SIZE = COLLECTION.length
 
 export const FACE_PRESETS: FacePreset[] = ROWS.map(([name, eyes, brows, mouth, extras = []]) => ({
   id: slug(name),

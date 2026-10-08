@@ -304,6 +304,79 @@ export const EYES = {
         )
         .join(''),
   },
+  glossy: {
+    name: 'Glossy',
+    draw: (c: Ctx) =>
+      pair(c, { cx: 43, cy: 52, rx: 12.5, ry: 14, iris: 0.86, look: [0, 1] }) +
+      [43, 77].map((x) => `<circle cx="${x - 3.5}" cy="47.5" r="3.6" fill="#ffffff" opacity="0.95"/><circle cx="${x + 3.6}" cy="56.5" r="1.6" fill="#ffffff" opacity="0.85"/>`).join(''),
+  },
+  lashes: {
+    name: 'Lashes',
+    draw: (c: Ctx) =>
+      pair(c, { cx: 43, cy: 52, rx: 12, ry: 13.5, iris: 0.78, look: [0.5, 1.5] }) +
+      [
+        [43, 1],
+        [77, -1],
+      ]
+        .map(([x, side]) =>
+          [0, 1, 2, 3, 4]
+            .map((k) => {
+              const a = (-150 + k * 22) * (Math.PI / 180)
+              const bx = x + Math.cos(a) * 12.5 * (side as number)
+              const by = 52 + Math.sin(a) * 14
+              const tx = x + Math.cos(a) * 18 * (side as number)
+              const ty = 52 + Math.sin(a) * 19.5
+              return `<path d="M${bx.toFixed(1)} ${by.toFixed(1)} Q${((bx + tx) / 2).toFixed(1)} ${(ty - 1).toFixed(1)} ${tx.toFixed(1)} ${ty.toFixed(1)}" stroke="#141822" stroke-width="1.5" fill="none" stroke-linecap="round"/>`
+            })
+            .join(''),
+        )
+        .join('') +
+      [43, 77].map((x) => `<circle cx="${x - 3}" cy="48" r="3" fill="#ffffff" opacity="0.95"/>`).join(''),
+  },
+  bloodshot: {
+    name: 'Bloodshot',
+    draw: (c: Ctx) =>
+      [43, 77].map((x) => `<ellipse cx="${x}" cy="53" rx="13.5" ry="12.5" fill="#e8708a" opacity="0.55" filter="url(#soft)"/>`).join('') +
+      pair(c, { ...ROUND, rx: 11.5, ry: 11, look: [0, 0.5], iris: 0.5, lid: 'heavy' }) +
+      [43, 77].map((x) => `<path d="M${x - 10} 59 Q${x} 66 ${x + 10} 59" fill="none" stroke="#d3415e" stroke-width="1.6" stroke-linecap="round" opacity="0.8"/>`).join(''),
+  },
+  oneBig: {
+    name: 'One big',
+    draw: (c: Ctx) =>
+      eye(c, { cx: 40, cy: 55, rx: 9.5, ry: 7.5, look: [2, 0.5], lid: 'angry' }, 1, 'l') +
+      `<ellipse cx="77" cy="50" rx="17" ry="18" fill="#e8708a" opacity="0.4" filter="url(#soft)"/>` +
+      eye(c, { cx: 77, cy: 50, rx: 15.5, ry: 16.5, iris: 0.48, look: [-2, 1] }, -1, 'r'),
+  },
+  cat: {
+    name: 'Cat',
+    draw: (c: Ctx) =>
+      pair(c, { cx: 43, cy: 55, rx: 12.5, ry: 12, iris: 0.84, look: [1, 1], lid: 'half' }) +
+      [43, 77].map((x) => `<path d="M${x - 5} 55 L${x + 5} 62 M${x + 5} 55 L${x - 5} 62" stroke="#ffffff" stroke-width="1" opacity="0.35"/>`).join(''),
+  },
+  squeeze: {
+    name: 'Squeezed',
+    draw: (c: Ctx) =>
+      ridge(c, 'M32 49 Q42 57 53 52', 3.8) +
+      ridge(c, 'M88 49 Q78 57 67 52', 3.8) +
+      ridge(c, 'M34 44 Q40 47 46 46 M86 44 Q80 47 74 46 M54 46 Q57 44 60 45 Q63 44 66 46', 1.6),
+  },
+  tearful: {
+    name: 'Teary',
+    draw: (c: Ctx) =>
+      pair(c, { ...ROUND, look: [0, 2.5], lid: 'sad', iris: 0.66 }) +
+      [43, 77]
+        .map(
+          (x) =>
+            `<path d="M${x - 9.5} 57 Q${x} 67 ${x + 9.5} 57" fill="none" stroke="#bfe8ff" stroke-width="3.2" stroke-linecap="round" opacity="0.95"/>` +
+            `<circle cx="${x + 4}" cy="60.5" r="1.4" fill="#ffffff"/>`,
+        )
+        .join(''),
+  },
+  winkSide: {
+    name: 'Squint and look',
+    draw: (c: Ctx) => ridge(c, 'M33 54 Q43 49 53 55', 4.2) + eye(c, { ...ROUND, cx: 77, lid: 'half', look: [-3.5, 1] }, -1, 'r'),
+  },
+  halfSide: { name: 'Half, aside', draw: (c: Ctx) => pair(c, { ...ROUND, rx: 11.5, ry: 10.5, look: [4, 2.5], lid: 'heavy' }) },
   stars: { name: 'Stars', draw: () => star(44, 51, 13) + star(76, 51, 13) },
   hearts: { name: 'Hearts', draw: () => heart(44, 52, 10) + heart(76, 52, 10) },
   dizzy: {
@@ -338,14 +411,47 @@ function cavity(c: Ctx, d: string, inside: string, key: string): string {
   )
 }
 
-const teethRow = (y: number, h: number, x1 = 30, x2 = 90, gaps: number[] = []) =>
-  `<rect x="${x1}" y="${y}" width="${x2 - x1}" height="${h}" fill="url(#teeth)"/>` +
-  gaps.map((x) => `<path d="M${x} ${y} V${y + h}" stroke="#b9c3d1" stroke-width="1.1"/>`).join('')
+/**
+ * A row of teeth: each tooth its own rounded block, between the given gaps, so the row reads as
+ * teeth rather than as a white bar with lines on it.
+ */
+const teethRow = (y: number, h: number, x1 = 30, x2 = 90, gaps: number[] = []) => {
+  const edges = [x1, ...gaps, x2]
+  return edges
+    .slice(1)
+    .map((x, i) => {
+      const from = edges[i] + 0.45
+      const width = x - edges[i] - 0.9
+      return `<rect x="${from.toFixed(2)}" y="${y}" width="${width.toFixed(2)}" height="${h}" rx="${Math.min(2.6, width / 2.4).toFixed(2)}" fill="url(#teeth)" stroke="#c3ccd8" stroke-width="0.5"/>`
+    })
+    .join('')
+}
 
 const tongue = (cx: number, cy: number, rx: number, ry: number) =>
   `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="url(#tongue)"/>` +
   `<path d="M${cx} ${cy - ry * 0.6} V${cy + ry * 0.2}" stroke="#c43c63" stroke-width="1.2" stroke-linecap="round" opacity="0.7"/>` +
   `<ellipse cx="${cx - rx * 0.35}" cy="${cy - ry * 0.35}" rx="${rx * 0.22}" ry="${ry * 0.18}" fill="#ffffff" opacity="0.45"/>`
+
+
+/** Pursed lips, raised off the face, `scale` times their usual size, optionally open in an O. */
+function lips(c: Ctx, scale = 1, open = false, fill = 'url(#lips)', dy = 0): string {
+  const t = `translate(${60 - 60 * scale} ${80 * (1 - scale) + dy}) scale(${scale})`
+  return (
+    `<g transform="${t}">` +
+    `<path d="M48.5 79 C51 72.5 57 72.8 60 76 C63 72.8 69 72.5 71.5 79 C64 80.8 56 80.8 48.5 79 Z" fill="${fill}" stroke="${c.line}" stroke-width="0.9" ${RAISED}/>` +
+    `<path d="M49.5 80 C53 89.5 67 89.5 70.5 80 C64 81.8 56 81.8 49.5 80 Z" fill="${fill}" stroke="${c.line}" stroke-width="0.9" ${RAISED}/>` +
+    `<path d="M49 79.6 Q60 82.4 71 79.6" fill="none" stroke="${c.line}" stroke-width="1.5" stroke-linecap="round"/>` +
+    (open ? `<ellipse cx="60" cy="80.4" rx="3.6" ry="2.6" fill="url(#mouth)"/>` : '') +
+    `<ellipse cx="56" cy="84.6" rx="4" ry="1.4" fill="#ffffff" opacity="0.35"/>` +
+    `</g>`
+  )
+}
+
+/** An even row of tooth gaps from `x1` to `x2`, about `step` apart. */
+const gapsBetween = (x1: number, x2: number, step: number) => {
+  const n = Math.max(1, Math.round((x2 - x1) / step))
+  return Array.from({ length: n - 1 }, (_, i) => +(x1 + ((i + 1) * (x2 - x1)) / n).toFixed(2))
+}
 
 /** Records the corners of a smile, so the head pushes its cheeks up there. Draws nothing itself. */
 function cheeks(c: Ctx, ...corners: Array<[number, number]>): string {
@@ -475,6 +581,71 @@ cheeks(c, [42, 78], [78, 78]) +
     name: 'Wow',
     draw: (c: Ctx) => cavity(c, 'M60 68 C76 68 76 98 60 98 C44 98 44 68 60 68 Z', tongue(60, 98, 11, 7), 'wow'),
   },
+  lips: { name: 'Lips', draw: (c: Ctx) => lips(c) },
+  ooh: { name: 'Ooh', draw: (c: Ctx) => lips(c, 1.05, true) },
+  pout: { name: 'Pout', draw: (c: Ctx) => lips(c, 0.85, false, 'url(#lips)', 3) },
+  redLips: { name: 'Red lips', draw: (c: Ctx) => lips(c, 1.4, false, 'url(#redLip)') },
+  blank: { name: 'Blank smile', draw: (c: Ctx) => cheeks(c, [31, 78], [89, 78]) + ridge(c, 'M31 78 Q60 90 89 78', 3.6) },
+  wobble: { name: 'Wobbly', draw: (c: Ctx) => ridge(c, 'M40 80 Q46 91 52 83 Q56 78 60 82 Q64 78 68 83 Q74 91 80 80', 4.4) },
+  frownSmall: { name: 'Small frown', draw: (c: Ctx) => ridge(c, 'M50 87 Q60 80 70 87', 3.6) },
+  fewTeeth: {
+    name: 'Few teeth',
+    draw: (c: Ctx) =>
+      cheeks(c, [38, 78], [82, 78]) +
+      cavity(c, 'M38 78 Q60 85 82 78 Q78 92 60 93 Q42 92 38 78 Z', teethRow(77.5, 9, 45, 75, [51, 57, 63, 69]), 'few'),
+  },
+  troll: {
+    name: 'Troll grin',
+    draw: (c: Ctx) =>
+      cheeks(c, [22, 64], [98, 64]) +
+      cavity(
+        c,
+        'M22 64 Q60 77 98 64 Q95 99 60 102 Q25 99 22 64 Z',
+        teethRow(63, 14, 18, 102, gapsBetween(18, 102, 8)) + teethRow(86, 14, 22, 98, gapsBetween(22, 98, 8.5)),
+        'troll',
+      ),
+  },
+  openTeeth: {
+    name: 'Open grin',
+    draw: (c: Ctx) =>
+      cheeks(c, [28, 66], [92, 66]) +
+      cavity(c, 'M28 66 Q60 73 92 66 Q88 105 60 107 Q32 105 28 66 Z', teethRow(64, 11, 24, 96, gapsBetween(24, 96, 8.5)), 'open'),
+  },
+  tallShout: {
+    name: 'Tall shout',
+    draw: (c: Ctx) =>
+      cavity(
+        c,
+        'M40 67 Q60 62 80 67 Q86 90 80 104 Q60 110 40 104 Q34 90 40 67 Z',
+        teethRow(63, 9.5, 36, 84, gapsBetween(36, 84, 7)) + teethRow(97, 10, 36, 84, gapsBetween(36, 84, 7)),
+        'tall',
+      ),
+  },
+  longO: {
+    name: 'Long O',
+    draw: (c: Ctx) =>
+      cavity(c, 'M60 66 C73 66 75 100 60 103 C45 100 47 66 60 66 Z', teethRow(94, 9, 48, 72, [54, 60, 66]), 'longo'),
+  },
+  fangs: {
+    name: 'Fangs',
+    draw: (c: Ctx) => {
+      const top = [32, 41, 50, 59, 68, 77, 86]
+        .map((x, i) => `<path d="M${x - 4.5} 64 L${x} ${i === 0 || i === 6 ? 84 : 74} L${x + 4.5} 64 Z" fill="url(#teeth)" stroke="#c3ccd8" stroke-width="0.5"/>`)
+        .join('')
+      const bottom = [38, 48, 58, 68, 78]
+        .map((x, i) => `<path d="M${x - 4.5} 106 L${x} ${i === 0 || i === 4 ? 88 : 96} L${x + 4.5} 106 Z" fill="url(#teeth)" stroke="#c3ccd8" stroke-width="0.5"/>`)
+        .join('')
+      return cavity(c, 'M26 66 Q60 58 94 66 Q92 104 60 107 Q28 104 26 66 Z', top + bottom + tongue(52, 98, 12, 6), 'fangs')
+    },
+  },
+  tongueOut: {
+    name: 'Tongue out',
+    draw: (c: Ctx) =>
+      cheeks(c, [30, 68], [90, 68]) +
+      cavity(c, 'M30 68 Q60 74 90 68 Q86 100 60 102 Q34 100 30 68 Z', teethRow(66, 10, 26, 94, gapsBetween(26, 94, 8.5)), 'tongueout') +
+      `<path d="M50 96 L50 116 Q60 128 70 116 L70 96 Z" fill="url(#tongue)" stroke="#a52a52" stroke-width="1" ${RAISED}/>` +
+      `<path d="M60 99 V114" stroke="#c43c63" stroke-width="1.2" stroke-linecap="round"/>`,
+  },
   grit: {
     name: 'Gritted',
     draw: (c: Ctx) =>
@@ -502,132 +673,124 @@ cheeks(c, [42, 78], [78, 78]) +
  * Every pose is drawn at the origin with the wrist at (0, 0) and the hand reaching up (−y), about
  * 32 units across, then placed beside the face by its extra.
  */
-const GLOVE_FILL = '#f7f9fc'
-const SEAM = 'fill="none" stroke="#a3afc2" stroke-width="1.15" stroke-linecap="round"'
-const SEAM_SOFT = 'fill="none" stroke="#b8c2d2" stroke-width="0.9" stroke-linecap="round"'
+const GLOVE_FILL = '#f9fbfe'
+const SEAM = 'fill="none" stroke="#bcc5d3" stroke-width="0.7" stroke-linecap="round"'
+const SEAM_SOFT = 'fill="none" stroke="#d0d7e1" stroke-width="0.6" stroke-linecap="round"'
 
 /** One piece of glove, outlined and shaded as a whole. */
 const piece = (inner: string) => `<g filter="url(#gloveFx)" fill="${GLOVE_FILL}">${inner}</g>`
 
-/** A finger: tapered from its base to a round tip, `len` long, reaching along `angle` degrees from straight up. */
-function finger(x: number, y: number, len: number, width: number, angle: number): string {
-  // Cartoon gloves have fat fingers: every finger is drawn a little wider than it is placed.
-  const w = width * 1.22
-  const tip = w * 0.48
+/** A finger: slightly tapered from its base to a round tip, `len` long, reaching along `angle` degrees from straight up. */
+function finger(x: number, y: number, len: number, w: number, angle: number): string {
+  const tip = w * 0.44
+  const r = w / 2
   return (
     `<path transform="translate(${x} ${y}) rotate(${angle})" ` +
-    `d="M${-w / 2} 4 L${-tip} ${-len + tip} A${tip} ${tip} 0 0 1 ${tip} ${-len + tip} L${w / 2} 4 Z"/>`
+    `d="M${-r} 5 C${-r} ${-len * 0.35} ${-tip * 1.08} ${-len * 0.72} ${-tip} ${-len + tip} A${tip} ${tip} 0 0 1 ${tip} ${-len + tip} C${tip * 1.08} ${-len * 0.72} ${r} ${-len * 0.35} ${r} 5 Z"/>`
   )
 }
 
-/** The fold across a finger's middle knuckle. */
-function knuckleCrease(x: number, y: number, len: number, width: number, angle: number, at = 0.55): string {
-  const w = width * 1.22
+/** The faint fold across a finger's middle knuckle. */
+function knuckleCrease(x: number, y: number, len: number, w: number, angle: number, at = 0.5): string {
   const yy = -len * at
-  return `<path transform="translate(${x} ${y}) rotate(${angle})" d="M${-w * 0.3} ${yy + 1} Q0 ${yy - 1.2} ${w * 0.3} ${yy + 1}" ${SEAM_SOFT}/>`
+  return `<path transform="translate(${x} ${y}) rotate(${angle})" d="M${-w * 0.22} ${yy + 0.5} Q0 ${yy - 0.5} ${w * 0.22} ${yy + 0.5}" ${SEAM_SOFT}/>`
 }
 
-/** The rolled cuff at the wrist, in front of the hand. */
-const cuff = (w = 30) =>
-  piece(`<rect x="${-w / 2}" y="-5" width="${w}" height="11" rx="4.5"/>`) +
-  `<path d="M${-w / 2 + 2.5} -0.5 Q0 1.5 ${w / 2 - 2.5} -0.5" ${SEAM}/>` +
-  `<path d="M${-w / 2 + 4} 3 Q0 4.6 ${w / 2 - 4} 3" ${SEAM_SOFT}/>`
+/** A slim rolled cuff at the wrist, in front of the hand. */
+const cuff = (w = 15) =>
+  piece(`<path d="M${-w / 2} -1.6 Q0 -3.2 ${w / 2} -1.6 L${w / 2 + 0.4} 3 Q0 4.6 ${-w / 2 - 0.4} 3 Z" stroke-linejoin="round"/>`)
 
-/** The three stitched lines on the back of a glove. */
-const stitches = (y: number, spread = 5.2, len = 9) =>
-  [-1, 0, 1].map((k) => `<path d="M${k * spread} ${y} q${k * 0.8} ${-len * 0.5} ${k * 0.4} ${-len}" ${SEAM_SOFT}/>`).join('')
+/** An extended finger: base x, length, width, angle. */
+type Out = { x: number; len: number; w: number; angle: number }
+/** A finger curled into the palm, seen as a knuckle roll along its top. */
+type Curl = { x: number; w: number; curl: true }
 
-/* An open hand, palm out, fingers spread. */
-const OPEN_FINGERS: Array<[number, number, number, number, number]> = [
-  // x, y, length, width, angle
-  [-11.6, -26.5, 18, 8, -18],
-  [-4, -29, 22, 8.4, -6],
-  [4, -29, 21, 8.4, 6],
-  [11.4, -26, 15.5, 7.4, 19],
-]
-/** Where neighbouring fingers lie against each other, between their bases: x, y, angle. */
-const OPEN_SEAMS: Array<[number, number, number]> = [
-  [-7.9, -28.5, -12],
-  [0, -30, 0],
-  [7.8, -28.5, 12.5],
-]
-const OPEN =
-  piece(
-    OPEN_FINGERS.map(([x, y, l, w, a]) => finger(x, y, l, w, a)).join('') +
-      `<path d="M-15 -4 C-17 -14 -16.5 -26 -13 -31 Q0 -34 13 -31 C16.5 -26 17 -14 15 -4 Z"/>` +
-      finger(-14, -12, 16, 9.4, -60),
-  ) +
-  OPEN_FINGERS.map(([x, y, l, w, a]) => knuckleCrease(x, y, l, w, a)).join('') +
-  OPEN_SEAMS.map(([x, y, a]) => `<path transform="translate(${x} ${y}) rotate(${a})" d="M0 1 Q0.6 -6 0 -12" ${SEAM}/>`).join('') +
-  `<path d="M-8 -17 Q-1 -13 7 -19" ${SEAM}/>` +
-  `<path d="M-6 -11 Q0 -8.5 6 -12" ${SEAM_SOFT}/>` +
-  `<path d="M-11.5 -9 Q-8 -14 -9.5 -21" ${SEAM_SOFT}/>` +
-  cuff(29)
+interface HandSpec {
+  /** Index to little finger. */
+  fingers: Array<Out | Curl>
+  /** Out to the side at an angle, folded across the front of a fist, or tucked away. */
+  thumb: { angle: number; len: number } | 'fold' | 'none'
+  /** A ring made by the index finger meeting the thumb, for an OK sign. */
+  ring?: boolean
+}
 
-/*
- * A fist seen from the front: four curled fingers in a row along the top, their tips tucked in
- * along a crease below, and the thumb folded across in front.
+const PALM_W = 17
+/** Where the fingers leave the palm. */
+const KNUCKLES = -15
+const palmPath = () =>
+  `<path d="M-6.4 0 C-8.6 -3 -9 -9 -8.6 -13 Q-8 -17 0 -17 Q8 -17 8.4 -13 C8.8 -9 8.4 -3 6.4 0 Z"/>`
+
+/**
+ * A glove seen from the front, from a description of its fingers: each one out (with a length and
+ * an angle) or curled into the palm, and where the thumb is. Every pose is one of these, so every
+ * hand is drawn by the same rules: one silhouette and one outline, a hairline where fingers lie
+ * together, a faint fold at each knuckle and a slim cuff.
  */
-const FIST_KNUCKLES = [-11.4, -3.8, 3.8, 11.4]
-const fistBody = (skipFirst = false) =>
-  piece(
-    `<path d="M-16 -4 C-18.5 -14 -18 -24 -15 -28 Q0 -31 15 -28 C18 -24 18.5 -14 16 -4 Z"/>` +
-      FIST_KNUCKLES.filter((_, i) => !(skipFirst && i === 0))
-        .map((x) => `<rect x="${x - 4.9}" y="-36.5" width="9.8" height="17" rx="4.9"/>`)
-        .join(''),
-  ) +
-  FIST_KNUCKLES.slice(1)
-    .map((x) => `<path d="M${x - 3.8} -34 Q${x - 4.4} -28 ${x - 3.8} -21" ${SEAM}/>`)
-    .join('') +
-  `<path d="M${skipFirst ? -7.6 : -15} -24 Q0 -21.5 15 -24" ${SEAM_SOFT}/>`
+function hand(spec: HandSpec): string {
+  const out = spec.fingers.filter((f): f is Out => !('curl' in f))
+  const curled = spec.fingers.filter((f): f is Curl => 'curl' in f)
+  const thumbOut = typeof spec.thumb === 'object' ? spec.thumb : null
+  let svg = piece(
+    out.map((f) => finger(f.x, KNUCKLES, f.len, f.w, f.angle)).join('') +
+      palmPath() +
+      curled.map((f) => `<rect x="${f.x - f.w / 2}" y="${KNUCKLES - 6.5}" width="${f.w}" height="10" rx="${f.w / 2}"/>`).join('') +
+      (thumbOut ? finger(-PALM_W / 2 + 2.6, -4.5, thumbOut.len, 5, thumbOut.angle) : '') +
+      (spec.ring ? `<path fill-rule="evenodd" d="M-12.6 ${KNUCKLES - 6} a4.9 4.9 0 1 0 9.8 0 a4.9 4.9 0 1 0 -9.8 0 Z M-10 ${KNUCKLES - 6} a2.3 2.3 0 1 0 4.6 0 a2.3 2.3 0 1 0 -4.6 0 Z"/>` : ''),
+  )
+  svg += out.map((f) => knuckleCrease(f.x, KNUCKLES, f.len, f.w, f.angle)).join('')
+  // Where neighbouring extended fingers lie together.
+  for (let i = 1; i < out.length; i++) {
+    const a = out[i - 1]
+    const b = out[i]
+    if (Math.abs(b.angle - a.angle) > 9) continue
+    const x = (a.x + b.x) / 2
+    const angle = (a.angle + b.angle) / 2
+    svg += `<path transform="translate(${x} ${KNUCKLES}) rotate(${angle})" d="M0 2 Q0.3 -3 0 -${Math.min(a.len, b.len) * 0.55}" ${SEAM}/>`
+  }
+  // The gaps between knuckle rolls.
+  for (let i = 1; i < curled.length; i++) {
+    const x = (curled[i - 1].x + curled[i].x) / 2
+    svg += `<path d="M${x} ${KNUCKLES - 5.5} Q${x - 0.3} ${KNUCKLES - 2} ${x} ${KNUCKLES + 1.5}" ${SEAM}/>`
+  }
+  if (spec.thumb === 'fold') {
+    svg += piece(`<path d="M-10.6 -6.6 C-11.4 -9.6 -9.4 -12 -6 -12 L2.6 -11.8 C5.4 -11.8 6 -6.6 2.6 -6.3 L-7.6 -5.4 C-9.6 -5.4 -10.3 -5.8 -10.6 -6.6 Z"/>`)
+  }
+  return svg + cuff()
+}
 
-const foldedThumb = (y: number) =>
-  piece(`<path d="M-18 ${y + 4} C-19 ${y - 1} -15 ${y - 4.5} -9 ${y - 4.5} L4 ${y - 4} C8 ${y - 4} 9 ${y + 4} 4 ${y + 4.5} L-12 ${y + 6} C-15.5 ${y + 6} -17.5 ${y + 5.5} -18 ${y + 4} Z"/>`) +
-  `<path d="M-6 ${y - 3.5} Q-5 ${y} -6 ${y + 4.5}" ${SEAM_SOFT}/>`
+const F = {
+  index: { x: -5.9, w: 4.5 },
+  middle: { x: -1.9, w: 4.7 },
+  ring: { x: 2.1, w: 4.5 },
+  pinky: { x: 5.9, w: 3.9 },
+}
+const out = (f: { x: number; w: number }, len: number, angle: number, dx = 0): Out => ({ x: f.x + dx, w: f.w, len, angle })
+const curl = (f: { x: number; w: number }): Curl => ({ x: f.x, w: f.w + 0.3, curl: true })
 
-const FIST = fistBody() + foldedThumb(-14) + stitches(-9, 4.6, 6) + cuff(30)
-
-/* A fist from the side, the thumb up and the curled fingers stacked down its front. */
+/* A fist from the side with the thumb up, the curled fingers stacked down its front. */
 const THUMB =
   piece(
-    `<path d="M-12 -4 C-15 -12 -15 -22 -11 -27 Q0 -30 9 -27 C13 -22 13 -12 12 -4 Z"/>` +
-      [-27, -20.5, -14, -7.5].map((y, i) => `<rect x="2" y="${y}" width="${17 - i * 0.8}" height="7.6" rx="3.8"/>`).join('') +
-      finger(-4.5, -24, 18, 10.4, -8),
+    `<path d="M-7.6 -1 C-9.6 -7 -9.6 -15 -6.6 -18.5 Q0 -20.5 6 -18.5 C8.6 -15 8.6 -7 7.6 -1 Z"/>` +
+      [-18.6, -14.2, -9.8, -5.4].map((y, i) => `<rect x="1" y="${y}" width="${11.6 - i * 0.6}" height="5.2" rx="2.6"/>`).join('') +
+      finger(-3.2, -16, 15, 5.8, -6),
   ) +
-  [-20.5, -14, -7.5].map((y) => `<path d="M4 ${y + 0.2} Q11 ${y - 1} ${17.5} ${y + 0.6}" ${SEAM}/>`).join('') +
-  knuckleCrease(-4.5, -24, 18, 10.4, -8, 0.5) +
-  `<path d="M-1.2 -22 Q1.4 -14 0.5 -6" ${SEAM}/>` +
-  stitches(-8, 3.8, 7) +
-  cuff(27)
+  [-14.2, -9.8, -5.4].map((y) => `<path d="M3 ${y + 0.2} Q7.6 ${y - 0.5} 11.4 ${y + 0.3}" ${SEAM}/>`).join('') +
+  knuckleCrease(-3.2, -16, 15, 5.8, -6, 0.48) +
+  cuff(15)
 
-/* A fist with the index finger out. */
-const POINT =
-  piece(finger(-11.4, -28, 22, 8.2, -5)) +
-  knuckleCrease(-11.4, -28, 22, 8.2, -5) +
-  fistBody(true) +
-  `<path d="M-7.6 -34 Q-8.2 -28 -7.6 -21" ${SEAM}/>` +
-  foldedThumb(-14) +
-  stitches(-9, 4.6, 6) +
-  cuff(30)
+const HAND = {
+  /** Palm out, fingers spread. */
+  open: hand({ fingers: [out(F.index, 17, -14, -0.4), out(F.middle, 19.5, -4.5), out(F.ring, 18.5, 5), out(F.pinky, 14.5, 15, 0.4)], thumb: { angle: -52, len: 13.5 } }),
+  /** Fingers together, the thumb alongside: praying, covering, saluting. */
+  flat: hand({ fingers: [out(F.index, 17, -2), out(F.middle, 19, 0), out(F.ring, 18, 1.5), out(F.pinky, 14.5, 3)], thumb: { angle: -16, len: 12.5 } }),
+  fist: hand({ fingers: [curl(F.index), curl(F.middle), curl(F.ring), curl(F.pinky)], thumb: 'fold' }),
+  thumb: THUMB,
+  point: hand({ fingers: [out(F.index, 21, -3), curl(F.middle), curl(F.ring), curl(F.pinky)], thumb: 'fold' }),
+  peace: hand({ fingers: [out(F.index, 19, -12), out(F.middle, 20, 8), curl(F.ring), curl(F.pinky)], thumb: 'fold' }),
+  ok: hand({ fingers: [out(F.middle, 18.5, -3), out(F.ring, 17.5, 6), out(F.pinky, 14, 14)], thumb: 'none', ring: true }),
+} as const
 
-/* Two fingers up in a V, the other two curled under the thumb. */
-const PEACE =
-  piece(
-    finger(-6.2, -28, 21, 8.2, -13) +
-      finger(2.2, -29, 22, 8.2, 9) +
-      `<path d="M-15 -4 C-17.5 -14 -17 -24 -14 -28 Q0 -31 14 -28 C17 -24 17.5 -14 15 -4 Z"/>` +
-      `<rect x="5.5" y="-31" width="7.6" height="12" rx="3.8"/><rect x="11" y="-29" width="7" height="10.5" rx="3.5"/>`,
-  ) +
-  knuckleCrease(-6.2, -28, 21, 8.2, -13) +
-  knuckleCrease(2.2, -29, 22, 8.2, 9) +
-  `<path d="M-2 -27 Q-1.6 -22 -2.4 -18" ${SEAM}/>` +
-  `<path d="M11.2 -29 Q10.6 -25 11.2 -20" ${SEAM}/>` +
-  foldedThumb(-13) +
-  cuff(29)
-
-const HAND = { open: OPEN, fist: FIST, thumb: THUMB, point: POINT, peace: PEACE } as const
-
-const place = (hand: string, x: number, y: number, rotate: number, scale = 1.5, flip = false) =>
+const place = (hand: string, x: number, y: number, rotate: number, scale = 1.8, flip = false) =>
   `<g transform="translate(${x} ${y}) rotate(${rotate}) scale(${flip ? -scale : scale} ${scale})">${hand}</g>`
 
 export const EXTRAS = {
@@ -798,25 +961,165 @@ export const EXTRAS = {
       `</g>` +
       `<path d="M38 -18 L32 -22 M82 -18 L88 -22 M60 -34 V-40 M44 -30 L40 -35 M76 -30 L80 -35" stroke="#ffcf2e" stroke-width="2.4" stroke-linecap="round"/>`,
   },
+  helmet: {
+    name: 'Helmet',
+    draw: () =>
+      `<g ${RAISED}>` +
+      `<path d="M4 52 C2 -2 118 -2 116 52 Q60 40 4 52 Z" fill="url(#olive)" stroke="#2f3a1f" stroke-width="1.2"/>` +
+      `<path d="M2 50 Q60 37 118 50 L119 56 Q60 44 1 56 Z" fill="#4a5a2e" stroke="#2f3a1f" stroke-width="1"/>` +
+      `<path d="M6 46 Q60 34 114 46" stroke="#b56a5a" stroke-width="3" fill="none" opacity="0.8"/>` +
+      `</g>` +
+      [18, 30, 44, 70, 86, 98, 52, 64, 36, 80].map((x, i) => `<circle cx="${x}" cy="${12 + ((i * 7) % 22)}" r="${0.8 + (i % 3) * 0.5}" fill="#2a3318" opacity="0.6"/>`).join('') +
+      `<path d="M8 56 L6 92 M112 56 L114 92" stroke="#3a4528" stroke-width="2.2"/>`,
+  },
+  catEars: {
+    name: 'Cat ears',
+    draw: (c: Ctx) =>
+      `<path d="M14 40 L16 -6 L46 16 Z M106 40 L104 -6 L74 16 Z" fill="${c.skin}" stroke="${c.line}" stroke-width="1" ${RAISED}/>` +
+      `<path d="M58 66 L62 66 L60 69 Z" fill="#ff8fb0" stroke="#c4466d" stroke-width="1.2" stroke-linejoin="round"/>` +
+      `<path d="M60 69 V72 M60 72 Q55 76 51 73 M60 72 Q65 76 69 73" fill="none" stroke="${c.line}" stroke-width="1.6" stroke-linecap="round"/>` +
+      [-1, 1]
+        .map((d) => `<path d="M${60 + d * 16} 70 Q${60 + d * 40} 66 ${60 + d * 66} 62 M${60 + d * 16} 73 Q${60 + d * 40} 73 ${60 + d * 66} 74 M${60 + d * 16} 76 Q${60 + d * 40} 80 ${60 + d * 64} 86" fill="none" stroke="#e8edf5" stroke-width="0.8" stroke-linecap="round"/>`)
+        .join(''),
+  },
+  partyBlower: {
+    name: 'Party blower',
+    draw: () =>
+      `<g ${RAISED}>` +
+      `<path d="M62 79 L96 70 L98 76 L64 83 Z" fill="url(#candy)" stroke="#6b2a7a" stroke-width="0.8"/>` +
+      `<circle cx="103" cy="70" r="8" fill="none" stroke="#e05fc0" stroke-width="3.4"/><circle cx="103" cy="70" r="4" fill="none" stroke="#5fd0e0" stroke-width="2.4"/>` +
+      `</g>`,
+  },
+  confetti: {
+    name: 'Confetti',
+    draw: () =>
+      [
+        [6, 20, '#a855f7'], [18, 4, '#f59e0b'], [100, 6, '#ec4899'], [112, 26, '#22c55e'], [4, 70, '#3b82f6'],
+        [114, 90, '#ef4444'], [16, 108, '#ec4899'], [104, 112, '#a855f7'], [56, -6, '#06b6d4'], [84, -2, '#fb923c'],
+      ]
+        .map(([x, y, color], i) => `<rect x="${x}" y="${y}" width="5" height="3.2" rx="0.8" fill="${color}" transform="rotate(${i * 37} ${x} ${y})"/>`)
+        .join(''),
+  },
+  goatee: {
+    name: 'Goatee',
+    draw: () =>
+      `<path d="M48 90 Q60 102 72 90 Q70 106 60 108 Q50 106 48 90 Z" fill="#1d2433" opacity="0.55"/>` +
+      `<path d="M50 74 Q60 70 70 74" fill="none" stroke="#1d2433" stroke-width="1.6" opacity="0.5"/>`,
+  },
+  aviators: {
+    name: 'Aviators',
+    draw: () =>
+      `<g ${RAISED}>` +
+      `<path d="M24 44 Q40 40 55 45 Q56 62 42 66 Q26 64 24 44 Z M96 44 Q80 40 65 45 Q64 62 78 66 Q94 64 96 44 Z" fill="url(#lens)" stroke="#c9a227" stroke-width="1.6"/>` +
+      `<path d="M55 46 Q60 43 65 46 M24 44 L14 42 M96 44 L106 42" fill="none" stroke="#c9a227" stroke-width="1.8"/>` +
+      `</g>` +
+      `<path d="M30 48 L36 46 L28 58 Z M70 48 L76 46 L68 58 Z" fill="#ffffff" opacity="0.4"/>`,
+  },
+  nerdGlasses: {
+    name: 'Nerd glasses',
+    draw: () =>
+      `<g ${RAISED} fill="none" stroke="#14161c" stroke-width="4.2">` +
+      `<circle cx="43" cy="52" r="16.5"/><circle cx="77" cy="52" r="16.5"/><path d="M59.5 50 Q60 47 60.5 50 M26.5 50 L14 46 M93.5 50 L106 46"/></g>`,
+  },
+  waterfall: {
+    name: 'Waterfall tears',
+    draw: () =>
+      [-1, 1]
+        .map((d) => {
+          const x = 60 + d * 18
+          return (
+            `<path d="M${x} 46 C${x + d * 22} 30 ${x + d * 44} 40 ${x + d * 52} 70" fill="none" stroke="url(#water)" stroke-width="7" stroke-linecap="round" opacity="0.85"/>` +
+            [0, 1, 2, 3, 4].map((k) => `<circle cx="${x + d * (40 + k * 4)}" cy="${48 + k * 9}" r="${1.4 + (k % 2)}" fill="#9fdcff"/>`).join('')
+          )
+        })
+        .join(''),
+  },
+  foreheadSweat: {
+    name: 'Forehead sweat',
+    draw: () =>
+      [
+        [44, 22], [56, 18], [70, 21], [82, 27], [36, 30], [64, 28],
+      ]
+        .map(([x, y]) => `<path d="M${x} ${y - 3} Q${x - 2.2} ${y + 1} ${x} ${y + 2.4} Q${x + 2.2} ${y + 1} ${x} ${y - 3} Z" fill="#bfe8ff" stroke="#5aaee6" stroke-width="0.5"/>`)
+        .join(''),
+  },
+  fadeAway: {
+    name: 'Fading away',
+    draw: () =>
+      `<rect x="6" y="56" width="108" height="60" fill="url(#fade)"/>` +
+      [[24, 96], [36, 106], [52, 110], [70, 108], [86, 102], [98, 92], [44, 118], [78, 118], [60, 122]]
+        .map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="${1 + (i % 3) * 0.6}" fill="#c8d6ea"/>`)
+        .join(''),
+  },
+  motion: {
+    name: 'Motion lines',
+    draw: () => `<path d="M-4 66 Q-12 80 -6 96 M-12 62 Q-22 80 -14 100" fill="none" stroke="#c9d2df" stroke-width="2" stroke-linecap="round"/>`,
+  },
   thumbsUp: { name: 'Thumbs up', draw: () => place(HAND.thumb, 20, 112, -10) },
-  thumbsDown: { name: 'Thumbs down', draw: () => place(HAND.thumb, 100, 80, 170, 1.5, true) },
+  thumbsDown: { name: 'Thumbs down', draw: () => place(HAND.thumb, 100, 80, 170, 1.8, true) },
   point: { name: 'Pointing', draw: () => place(HAND.point, 16, 114, -28) },
   wave: { name: 'Waving', draw: () => place(HAND.open, 106, 84, 22) },
   fist: { name: 'Fist', draw: () => place(HAND.fist, 104, 118, 12) },
   peace: { name: 'Peace', draw: () => place(HAND.peace, 106, 88, 16) },
   shrug: {
     name: 'Shrug',
-    draw: () => place(HAND.open, 24, 98, -66) + place(HAND.open, 96, 98, 66, 1.5, true),
+    draw: () => place(HAND.open, 30, 106, -50, 1.4) + place(HAND.open, 90, 106, 50, 1.4, true),
   },
   // The flames are drawn behind the head — see `BEHIND_PARTS` — so only the fist sits over it.
-  firePunch: { name: 'Fire punch', draw: () => place(HAND.fist, 20, 108, -18, 1.75) },
-  facepalm: { name: 'Facepalm', draw: () => place(HAND.open, 44, 88, -16, 1.75) },
-  salute: { name: 'Salute', draw: () => place(HAND.open, 100, 46, 64, 1.35, true) },
-  think: { name: 'Thinking', draw: () => place(HAND.point, 66, 126, -14, 1.35) },
+  firePunch: { name: 'Fire punch', draw: () => place(HAND.fist, 24, 110, -18, 1.9) },
+  facepalm: { name: 'Facepalm', draw: () => place(HAND.open, 44, 90, -16, 2.05) },
+  salute: { name: 'Salute', draw: () => place(HAND.flat, 100, 46, 64, 1.6, true) },
+  think: { name: 'Thinking', draw: () => place(HAND.point, 66, 126, -14, 1.6) },
+  okSign: { name: 'OK sign', draw: () => place(HAND.ok, 18, 110, -24, 1.7) },
+  doubleThumbs: { name: 'Double thumbs up', draw: () => place(HAND.thumb, 16, 120, -6, 1.8) + place(HAND.thumb, 104, 120, 6, 1.8, true) },
+  cheer: { name: 'Cheering fists', draw: () => place(HAND.fist, 10, 40, -16, 1.4) + place(HAND.fist, 110, 40, 16, 1.4, true) },
+  coverEyes: { name: 'Covering eyes', draw: () => place(HAND.flat, 30, 92, 38, 1.75) + place(HAND.flat, 90, 92, -38, 1.75, true) },
+  coverMouth: { name: 'Hand on mouth', draw: () => place(HAND.flat, 92, 92, -84, 1.65, true) },
+  bothMouth: { name: 'Hands on mouth', draw: () => place(HAND.flat, 50, 120, -34, 1.55) + place(HAND.flat, 70, 120, 34, 1.55, true) },
+  pray: { name: 'Praying hands', draw: () => place(HAND.flat, 55.5, 128, 3, 1.6) + place(HAND.flat, 64.5, 128, -3, 1.6, true) },
+  shyHands: { name: 'Shy fingers', draw: () => place(HAND.point, 28, 126, 44, 1.4) + place(HAND.point, 52, 128, -44, 1.4, true) },
+  palmsUp: { name: 'Palms up', draw: () => place(HAND.open, 30, 114, -56, 1.35) + place(HAND.open, 90, 114, 56, 1.35, true) },
+  holdHeart: {
+    name: 'Holding a heart',
+    draw: () => place(HAND.open, 42, 124, -62, 1.45) + place(HAND.open, 78, 124, 62, 1.45, true) + heart(60, 98, 16),
+  },
+  offerRose: {
+    name: 'Offering a rose',
+    draw: () =>
+      place(HAND.open, 42, 126, -62, 1.45) +
+      place(HAND.open, 78, 126, 62, 1.45, true) +
+      `<g ${RAISED}><path d="M48 108 Q56 96 64 104 Q58 112 48 108 Z M74 102 Q82 96 86 104 Q78 108 74 102 Z" fill="#43a843" stroke="#1f6a1f" stroke-width="0.8"/>` +
+      `<circle cx="60" cy="98" r="14" fill="#d61f36" stroke="#7a0a18" stroke-width="1"/>` +
+      `<path d="M50 94 Q60 82 70 94 Q64 98 60 108 Q56 98 50 94 Z" fill="#ff4d63" stroke="#7a0a18" stroke-width="0.8"/>` +
+      `<path d="M55 98 Q60 90 65 98 Q60 102 55 98 Z" fill="#a8122a"/></g>`,
+  },
+  pointLaugh: { name: 'Pointing and wiping', draw: () => place(HAND.point, 34, 128, -18, 1.6) + place(HAND.fist, 102, 62, 28, 1.3, true) },
+  mewing: { name: 'Finger at chin', draw: () => place(HAND.point, 96, 122, 22, 1.45, true) },
+  cookie: {
+    name: 'Cookie',
+    draw: () =>
+      `<g ${RAISED}><circle cx="78" cy="86" r="12" fill="url(#cookie)" stroke="#8a5a1a" stroke-width="1"/></g>` +
+      [[74, 82], [81, 88], [76, 92], [83, 81]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.6" fill="#4a2a10"/>`).join('') +
+      [[66, 96], [70, 100], [62, 103], [74, 106]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1" fill="#c48a3a"/>`).join('') +
+      place(HAND.flat, 100, 108, -46, 1.45, true),
+  },
+  bat: {
+    name: 'Baseball bat',
+    draw: () =>
+      `<g ${RAISED}><path d="M4 2 C10 -4 18 0 18 6 L30 112 C30 116 24 117 22 113 Z" fill="url(#wood)" stroke="#6b3d14" stroke-width="1"/>` +
+      `<ellipse cx="26" cy="116" rx="6" ry="3" fill="#8a5220" stroke="#6b3d14" stroke-width="1"/></g>` +
+      place(HAND.fist, 26, 112, -8, 1.45),
+  },
+  bawlFists: { name: 'Fists down', draw: () => place(HAND.fist, 12, 126, -14, 1.45) + place(HAND.fist, 108, 126, 14, 1.45, true) },
+  adjustShades: { name: 'Hand on shades', draw: () => place(HAND.point, 104, 78, 26, 1.35, true) },
 } as const satisfies Record<string, { name: string; draw: (c: Ctx) => string }>
 
 /** The extras that are hands, listed apart from the rest in the panel. */
-export const HAND_EXTRAS: ExtraId[] = ['thumbsUp', 'thumbsDown', 'point', 'wave', 'fist', 'peace', 'shrug', 'firePunch', 'facepalm', 'salute', 'think']
+export const HAND_EXTRAS: ExtraId[] = [
+  'thumbsUp', 'thumbsDown', 'doubleThumbs', 'point', 'pointLaugh', 'wave', 'fist', 'cheer', 'bawlFists', 'peace', 'okSign', 'shrug', 'palmsUp',
+  'firePunch', 'facepalm', 'salute', 'think', 'mewing', 'coverEyes', 'coverMouth', 'bothMouth', 'pray', 'shyHands', 'holdHeart', 'offerRose',
+  'cookie', 'bat', 'adjustShades',
+]
 
 export type EyeId = keyof typeof EYES
 export type BrowId = keyof typeof BROWS
@@ -851,7 +1154,7 @@ function flame(x: number, y: number, size: number, angle: number): string {
 /** Parts of an extra that are drawn behind the head, while the extra itself is drawn over it. */
 const BEHIND_PARTS: Partial<Record<ExtraId, () => string>> = {
   // Flames streaming back from the punch, behind the head and round the fist.
-  firePunch: () => flame(6, 114, 2.7, -60) + flame(-4, 96, 2, -78) + flame(18, 124, 1.7, -38),
+  firePunch: () => flame(12, 114, 2.3, -60) + flame(4, 98, 1.7, -78) + flame(22, 124, 1.5, -38),
 }
 
 /** The face as standalone SVG markup. */
@@ -926,11 +1229,19 @@ export function faceSvg(options: FaceOptions): string {
     `<linearGradient id="brow" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${dark ? shade(base, 0.4) : shade(base, -0.18, 1.05)}"/><stop offset="1" stop-color="${c.brow}"/></linearGradient>` +
     `<linearGradient id="lid" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c.skinLight}"/><stop offset="1" stop-color="${c.skin}"/></linearGradient>` +
     `<radialGradient id="sclera" cx="0.42" cy="0.38" r="0.68"><stop offset="0.45" stop-color="#ffffff"/><stop offset="0.85" stop-color="#d6dee9"/><stop offset="1" stop-color="#aebbcc"/></radialGradient>` +
-    `<radialGradient id="iris" cx="0.4" cy="0.35" r="0.7"><stop offset="0" stop-color="#4a3326"/><stop offset="1" stop-color="#140c08"/></radialGradient>` +
-    `<linearGradient id="mouth" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a0611"/><stop offset="1" stop-color="#6b1427"/></linearGradient>` +
+    `<radialGradient id="iris" cx="0.4" cy="0.35" r="0.7"><stop offset="0" stop-color="#3c4352"/><stop offset="1" stop-color="#06080c"/></radialGradient>` +
+    // The inside of the mouth is the head's own colour, deep — as a mouth on a coloured face is.
+    `<linearGradient id="mouth" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${dark ? '#05070d' : shade(base, -0.44, 1.05)}"/><stop offset="1" stop-color="${dark ? '#1c2335' : shade(base, -0.3, 1.05)}"/></linearGradient>` +
     `<linearGradient id="teeth" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#d9e0ea"/></linearGradient>` +
     `<radialGradient id="tongue" cx="0.45" cy="0.35" r="0.7"><stop offset="0" stop-color="#ff8fb0"/><stop offset="1" stop-color="#d94672"/></radialGradient>` +
     `<linearGradient id="gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff3a6"/><stop offset="0.5" stop-color="#ffd23f"/><stop offset="1" stop-color="#e59a00"/></linearGradient>` +
+    `<linearGradient id="lips" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${shade(base, 0.12, 0.95)}"/><stop offset="1" stop-color="${shade(base, -0.06, 1.05)}"/></linearGradient>` +
+    `<linearGradient id="redLip" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff5a6e"/><stop offset="1" stop-color="#b3122a"/></linearGradient>` +
+    `<linearGradient id="olive" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8a9a5b"/><stop offset="0.6" stop-color="#5d6b35"/><stop offset="1" stop-color="#3c4722"/></linearGradient>` +
+    `<linearGradient id="wood" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#c98a4b"/><stop offset="0.5" stop-color="#e7b277"/><stop offset="1" stop-color="#a86b30"/></linearGradient>` +
+    `<radialGradient id="cookie" cx="0.4" cy="0.35" r="0.7"><stop offset="0" stop-color="#f2c27a"/><stop offset="1" stop-color="#c58a3a"/></radialGradient>` +
+    `<linearGradient id="candy" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#a855f7"/><stop offset="0.33" stop-color="#ec4899"/><stop offset="0.66" stop-color="#22d3ee"/><stop offset="1" stop-color="#a855f7"/></linearGradient>` +
+    `<linearGradient id="fade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity="0"/><stop offset="1" stop-color="#ffffff" stop-opacity="0.92"/></linearGradient>` +
     `<linearGradient id="cash" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9df27c"/><stop offset="1" stop-color="#1f9a3a"/></linearGradient>` +
     `<linearGradient id="heart" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff6d8a"/><stop offset="1" stop-color="#d4123b"/></linearGradient>` +
     `<linearGradient id="water" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d6f3ff"/><stop offset="1" stop-color="#3fa9f5"/></linearGradient>` +
@@ -958,17 +1269,17 @@ export function faceSvg(options: FaceOptions): string {
     // One glove piece: a single outline round the whole silhouette, its lower right edge shaded,
     // its upper left lit, and a soft shadow beneath.
     `<filter id="gloveFx" x="-25%" y="-25%" width="150%" height="150%">` +
-    `<feMorphology in="SourceAlpha" operator="dilate" radius="1.05" result="d"/>` +
-    `<feFlood flood-color="#6c7890"/><feComposite in2="d" operator="in" result="outline"/>` +
-    `<feOffset in="d" dx="0.8" dy="1.8" result="do"/><feGaussianBlur in="do" stdDeviation="1.3" result="db"/>` +
-    `<feFlood flood-color="#000" flood-opacity="0.2"/><feComposite in2="db" operator="in" result="drop"/>` +
+    `<feMorphology in="SourceAlpha" operator="dilate" radius="0.45" result="d"/>` +
+    `<feFlood flood-color="#a3aec0"/><feComposite in2="d" operator="in" result="outline"/>` +
+    `<feOffset in="d" dx="0.6" dy="1.4" result="do"/><feGaussianBlur in="do" stdDeviation="1.2" result="db"/>` +
+    `<feFlood flood-color="#1b2a44" flood-opacity="0.16"/><feComposite in2="db" operator="in" result="drop"/>` +
     `<feComponentTransfer in="SourceAlpha" result="inv"><feFuncA type="table" tableValues="1 0"/></feComponentTransfer>` +
-    `<feOffset in="inv" dx="-2" dy="-2.4" result="io"/><feGaussianBlur in="io" stdDeviation="2" result="ib"/>` +
-    `<feFlood flood-color="#8a98b2" flood-opacity="0.8"/><feComposite in2="ib" operator="in" result="sh"/>` +
+    `<feOffset in="inv" dx="-1.4" dy="-1.8" result="io"/><feGaussianBlur in="io" stdDeviation="1.6" result="ib"/>` +
+    `<feFlood flood-color="#b3bed0" flood-opacity="0.6"/><feComposite in2="ib" operator="in" result="sh"/>` +
     `<feComposite in="sh" in2="SourceAlpha" operator="in" result="shade"/>` +
-    `<feGaussianBlur in="SourceAlpha" stdDeviation="1.5" result="b"/>` +
-    `<feSpecularLighting in="b" surfaceScale="2.2" specularConstant="0.55" specularExponent="22" lighting-color="#ffffff" result="s">` +
-    `<feDistantLight azimuth="225" elevation="42"/></feSpecularLighting>` +
+    `<feGaussianBlur in="SourceAlpha" stdDeviation="1.3" result="b"/>` +
+    `<feSpecularLighting in="b" surfaceScale="2" specularConstant="0.7" specularExponent="26" lighting-color="#ffffff" result="s">` +
+    `<feDistantLight azimuth="225" elevation="45"/></feSpecularLighting>` +
     `<feComposite in="s" in2="SourceAlpha" operator="in" result="spec"/>` +
     `<feMerge><feMergeNode in="drop"/><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/><feMergeNode in="shade"/><feMergeNode in="spec"/></feMerge>` +
     `</filter>` +
