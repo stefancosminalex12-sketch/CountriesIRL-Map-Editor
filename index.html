@@ -61,6 +61,23 @@
     </script>
   </head>
   <body>
+    <!--
+      The splash before the app has loaded: the same screen the app shows while a map loads
+      (LoadingScreen), so the hand-over does not show. Dark when the saved theme is Dark. The app
+      removes it once it is up.
+    -->
+    <div id="boot-splash" style="position:fixed;inset:0;z-index:3000;display:grid;place-items:center;background:#fefefc">
+      <span style="display:block;width:min(72vmin,680px);aspect-ratio:800/832;background:#0b1624;-webkit-mask:url(/brand/logo-mask.png) center/contain no-repeat;mask:url(/brand/logo-mask.png) center/contain no-repeat"></span>
+    </div>
+    <script>
+      try {
+        if (JSON.parse(localStorage.getItem('map-editor.settings.v1') || '{}').themeId === 'dark') {
+          var splash = document.getElementById('boot-splash')
+          splash.style.background = '#0b1624'
+          splash.firstElementChild.style.background = '#fefefc'
+        }
+      } catch (e) {}
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

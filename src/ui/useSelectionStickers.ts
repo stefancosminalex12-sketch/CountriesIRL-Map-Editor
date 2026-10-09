@@ -55,6 +55,14 @@ export function tapSticker(stickerId: string): 'on' | 'off' | 'none' {
     { op: 'assign_sticker', countryIds: ids, stickerId },
     ...(mode.enabled ? [] : [{ op: 'set_stickers' as const, patch: { enabled: true } }]),
   ])
+  /*
+   * Put on, the territories are let go and the sticker is chosen instead — it is what is being
+   * worked on now, and its colour and size are right there. Joined to the edit, so one undo takes
+   * the sticker off and gives the selection back.
+   */
+  const store = useMapStore.getState()
+  store.clearSelectionWithLastEdit()
+  store.setActiveSticker(ids[ids.length - 1])
   return 'on'
 }
 

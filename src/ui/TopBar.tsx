@@ -25,7 +25,7 @@
 import { useRef, useState, type ReactNode } from 'react'
 import { Chevron, ChevronRight, Flyout, MenuItem, Popover, useNarrow } from './Menu'
 import { GeographicFeatureToggles, LabelsAndHelpers, MapColorSwatches } from './MapSettings'
-import { DataSources, SelectionHighlight, ThemePicker } from './SettingsPanel'
+import { DataSources, SelectionHighlight, ThemePicker, TransparencySwitch } from './SettingsPanel'
 import { TemplatePicker } from './TemplatePicker'
 import { useMapStore } from '../state/mapStore'
 import { ATLAS_FAMILIES, ATLASES, getAtlas, type Atlas } from '../maps/atlas'
@@ -346,6 +346,7 @@ const SETTINGS: FileNode[] = [
       <div className="stack top-flyout__body">
         <span className="sidebar__group-label">Theme</span>
         <ThemePicker />
+        <TransparencySwitch />
       </div>
     ),
   },

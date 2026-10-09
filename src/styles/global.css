@@ -400,7 +400,11 @@ body {
   display: flex;
   flex-direction: column;
   width: 280px;
-  height: min(460px, calc(100% - 12px));
+  /*
+   * One compact shape for every tool, a little taller than square (5:6): most sections are a few
+   * rows, and a long one — the sticker grids — scrolls inside it, as it would at any height.
+   */
+  height: min(336px, calc(100% - 12px));
   overflow: hidden;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius);
@@ -4920,4 +4924,179 @@ body {
   .pick-tab {
     animation: none;
   }
+}
+
+/* ------------------------------------------------------- transparent interface */
+
+/*
+ * Settings → Appearance → Transparent interface, off (`data-glass`, set by `settingsStore`): every
+ * glass surface is its solid panel colour, with no blur and no sheen. Automatic on a phone or a
+ * touch screen. Last in the sheet and as specific as the Dark theme's own glass values, so it
+ * wins over them.
+ */
+:root[data-glass='off'],
+:root[data-glass='off'][data-theme] {
+  --glass: var(--panel);
+  --glass-strong: var(--panel);
+  --glass-blur: none;
+  --glass-sheen: none;
+}
+
+/* The switch: its name, and a track with a knob that slides over when it is on. */
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 4px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: left;
+}
+
+.switch-row__track {
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--inset);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+  transition: background-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+
+.switch-row__knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+  transition: transform var(--dur) var(--ease);
+}
+
+.switch-row--on .switch-row__track {
+  background: var(--accent);
+  box-shadow: none;
+}
+
+.switch-row--on .switch-row__knob {
+  transform: translateX(14px);
+  background: var(--accent-text);
+}
+
+.switch-row:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 75%, transparent);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------ loading screen */
+
+/*
+ * The loading screen (`LoadingScreen`) and the page's own splash before it (`#boot-splash` in
+ * `index.html`, which repeats these values inline): one solid colour edge to edge, the logo as
+ * large as the window allows. Off-white with the logo in navy on Light and Geographic; the same
+ * two colours the other way round on Dark.
+ */
+:root {
+  --loading-bg: #fefefc;
+  --loading-ink: #0b1624;
+}
+
+:root[data-theme='dark'] {
+  --loading-bg: #0b1624;
+  --loading-ink: #fefefc;
+}
+
+.loading-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: grid;
+  place-items: center;
+  background: var(--loading-bg);
+  transition: opacity 320ms var(--ease);
+}
+
+.loading-screen--leaving {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.loading-screen__logo {
+  display: block;
+  /* As large as fits, with a margin: the mark is 800 by 832. */
+  width: min(72vmin, 680px);
+  aspect-ratio: 800 / 832;
+  background: var(--loading-ink);
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  /* Breathing, so a wait reads as work under way rather than a frozen page. */
+  animation: loading-breathe 1.8s ease-in-out infinite;
+}
+
+@keyframes loading-breathe {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.985);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-screen__logo {
+    animation: none;
+  }
+}
+
+/*
+ * On a phone, and on one turned sideways, the card also carries the strip for moving the map
+ * (`.sidebar__pad`, `MapGrip`) at its foot, so it keeps the taller shape: the compact one would
+ * leave the tool itself a sliver.
+ */
+@media (max-width: 620px), (orientation: landscape) and (max-height: 560px) {
+  .sidebar__panel {
+    height: min(460px, calc(100% - 12px));
+  }
+}
+
+/* ------------------------------------------------------------- sticker menu */
+
+/* A right-click on a sticker: its colour, size and Delete. See `StickerMenu`. */
+.sticker-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 268px;
+  padding: 10px 12px 12px;
+}
+
+.sticker-menu .top-menu__heading {
+  padding: 0;
+}
+
+.sticker-menu__delete {
+  justify-content: center;
+  color: #d93a3a;
+}
+
+.sticker-menu__delete:hover:not(:disabled) {
+  background: color-mix(in srgb, #d93a3a 12%, var(--surface));
 }

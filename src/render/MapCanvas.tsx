@@ -63,13 +63,16 @@ import {
 } from './labelPlacement'
 import { MapLabels } from './MapLabels'
 import { MapStickers, STICKER_DRAG_MARKER, STICKER_MARKER, type PlacedSticker } from './MapStickers'
+import { beneathStickers, onStickerInk } from './stickerHit'
 import { resolveStickers, stickersOf } from '../state/stickers'
 import { flagFaceSticker, parseFaceSticker, stickerIndex, useStickerLibrary } from '../stickers/stickerLibrary'
 import type { Sticker } from '../stickers/types'
 import { OverlayMenu, type OverlayMenuRequest } from '../ui/OverlayMenu'
 import { openMapMenu } from '../ui/sidebarEvents'
+import { LoadingScreen } from '../ui/LoadingScreen'
+import { StickerMenu, type StickerMenuRequest } from '../ui/StickerMenu'
 import { CountryCoast, CountryPath, MAP_SCALE_VAR, screenStrokeWidth } from './CountryPath'
-import { flagCodeFor, useFlagStore } from '../flags/flagStore'
+import { flagCodeFor, hasFlag, preloadFlags, useFlagStore } from '../flags/flagStore'
 import { entityFlagCode } from '../flags/flagChoices'
 import { resolveScreen } from './screenFrame'
 import { mergeCountries } from '../geo/merge'
@@ -409,6 +412,17 @@ const SelectedShape = memo(function SelectedShape({
     </>
   )
 })
+
+/**
+ * Whether a press is on the picture of a sticker that can be dragged — the press is the sticker's
+ * then, and the map does not pan. On the clear corners of its box it is the map's.
+ */
+function onDraggableStickerInk(target: Element | null, event: Event): boolean {
+  const sticker = target?.closest?.(`[${STICKER_DRAG_MARKER}]`)
+  if (!sticker) return false
+  const point = 'touches' in event ? (event as TouchEvent).touches[0] : (event as MouseEvent)
+  return point ? onStickerInk(sticker, point.clientX, point.clientY) : true
+}
 
 /**
  * How far the map is drawn past its own box, under the app's glass bars.
@@ -971,6 +985,9 @@ export function MapCanvas() {
   const [overlayMenu, setOverlayMenu] = useState<OverlayMenuRequest | null>(null)
   const openOverlayMenu = useCallback((overlayId: string, x: number, y: number) => setOverlayMenu({ overlayId, x, y }), [])
   const closeOverlayMenu = useCallback(() => setOverlayMenu(null), [])
+  /* The menu a right-click on a sticker opens. See `StickerMenu`. */
+  const [stickerMenu, setStickerMenu] = useState<StickerMenuRequest | null>(null)
+  const closeStickerMenu = useCallback(() => setStickerMenu(null), [])
 
   /* ----------------------------------------------------------------- labels */
 
@@ -1254,6 +1271,18 @@ export function MapCanvas() {
   /* ---------------------------------------------------------------- stickers */
 
   const selectedForStickers = useMapStore((s) => s.selectedCountryIds)
+  const chosenSticker = useMapStore((s) => s.activeStickerId)
+  // Escape lets the chosen sticker go, unless a field has the keyboard.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || !useMapStore.getState().activeStickerId) return
+      const target = event.target as HTMLElement | null
+      if (target?.closest?.('input, textarea, select, [contenteditable="true"]')) return
+      useMapStore.getState().setActiveSticker(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
   const stickerUploads = useStickerLibrary((s) => s.uploads)
   const stickerArtwork = useMemo(() => stickerIndex(stickerUploads), [stickerUploads])
   const stickerAssignments = useMemo(() => resolveStickers(doc), [doc])
@@ -1780,8 +1809,19 @@ export function MapCanvas() {
     },
     [assist, transform, mergeIds, mergeIdByMember, drawnExtentOf],
   )
-  const pickCountryAt = (event: ReactMouseEvent) =>
-    pickEntityAt(event.clientX, event.clientY, event.target as Element | null)
+  /*
+   * What a pointer event is really on, stickers considered. A sticker's box is a rectangle and
+   * its picture usually is not: on the picture the event is the sticker's (`sticker` is set); on
+   * a clear corner of its box it is whatever lies beneath (`target`), as if the sticker were not
+   * there. See `stickerHit.ts`.
+   */
+  const throughStickers = (event: ReactMouseEvent): { sticker: Element | null; target: Element | null } => {
+    const target = event.target as Element | null
+    const sticker = target?.closest?.(`[${STICKER_MARKER}]`) ?? null
+    if (!sticker) return { sticker: null, target }
+    if (onStickerInk(sticker, event.clientX, event.clientY)) return { sticker, target }
+    return { sticker: null, target: beneathStickers(event.clientX, event.clientY, STICKER_MARKER) }
+  }
 
   /*
    * No entity is drawn larger than it is. A country too small to see at this zoom is drawn at
@@ -2438,6 +2478,53 @@ export function MapCanvas() {
   }, [dominationCode, visibleFlagTiles, requestFlags])
 
   /*
+   * The map's flags, fetched in the background once the map is on screen and the browser is
+   * idle — so flags mode, whenever it is turned on, finds them already here (`preloadFlags`). Per
+   * map: a map never opened fetches nothing.
+   */
+  const landDrawn = geoStatus === 'ready' && geo !== null && land?.geo === geo
+  useEffect(() => {
+    if (!landDrawn || !geo) return
+    const codes: string[] = []
+    for (const [id, meta] of Object.entries(geo.meta)) {
+      const code = flagCodeFor(id, meta?.iso2)
+      if (code) codes.push(code)
+    }
+    const idle = (window as unknown as { requestIdleCallback?: (run: () => void, options?: { timeout: number }) => number })
+      .requestIdleCallback
+    const run = () => preloadFlags(codes)
+    const handle = idle ? idle(run, { timeout: 4000 }) : window.setTimeout(run, 1500)
+    return () => {
+      const cancel = (window as unknown as { cancelIdleCallback?: (h: number) => void }).cancelIdleCallback
+      if (idle && cancel) cancel(handle)
+      else window.clearTimeout(handle)
+    }
+  }, [landDrawn, geo])
+
+  /*
+   * Flags mode's first load, for the loading screen: from the moment flags mode is turned on
+   * until every flag it shows has arrived (or failed, or has no artwork — neither ever arrives).
+   * Armed only by turning the mode on, so panning onto countries whose flags are still on their
+   * way never brings the screen back.
+   */
+  const failedFlags = useFlagStore((s) => s.failed)
+  const flagsPending =
+    flagsOn &&
+    (dominationCode ? [dominationCode] : visibleFlagTiles.map((tile) => tile.iso2)).some((raw) => {
+      const code = raw.toLowerCase()
+      return hasFlag(code) && !loadedFlags[code] && !failedFlags[code]
+    })
+  const [flagsArmed, setFlagsArmed] = useState(false)
+  const flagsWereOn = useRef(flagsOn)
+  useEffect(() => {
+    if (flagsOn && !flagsWereOn.current) setFlagsArmed(true)
+    flagsWereOn.current = flagsOn
+  }, [flagsOn])
+  useEffect(() => {
+    if (flagsArmed && !flagsPending) setFlagsArmed(false)
+  }, [flagsArmed, flagsPending])
+
+  /*
    * Artwork for overlays filled with a flag. They need it whether or not the map is in Flags mode,
    * so it is asked for here, for the code each overlay chose, from the same store every flag comes
    * from — and handed to the overlay layer only once it has arrived.
@@ -2613,7 +2700,7 @@ export function MapCanvas() {
         // A press on an overlay — or on a sticker that can be dragged — drags it, not the map; the
         // wheel and a pinch still zoom.
         if (
-          (target?.closest?.(`[${OVERLAY_MARKER}]`) || target?.closest?.(`[${STICKER_DRAG_MARKER}]`)) &&
+          (target?.closest?.(`[${OVERLAY_MARKER}]`) || onDraggableStickerInk(target, event)) &&
           (event.type === 'mousedown' ||
             (event.type === 'touchstart' && (event as TouchEvent).touches.length < 2))
         ) {
@@ -3351,15 +3438,17 @@ export function MapCanvas() {
         onMouseMove={(event) => {
           if (gesturingRef.current || selectingRef.current) return
           if ((event.target as Element | null)?.closest?.(`[${OVERLAY_MARKER}]`)) return
-          // Over a sticker the pointer is on the sticker, not the country beneath it.
-          if ((event.target as Element | null)?.closest?.(`[${STICKER_MARKER}]`)) {
+          // Over a sticker's picture the pointer is on the sticker, not the country beneath it;
+          // over the clear corners of its box, it is on the country.
+          const under = throughStickers(event)
+          if (under.sticker) {
             setHovered(null)
             return
           }
-          const id = pickCountryAt(event)
+          const id = pickEntityAt(event.clientX, event.clientY, under.target)
           setHovered(id)
           // The sea only where no land claims the point, so land's precedence is absolute.
-          if (waterOn || hoveredWaterId) setHoveredWater(id ? null : waterAt(event.target))
+          if (waterOn || hoveredWaterId) setHoveredWater(id ? null : waterAt(under.target))
         }}
         /*
          * A right-click on a territory opens the sidebar's sections in a menu at the pointer
@@ -3370,8 +3459,17 @@ export function MapCanvas() {
         onContextMenu={(event) => {
           const target = event.target as Element | null
           if (target?.closest?.(`[${OVERLAY_MARKER}]`) || target?.closest?.(`[${LEGEND_MARKER}]`)) return
-          const sticker = target?.closest?.(`[${STICKER_MARKER}]`)
-          const id = sticker?.getAttribute(STICKER_MARKER) ?? pickCountryAt(event)
+          const under = throughStickers(event)
+          // On a sticker's picture: that sticker's own menu — its colour, size and Delete. See `StickerMenu`.
+          const wearer = under.sticker?.getAttribute(STICKER_MARKER)
+          if (wearer) {
+            event.preventDefault()
+            // Chosen as well, so it is plain which sticker the menu is about.
+            useMapStore.getState().setActiveSticker(wearer)
+            setStickerMenu({ entityId: wearer, x: event.clientX, y: event.clientY })
+            return
+          }
+          const id = pickEntityAt(event.clientX, event.clientY, under.target)
           if (!id) return
           event.preventDefault()
           const state = useMapStore.getState()
@@ -3385,16 +3483,20 @@ export function MapCanvas() {
           // An overlay tapped or dragged is chosen by the overlay layer, not selected here.
           if ((event.target as Element | null)?.closest?.(`[${OVERLAY_MARKER}]`)) return
           /*
-           * A click on a sticker is a click on the country wearing it — even where the sticker is
-           * larger than a small country — so it selects or deselects that country, and the
-           * Stickers panel's colour and size then work on it.
+           * A click on a sticker chooses the sticker, not its territory: it glows white, can be
+           * dragged, and is what the Stickers panel's colour and size work on, while the selection
+           * stays as it was. A second click lets it go. A click anywhere else lets it go too —
+           * and then does what that click does.
            */
-          const sticker = (event.target as Element | null)?.closest?.(`[${STICKER_MARKER}]`)
+          const under = throughStickers(event)
+          const sticker = under.sticker
+          const store = useMapStore.getState()
           if (sticker) {
             const wearer = sticker.getAttribute(STICKER_MARKER)
-            if (wearer) selectCountry(wearer)
+            if (wearer) store.setActiveSticker(store.activeStickerId === wearer ? null : wearer)
             return
           }
+          if (store.activeStickerId) store.setActiveSticker(null)
           // A brush press has already selected what it touched — see `useSelectionGestures`.
           if (suppressClickRef.current) {
             suppressClickRef.current = false
@@ -3411,13 +3513,13 @@ export function MapCanvas() {
            * subdivisions built stroke by stroke. Starting over is the Clear button's job,
            * and it says so.
            */
-          const id = pickCountryAt(event)
+          const id = pickEntityAt(event.clientX, event.clientY, under.target)
           if (!id) {
             /*
              * No land here. With Water Regions on, the sea is an entity too, so the click goes
              * to whichever region is under the pointer.
              */
-            const water = waterAt(event.target)
+            const water = waterAt(under.target)
             if (!water) return
             selectCountry(water)
             return
@@ -3941,6 +4043,7 @@ export function MapCanvas() {
               placements={drawnStickers.placements}
               stickers={drawnStickers.artwork}
               activeIds={selectedForStickers}
+              chosenId={chosenSticker}
               draggable={!brushOn}
               zoomedRef={zoomedRef}
               onLand={stickerOnLand}
@@ -3969,6 +4072,7 @@ export function MapCanvas() {
             />
           )}
           {overlayMenu && <OverlayMenu request={overlayMenu} onClose={closeOverlayMenu} />}
+          {stickerMenu && <StickerMenu request={stickerMenu} onClose={closeStickerMenu} />}
         </g>
         </g>
 
@@ -4045,12 +4149,19 @@ export function MapCanvas() {
         </div>
       )}
 
-      {/* Also while a progressive map's first outlines are still being projected. */}
-      {(geoStatus !== 'ready' || (geo !== null && land?.geo !== geo)) && (
-        <div className="map-canvas__status">
-          {geoStatus === 'error' ? `Failed to load geography: ${geoError}` : 'Loading geography…'}
-        </div>
-      )}
+      {/*
+        The loading screen: while a map loads — and while a progressive map's first outlines are
+        still being projected — and while flags mode first fetches its flags. See `LoadingScreen`.
+      */}
+      <LoadingScreen
+        active={
+          geoStatus === 'idle' ||
+          geoStatus === 'loading' ||
+          (geoStatus === 'ready' && geo !== null && land?.geo !== geo) ||
+          (flagsArmed && flagsPending)
+        }
+      />
+      {geoStatus === 'error' && <div className="map-canvas__status">Failed to load geography: {geoError}</div>}
     </div>
   )
 }

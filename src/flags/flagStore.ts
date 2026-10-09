@@ -170,3 +170,48 @@ export const useFlagStore = create<FlagStore>((set, get) => ({
     }
   },
 }))
+
+/**
+ * Fetches a map's flags in the background, so flags mode finds them already here.
+ *
+ * Called once a map is on screen (`MapCanvas`), for the flags of that map's entities. Unlike
+ * `request`, nothing is published as each one arrives: the whole set is published in **one**
+ * update when the last has settled, so their arrival costs the canvas a single re-render rather
+ * than one a frame for a second or two — nothing that could catch a pan in progress. The fetches
+ * are low priority, so they never compete with the map's own data, and the browser caches the
+ * files, so a later visit has them almost at once.
+ *
+ * A flag still on its way when flags mode is turned on is simply waited for — `request` sees it
+ * in flight and does not ask twice — and appears with the rest.
+ */
+export function preloadFlags(codes: Iterable<string>): void {
+  const state = useFlagStore.getState()
+  const quiet = new Map<string, string>()
+  const lost: string[] = []
+  const tasks: Promise<void>[] = []
+  for (const raw of new Set([...codes].map((c) => c.toLowerCase()))) {
+    if (!FLAG_CODES.has(raw)) continue
+    if (state.flags[raw] || state.failed[raw] || pending.has(raw) || arrived.has(raw) || missing.has(raw)) continue
+    const task = fetch(`${import.meta.env.BASE_URL}flags/${raw}.svg`, { priority: 'low' } as RequestInit)
+      .then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`)
+        return response.text()
+      })
+      .then((markup) => {
+        quiet.set(raw, `data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}`)
+      })
+      .catch(() => {
+        lost.push(raw)
+      })
+    pending.set(raw, task)
+    tasks.push(task)
+  }
+  if (tasks.length === 0) return
+  void Promise.allSettled(tasks).then(() => {
+    // In flight until published, so nothing asks for one again in between.
+    for (const code of pending.keys()) if (quiet.has(code) || lost.includes(code)) pending.delete(code)
+    for (const [code, uri] of quiet) arrived.set(code, uri)
+    for (const code of lost) missing.add(code)
+    scheduleFlush(useFlagStore.setState)
+  })
+}

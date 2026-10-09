@@ -363,7 +363,10 @@ export function Sidebar() {
 
   /*
    * Where the dropdown's top is, in the sidebar's own coordinates: level with the open section's
-   * button, moved up only as far as it must be to keep the whole card inside the sidebar.
+   * button, moved up only as far as it must be to keep the whole card inside the sidebar — so the
+   * card opens beside the button just pressed, under the pointer. (Tried: one place for every
+   * tool, centred beside the rail. It put the card away from the pointer for the tools at the top
+   * and bottom of the rail, and was reverted.)
    *
    * Every card is the same height (`.sidebar__panel`), whatever is in it — a short section is not
    * a small card and a long one is not a tall card; a long one scrolls. So a choice made inside a

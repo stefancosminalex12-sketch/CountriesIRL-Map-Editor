@@ -24,8 +24,9 @@
  * A press that does not move is still a click, and selects or deselects as before. Not while the
  * brush is on, when a press is a selection stroke.
  */
-import { memo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type RefObject } from 'react'
+import { Fragment, memo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type RefObject } from 'react'
 import type { Sticker } from '../stickers/types'
+import { onStickerInk, primeStickerInk } from './stickerHit'
 
 /** Marks a sticker on the map, with the entity wearing it: a click there is the sticker's. */
 export const STICKER_MARKER = 'data-sticker-of'
@@ -52,6 +53,8 @@ interface Props {
   stickers: Map<string, Sticker>
   /** The selected entities: their stickers are ringed on screen, and can be dragged. */
   activeIds: readonly string[]
+  /** The chosen sticker, by its wearer: it glows white and can be dragged. */
+  chosenId: string | null
   /** Whether the ringed stickers take a press at all. */
   draggable: boolean
   /** The camera's group, whose coordinates the stickers are placed in. */
@@ -78,6 +81,7 @@ export const MapStickers = memo(function MapStickers({
   placements: resting,
   stickers,
   activeIds,
+  chosenId,
   draggable,
   zoomedRef,
   onLand,
@@ -135,6 +139,8 @@ export const MapStickers = memo(function MapStickers({
 
   const begin = (event: ReactPointerEvent<SVGElement>, p: PlacedSticker) => {
     if (!event.isPrimary || (event.pointerType === 'mouse' && event.button !== 0)) return
+    // On a clear corner of the sticker's box the press is the map's, to pan with. See `stickerHit.ts`.
+    if (!onStickerInk(event.currentTarget, event.clientX, event.clientY)) return
     const start = toMap(event.clientX, event.clientY)
     if (!start) return
     // The press is the sticker's: not a pan, not a text selection. A click still follows it.
@@ -200,14 +206,24 @@ export const MapStickers = memo(function MapStickers({
             <image href={stickers.get(id)!.src} width="100" height="100" preserveAspectRatio="xMidYMid meet" />
           </symbol>
         ))}
+        {/*
+          The chosen sticker's highlight: a white wash over its own shape — the sticker lit up, the
+          way a chosen item is, rather than a ring drawn round it. Exactly its silhouette, so
+          nothing reaches past its edges, and see-through enough that the face stays itself.
+        */}
+        <filter id="map-sticker-highlight" x="0" y="0" width="100%" height="100%">
+          <feFlood floodColor="#ffffff" floodOpacity="0.38" />
+          <feComposite in2="SourceAlpha" operator="in" />
+        </filter>
       </defs>
       {placements.map((p) => {
         const symbol = symbolOf.get(p.stickerId)
         if (!symbol) return null
-        const movable = draggable && activeIds.includes(p.id)
+        const chosen = p.id === chosenId
+        const movable = draggable && (chosen || activeIds.includes(p.id))
         return (
+          <Fragment key={p.id}>
           <use
-            key={p.id}
             href={`#${symbol}`}
             x={p.x - p.size / 2}
             y={p.y - p.size / 2}
@@ -225,8 +241,24 @@ export const MapStickers = memo(function MapStickers({
                 }
               : {})}
             pointerEvents="visiblePainted"
+            // Read the picture's transparency as soon as the pointer comes near, ahead of a click.
+            onPointerEnter={(event: ReactPointerEvent<SVGElement>) => primeStickerInk(event.currentTarget)}
             style={movable ? { cursor: 'move', touchAction: 'none' } : { cursor: 'pointer' }}
           />
+          {/* Over the sticker, on screen only: the wash that says it is chosen. */}
+          {chosen && (
+            <use
+              href={`#${symbol}`}
+              x={p.x - p.size / 2}
+              y={p.y - p.size / 2}
+              width={p.size}
+              height={p.size}
+              filter="url(#map-sticker-highlight)"
+              pointerEvents="none"
+              data-export="none"
+            />
+          )}
+          </Fragment>
         )
       })}
       {placements

@@ -26,6 +26,8 @@
 import { computeDomain, countValued } from '../state/colors'
 import { formatDataValue } from '../state/legend'
 import { colourModeOps } from '../state/colourMode'
+import { afterPaint, holdLoadingScreen } from './loadingHold'
+import { flagCodeFor, hasFlag, useFlagStore } from '../flags/flagStore'
 import { useMapStore } from '../state/mapStore'
 import { MapToggle } from './MapToggle'
 import {
@@ -40,7 +42,7 @@ import { describeBand, getPreset, THRESHOLD_PRESETS } from '../state/presets'
 import { CountryPicker } from './CountryPicker'
 import { Inspector } from './Inspector'
 import { FlagOverrideControls } from './FlagOverrideControls'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { SelectField } from './Select'
 
 type ColorMode = 'none' | 'data' | 'comparison' | 'flags'
@@ -95,8 +97,38 @@ export function DataPalette() {
     if (next === mode) return
     // The same move the built-in templates make — see `state/colourMode.ts`.
     const resume = scale === 'predefined' ? 'threshold' : scale === 'imported' ? 'categorical' : 'numeric'
-    dispatch(colourModeOps(doc, next, resume))
+    const ops = colourModeOps(doc, next, resume)
+    if (next !== 'flags') {
+      dispatch(ops)
+      return
+    }
+    /*
+     * Into Flags: the loading screen first, painted, then the switch — whose render builds every
+     * flag's framing and would otherwise hold the page before the screen could show. Let go two
+     * paints later; by then the canvas holds it for as long as the flags are still arriving.
+     */
+    const release = holdLoadingScreen()
+    afterPaint(() => {
+      dispatch(ops)
+      afterPaint(() => afterPaint(release))
+    })
   }
+
+  /*
+   * The flags, fetched as soon as this panel opens — where the Flags button is — so pressing it
+   * finds them already here. Only then, so a visit that never opens Data downloads none of them.
+   */
+  const geo = useMapStore((s) => s.geo)
+  const requestFlags = useFlagStore((s) => s.request)
+  useEffect(() => {
+    if (!geo) return
+    const codes = new Set<string>()
+    for (const [id, meta] of Object.entries(geo.meta)) {
+      const code = flagCodeFor(id, meta?.iso2)
+      if (code && hasFlag(code)) codes.add(code)
+    }
+    requestFlags(codes)
+  }, [geo, requestFlags])
 
   /** Switches which kind of scale reads the values. Never touches the values. */
   const setScale = (next: DataScale) => {

@@ -21,8 +21,13 @@ import { STICKER_SIZE, type CountryId } from '../types/map'
 import { StickerColorRow } from './StickerColorRow'
 import { useNoun } from '../maps/useNoun'
 
-export function ChosenSticker() {
+/**
+ * `only`: work on these territories instead of the selection — the right-click menu of one
+ * sticker on the map (`StickerMenu`).
+ */
+export function ChosenSticker({ only }: { only?: CountryId[] } = {}) {
   const selected = useMapStore((s) => s.selectedCountryIds)
+  const chosen = useMapStore((s) => s.activeStickerId)
   const doc = useMapStore((s) => s.doc)
   const geo = useMapStore((s) => s.geo)
   const dispatch = useMapStore((s) => s.dispatch)
@@ -32,8 +37,9 @@ export function ChosenSticker() {
   const index = useMemo(() => stickerIndex(uploads), [uploads])
   const wearing = useMemo(() => resolveStickers(doc), [doc])
 
-  // The selected territories that wear a sticker: what the colour and the size change.
-  const ids = selected.filter((id) => wearing.has(id))
+  // The selected territories that wear a sticker — or the ones given — are what the colour and the size change.
+  // The chosen sticker on the map counts as well as the selection: click a sticker, then recolour it here.
+  const ids = (only ?? [...new Set(chosen ? [...selected, chosen] : selected)]).filter((id) => wearing.has(id))
   const items = ids.map((id) => {
     const stickerId = wearing.get(id)!
     return { id, sticker: index.get(stickerId), face: faceOf(stickerId) }

@@ -1307,14 +1307,20 @@ Editor" label left the bar (the name is still the document's, used for export fi
 
 **The rail is the tools**: Select, Data, Stickers, Canvas, Overlay, Merge, Hide, Legend, SVG.
 **Each tool opens as a dropdown**, the File menu's card opened sideways from its button, its top
-level with the button and pushed up only as far as it must be to stay on screen. **Every card is
-one height** (460px, or the window's) whatever is in it: a long section scrolls inside it, so a
+level with the button and pushed up only as far as it must be to stay on screen — beside the button
+just pressed, under the pointer. (One fixed place for every tool was tried and reverted: it put the
+card away from the pointer for the tools at the ends of the rail.) **Every card is
+one shape** — 280 by 336px, a little taller than square (460px tall on a phone, where it also
+carries the strip for moving the map; never more than the window) — whatever is in it: a long section scrolls inside it, so a
 choice made in a card never resizes or moves it. Unlike File it stays open while the map is
 clicked, since most tools are worked together with the map; its button again, its ×, or Back on a
 phone closes it. **A right-click on a territory** opens the same tools in a menu at the pointer,
 headed with the territory's name; the territory is added to the selection (never toggled off) and
 the tool chosen opens on it (`openMapMenu` in `ui/sidebarEvents.ts`, `MapSectionMenu` in
-`Sidebar`). An overlay's right-click keeps its own menu. **Searching by name** works the same in three tools (`ui/EntitySearch.tsx`): in **Overlay** a
+`Sidebar`). An overlay's right-click keeps its own menu, and **a right-click on a sticker opens that sticker's
+menu** (`ui/StickerMenu.tsx`): its colour row and size — the Stickers panel's own (`ChosenSticker`),
+pointed at that one territory instead of the selection — Usual size, Usual place, and Delete, the
+panel's take-it-off (`removeOps`). The selection is left alone. **Searching by name** works the same in three tools (`ui/EntitySearch.tsx`): in **Overlay** a
 name chosen is made an overlay; in **Hide** it is hidden, and everything hidden is listed under
 the field as tabs whose × brings it back (a hidden territory cannot be clicked on the map); in
 **Merge** each name chosen joins a row of tabs under the field, × takes one out, and the ✓ at the
@@ -1866,6 +1872,36 @@ one-pixel shadow, a deeper `--pop` shadow for anything that floats, corners at 8
 regions as raised accent pills. **The rail's active tool is a pill that slides** from tool to
 tool (`.rail-pill`), with icons and captions a size up. Presses compress slightly; all of it
 honours *Reduce motion*.
+
+### Loading screen and the transparent interface
+
+**While a map loads, the CountriesIRL logo fills the screen** (`ui/LoadingScreen.tsx`): one solid
+colour edge to edge and the logo as large as the window allows — off-white `#fefefc` with the logo
+in navy `#0b1624` on Light and Geographic, the two the other way round on Dark. It covers a map's
+download *and* the drawing of its first outlines (the longer part on the detailed maps), and flags
+mode's first fetch of flags — armed only by turning the mode on, so panning never brings it back.
+Flags is pressed into the screen, not the other way round: turning the mode on builds every flag's
+framing in the render it causes, which held the page before the screen could paint, so the button
+takes a hold on the screen (`holdLoadingScreen` in `ui/loadingHold.ts`), waits for it to be
+painted, then switches. **Each map's flags are fetched in the background** once the map is on
+screen and the browser is idle (`preloadFlags` in `flags/flagStore.ts`): low priority, so they never
+compete with the map, and published in **one** update when the last has arrived, so their arrival is
+a single re-render rather than one a frame — nothing that could catch a pan. About 1.9MB for every
+flag, cached by the browser for later visits; a map never opened fetches none. Measured in headless
+Edge on the production build (`.cache/flags-toggle.mjs`): the screen is up in the first frame after
+the press, the flags are drawn 0.85–1.0s later, and the screen is gone by 1.3–1.5s — the remaining
+second is the first paint of every flag, not their download.
+It covers the map in the same frame the load starts — a switch of map resets the camera in that
+very render, and a screen that waited 180ms to appear let the view be seen jumping to the whole
+world first — then stays at least 450ms and fades out a moment after the map is drawn. The logo is one mask (`public/brand/logo-mask.png`, the brand mark with its paper
+taken out) painted in the theme's colour. `index.html` carries the same screen as a static splash
+(`#boot-splash`, dark when the saved theme is) for the seconds before the app has loaded, and the
+app removes it as it takes over.
+
+**Settings → Appearance → Transparent interface** turns the glass on or off
+(`transparentUi` in `settingsStore`, written as `data-glass` on the page). Automatic until it is
+flipped: on for a computer, off for a phone or a touch screen (`(pointer: coarse), (max-width:
+620px)`), following the device as it changes. A flip is kept as the author's own choice.
 
 ### Themes
 
@@ -3147,10 +3183,17 @@ Emoji — and it goes on all of them at once; tap it again, once they all wear i
 or Remove button: placing a sticker turns stickers on. A face counts as worn in any colour, so a
 red Fire Punch is taken off by tapping Fire Punch. A tile is ticked while every selected territory
 wears it. Taking a sticker off hides one the data chose (a "no sticker" override, so the data does
-not put it straight back) and clears one placed by hand. A click on a sticker on the map is a
-click on its country (`STICKER_MARKER`): it selects or deselects that country, even where the
-sticker is larger than a small country, and the stickers of the selected countries are ringed on
-screen (never in an export).
+not put it straight back) and clears one placed by hand. **A click on a sticker chooses the sticker, not its
+country**: it is highlighted — a white wash over its own shape, lit up the way a chosen item is, on screen only — it
+can be dragged, and it is what the Stickers panel's colour and size work on, while the selection
+stays as it was (`activeStickerId` in the store). A second click, a click anywhere else on the map,
+or Escape lets it go. **Only the picture counts**: a sticker's box is a rectangle and its picture
+usually is not, so a click, a right-click, a hover or a press on a clear corner of the box goes to the
+land beneath, as if the sticker were not there (`render/stickerHit.ts` reads each picture's
+transparency once, 64 by 64). **Putting a sticker on** lets the territories go and chooses the new
+sticker instead, so its colour and size are what the panel shows next; one undo takes the sticker
+off and gives the selection back. The stickers of the selected countries are still ringed on screen (never in an
+export) and can be dragged too.
 
 **Drag a ringed sticker to move it, inside its own territory only.** The selected territories'
 stickers take a press and follow the pointer; every other sticker still lets a drag pan the map, so a
