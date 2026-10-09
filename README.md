@@ -1296,28 +1296,50 @@ is no room at the side, so a row opens its choices in place of the rows, under a
 the level above (**‹ File**, **‹ Display**). The menu pieces — `Popover`, `MenuButton`,
 `MenuItem`, `Flyout` — live in `ui/Menu.tsx`, shared by the File menu, the region dropdowns and
 the Select tool picker. On a narrow window the regions row gives up width and scrolls sideways; on a phone the
-whole bar scrolls, and scrolling it closes an open menu. The map's name field and the "Map
+whole bar scrolls, and scrolling it closes an open menu. **Search** sits after undo and redo (`ui/MapSearch.tsx`):
+a magnifier opening the same dropdown, where typing a name lists the map's entities and merged
+bodies; choosing one adds it to the selection — never replacing a selection already built — and
+centres the map on it (`focusMapOn` in `render/mapCamera.ts`). **Export** carries a download icon. Its menu ends with **Transparent water**: a PNG or SVG export
+without the sea — the background, the named seas, the globe's outline and the graticule, every
+layer marked `WATER_LAYER` in `render/exportMap.ts` — so the image is the land alone on a
+transparent canvas. Lakes stay (they are their own switch); JPG, which has no alpha, keeps the water. The map's name field and the "Map
 Editor" label left the bar (the name is still the document's, used for export filenames).
 
-**The rail is the tools**, in the order the work goes — what is selected, what is done to it
-(merging, hiding, overlaying), what colours it, what is put on it, how it is explained, how it is
-framed — then the SVG round trip. Which map, the templates, how the map is displayed and the
-editor's own **Settings** (Appearance — the theme — and Data Sources, at the bottom of File) are in
-the File menu. The AI section, a placeholder for a feature a long way off, was removed. **A section
-shows everything at once**, one scroll down, its parts under plain headings (`Section` in
-`ui/Panels.tsx`) rather than folds — Stickers, Legend and Canvas now as Overlay and Hide always
-have:
+**The rail is the tools**: Select, Data, Stickers, Canvas, Overlay, Merge, Hide, Legend, SVG.
+**Each tool opens as a dropdown**, the File menu's card opened sideways from its button, its top
+level with the button and pushed up only as far as it must be to stay on screen. **Every card is
+one height** (460px, or the window's) whatever is in it: a long section scrolls inside it, so a
+choice made in a card never resizes or moves it. Unlike File it stays open while the map is
+clicked, since most tools are worked together with the map; its button again, its ×, or Back on a
+phone closes it. **A right-click on a territory** opens the same tools in a menu at the pointer,
+headed with the territory's name; the territory is added to the selection (never toggled off) and
+the tool chosen opens on it (`openMapMenu` in `ui/sidebarEvents.ts`, `MapSectionMenu` in
+`Sidebar`). An overlay's right-click keeps its own menu. **Searching by name** works the same in three tools (`ui/EntitySearch.tsx`): in **Overlay** a
+name chosen is made an overlay; in **Hide** it is hidden, and everything hidden is listed under
+the field as tabs whose × brings it back (a hidden territory cannot be clicked on the map); in
+**Merge** each name chosen joins a row of tabs under the field, × takes one out, and the ✓ at the
+field's right end makes a group of them and, with two or more, merges it. None of them touches
+the selection. Hide's button for the selection shows only while something is selected. **Stickers**
+keeps its colour row in view and folds everything else — Stickers, Emoji, Creator, Size, Tiers —
+closed until opened; a new map's tiers are **By hand only**, so the data places no sticker until
+Tiers is switched to Follow the data. **The tools carry no explanations**: the
+paragraphs that described each control are gone, from the tools and from the File menu (maps,
+subregions, Outside region, Appearance), leaving only status that reports something — what is
+selected, a count, an error — and the data sources' required credits. Which map, the templates,
+how the map is displayed and the editor's own **Settings** (Appearance — the theme — and Data
+Sources, at the bottom of File) are in the File menu. **A section shows everything at once**, one
+scroll down, its parts under plain headings (`Section` in `ui/Panels.tsx`) rather than folds:
 
 ```
 Select          Tool [Normal ▾] · region groups · Entities Selected
-Merge           groups: new, name, flag, members
-Hide            Hide selected · Show all
-Overlay         create · the list · the chosen overlay: Appearance, Size and place, Display mode
 Data            [Data / Groups / Flags, the one on pressed again is off] · each mode's workflow
-Stickers        the sticker clicked on the map · Library · Emoji · Create · Size · Tiers
-Legend          Visibility · Content · Appearance · Layout · Position & Size
+Stickers        the colour row · folded: Stickers · Emoji · Creator · Size · Tiers
 Canvas          Aspect Ratio · Dimensions · Framing
-SVG             export a blank SVG · import an edited one
+Overlay         Search (type a name: its overlay is made) · the list · the chosen overlay
+Merge           Search [✓] with the picks as tabs · groups: new, name, flag, members
+Hide            Search (type a name: it is hidden) · the hidden as tabs [×] · Show all
+Legend          Visibility · Content · Appearance · Layout · Position & Size
+SVG             export a blank SVG · Drop here (import an edited one)
 ```
 
 Merge, Hide and Overlay were one **Edit** section of three folded parts. As sections of their own,
@@ -1816,6 +1838,35 @@ Verified with the events each browser sends, across the whole path:
 - a plain wheel still zoomed the map, and scrolled the panels without being cancelled;
 - the page's zoom never changed (`devicePixelRatio` and `visualViewport.scale` constant).
 
+### The finish: glass, type, depth
+
+**The bars are glass.** The top bar, the rail and the status bar are the theme's own panel colour
+at 62%, over a blur of what is under them (`--glass`, `--glass-blur`); menus and tool cards are
+the same glass at 80% (`--glass-strong`). There is something under them because **the map is drawn
+on beneath the bars**: the box the map is laid out in is still the uncovered part of the window,
+and everything that places, fits, picks, frames or exports works in it from 0 to its width and
+height as before — the `<svg>` simply reaches past it by the bars' sizes, its `viewBox` shifted by
+the same amounts so those coordinates do not move (`useBleed` in `MapCanvas`; the sizes are
+`--bar-top`, `--bar-left`, `--bar-bottom` on `.app`, smaller on a short window). Exports are
+unchanged: a PNG or SVG is exactly the uncovered map. Two conversions that read the pointer off
+the `<svg>`'s screen box now go through its screen matrix instead. With *Reduce transparency* on
+in the system, or no `backdrop-filter`, glass is the solid panel colour.
+
+Measured in headless Edge on the RTX laptop GPU (`.cache/perf-cdp.mjs`, glass on against glass off
+injected into one build): every desktop gesture still meets its frame pacing, at 10–20% more GPU
+time per gesture. Phones get a lighter blur (12px rather than 24px), as blur cost grows with its
+radius; the phone profile's runs were too noisy (gestures that landed on open ocean at maximum
+zoom) to put a number on it.
+
+**Type** is Inter, bundled (`@fontsource-variable/inter`) so it is the same offline and on every
+system, with the single-storey a and the status bar in tabular figures. **Controls are fill and
+shadow, not outline** (`--ring`, `--lift`): a faint ring at half a hairline's strength and a
+one-pixel shadow, a deeper `--pop` shadow for anything that floats, corners at 8px for controls and
+14px for cards. **The regions are one segmented control** — a translucent track with the active
+regions as raised accent pills. **The rail's active tool is a pill that slides** from tool to
+tool (`.rail-pill`), with icons and captions a size up. Presses compress slightly; all of it
+honours *Reduce motion*.
+
 ### Themes
 
 `theme/themes.ts` holds three themes, each split into two parts:
@@ -1829,16 +1880,38 @@ Verified with the events each browser sends, across the whole path:
 
 Each theme defines a five-level surface ladder — backdrop, panel, section, control,
 inset — with steps large enough that the interface reads without borders doing all
-the work. **Dark** is soft graphite (`#20252c` backdrop, never black) with blue-white
-text and a clear sky-blue accent. **Light** is daylight grey with panels *lighter* than the backdrop,
-so no field of pure white dominates. **Geographic** is warm stone chrome over a
-layered sea, graticule on by default, hairline boundaries.
+the work. **Dark** keeps the author's two chrome colours — `#0b1624` for the top bar, rail and
+panels, and off-white `#fefefc` (navy text on it) for what is chosen — with every other surface a
+step lighter than pure midnight (`#0a1321` backdrop, `#1b2c44` controls, `#2a3e58` hairlines). Its
+map is lifted most: `#334b68` slate-blue countries over a `#14253b` navy sea, `#1a2c42` borders
+cut just under the land, a `#446285` hover, and a royal-blue `#3478f6` selection edged in the
+off-white. Water is one hue — sea, lakes, and rivers a lighter `#5487c0` tone of it, so a river is
+never read as a border. **Light** is daylight grey with panels *lighter* than the backdrop,
+so no field of pure white dominates the chrome; its map is `#e6e6e6` land on white `#ffffff` water
+(lakes too), with land outside the chosen region at `#f2f2f2` and a `#d4d4d4` hover.
+**Geographic** is a clean modern atlas in teal: near-white chrome with a breath of teal
+(`#f3f8f7` panels, `#132a2f` text) and a deep teal `#0e7c86` for every chosen control — the
+blue-green between the map's steel-blue and sage tones — over countries in four light tones —
+steel blue `#a9c3db`, sage `#bcd5c1`, sand `#e4d7b8`, lavender `#cbc1e2` — on pale `#e0eef8`
+water. Lakes are the water, rivers a deeper `#6aa6d6` tone of it; borders a soft `#8a9bb0` slate,
+hover a light teal `#86c5d3`, the selection teal `#0e8a94` edged in champagne gold `#C49A55`, and
+land outside the chosen region a quiet `#eceff2`. Graticule on by default. **The legend starts off** on every
+new map (`legend.visible: false`); only the author turns it on, and loading predefined data fills
+in its words without showing it.
 
-Neighbouring countries in the Geographic theme get slightly different land tones.
-The group index comes from **graph-colouring real adjacency** in `geo/metrics.ts`,
-computed once per dataset from geometry alone. It is a legibility device — the same
-job a political map's colouring does — and says nothing about the land. It is not
-elevation. The `terrain` and `bathymetry` ramps are defined but deliberately unused:
+**No two countries that share a border take the same tone** in the Geographic theme. The tone
+comes from a four-colouring in `geo/metrics.ts`, computed once per dataset from geometry alone.
+Neighbours are read from the **topology**: in TopoJSON a border two entities share is one arc
+both reference, so `topojson-client`'s `neighbors` gives real adjacency, not an estimate. It used
+to be estimated from overlapping bounding boxes, which over-reports (Switzerland's box meets a
+dozen others) and needed a fifth tone for thirty countries of the world map. The colouring is
+DSATUR — always the entity whose neighbours already use the most tones next — with a Kempe-chain
+swap when all four surround one, then a short repair pass. Measured: no neighbours alike on the
+World, Europe and US states maps; 1–2 pairs alike out of 7,000–9,000 on the administrative world,
+Europe regions and US counties. The box estimate remains only for entities the topology cannot
+answer — a supplemented one, or an island state with no land border, whose tone is then chosen
+away from its near neighbours across the water. It is a legibility device and says nothing about
+the land; it is not elevation. The `terrain` and `bathymetry` ramps are defined but deliberately unused:
 hypsometric shading needs an elevation raster and bathymetry needs sounding data,
 neither of which country outlines provide, and neither is invented here.
 
@@ -3078,6 +3151,17 @@ not put it straight back) and clears one placed by hand. A click on a sticker on
 click on its country (`STICKER_MARKER`): it selects or deselects that country, even where the
 sticker is larger than a small country, and the stickers of the selected countries are ringed on
 screen (never in an export).
+
+**Drag a ringed sticker to move it, inside its own territory only.** The selected territories'
+stickers take a press and follow the pointer; every other sticker still lets a drag pan the map, so a
+world with a face on every country stays navigable. The sticker's centre never leaves its
+territory's land as the map draws it (a canvas `isPointInPath` on the territory's outline): where the
+pointer goes off the land, the sticker runs up to the edge and slides along it. The place is kept as
+longitude and latitude (`StickerMode.positions`, `move_sticker`), so it stays on the same spot through
+a change of projection or window size, and goes back to the usual place if that spot is ever not
+drawn as the territory's land. A drag is one undo step; a press that does not move is still a click.
+**Usual place**, beside Usual size, puts the selected territories' stickers back in the middle. Not
+while the brush is on, when a press is a selection stroke.
 
 **One colour row, for the stickers on the map.** At the top of the Stickers panel, the colour row
 changes **only the stickers on the selected territories** — a face by naming it in the new colour

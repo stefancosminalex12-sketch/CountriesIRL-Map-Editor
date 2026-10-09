@@ -225,12 +225,12 @@ export function createMapDocument(
     },
     legend: {
       /*
-       * On by default, but only *shown* when the active mode has something to
-       * explain — `buildLegendModel` returns null for colouring that is off, or for
-       * a numeric scale with no values yet. So a blank map stays blank and the
-       * legend appears the moment the first value does.
+       * Off by default: the map opens without a legend, and nothing turns it on but the
+       * author (Legend → Visibility, or Display). Once on it is still only *shown* when
+       * the active mode has something to explain — `buildLegendModel` returns null for
+       * colouring that is off, or for a numeric scale with no values yet.
        */
-      visible: true,
+      visible: false,
       // Empty means "take the title from whatever is being explained": the layer's
       // name, the preset's name, or "Comparison".
       title: '',
@@ -288,11 +288,15 @@ export function createMapDocument(
        */
       showCoastlines: false,
       showGraticule: false,
-      showLakes: true,
+      /*
+       * Off, like the rivers: a fresh map is the countries and the sea. Lakes are one click
+       * away in Display, and an export with Transparent water stays the land alone.
+       */
+      showLakes: false,
       lake: '#22303d',
       lakeOutline: '#1a252f',
       /*
-       * Off. Unlike the lakes, a full river network is a lot of line for a map that is
+       * Off. A full river network is a lot of line for a map that is
        * usually about the countries — so it is there for the asking rather than by
        * default, and switching it on is one click in Display.
        */

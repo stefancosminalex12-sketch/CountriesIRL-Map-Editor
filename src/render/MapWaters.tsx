@@ -23,6 +23,7 @@
  * colour; then hover, which only ever tints what nothing else has coloured.
  */
 import { memo } from 'react'
+import { WATER_LAYER } from './exportMap'
 import type { WaterEntry } from '../types/map'
 
 /** The attribute that marks a water region on the map, for hit-testing. */
@@ -65,7 +66,7 @@ export const MapWaters = memo(function MapWaters({
   hoverColor,
 }: MapWatersProps) {
   return (
-    <g className="map-waters">
+    <g className="map-waters" {...{ [WATER_LAYER]: '' }}>
       {shapes.map((shape) => {
         const entry = paint[shape.id]
         const isSelected = selected.has(shape.id)

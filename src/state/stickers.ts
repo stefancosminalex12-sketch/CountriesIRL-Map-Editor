@@ -24,11 +24,15 @@ import { DEFAULT_STICKER_LADDER } from '../stickers/builtin'
 import { savedLadder } from '../stickers/stickerLibrary'
 import { STICKER_SIZE, type CountryId, type MapDocument, type StickerMode } from '../types/map'
 
-/** A new map's settings: off, following the data, with the tiers last used in this browser. */
+/**
+ * A new map's settings: off, and **by hand only** — a sticker is where the author put it, and the
+ * data places none until Tiers is switched to Follow the data. The tiers are the ones last used in
+ * this browser, ready for that.
+ */
 export function createStickerMode(): StickerMode {
   return {
     enabled: false,
-    auto: true,
+    auto: false,
     ladder: savedLadder() ?? [...DEFAULT_STICKER_LADDER],
     overrides: {},
     size: STICKER_SIZE.default,

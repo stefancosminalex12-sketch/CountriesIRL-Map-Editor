@@ -135,10 +135,6 @@ export function DataPalette() {
         ))}
       </div>
 
-      {mode === 'none' && (
-        <p className="hint">Colouring is off. Pick Data, Groups or Flags; press it again to turn it off.</p>
-      )}
-
       {mode === 'data' && (
         <>
           <div className="mode-switch mode-switch--pair" role="group" aria-label="Data scale">
@@ -160,21 +156,10 @@ export function DataPalette() {
           </div>
 
           {scale === 'palette' ? (
-            <>
-              <p className="hint">
-                Your own values, on a scale of their own: the lowest number on the map gets one end of the
-                colours, the highest gets the other, and everything between falls in line.
-              </p>
-              <PaletteControls dataKey={key} />
-            </>
+            <PaletteControls dataKey={key} />
           ) : scale === 'predefined' ? (
-            <PresetControls dataKey={key} />
-          ) : (
-            <p className="hint">
-              Colours from an imported SVG, exactly as the file gave them. Choose Custom or Predefined
-              to colour the same values with the editor&rsquo;s own scales.
-            </p>
-          )}
+            <PresetControls />
+          ) : null}
 
           {/*
             The selection, under the scale it feeds.
@@ -203,11 +188,6 @@ export function DataPalette() {
 
       {mode === 'flags' && (
         <>
-          <p className="hint">
-            Each country shows its own flag. Data colouring is paused while this is on —
-            your values, groups and palette are kept and come back when you switch to
-            Data or Groups.
-          </p>
           {/*
             Shown with the mode it belongs to rather than in the settings panel, because
             it is only meaningful while flags are on. It governs the maritime layer and
@@ -282,11 +262,6 @@ export function DataPalette() {
                   dispatch({ op: 'set_flags', patch: { dominationCountryId } })
                 }
               />
-              <p className="hint">
-                {doc.flags.dominationCountryId
-                  ? 'This flag covers the whole map. Turn the switch off to restore each country’s own.'
-                  : 'Pick a country and its flag takes the entire world.'}
-              </p>
             </>
           )}
 
@@ -387,13 +362,11 @@ function PaletteControls({ dataKey }: { dataKey: string }) {
         mean a country's position between the lowest and highest value on the map, not
         the number itself, so the two ends have to be on screen.
       */}
-      <p className="hint">
-        {valued === 0 || !domain
-          ? `No values yet. Select countries and set a “${dataKey}” value to colour them.`
-          : `${valued} valued · ${domain[0]} → ${domain[1]} across ${
-              palette?.colors.length ?? chosen.steps
-            } steps, lightest to darkest. Every value is scaled against this range; countries without one keep the land colour.`}
-      </p>
+      {valued > 0 && domain && (
+        <p className="hint">
+          {valued} valued · {domain[0]} → {domain[1]}
+        </p>
+      )}
     </>
   )
 }
@@ -407,12 +380,11 @@ function PaletteControls({ dataKey }: { dataKey: string }) {
  * is just a word and the reader has no way to tell these thresholds from invented
  * ones.
  */
-function PresetControls({ dataKey }: { dataKey: string }) {
+function PresetControls() {
   const doc = useMapStore((s) => s.doc)
   const dispatch = useMapStore((s) => s.dispatch)
 
   const preset = getPreset(doc.activePresetId) ?? THRESHOLD_PRESETS[0]
-  const valued = countValued(doc.countries, dataKey)
 
   return (
     <>
@@ -440,12 +412,6 @@ function PresetControls({ dataKey }: { dataKey: string }) {
         ))}
       </ul>
 
-      <p className="hint">
-        {preset.description}. Thresholds are fixed — {preset.source}. {valued} valued;
-        a country’s band does not change when other countries do, so a map of only
-        high scorers stays all-high instead of being stretched across the whole scale.
-        Countries without a value keep the land colour.
-      </p>
     </>
   )
 }
@@ -687,11 +653,6 @@ function ComparisonControls() {
         })}
       </ul>
 
-      <p className="hint">
-        {selected.length === 0
-          ? 'Pick a group, then tap countries on the map to add them.'
-          : 'Countries in no group stay neutral. Where a country is in more than one, the first group wins.'}
-      </p>
     </>
   )
 }

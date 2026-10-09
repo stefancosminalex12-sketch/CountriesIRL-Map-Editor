@@ -171,7 +171,8 @@ export async function predefinedDataOps(
   ops.push({ op: 'set_layer', layerId: layer.id, patch: { name: dataset.name, unit: dataset.unit } })
   ops.push({
     op: 'set_legend',
-    patch: { visible: true, source: 'auto', entries: [], title: '', subtitle: `${dataset.credit[level] ?? data.source}, ${year}` },
+    // The legend's words for this data, without turning it on: whether it shows is the author's call.
+    patch: { source: 'auto', entries: [], title: '', subtitle: `${dataset.credit[level] ?? data.source}, ${year}` },
   })
   return { ops, count, level, year: data.year }
 }

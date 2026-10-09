@@ -145,10 +145,6 @@ export function ScreenControls() {
         />
       </div>
 
-      {!screen.enabled && (
-        <p className="hint">Off: the whole map is the picture, and exports are uncropped.</p>
-      )}
-
       <Section title="Aspect Ratio">
       <div className="stack">
       <div className="field">
@@ -265,11 +261,6 @@ export function ScreenControls() {
       <button type="button" className="btn" onClick={fitToRegion}>
         Fit to Region
       </button>
-      <p className="hint">
-        {composed
-          ? 'Everything inside the frame is exported. Drag inside it to move it, or its edges to resize. Press the selected ratio again to remove it.'
-          : 'Choose a ratio, or fit a frame to the region on screen.'}
-      </p>
       </div>
       </Section>
 

@@ -166,7 +166,7 @@ function Recolour() {
   }, [source, color])
 
   if (!source) {
-    return <p className="hint">Pick a sticker in the Library first, then choose its new colour here.</p>
+    return <p className="hint">No sticker picked</p>
   }
 
   const colourName = FACE_COLORS.find((c) => c.color === color)?.name ?? color
@@ -189,10 +189,6 @@ function Recolour() {
       <button type="button" className="btn btn--on" disabled={!preview} onClick={save}>
         Save as new sticker
       </button>
-      <p className="hint">
-        Changes the sticker’s main colour and keeps its shading. Other colours in it, like white gloves or a red rose,
-        stay as they are.
-      </p>
     </div>
   )
 }

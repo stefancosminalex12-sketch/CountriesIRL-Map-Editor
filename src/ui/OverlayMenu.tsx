@@ -41,8 +41,10 @@ export function OverlayMenu({ request, onClose }: { request: OverlayMenuRequest;
   }, [request])
 
   useEffect(() => {
+    // A press in the menu or in one of its side menus (`Flyout`, drawn at page level) is the menu's.
     const onPointer = (event: PointerEvent) => {
-      if (!panel.current?.contains(event.target as Node)) onClose()
+      const target = event.target as Element
+      if (!panel.current?.contains(target) && !target.closest?.('.top-menu')) onClose()
     }
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose()
@@ -135,11 +137,10 @@ export function OverlayMenu({ request, onClose }: { request: OverlayMenuRequest;
                     }}
                   />
                 ))
-              : OVERLAY_MODES.map(([id, label, help]) => (
+              : OVERLAY_MODES.map(([id, label]) => (
                   <MenuItem
                     key={id}
                     name={label}
-                    note={help}
                     active={overlay.mode === id}
                     onChoose={() => {
                       update({ mode: id })

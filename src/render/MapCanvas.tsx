@@ -13,7 +13,7 @@ import { zoom, zoomIdentity, zoomTransform, type ZoomBehavior } from 'd3-zoom'
 import { useElementSize, type Size } from './useElementSize'
 import { useKeyed } from './useKeyed'
 import { getAtlas } from '../maps/atlas'
-import { buildInsets, insetForGroup } from '../maps/insets'
+import { buildInsets, insetForEntity, insetForGroup } from '../maps/insets'
 import { buildProjection } from '../geo/fit'
 import { countriesInRegions } from '../geo/regions'
 import { computeFraming } from '../geo/framing'
@@ -62,11 +62,12 @@ import {
   type LabelShape,
 } from './labelPlacement'
 import { MapLabels } from './MapLabels'
-import { MapStickers, STICKER_MARKER, type PlacedSticker } from './MapStickers'
+import { MapStickers, STICKER_DRAG_MARKER, STICKER_MARKER, type PlacedSticker } from './MapStickers'
 import { resolveStickers, stickersOf } from '../state/stickers'
 import { flagFaceSticker, parseFaceSticker, stickerIndex, useStickerLibrary } from '../stickers/stickerLibrary'
 import type { Sticker } from '../stickers/types'
 import { OverlayMenu, type OverlayMenuRequest } from '../ui/OverlayMenu'
+import { openMapMenu } from '../ui/sidebarEvents'
 import { CountryCoast, CountryPath, MAP_SCALE_VAR, screenStrokeWidth } from './CountryPath'
 import { flagCodeFor, useFlagStore } from '../flags/flagStore'
 import { entityFlagCode } from '../flags/flagChoices'
@@ -90,7 +91,7 @@ import {
 } from './smallEntities'
 import { anchorsOf, assistOf, useProjectedLand } from './projectedLand'
 import { reportDrawnTolerance, useFullDetail } from './landDetail'
-import { setMapCamera } from './mapCamera'
+import { setMapCamera, setMapFocus } from './mapCamera'
 import { useGatedMemo } from './useGatedMemo'
 import { chunkPieces, chunkStrokedPath } from './pathChunks'
 import { RetainedVectors } from './retainedVectors'
@@ -100,7 +101,8 @@ import { useSelectionGestures } from './selectionGestures'
 import { useHeldBrush } from './heldBrush'
 import { usePinchZoom } from './pinchZoom'
 import { MapOverlays, OVERLAY_MARKER } from './MapOverlays'
-import { overlayKey, overlaySource, type OverlaySource } from './overlayGeometry'
+import { anchorAt, overlayKey, overlaySource, type OverlaySource } from './overlayGeometry'
+import { WATER_LAYER } from './exportMap'
 import type { MapDocument, MapOverlay } from '../types/map'
 import {
   outlinesAlongSegment,
@@ -244,6 +246,8 @@ const STICKER_MIN = 7
 const STICKER_MAX = 64
 
 const ZOOM_RANGE: [number, number] = [1, MAX_MAP_ZOOM]
+/** How much of the map's width or height an entity searched for is zoomed to fill. */
+const FOCUS_FILL = 0.6
 
 /**
  * How much heavier a national border is drawn than an internal one, on a map whose
@@ -406,6 +410,44 @@ const SelectedShape = memo(function SelectedShape({
   )
 })
 
+/**
+ * How far the map is drawn past its own box, under the app's glass bars.
+ *
+ * The top bar, the rail and the status bar are translucent: the map runs on underneath them
+ * and shows through, blurred, as content does under a phone's bars. The box the map is laid
+ * out in is still the uncovered part of the window — everything that places, fits, picks,
+ * frames or exports works in that box, from 0 to its width and height, exactly as before —
+ * and the `<svg>` simply extends past it by the bars' sizes, its view box shifted by the same
+ * amounts so that those coordinates do not move. What lies past the box is drawn and never
+ * aimed at: the bars sit above it.
+ *
+ * The sizes are the stylesheet's (`--bar-top`, `--bar-left`, `--bar-bottom` on `.app`), read
+ * off the container whenever it is resized, so a phone's shorter bars are matched.
+ */
+interface Bleed {
+  top: number
+  left: number
+  bottom: number
+}
+
+const NO_BLEED: Bleed = { top: 0, left: 0, bottom: 0 }
+
+function useBleed(ref: React.RefObject<HTMLElement | null>, size: Size): Bleed {
+  const [bleed, setBleed] = useState(NO_BLEED)
+  useLayoutEffect(() => {
+    const element = ref.current
+    if (!element) return
+    const css = getComputedStyle(element)
+    const read = (name: string) => {
+      const value = parseFloat(css.getPropertyValue(name))
+      return Number.isFinite(value) && value > 0 ? value : 0
+    }
+    const next = { top: read('--bar-top'), left: read('--bar-left'), bottom: read('--bar-bottom') }
+    setBleed((prev) => (prev.top === next.top && prev.left === next.left && prev.bottom === next.bottom ? prev : next))
+  }, [ref, size.width, size.height])
+  return bleed
+}
+
 export function MapCanvas() {
   const containerRef = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
@@ -413,6 +455,10 @@ export function MapCanvas() {
 
   const live = useElementSize(containerRef)
   const { width, height } = live
+  const bleed = useBleed(containerRef, live)
+  /** The whole drawn area, bars included, in the map's own coordinates. See {@link useBleed}. */
+  const sheetWidth = (width || 1) + bleed.left
+  const sheetHeight = (height || 1) + bleed.top + bleed.bottom
 
   /**
    * The size the geometry is fitted to, and the correction that hides the gap.
@@ -1213,10 +1259,56 @@ export function MapCanvas() {
   const stickerAssignments = useMemo(() => resolveStickers(doc), [doc])
 
   /**
+   * The projection each entity is drawn through: its inset's, or the map's. A dragged sticker's
+   * place is kept in longitude and latitude and goes through this both ways.
+   */
+  const stickerProjectionOf = useCallback(
+    (id: string) => {
+      const merge = mergeGeometry.find((m) => m.id === id)
+      const inset = merge ? insetForGroup(insets, merge.members) : insetForEntity(insets, id)
+      return inset ? inset.projection : projection
+    },
+    [mergeGeometry, insets, projection],
+  )
+
+  /**
+   * Whether a point, in map units, is on an entity's own land as the map draws it — what keeps a
+   * dragged sticker inside its territory. Each outline is turned into a `Path2D` once, when it is
+   * first asked about, and tested by the canvas, so a drag over Russia costs no more per frame
+   * than one over Malta.
+   */
+  const stickerOutlines = useMemo(() => {
+    const out = new Map<string, string>()
+    for (const shape of shapes) out.set(shape.id, shape.d)
+    for (const shape of mergedShapes) out.set(shape.id, shape.d)
+    return out
+  }, [shapes, mergedShapes])
+  const stickerHitPaths = useRef(new Map<string, { d: string; path: Path2D }>())
+  const stickerHitContext = useRef<CanvasRenderingContext2D | null>(null)
+  const stickerOnLand = useCallback(
+    (id: string, x: number, y: number) => {
+      const d = stickerOutlines.get(id)
+      if (!d) return false
+      let hit = stickerHitPaths.current.get(id)
+      if (!hit || hit.d !== d) {
+        hit = { d, path: new Path2D(d) }
+        stickerHitPaths.current.set(id, hit)
+      }
+      stickerHitContext.current ??= document.createElement('canvas').getContext('2d')
+      return stickerHitContext.current?.isPointInPath(hit.path, x, y) ?? false
+    },
+    [stickerOutlines],
+  )
+
+  /**
    * Where each sticker goes and how large it is: centred on the territory's most central point
    * (the pole the names use), sized by the room there — the largest circle that fits inside —
    * and held between a floor that keeps a microstate's sticker visible and a ceiling that keeps
    * Russia's from covering a continent. All in map units, so the camera scales them with the land.
+   *
+   * A sticker dragged elsewhere (`StickerMode.positions`) is centred there instead, so long as
+   * that point is still on its territory's land as drawn now — after a change of projection that
+   * turns it to the far side of a globe, it goes back to the usual place rather than float off.
    */
   const stickerPlacements = useMemo<PlacedSticker[]>(() => {
     if (!stickersOn || stickerAssignments.size === 0) return []
@@ -1227,15 +1319,31 @@ export function MapCanvas() {
       if (!stickerId || !stickerArtwork.has(stickerId)) continue
       if (style.outsideScope === 'hidden' && !merged.has(shape.id) && !scopeCountryIds.has(shape.id)) continue
       const spot = shape.spots[0] ?? shape.groupSpots[0]
-      const x = spot ? spot.x : (shape.minX + shape.maxX) / 2
-      const y = spot ? spot.y : (shape.minY + shape.maxY) / 2
+      let x = spot ? spot.x : (shape.minX + shape.maxX) / 2
+      let y = spot ? spot.y : (shape.minY + shape.maxY) / 2
       const room = spot ? spot.r * STICKER_ROOM : 0
       const own = stickerMode.sizes?.[shape.id] ?? 1
       const size = Math.min(Math.max(room, STICKER_MIN * shape.unit), STICKER_MAX * shape.unit) * stickerMode.size * own
+      const moved = stickerMode.positions?.[shape.id]
+      const at = moved ? stickerProjectionOf(shape.id)?.(moved) : null
+      if (at && Number.isFinite(at[0]) && Number.isFinite(at[1]) && stickerOnLand(shape.id, at[0], at[1])) {
+        ;[x, y] = at
+      }
       out.push({ id: shape.id, stickerId, x, y, size })
     }
     return out
-  }, [stickersOn, stickerAssignments, stickerArtwork, labelShapes, mergeGeometry, scopeCountryIds, style.outsideScope, stickerMode.size, stickerMode.sizes])
+  }, [stickersOn, stickerAssignments, stickerArtwork, labelShapes, mergeGeometry, scopeCountryIds, style.outsideScope, stickerMode.size, stickerMode.sizes, stickerMode.positions, stickerProjectionOf, stickerOnLand])
+
+  /** A sticker let go after a drag: its centre, in map units, kept as longitude and latitude. */
+  const moveSticker = useCallback(
+    (id: string, x: number, y: number) => {
+      const projection = stickerProjectionOf(id)
+      if (!projection) return
+      const at = anchorAt([x, y], projection)
+      if (at) useMapStore.getState().dispatch({ op: 'move_sticker', countryIds: [id], at })
+    },
+    [stickerProjectionOf],
+  )
 
   /**
    * The detail the lakes and the rivers are drawn at: every projected point, at every zoom.
@@ -1656,11 +1764,12 @@ export function MapCanvas() {
         return mergeIdByMember.get(targetId) ?? targetId
       }
 
-      const rect = svg.getBoundingClientRect()
+      // The pointer in the map's own coordinates — the `<svg>` reaches past its box, under the bars.
+      const at = new DOMPoint(clientX, clientY).matrixTransform(svg.getScreenCTM()?.inverse() ?? new DOMMatrix())
       const claimed = pickAssistedCountryAt(
         assist,
-        clientX - rect.left,
-        clientY - rect.top,
+        at.x,
+        at.y,
         transform,
         targetId,
       )
@@ -2501,9 +2610,10 @@ export function MapCanvas() {
         }
         const target = event.target as Element | null
         if (target?.closest?.(`[${LEGEND_MARKER}]`)) return false
-        // A press on an overlay drags the overlay, not the map; the wheel and a pinch still zoom.
+        // A press on an overlay — or on a sticker that can be dragged — drags it, not the map; the
+        // wheel and a pinch still zoom.
         if (
-          target?.closest?.(`[${OVERLAY_MARKER}]`) &&
+          (target?.closest?.(`[${OVERLAY_MARKER}]`) || target?.closest?.(`[${STICKER_DRAG_MARKER}]`)) &&
           (event.type === 'mousedown' ||
             (event.type === 'touchstart' && (event as TouchEvent).touches.length < 2))
         ) {
@@ -2693,14 +2803,64 @@ export function MapCanvas() {
         zoomBy(factor, clientX, clientY) {
           if (!live) return
           navigating(true)
-          const box = svg.getBoundingClientRect()
-          selection.call(behavior.scaleBy, factor, [clientX - box.x, clientY - box.y])
+          const at = new DOMPoint(clientX, clientY).matrixTransform(svg.getScreenCTM()?.inverse() ?? new DOMMatrix())
+          selection.call(behavior.scaleBy, factor, [at.x, at.y])
         },
         end: finish,
       }
     })
     return () => setMapCamera(null)
   }, [navigating, placeCamera, setTransform])
+
+  /*
+   * Search's "take me there" (`focusMapOn`): the entity's drawn outline, measured where it is
+   * drawn, framed in the middle of the map at most of its width or height. One `transform` call
+   * on the zoom behaviour, so the zoom limits, the pan bounds and the commit to the document are
+   * the ones every other camera move gets. A merged body and an island country's every piece
+   * are measured together, as one box.
+   */
+  useEffect(() => {
+    setMapFocus((id) => {
+      const svg = svgRef.current
+      const behavior = zoomRef.current
+      const zoomed = zoomedRef.current
+      const parent = zoomed?.parentNode as SVGGraphicsElement | null
+      if (!svg || !behavior || !zoomed || !parent) return false
+      const toZoomed = zoomed.getScreenCTM()?.inverse()
+      const svgMatrix = svg.getScreenCTM()
+      const parentMatrix = parent.getScreenCTM()
+      if (!toZoomed || !svgMatrix || !parentMatrix) return false
+      let minX = Infinity
+      let minY = Infinity
+      let maxX = -Infinity
+      let maxY = -Infinity
+      for (const element of zoomed.querySelectorAll<SVGGraphicsElement>(`[data-country-id="${CSS.escape(id)}"]`)) {
+        const box = element.getBBox()
+        const own = element.getScreenCTM()
+        if (!own || (box.width === 0 && box.height === 0)) continue
+        const matrix = toZoomed.multiply(own)
+        for (const [x, y] of [[box.x, box.y], [box.x + box.width, box.y], [box.x, box.y + box.height], [box.x + box.width, box.y + box.height]]) {
+          const p = new DOMPoint(x, y).matrixTransform(matrix)
+          minX = Math.min(minX, p.x)
+          minY = Math.min(minY, p.y)
+          maxX = Math.max(maxX, p.x)
+          maxY = Math.max(maxY, p.y)
+        }
+      }
+      if (!Number.isFinite(minX)) return false
+      // The visible map, in the coordinates the camera's transform is written in.
+      const toParent = svgMatrix.inverse().multiply(parentMatrix).inverse()
+      const a = new DOMPoint(0, 0).matrixTransform(toParent)
+      const b = new DOMPoint(width, height).matrixTransform(toParent)
+      const fit = Math.min((b.x - a.x) / Math.max(maxX - minX, 1e-6), (b.y - a.y) / Math.max(maxY - minY, 1e-6))
+      const k = Math.min(Math.max(fit * FOCUS_FILL, ZOOM_RANGE[0]), ZOOM_RANGE[1])
+      const x = (a.x + b.x) / 2 - k * ((minX + maxX) / 2)
+      const y = (a.y + b.y) / 2 - k * ((minY + maxY) / 2)
+      select(svg).call(behavior.transform, zoomIdentity.translate(x, y).scale(k))
+      return true
+    })
+    return () => setMapFocus(null)
+  }, [width, height])
 
   const zoomBy = (factor: number) => {
     const svg = svgRef.current
@@ -3167,9 +3327,10 @@ export function MapCanvas() {
         id={MAP_SVG_ID}
         ref={svgRef}
         className={`map-canvas__svg${brushOn ? ' map-canvas__svg--brush' : ''}`}
-        width={width || 1}
-        height={height || 1}
-        viewBox={`0 0 ${width || 1} ${height || 1}`}
+        width={sheetWidth}
+        height={sheetHeight}
+        viewBox={`${-bleed.left} ${-bleed.top} ${sheetWidth} ${sheetHeight}`}
+        style={{ left: -bleed.left, top: -bleed.top }}
         /*
          * The composition frame, published for the exporter. On the element it already
          * receives, so no export path has to learn a new argument to be cropped.
@@ -3199,6 +3360,23 @@ export function MapCanvas() {
           setHovered(id)
           // The sea only where no land claims the point, so land's precedence is absolute.
           if (waterOn || hoveredWaterId) setHoveredWater(id ? null : waterAt(event.target))
+        }}
+        /*
+         * A right-click on a territory opens the sidebar's sections in a menu at the pointer
+         * (`openMapMenu`), with the territory in the selection so the section chosen works on it.
+         * Added, never toggled off: right-clicking a selected territory keeps it. An overlay's
+         * right-click is its own menu (`MapOverlays`), and the legend and the sea open nothing.
+         */
+        onContextMenu={(event) => {
+          const target = event.target as Element | null
+          if (target?.closest?.(`[${OVERLAY_MARKER}]`) || target?.closest?.(`[${LEGEND_MARKER}]`)) return
+          const sticker = target?.closest?.(`[${STICKER_MARKER}]`)
+          const id = sticker?.getAttribute(STICKER_MARKER) ?? pickCountryAt(event)
+          if (!id) return
+          event.preventDefault()
+          const state = useMapStore.getState()
+          if (!state.selectedCountryIds.includes(id)) state.addToSelection([id])
+          openMapMenu({ entityId: id, x: event.clientX, y: event.clientY })
         }}
         onClick={(event) => {
           // Dragging the legend is not a statement about the selection, so a click
@@ -3319,12 +3497,14 @@ export function MapCanvas() {
             ))}
           </defs>
         )}
+        {/* The sea. Marked, like everything drawn only on the water, for Transparent water exports. */}
         <rect
-          x={0}
-          y={0}
-          width={width || 1}
-          height={height || 1}
+          x={-bleed.left}
+          y={-bleed.top}
+          width={sheetWidth}
+          height={sheetHeight}
           fill={style.background}
+          {...{ [WATER_LAYER]: '' }}
         />
         {/*
           The resize correction, and nothing else.
@@ -3381,6 +3561,7 @@ export function MapCanvas() {
               d={backdrop.sphere}
               fill="none"
               stroke={style.graticule}
+              {...{ [WATER_LAYER]: '' }}
               style={{ strokeWidth: screenStrokeWidth(1.6) }}
               strokeOpacity={0.95}
             />
@@ -3390,6 +3571,7 @@ export function MapCanvas() {
               d={backdrop.graticule}
               fill="none"
               stroke={style.graticule}
+              {...{ [WATER_LAYER]: '' }}
               style={{ strokeWidth: screenStrokeWidth(0.5) }}
               strokeOpacity={0.65}
             />
@@ -3755,7 +3937,15 @@ export function MapCanvas() {
             Stickers under the names, so a name laid over a face stays readable.
           */}
           {stickerPlacements.length > 0 && (
-            <MapStickers placements={drawnStickers.placements} stickers={drawnStickers.artwork} activeIds={selectedForStickers} />
+            <MapStickers
+              placements={drawnStickers.placements}
+              stickers={drawnStickers.artwork}
+              activeIds={selectedForStickers}
+              draggable={!brushOn}
+              zoomedRef={zoomedRef}
+              onLand={stickerOnLand}
+              onMove={moveSticker}
+            />
           )}
 
           {textOn && <MapLabels placements={labelsToDraw} labels={labels} />}

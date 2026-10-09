@@ -123,8 +123,14 @@ export interface CountryMetrics {
   tintGroup: number
 }
 
-/** How many distinct groups the colouring may use. */
-export const TINT_GROUP_COUNT = 5
+/**
+ * How many distinct groups the colouring uses: four, the most a political map needs when
+ * neighbours are read from real shared borders, and the number of land tones a theme gives.
+ */
+export const TINT_GROUP_COUNT = 4
+
+/** Passes of the repair that settles any neighbours the colouring could not keep apart. */
+const TINT_REPAIR_PASSES = 24
 
 function toPolygons(feature: CountryFeature): Position[][][] {
   return feature.geometry.type === 'Polygon'
@@ -303,21 +309,27 @@ function ringBounds(polygon: Position[][]): [number, number, number, number] {
 const ADJACENCY_MARGIN_DEG = 0.75
 
 /**
- * Assigns each country a tint group so that neighbours differ.
+ * Assigns each country a tint group so that neighbours differ, in four groups.
  *
- * Adjacency is approximated by overlap of the countries' main-landmass bounds,
- * grown slightly. That over-reports neighbours — two countries near each other but
- * not touching are treated as adjacent — which is the safe direction: it costs an
- * occasional extra colour and never lets a real border go unmarked. Greedy colouring
- * then walks the countries largest-first, giving each the lowest group none of its
- * already-coloured neighbours used.
+ * **Neighbours are countries that share a border**, read from the dataset's topology
+ * (`touching`): in TopoJSON a border two countries share is one arc both reference, so
+ * this is a fact in the file, not an estimate. It used to be estimated from overlapping
+ * bounding boxes, grown slightly — which over-reports: Switzerland's box meets a dozen
+ * others, and the colouring needed a fifth group for thirty countries of the world map.
+ * With real borders four groups are enough, as they are for any political map.
  *
- * Runs once per dataset load, from geometry alone, so it is independent of theme,
+ * The estimate is kept for what the topology cannot answer: an entity with no arcs (a
+ * supplemented one), and an entity no other shares a border with — an island state —
+ * whose tone is then chosen away from its near neighbours across the water, so the
+ * Caribbean or the Pacific is not one colour.
+ *
+ * The colouring is {@link colourFour}. Runs once per dataset load, from geometry alone, so it is independent of theme,
  * projection and zoom.
  */
 function assignTintGroups(
   features: CountryFeature[],
   metrics: Map<CountryId, CountryMetrics>,
+  touching?: Map<CountryId, Set<CountryId>>,
 ): void {
   const bounds = new Map<CountryId, [number, number, number, number]>()
   for (const feature of features) {
@@ -326,24 +338,16 @@ function assignTintGroups(
     if (entry) bounds.set(id, ringBounds(entry.representativePolygon))
   }
 
-  const order = [...bounds.keys()].sort(
-    (a, b) => (metrics.get(b)?.areaKm2 ?? 0) - (metrics.get(a)?.areaKm2 ?? 0),
-  )
-
   /*
    * Every pair whose grown boxes overlap, found by sweeping west to east rather than by
    * testing every pair: 4,595 subdivisions are ten million pairs, and all but a few
    * thousand of them are nowhere near each other. Sorted by western edge, a box can only
    * overlap the ones whose western edge comes before its own eastern edge (plus the
-   * margin), so the scan for each stops there. The pairs found are exactly the ones the
-   * pairwise test found, and a neighbour list is only ever read as a set of groups
-   * already taken, so the colouring is unchanged.
+   * margin), so the scan for each stops there.
    */
-  const neighbours = new Map<CountryId, CountryId[]>()
-  for (const a of order) neighbours.set(a, [])
-  const byWest = order
-    .map((id) => ({ id, box: bounds.get(id)! }))
-    .sort((a, b) => a.box[0] - b.box[0])
+  const near = new Map<CountryId, CountryId[]>()
+  for (const id of bounds.keys()) near.set(id, [])
+  const byWest = [...bounds].map(([id, box]) => ({ id, box })).sort((a, b) => a.box[0] - b.box[0])
   for (let i = 0; i < byWest.length; i++) {
     const { id: a, box: ba } = byWest[i]
     const reach = ba[2] + ADJACENCY_MARGIN_DEG
@@ -356,25 +360,164 @@ function assignTintGroups(
         ba[1] - ADJACENCY_MARGIN_DEG <= bb[3] &&
         bb[1] - ADJACENCY_MARGIN_DEG <= ba[3]
       if (touches) {
-        neighbours.get(a)!.push(b)
-        neighbours.get(b)!.push(a)
+        near.get(a)!.push(b)
+        near.get(b)!.push(a)
       }
     }
   }
 
-  const assigned = new Map<CountryId, number>()
-  for (const id of order) {
-    const used = new Set<number>()
-    for (const other of neighbours.get(id) ?? []) {
-      const group = assigned.get(other)
-      if (group !== undefined) used.add(group)
-    }
-    let group = 0
-    while (group < TINT_GROUP_COUNT - 1 && used.has(group)) group++
-    assigned.set(id, group)
+  /* Real borders where the topology knows them; the estimate where it does not. */
+  const neighbours = new Map<CountryId, CountryId[]>()
+  for (const id of bounds.keys()) {
+    const real = touching?.get(id)
+    const shared = real ? [...real].filter((other) => bounds.has(other)) : []
+    neighbours.set(id, shared.length > 0 ? shared : near.get(id)!)
+  }
+
+  const assigned = colourFour(neighbours, (id) => metrics.get(id)?.areaKm2 ?? 0)
+
+  for (const [id, group] of assigned) {
     const entry = metrics.get(id)
     if (entry) entry.tintGroup = group
   }
+}
+
+/**
+ * Four groups for a graph of neighbours, as few neighbours alike as can be managed.
+ *
+ * DSATUR: the next entity coloured is always the one whose neighbours already use the most
+ * groups — the hardest to place — ties to the most connected, then the largest. When all four
+ * groups are around one, a **Kempe chain** is swapped to free one: the run of neighbours
+ * connected through two groups `a` and `b` is flipped `a`↔`b`, which keeps every pair in it
+ * apart and, when the run does not reach a neighbour already `b`, leaves `a` free here. That is
+ * the classical step behind four-colouring maps, and on real borders it leaves next to nothing.
+ * What it cannot settle takes the group its neighbours use least, and a few repair passes
+ * follow.
+ */
+function colourFour(neighbours: Map<CountryId, CountryId[]>, area: (id: CountryId) => number): Map<CountryId, number> {
+  const K = TINT_GROUP_COUNT
+  const assigned = new Map<CountryId, number>()
+  const seen = new Map<CountryId, Set<number>>()
+  for (const id of neighbours.keys()) seen.set(id, new Set())
+
+  // A max-heap on (saturation, degree, area), with stale entries skipped as they surface.
+  type Entry = { id: CountryId; sat: number; deg: number; area: number }
+  const heap: Entry[] = []
+  const before = (x: Entry, y: Entry) => x.sat - y.sat || x.deg - y.deg || x.area - y.area || (x.id > y.id ? 1 : -1)
+  const push = (entry: Entry) => {
+    heap.push(entry)
+    for (let i = heap.length - 1; i > 0; ) {
+      const parent = (i - 1) >> 1
+      if (before(heap[i], heap[parent]) <= 0) break
+      ;[heap[i], heap[parent]] = [heap[parent], heap[i]]
+      i = parent
+    }
+  }
+  const pop = (): Entry | undefined => {
+    const top = heap[0]
+    const last = heap.pop()
+    if (heap.length > 0 && last) {
+      heap[0] = last
+      for (let i = 0; ; ) {
+        const l = 2 * i + 1
+        const r = l + 1
+        let m = i
+        if (l < heap.length && before(heap[l], heap[m]) > 0) m = l
+        if (r < heap.length && before(heap[r], heap[m]) > 0) m = r
+        if (m === i) break
+        ;[heap[i], heap[m]] = [heap[m], heap[i]]
+        i = m
+      }
+    }
+    return top
+  }
+  for (const [id, list] of neighbours) push({ id, sat: 0, deg: list.length, area: area(id) })
+
+  const counts = (id: CountryId) => {
+    const out = new Array<number>(K).fill(0)
+    for (const other of neighbours.get(id)!) {
+      const group = assigned.get(other)
+      if (group !== undefined) out[group]++
+    }
+    return out
+  }
+
+  /* Flips the a/b chain through `start`, unless it reaches `guard`. Whether it flipped. */
+  const kempe = (start: CountryId, a: number, b: number, guard: Set<CountryId>): boolean => {
+    const chain = new Set<CountryId>([start])
+    const queue = [start]
+    while (queue.length > 0) {
+      const at = queue.pop()!
+      for (const other of neighbours.get(at)!) {
+        const group = assigned.get(other)
+        if ((group === a || group === b) && !chain.has(other)) {
+          if (guard.has(other)) return false
+          chain.add(other)
+          queue.push(other)
+        }
+      }
+    }
+    for (const id of chain) assigned.set(id, assigned.get(id) === a ? b : a)
+    return true
+  }
+
+  const place = (id: CountryId): number => {
+    const used = counts(id)
+    const free = used.indexOf(0)
+    if (free >= 0) return free
+    for (let a = 0; a < K; a++) {
+      for (let b = 0; b < K; b++) {
+        if (a === b) continue
+        const around = neighbours.get(id)!.filter((other) => assigned.has(other))
+        const starts = around.filter((other) => assigned.get(other) === a)
+        const guard = new Set(around.filter((other) => assigned.get(other) === b))
+        // Each a-coloured neighbour's chain, flipped while none reaches a b-coloured one.
+        const snapshot = new Map(assigned)
+        let ok = true
+        for (const start of starts) {
+          if (assigned.get(start) !== a) continue
+          if (!kempe(start, a, b, guard)) {
+            ok = false
+            break
+          }
+        }
+        if (ok && counts(id)[a] === 0) return a
+        for (const [key, value] of snapshot) assigned.set(key, value)
+      }
+    }
+    return used.indexOf(Math.min(...used))
+  }
+
+  for (let entry = pop(); entry; entry = pop()) {
+    if (assigned.has(entry.id) || entry.sat !== seen.get(entry.id)!.size) continue
+    const group = place(entry.id)
+    assigned.set(entry.id, group)
+    for (const other of neighbours.get(entry.id)!) {
+      if (assigned.has(other)) continue
+      const groups = seen.get(other)!
+      if (groups.has(group)) continue
+      groups.add(group)
+      push({ id: other, sat: groups.size, deg: neighbours.get(other)!.length, area: area(other) })
+    }
+  }
+
+  // Saturation sets go stale when a chain flips; whatever that left alike is settled here.
+  const order = [...assigned.keys()]
+  for (let pass = 0; pass < TINT_REPAIR_PASSES; pass++) {
+    let changed = false
+    for (const id of order) {
+      const here = counts(id)
+      const current = assigned.get(id)!
+      if (here[current] === 0) continue
+      const best = here.indexOf(Math.min(...here))
+      if (here[best] < here[current]) {
+        assigned.set(id, best)
+        changed = true
+      }
+    }
+    if (!changed) break
+  }
+  return assigned
 }
 
 export function computeDatasetMetrics(
@@ -399,12 +542,14 @@ export function computeDatasetMetrics(
 export async function computeDatasetMetricsInSlices(
   features: CountryFeature[],
   slicer: Slicer,
+  /** Which entities share a border, from the topology. See {@link assignTintGroups}. */
+  touching?: Map<CountryId, Set<CountryId>>,
 ): Promise<Map<CountryId, CountryMetrics>> {
   const metrics = new Map<CountryId, CountryMetrics>()
   for (const feature of features) {
     metrics.set(feature.properties.countryId, computeCountryMetrics(feature))
     if (slicer.due()) await slicer.pause()
   }
-  assignTintGroups(features, metrics)
+  assignTintGroups(features, metrics, touching)
   return metrics
 }

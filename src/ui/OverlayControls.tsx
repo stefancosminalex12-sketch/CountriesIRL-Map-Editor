@@ -21,7 +21,8 @@ import { clampOverlayScale, overlayScaleAt, OVERLAY_SIZE_MIN, OVERLAY_SIZE_MAX }
 import { OVERLAY_SCALE_RANGE, type MapOverlay, type OverlayTexture } from '../types/map'
 import { OVERLAY_MODES, OVERLAY_TEXTURES, texturePatch } from './overlayChoices'
 import { FlagPicker } from './FlagPicker'
-import { flagName, flagOptions } from '../flags/flagChoices'
+import { EntitySearch } from './EntitySearch'
+import { flagOptions } from '../flags/flagChoices'
 
 const NO_OVERLAYS: MapOverlay[] = []
 
@@ -88,7 +89,11 @@ export function OverlayControls() {
   return (
     <div className="stack">
       <div className="stack">
-        {copyable.length > 1 ? (
+        {/*
+          Type a name and the overlay is made — no selecting first. The selection is left alone.
+        */}
+        <EntitySearch onChoose={(id) => createFromSelection(false, [id])} label="Search" placeholder="Search" />
+        {copyable.length > 1 && (
           <>
             {/*
               Several selected: one object that moves and sizes as a whole, with the borders
@@ -101,23 +106,7 @@ export function OverlayControls() {
               Copy each separately ({copyable.length} overlays)
             </button>
           </>
-        ) : (
-          <button
-            type="button"
-            className="btn btn--on"
-            disabled={copyable.length === 0}
-            onClick={() => {
-              createFromSelection()
-            }}
-          >
-            {copyable.length === 1 ? `Create overlay of ${nameOf(copyable[0])}` : 'Create overlay'}
-          </button>
         )}
-        <p className="hint">
-          {overlays.length === 0
-            ? `Select ${noun.many} on the map, then copy them and drag the copy anywhere — into the sea, too. A copy's edge is coastline, and a group keeps the borders between its ${noun.many}; both follow the map's Coastlines and Borders switches.`
-            : 'Drag an overlay on the map to move it; tap one to choose it.'}
-        </p>
 
         {overlays.length > 0 && (
           <ul className="overlay-list" aria-label="Overlays">
@@ -228,11 +217,6 @@ export function OverlayControls() {
                     setAskFlag(false)
                   }}
                 />
-                <p className="hint">
-                  {active.flag
-                    ? `Filled with the flag of ${flagName(active.flag, flags)}. It keeps this flag whatever ${nameOf(active.sourceId)} flies later.`
-                    : `${nameOf(active.sourceId)} flies no flag yet — choose one to fill the overlay.`}
-                </p>
               </>
             )}
           </div>
@@ -280,7 +264,6 @@ export function OverlayControls() {
                 }}
                 onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur() }}
               />
-              <span className="hint">0.001×–1000× the original size.</span>
             </label>
 
             <div className="overlay-actions">
@@ -326,9 +309,7 @@ export function OverlayControls() {
                 </button>
               ))}
             </div>
-            <p className="hint">{MODES.find(([id]) => id === active.mode)?.[2]}</p>
           </div>
-          <p className="hint">Right-click an overlay on the map to delete, duplicate or change it there.</p>
         </div>
       )}
     </div>

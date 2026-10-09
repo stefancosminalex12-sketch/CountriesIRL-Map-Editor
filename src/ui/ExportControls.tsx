@@ -38,6 +38,8 @@ export function ExportControls() {
 
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState<ExportFormat | null>(null)
+  /* Leave the sea out of PNG and SVG exports, so the image is the land alone. */
+  const [transparentWater, setTransparentWater] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -89,7 +91,7 @@ export function ExportControls() {
        * scale, or an SVG someone will zoom into — must carry every one of them. The map is
        * redrawn at full detail, captured, and released back to the view's own detail.
        */
-      const result = await withFullDetail(() => renderMapExport(svg, { format, filename, background }))
+      const result = await withFullDetail(() => renderMapExport(svg, { format, filename, background, transparentWater }))
       downloadBlob(result.blob, result.filename)
       setOpen(false)
     } catch (cause) {
@@ -111,6 +113,23 @@ export function ExportControls() {
           setError(null)
         }}
       >
+        {/* A tray with an arrow down into it: the map saved out as a file. */}
+        <svg
+          className="export__icon"
+          viewBox="0 0 16 16"
+          width="14"
+          height="14"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path d="M8 2.5v7.2M4.9 6.8 8 9.9l3.1-3.1" />
+          <path d="M2.8 10.6v1.6a1.3 1.3 0 0 0 1.3 1.3h7.8a1.3 1.3 0 0 0 1.3-1.3v-1.6" />
+        </svg>
         Export
         <span className="export__caret" aria-hidden="true" />
       </button>
@@ -129,9 +148,26 @@ export function ExportControls() {
               <span className="export__label">
                 {busy === format.id ? 'Exporting…' : format.label}
               </span>
-              <span className="export__hint">{format.hint}</span>
+              <span className="export__hint">
+                {format.id === 'jpg' && transparentWater ? 'Keeps the water: JPG has no transparency' : format.hint}
+              </span>
             </button>
           ))}
+          <button
+            type="button"
+            role="menuitemcheckbox"
+            aria-checked={transparentWater}
+            className={`export__item export__option${transparentWater ? ' export__option--on' : ''}`}
+            onClick={() => setTransparentWater((on) => !on)}
+          >
+            <span className="export__check" aria-hidden="true">
+              {transparentWater ? '✓' : ''}
+            </span>
+            <span className="export__option-text">
+              <span className="export__label">Transparent water</span>
+              <span className="export__hint">PNG and SVG: just the land, no sea</span>
+            </span>
+          </button>
           {error && <p className="export__error">{error}</p>}
         </div>
       )}

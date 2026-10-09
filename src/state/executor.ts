@@ -147,6 +147,16 @@ export function validateOperation(op: MapOperation, ctx: ExecutionContext = {}):
       return op.size === null || (typeof op.size === 'number' && op.size >= STICKER_SIZE.min && op.size <= STICKER_SIZE.max)
         ? null
         : `size must be null or between ${STICKER_SIZE.min} and ${STICKER_SIZE.max}`
+    case 'move_sticker':
+      return op.at === null ||
+        (Array.isArray(op.at) &&
+          op.at.length === 2 &&
+          Number.isFinite(op.at[0]) &&
+          Number.isFinite(op.at[1]) &&
+          Math.abs(op.at[0]) <= 180 &&
+          Math.abs(op.at[1]) <= 90)
+        ? null
+        : 'at must be null or [longitude, latitude]'
     case 'assign_sticker':
       return op.stickerId === null || (typeof op.stickerId === 'string' && op.stickerId)
         ? null
@@ -607,6 +617,15 @@ function applyOperation(doc: MapDocument, op: MapOperation): MapDocument {
         else sizes[id] = op.size
       }
       return { ...doc, stickers: { ...mode, sizes } }
+    }
+    case 'move_sticker': {
+      const mode = stickersOf(doc)
+      const positions = { ...(mode.positions ?? {}) }
+      for (const id of op.countryIds) {
+        if (op.at === null) delete positions[id]
+        else positions[id] = [op.at[0], op.at[1]]
+      }
+      return { ...doc, stickers: { ...mode, positions } }
     }
     case 'set_active_preset':
       return { ...doc, activePresetId: op.presetId }

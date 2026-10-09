@@ -247,7 +247,11 @@ function readFrame(source: SVGSVGElement, width: number, height: number) {
  * composition identical at any resolution: the same user-space geometry is simply
  * mapped onto more device pixels.
  */
-function cloneMapSvg(source: SVGSVGElement, scale: number): { svg: SVGSVGElement; size: ExportSize } {
+function cloneMapSvg(
+  source: SVGSVGElement,
+  scale: number,
+  transparentWater = false,
+): { svg: SVGSVGElement; size: ExportSize } {
   const rect = source.getBoundingClientRect()
   const width = Math.max(1, Math.round(Number(source.getAttribute('width')) || rect.width))
   const height = Math.max(1, Math.round(Number(source.getAttribute('height')) || rect.height))
@@ -281,6 +285,15 @@ function cloneMapSvg(source: SVGSVGElement, scale: number): { svg: SVGSVGElement
   for (const node of Array.from(clone.querySelectorAll('[data-export="none"]'))) {
     node.remove()
   }
+  /*
+   * Transparent water: the sea and everything drawn only on it — the background, the named
+   * seas, the globe's outline and the graticule — leave the picture, so the land stands on
+   * nothing. Lakes are inland water and the author's own switch; they are left as they are.
+   */
+  if (transparentWater) {
+    for (const node of Array.from(clone.querySelectorAll(`[${WATER_LAYER}]`))) node.remove()
+  }
+  for (const node of Array.from(clone.querySelectorAll(`[${WATER_LAYER}]`))) node.removeAttribute(WATER_LAYER)
 
   /*
    * The composition frame decides what the picture is.
@@ -341,8 +354,12 @@ function cloneMapSvg(source: SVGSVGElement, scale: number): { svg: SVGSVGElement
 }
 
 /** The current map view as standalone SVG text. */
-export function serializeMapSvg(source: SVGSVGElement, scale = 1): { markup: string; size: ExportSize } {
-  const { svg, size } = cloneMapSvg(source, scale)
+export function serializeMapSvg(
+  source: SVGSVGElement,
+  scale = 1,
+  transparentWater = false,
+): { markup: string; size: ExportSize } {
+  const { svg, size } = cloneMapSvg(source, scale, transparentWater)
   const body = new XMLSerializer().serializeToString(svg)
   return { markup: `<?xml version="1.0" encoding="UTF-8"?>\n${body}`, size }
 }
@@ -370,8 +387,9 @@ async function rasterize(
   source: SVGSVGElement,
   scale: number,
   background: string | null,
+  transparentWater = false,
 ): Promise<{ canvas: HTMLCanvasElement; size: ExportSize }> {
-  const { markup, size } = serializeMapSvg(source, scale)
+  const { markup, size } = serializeMapSvg(source, scale, transparentWater)
   const url = URL.createObjectURL(new Blob([markup], { type: 'image/svg+xml;charset=utf-8' }))
 
   try {
@@ -424,7 +442,19 @@ export interface ExportOptions {
    * true — but JPEG must never be handed a transparent canvas.
    */
   background: string
+  /**
+   * Leave the sea out — see {@link WATER_LAYER}. PNG and SVG only: JPEG has no alpha, so
+   * there it would only paint the background back in.
+   */
+  transparentWater?: boolean
 }
+
+/**
+ * Marks what is drawn only on the water — the sea itself, the named seas, the globe's outline
+ * and the graticule — so a Transparent water export can leave it out. Removed from every
+ * export either way: it is editor bookkeeping, not part of the picture.
+ */
+export const WATER_LAYER = 'data-water-layer'
 
 /**
  * Produces the export as a `Blob`. Pure: it reads the DOM and returns bytes.
@@ -438,8 +468,10 @@ export async function renderMapExport(
 ): Promise<ExportResult> {
   const { format, filename } = options
 
+  const transparentWater = format !== 'jpg' && (options.transparentWater ?? false)
+
   if (format === 'svg') {
-    const { markup, size } = serializeMapSvg(source, 1)
+    const { markup, size } = serializeMapSvg(source, 1, transparentWater)
     return {
       blob: new Blob([markup], { type: `${MIME.svg};charset=utf-8` }),
       filename,
@@ -452,6 +484,7 @@ export async function renderMapExport(
     source,
     scale,
     format === 'jpg' ? options.background : null,
+    transparentWater,
   )
   const blob = await canvasToBlob(canvas, MIME[format], format === 'jpg' ? JPEG_QUALITY : undefined)
   return { blob, filename, size }

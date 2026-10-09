@@ -3,6 +3,7 @@ import { MapCanvas } from './render/MapCanvas'
 import { Sidebar } from './ui/Sidebar'
 import { TopBarScope } from './ui/TopBar'
 import { HistoryControls } from './ui/HistoryControls'
+import { MapSearch } from './ui/MapSearch'
 import { ExportControls } from './ui/ExportControls'
 import { StatusBar } from './ui/StatusBar'
 import { useMapStore } from './state/mapStore'
@@ -25,6 +26,7 @@ export function App() {
         <h1 className="visually-hidden">Map Editor</h1>
         <TopBarScope />
         <HistoryControls />
+        <MapSearch />
         <ExportControls />
       </header>
 

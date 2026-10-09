@@ -1,5 +1,6 @@
 /** Rendering controls. Every change goes through an operation. The map, its detail and projection are in the top bar (`TopBar`). */
 import { useMapStore } from '../state/mapStore'
+import { EntitySearch } from './EntitySearch'
 import { MapToggle } from './MapToggle'
 import { waterName } from '../geo/waters'
 import { SelectField } from './Select'
@@ -42,6 +43,8 @@ export function HideTerritories() {
   const dispatch = useMapStore((s) => s.dispatch)
   const selected = useMapStore((s) => s.selectedCountryIds)
   const countries = useMapStore((s) => s.doc.countries)
+  const meta = useMapStore((s) => s.geo?.meta)
+  const nameOf = (id: string) => meta?.[id]?.name || id
 
   const hiddenIds = Object.entries(countries)
     .filter(([, entry]) => entry?.hidden)
@@ -60,32 +63,48 @@ export function HideTerritories() {
     dispatch({ op: 'set_countries_hidden', countryIds: ids, hidden })
   }
 
+  /*
+   * Search hides: type a name and that territory is taken off the map. What is hidden is listed
+   * under it as tabs, each with an × to bring it back — a hidden territory is not on the map to be
+   * clicked. The selection's own button appears only while something is selected (a right-click's
+   * Hide works on it).
+   */
   return (
-    <div className="sidebar__group">
-      <p className="hint">
-        Takes the selected territories off the map. They keep their data and come back
-        exactly as they were.
-      </p>
-      <div className="merge-actions">
-        <button
-          type="button"
-          className="btn"
-          disabled={selected.length === 0}
-          onClick={() => apply([...selected], !allHidden)}
-        >
-          {allHidden ? 'Show' : 'Hide'}
-          {selected.length > 1 ? ` ${selected.length}` : ''}
-          {selected.length === 0 ? ' selected' : ''}
+    <div className="stack">
+      <EntitySearch
+        label="Search"
+        placeholder="Search"
+        exclude={(id) => !!countries[id]?.hidden}
+        onChoose={(id) => apply([id], true)}
+      />
+      {selected.length > 0 && (
+        <button type="button" className="btn" onClick={() => apply([...selected], !allHidden)}>
+          {allHidden ? 'Show' : 'Hide'} {selected.length === 1 ? nameOf(selected[0]) : `${selected.length} selected`}
         </button>
-        <button
-          type="button"
-          className="btn btn--ghost"
-          disabled={hiddenIds.length === 0}
-          onClick={() => apply(hiddenIds, false)}
-        >
-          Show all{hiddenIds.length > 0 ? ` (${hiddenIds.length})` : ''}
-        </button>
-      </div>
+      )}
+      {hiddenIds.length > 0 && (
+        <>
+          <ul className="pick-tabs" aria-label="Hidden">
+            {hiddenIds.map((id) => (
+              <li key={id} className="pick-tab">
+                <span className="pick-tab__name">{nameOf(id)}</span>
+                <button
+                  type="button"
+                  className="pick-tab__remove"
+                  aria-label={`Show ${nameOf(id)}`}
+                  title={`Show ${nameOf(id)}`}
+                  onClick={() => apply([id], false)}
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+          <button type="button" className="btn btn--ghost" onClick={() => apply(hiddenIds, false)}>
+            Show all ({hiddenIds.length})
+          </button>
+        </>
+      )}
     </div>
   )
 }
@@ -318,13 +337,7 @@ function WaterRegionPaint() {
 
   if (selectedWaterIds.length === 0) {
     return (
-      <p className="hint">
-        <strong>Water Regions</strong>: the sixteen major oceans and seas are on the map as
-        entities. Click one to select it, tap more to add them, or take them with the rectangle
-        and the brush like any country — then colour them here. They stay under the land, so
-        every coast, island and channel is drawn exactly as before.
-        {painted > 0 ? ` ${painted} coloured so far.` : ''}
-      </p>
+      <p className="hint">{painted > 0 ? `${painted} coloured` : 'No sea selected'}</p>
     )
   }
 

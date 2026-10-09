@@ -86,12 +86,6 @@ export function LegendControls() {
       <Section title="Visibility">
         <div className="stack">
           <LegendVisibilityToggle />
-          {!legend.visible && (
-            <p className="hint">
-              The legend is hidden. Everything below still edits it, and it reappears as set the
-              moment it is shown.
-            </p>
-          )}
         </div>
       </Section>
 
@@ -223,10 +217,6 @@ export function LegendControls() {
         value={sizes.items}
         onChange={(value) => setSize('items', value)}
       />
-      <p className="hint">
-        The items themselves — each colour indicator and the text beside it — come from the active
-        colouring mode: the palette's bands, the comparison's groups, the coloured seas.
-      </p>
       </div>
       </Section>
 

@@ -29,6 +29,13 @@ interface PersistedSettings {
    * rather than being read back as the default.
    */
   selectionHighlight: string | null
+  /**
+   * Whether the bars, menus and cards are glass (see the finish layer in `global.css`), or
+   * `null` for automatic: glass on a computer, solid on a phone or a touch screen, where the
+   * blur redrawn under the bars on every frame of a pan costs the most. A choice made with the
+   * switch is kept as `true` or `false` and outranks the device.
+   */
+  transparentUi: boolean | null
 }
 
 /** A colour the picker could have produced. Anything else in storage is ignored. */
@@ -40,6 +47,7 @@ function read(): PersistedSettings {
   const fallback: PersistedSettings = {
     themeId: DEFAULT_THEME_ID,
     selectionHighlight: DEFAULT_SELECTION_HIGHLIGHT,
+    transparentUi: null,
   }
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -57,6 +65,7 @@ function read(): PersistedSettings {
         'selectionHighlight' in parsed
           ? readColor(parsed.selectionHighlight)
           : fallback.selectionHighlight,
+      transparentUi: typeof parsed.transparentUi === 'boolean' ? parsed.transparentUi : null,
     }
   } catch {
     return fallback
@@ -107,6 +116,27 @@ interface SettingsStore {
   setTheme: (id: ThemeId) => void
   /** `null` hands the colour back to the theme. */
   setSelectionHighlight: (color: string | null) => void
+  /** See {@link PersistedSettings.transparentUi}. */
+  transparentUi: boolean | null
+  setTransparentUi: (on: boolean | null) => void
+}
+
+/** A phone or a touch screen: where glass is off unless the author turns it on. */
+const COMPACT_QUERY = '(pointer: coarse), (max-width: 620px)'
+
+function compactDevice(): boolean {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia(COMPACT_QUERY).matches
+}
+
+/** Whether glass is on: the author's choice, or the device's default. */
+export function glassOn(preference: boolean | null): boolean {
+  return preference ?? !compactDevice()
+}
+
+/** Writes the glass choice onto the page, where the stylesheet reads it (`data-glass`). */
+function applyGlass(preference: boolean | null): void {
+  if (typeof document === 'undefined') return
+  document.documentElement.dataset.glass = glassOn(preference) ? 'on' : 'off'
 }
 
 const initial = read()
@@ -128,6 +158,7 @@ function applyMapPalette(id: ThemeId): void {
 export const useSettingsStore = create<SettingsStore>((set, get) => ({
   themeId: initial.themeId,
   selectionHighlight: initial.selectionHighlight,
+  transparentUi: initial.transparentUi,
 
   /*
    * Every setter persists the whole of the current state rather than naming the fields
@@ -147,6 +178,12 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     set({ selectionHighlight: color ? (readColor(color) ?? null) : null })
     persist(get())
   },
+
+  setTransparentUi(on) {
+    applyGlass(on)
+    set({ transparentUi: on })
+    persist(get())
+  },
 }))
 
 /** Snapshots whatever the store currently holds. */
@@ -154,12 +191,18 @@ function persist(state: SettingsStore): void {
   write({
     themeId: state.themeId,
     selectionHighlight: state.selectionHighlight,
+    transparentUi: state.transparentUi,
   })
 }
 
 /** Applies stored preferences at start-up, before the first paint where possible. */
 export function initialiseSettings(): void {
-  const { themeId } = useSettingsStore.getState()
+  const { themeId, transparentUi } = useSettingsStore.getState()
   applyUiTokens(getTheme(themeId))
   applyMapPalette(themeId)
+  applyGlass(transparentUi)
+  // Automatic follows the device as it changes — a window narrowed to a phone's width, say.
+  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+    window.matchMedia(COMPACT_QUERY).addEventListener('change', () => applyGlass(useSettingsStore.getState().transparentUi))
+  }
 }

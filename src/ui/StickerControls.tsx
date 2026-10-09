@@ -18,13 +18,11 @@
  */
 import { useMemo } from 'react'
 import { useMapStore } from '../state/mapStore'
-import { colourModeOf } from '../state/colourMode'
 import { describeRungs, resolveStickers, stickersOf } from '../state/stickers'
-import { getPreset } from '../state/presets'
 import { saveLadder, stickerIndex, useStickerLibrary } from '../stickers/stickerLibrary'
 import type { Sticker } from '../stickers/types'
 import { STICKER_SIZE } from '../types/map'
-import { Section } from './Panels'
+import { Disclosure } from './Panels'
 import { StickerFinder } from './StickerFinder'
 import { StickerLibrary } from './StickerLibrary'
 import { ChosenSticker } from './ChosenSticker'
@@ -33,26 +31,6 @@ import { StickerCreator } from './StickerCreator'
 function Thumb({ sticker, size = 28 }: { sticker: Sticker | undefined; size?: number }) {
   if (!sticker) return <span className="sticker-thumb sticker-thumb--missing" style={{ width: size, height: size }} title="Missing image">?</span>
   return <img className="sticker-thumb" src={sticker.src} alt="" width={size} height={size} draggable={false} />
-}
-
-/** What the stickers are following, in a sentence. */
-function useStatus(): string {
-  const doc = useMapStore((s) => s.doc)
-  const mode = stickersOf(doc)
-  if (!mode.auto) return 'Only stickers you place by hand are shown.'
-  const colour = colourModeOf(doc)
-  if (colour !== 'data') {
-    return 'Following the data needs Data → Data mode. Stickers you place by hand still show.'
-  }
-  const layer = doc.layers.find((l) => l.id === doc.activeLayerId) ?? doc.layers[0]
-  if (layer?.colorScale.mode === 'threshold') {
-    const preset = getPreset(doc.activePresetId)
-    return `Following the predefined ${preset?.name ?? ''} bands: each band gets its tier’s sticker.`
-  }
-  if (layer?.colorScale.mode === 'numeric') {
-    return 'Following your Custom scale: the range of values is split evenly across the tiers, lowest first.'
-  }
-  return 'Categories have no low-to-high order, so only stickers you place by hand are shown.'
 }
 
 export function StickerTiers() {
@@ -80,10 +58,8 @@ export function StickerTiers() {
     setLadder(ladder)
   }
 
-  const status = useStatus()
   return (
     <div className="stack">
-      {mode.enabled && <p className="hint">{status}</p>}
       <div className="mode-switch mode-switch--pair" role="group" aria-label="How stickers are chosen">
         {[true, false].map((auto) => (
           <button
@@ -98,9 +74,7 @@ export function StickerTiers() {
         ))}
       </div>
 
-      {mode.ladder.length === 0 ? (
-        <p className="hint">No tiers yet. Pick stickers in the Library and add them here, lowest value first.</p>
-      ) : (
+      {mode.ladder.length === 0 ? null : (
         <ol className="sticker-ladder">
           {mode.ladder.map((id, i) => {
             const sticker = index.get(id)
@@ -141,9 +115,6 @@ export function StickerTiers() {
           Reverse order
         </button>
       )}
-      <p className="hint">
-        Tier 1 goes to the lowest values. Reverse the order when a high number is the bad end, like inflation.
-      </p>
     </div>
   )
 }
@@ -173,26 +144,30 @@ export function StickerSize() {
   )
 }
 
+/*
+ * The colour row for the stickers on the selection, always there; every other part folded, so the
+ * panel opens as a short list of what it holds and the part wanted is one tap away.
+ */
 export function StickerControls() {
   return (
     <div className="stack">
       <ChosenSticker />
-      <Section title="Library">
+      <Disclosure title="Stickers">
         <StickerLibrary />
-      </Section>
-      <Section title="Emoji">
+      </Disclosure>
+      <Disclosure title="Emoji">
         <StickerFinder />
-      </Section>
-      <Section title="Create">
+      </Disclosure>
+      <Disclosure title="Creator">
         <StickerCreator />
-      </Section>
-      <Section title="Size of all stickers">
+      </Disclosure>
+      <Disclosure title="Size">
         <StickerSize />
-      </Section>
+      </Disclosure>
       {/* Stickers chosen by the data, lowest value first: the advanced part, so it comes last. */}
-      <Section title="Tiers">
+      <Disclosure title="Tiers">
         <StickerTiers />
-      </Section>
+      </Disclosure>
     </div>
   )
 }

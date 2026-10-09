@@ -18,7 +18,6 @@ import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { useMapStore } from '../state/mapStore'
 import type { CountryEntry, CountryId, MapValue, MergedEntity } from '../types/map'
 import type { EntityMeta } from '../geo/countryMeta'
-import { useNoun } from '../maps/useNoun'
 import { GroupActions } from './GroupActions'
 import { EntitySource } from './EntitySource'
 
@@ -297,21 +296,13 @@ export function Inspector() {
   const dispatch = useMapStore((s) => s.dispatch)
   const clearSelection = useMapStore((s) => s.clearSelection)
   const clearSelectionWithLastEdit = useMapStore((s) => s.clearSelectionWithLastEdit)
-  const noun = useNoun()
 
   const layer = doc.layers.find((l) => l.id === doc.activeLayerId) ?? doc.layers[0]
   const key = layer?.dataKey ?? 'value'
   /* One lookup per row rather than a scan of every group per row. */
   const mergeById = useMemo(() => new Map(doc.merges.map((m) => [m.id, m])), [doc.merges])
 
-  if (selectedCountryIds.length === 0) {
-    return (
-      <p className="hint">
-        Tap a {noun.one} on the map to select it. Tap more to add them; tap a selected
-        one to remove it.
-      </p>
-    )
-  }
+  if (selectedCountryIds.length === 0) return null
 
   const single = selectedCountryIds.length === 1 ? selectedCountryIds[0] : null
   /** Comparison colours by membership, not by value, so the value editors do not apply. */

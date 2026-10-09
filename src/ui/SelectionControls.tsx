@@ -10,7 +10,6 @@
  * not saved and not exported.
  */
 import { useMapStore } from '../state/mapStore'
-import { nounFor } from '../maps/useNoun'
 import { MenuButton, MenuItem } from './Menu'
 import { RegionGroupPicker } from './RegionGroupPicker'
 
@@ -28,7 +27,6 @@ export function SelectionControls() {
    */
   const count = useMapStore((s) => s.selectedCountryIds.length + s.selectedWaterIds.length)
   const clearSelection = useMapStore((s) => s.clearSelection)
-  const noun = nounFor(useMapStore((s) => s.doc.scope))
 
   /*
    * Normal selection is what a click always does, with either tool on or off: a click selects,
@@ -56,7 +54,6 @@ export function SelectionControls() {
               <span className="top-menu__heading">Selection tool</span>
               <MenuItem
                 name="Normal"
-                note={`Click to select, click a selected ${noun.one} again to deselect. Dragging moves the map.`}
                 active={normal}
                 onChoose={() => {
                   setSelectionTool('rectangle', false)
@@ -66,7 +63,6 @@ export function SelectionControls() {
               />
               <MenuItem
                 name="Rectangle"
-                note={`Hold the middle mouse button and drag: every ${noun.one} the box touches is added.`}
                 active={tools.rectangle}
                 onChoose={() => {
                   setSelectionTool('rectangle', !tools.rectangle)
@@ -75,7 +71,6 @@ export function SelectionControls() {
               />
               <MenuItem
                 name="Brush"
-                note={`Drag to paint: every ${noun.one} you pass over is added. On a computer, hold Ctrl for it.`}
                 active={brush}
                 onChoose={() => {
                   setSelectionTool('brush', !brush)

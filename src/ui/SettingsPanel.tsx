@@ -6,7 +6,7 @@
  */
 import { useEffect, useState } from 'react'
 import { loadCompositionIndex, type CompositionIndex } from '../geo/composition'
-import { useSettingsStore } from '../state/settingsStore'
+import { glassOn, useSettingsStore } from '../state/settingsStore'
 import { getTheme, THEMES, type ThemeId } from '../theme/themes'
 
 /**
@@ -118,7 +118,6 @@ function ThemeChoice({ id }: { id: ThemeId }) {
       </span>
       <span className="theme-choice__text">
         <strong>{theme.name}</strong>
-        <span className="hint">{theme.description}</span>
       </span>
     </button>
   )
@@ -247,5 +246,30 @@ function AdministrativeSources() {
         ))}
       </ul>
     </>
+  )
+}
+
+/**
+ * Transparent interface: the glass bars, menus and cards on or off. Shows what is in effect —
+ * automatic is on for a computer and off for a phone — and a flip is kept as the author's own
+ * choice. See `transparentUi` in `settingsStore`.
+ */
+export function TransparencySwitch() {
+  const preference = useSettingsStore((s) => s.transparentUi)
+  const setTransparentUi = useSettingsStore((s) => s.setTransparentUi)
+  const on = glassOn(preference)
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      className={`switch-row${on ? ' switch-row--on' : ''}`}
+      onClick={() => setTransparentUi(!on)}
+    >
+      <span className="switch-row__label">Transparent interface</span>
+      <span className="switch-row__track" aria-hidden="true">
+        <span className="switch-row__knob" />
+      </span>
+    </button>
   )
 }

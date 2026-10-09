@@ -449,6 +449,13 @@ export interface StickerMode {
    * (`size` included) — set by clicking that sticker on the map. Absent for the usual size.
    */
   sizes?: Record<CountryId, number>
+  /**
+   * Where one sticker was dragged to, as entity id → [longitude, latitude] of its centre — set by
+   * dragging that sticker on the map, and only ever a point on the entity's own land. Absent for
+   * the usual place, the territory's most central point. Geographic, so it stays on the same spot
+   * through a change of projection or window size.
+   */
+  positions?: Record<CountryId, [number, number]>
 }
 
 /* -------------------------------------------------------------------- merge */

@@ -185,9 +185,7 @@ export function StickerFinder() {
         </select>
       )}
 
-      <p className="hint">
-        {results.length} found. Tap one to put it on the selected countries; tap it again to take it off.
-      </p>
+      <p className="hint">{results.length} found</p>
 
       <div className="sticker-grid sticker-grid--finder">
         {results.slice(0, shown).map(([set, name]) => {
@@ -213,10 +211,7 @@ export function StickerFinder() {
       )}
       {message && <p className="hint">{message}</p>}
       <PickedStickerActions />
-      <p className="hint">
-        {data.sets.map((set) => `${set.name} by ${set.author} (${set.license})`).join(' · ')}. Free to use, including in
-        videos.
-      </p>
+      <p className="hint">{data.sets.map((set) => `${set.name} by ${set.author} (${set.license})`).join(' · ')}</p>
     </div>
   )
 }

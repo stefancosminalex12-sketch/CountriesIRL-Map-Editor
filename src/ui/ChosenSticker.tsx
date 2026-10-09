@@ -77,13 +77,6 @@ export function ChosenSticker() {
         <span className="sidebar__group-label">Colour</span>
         <StickerColorRow value={colour} onChange={(next) => next && void recolour(next)} allowFlag />
       </div>
-      <p className="hint">
-        {ids.length > 0
-          ? `Changes the sticker${ids.length === 1 ? '' : 's'} on ${label} only — and the colour new stickers go on in.`
-          : selected.length > 0
-            ? 'Tap a sticker below to put it on the selection; tap it again to take it off.'
-            : `Select ${noun.many} on the map, then tap a sticker below to put it on them; tap it again to take it off.`}
-      </p>
 
       {ids.length > 0 && (
         <>
@@ -111,6 +104,15 @@ export function ChosenSticker() {
             onClick={() => dispatch({ op: 'size_sticker', countryIds: ids, size: null })}
           >
             Usual size
+          </button>
+          {/* A sticker is dragged on the map, inside its own territory; this puts it back in the middle. */}
+          <button
+            type="button"
+            className="btn btn--ghost"
+            disabled={!ids.some((id) => mode.positions?.[id])}
+            onClick={() => dispatch({ op: 'move_sticker', countryIds: ids, at: null })}
+          >
+            Usual place
           </button>
         </>
       )}

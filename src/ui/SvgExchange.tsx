@@ -11,16 +11,13 @@ import { useRef, useState, type DragEvent } from 'react'
 import { useMapStore } from '../state/mapStore'
 import { buildBlankSvg, importMapSvg, type SvgImportResult } from '../io/svgExchange'
 import { withFullDetail } from '../render/landDetail'
-import { useNoun } from '../maps/useNoun'
 
 /** Files larger than this are not an edited blank map — refused before they are read. */
 const MAX_BYTES = 60 * 1024 * 1024
 
 export function SvgExchange() {
-  const noun = useNoun()
   const geoReady = useMapStore((s) => s.geoStatus === 'ready' && s.geo !== null)
   const [result, setResult] = useState<SvgImportResult | null>(null)
-  const [downloaded, setDownloaded] = useState<string | null>(null)
   const [over, setOver] = useState(false)
   const [busy, setBusy] = useState(false)
   const input = useRef<HTMLInputElement>(null)
@@ -31,10 +28,7 @@ export function SvgExchange() {
       const { doc, geo } = useMapStore.getState()
       return buildBlankSvg(doc, geo)
     })
-    if (!blank) {
-      setDownloaded('The map is still loading. Try again in a moment.')
-      return
-    }
+    if (!blank) return
     const url = URL.createObjectURL(new Blob([blank.markup], { type: 'image/svg+xml' }))
     const link = document.createElement('a')
     link.href = url
@@ -43,7 +37,6 @@ export function SvgExchange() {
     link.click()
     link.remove()
     window.setTimeout(() => URL.revokeObjectURL(url), 10_000)
-    setDownloaded(`${blank.filename} — ${blank.entities.toLocaleString()} ${blank.entities === 1 ? noun.one : noun.many}, ${(blank.markup.length / 1024 / 1024).toFixed(1)} MB.`)
   }
 
   const read = async (file: File | undefined | null) => {
@@ -75,15 +68,9 @@ export function SvgExchange() {
 
   return (
     <div className="stack">
-      <p className="hint">
-        Download the selected map as a blank SVG, add data to it anywhere — ChatGPT can colour it,
-        number it and give it a legend — then drop it back here to apply the additions to this map.
-      </p>
-
       <button type="button" className="btn btn--on" disabled={!geoReady} onClick={download}>
         Download SVG
       </button>
-      {downloaded && <p className="hint">{downloaded}</p>}
 
       <div
         className={`svg-drop${over ? ' svg-drop--over' : ''}${busy ? ' svg-drop--busy' : ''}`}
@@ -113,7 +100,7 @@ export function SvgExchange() {
           <path d="M3.6 12.4v2.8c0 .7.5 1.2 1.2 1.2h10.4c.7 0 1.2-.5 1.2-1.2v-2.8" />
         </svg>
         <span className="svg-drop__text">
-          {busy ? 'Reading…' : over ? 'Drop to apply' : 'Drop the edited SVG here, or click to choose it'}
+          {busy ? 'Reading…' : 'Drop here'}
         </span>
         <input
           ref={input}

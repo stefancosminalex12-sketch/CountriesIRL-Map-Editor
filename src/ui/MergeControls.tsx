@@ -28,6 +28,7 @@ import { useMapStore } from '../state/mapStore'
 import { SelectField } from './Select'
 import { flagOptions as allFlagOptions } from '../flags/flagChoices'
 import { useNoun } from '../maps/useNoun'
+import { EntitySearch } from './EntitySearch'
 
 /** Sentinel for "no flag": a select cannot carry `null`. */
 const NO_FLAG = ''
@@ -129,6 +130,80 @@ function MemberList({ members, nameOf, onRemove, label }: {
   )
 }
 
+/**
+ * Merging by name: search, and each territory picked joins a row of tabs under the field — its
+ * name and an × to take it out again, like tabs in a browser. The ✓ at the field's right end makes
+ * a new group of them and, with two or more, merges it; one alone is kept as a group to add to.
+ * Nothing is selected or deselected on the map: the picks are this row's own.
+ *
+ * Only what a group can take is offered — a territory of this map that no group holds yet — and
+ * a pick is offered only once.
+ */
+function MergeSearch() {
+  const geo = useMapStore((s) => s.geo)
+  const merges = useMapStore((s) => s.doc.merges)
+  const createGroup = useMapStore((s) => s.createMergeGroup)
+  const addToMerge = useMapStore((s) => s.addToMerge)
+  const mergeGroup = useMapStore((s) => s.mergeGroup)
+  const [picks, setPicks] = useState<string[]>([])
+
+  const held = new Set(merges.flatMap((m) => m.members))
+  const groupIds = new Set(merges.map((m) => m.id))
+  const exclude = (id: string) => picks.includes(id) || held.has(id) || groupIds.has(id) || !geo?.byId.has(id)
+  const nameOf = (id: string) => geo?.meta[id]?.name || id
+
+  const done = () => {
+    if (picks.length === 0) return
+    const id = createGroup()
+    addToMerge(picks, id)
+    if (picks.length >= MERGE_MINIMUM) mergeGroup(id)
+    setPicks([])
+  }
+
+  return (
+    <div className="stack">
+      <EntitySearch
+        label="Search"
+        placeholder="Search"
+        exclude={exclude}
+        onChoose={(id) => setPicks((current) => [...current, id])}
+        trailing={
+          <button
+            type="button"
+            className="map-search__done"
+            disabled={picks.length === 0}
+            aria-label={picks.length >= MERGE_MINIMUM ? `Merge ${picks.length}` : 'Make group'}
+            title={picks.length >= MERGE_MINIMUM ? `Merge ${picks.length}` : 'Make group'}
+            onClick={done}
+          >
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+              <path d="M3.2 8.4 6.5 11.6 12.8 4.6" />
+            </svg>
+          </button>
+        }
+      />
+      {picks.length > 0 && (
+        <ul className="pick-tabs" aria-label="Picked">
+          {picks.map((id) => (
+            <li key={id} className="pick-tab">
+              <span className="pick-tab__name">{nameOf(id)}</span>
+              <button
+                type="button"
+                className="pick-tab__remove"
+                aria-label={`Remove ${nameOf(id)}`}
+                title={`Remove ${nameOf(id)}`}
+                onClick={() => setPicks((current) => current.filter((p) => p !== id))}
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 export function MergeControls() {
   const merges = useMapStore((s) => s.doc.merges)
   const geo = useMapStore((s) => s.geo)
@@ -164,6 +239,7 @@ export function MergeControls() {
 
   return (
     <div className="stack">
+      <MergeSearch />
       {/* Always in the same place. It never takes the author away from the group being edited. */}
       <button
         type="button"
@@ -180,13 +256,6 @@ export function MergeControls() {
         a member arriving never moves a control while it is being used.
       */}
       <div className="merge-scroll">
-        <p className="hint">
-          {merges.length === 0
-            ? `Select ${noun.many} on the map, then make a group to collect them in.`
-            : activeId
-              ? `Select ${noun.many} on the map and press Add to group. Merge draws the group as one ${noun.one}.`
-              : 'Choose a group to add to, or make another.'}
-        </p>
 
         {/* In creation order: the document keeps them in the order they were made. */}
         {merges.map((entity) => {

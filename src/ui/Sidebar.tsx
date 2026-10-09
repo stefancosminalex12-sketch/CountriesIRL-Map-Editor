@@ -2,8 +2,11 @@
  * The left sidebar: a rail of sections that opens one at a time.
  *
  * The rail is always visible and always the same width, so the map's left edge only
- * moves when the author asks it to. Choosing a section slides a panel out beside it;
- * choosing the same one again closes it. One open section rather than a scrolling
+ * moves when the author asks it to. Choosing a section drops its panel down beside its
+ * button, as the File menu drops down under File — a card as tall as its contents, top
+ * level with the button and pushed up only as far as it must be to stay on screen;
+ * choosing the same one again closes it. Unlike File it stays open while the map is
+ * clicked, because most sections are worked together with the map: select, then act. One open section rather than a scrolling
  * column of all of them, because the previous layout put region chips, two selects,
  * five switches and three colour wells on screen at once and left the reader to work
  * out which belonged together.
@@ -12,11 +15,12 @@
  * new markup, no new styling, and it inherits the animation, the active state and the
  * keyboard behaviour along with everything else.
  */
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { HideTerritories } from './MapSettings'
 import { SvgExchange } from './SvgExchange'
-import { onOpenSidebarSection } from './sidebarEvents'
+import { onOpenMapMenu, onOpenSidebarSection, type MapMenuRequest } from './sidebarEvents'
+import { useMapStore } from '../state/mapStore'
 import { closeLatestDisclosure } from './Panels'
 import { DataPalette } from './DataPalette'
 import { LegendControls, LegendSizeControls } from './LegendControls'
@@ -107,6 +111,9 @@ const ICONS: Record<string, ReactNode> = {
   ),
 }
 
+/** The space kept between the dropdown and the sidebar's top and bottom edges, in pixels. */
+const DROP_GAP = 6
+
 interface SidebarSection {
   id: string
   name: string
@@ -122,10 +129,10 @@ interface SidebarSection {
 }
 
 /*
- * The sections, top to bottom, in the order the work goes: what is selected, the tools that act
- * on it (Merge, Hide, Overlay), what colours the map, what is put on it, how it is explained, how
- * it is framed — and the SVG round trip. Which map, its templates, how it is displayed and the
- * editor's own settings are in the top bar's File menu (`TopBar.tsx`).
+ * The sections, top to bottom: Select, then what colours the map and what is put on it (Data,
+ * Stickers), how it is framed (Canvas), the tools that act on what is selected (Overlay, Merge,
+ * Hide), how it is explained (Legend) and the SVG round trip. Which map, its templates, how it is
+ * displayed and the editor's own settings are in the top bar's File menu (`TopBar.tsx`).
  *
  * Every control below is the component it always was, with the same hooks and the same
  * operations, referenced exactly once. Nothing was rewritten to be moved: where a component held
@@ -140,20 +147,6 @@ const SECTIONS: SidebarSection[] = [
     name: 'Select',
     body: <SelectionControls />,
   },
-  /*
-   * Doing things to the map's entities, as opposed to colouring or drawing them — three tools,
-   * each its own section. They were one Edit section of three folded parts; as sections, opening
-   * one is choosing that tool, and only one is open at a time.
-   *
-   * Opening Merge is what makes a tap on the map build a group, and the Overlay panel's being
-   * mounted is what the store reads as the overlay tool being open (`setOverlayMode`) — both
-   * exactly as when they were folded parts, since a closed section unmounts its body.
-   */
-  { id: 'merge', name: 'Merge', body: <MergeControls /> },
-  /* Taking the selected entities off the map, and bringing them back. */
-  { id: 'hide', name: 'Hide', body: <HideTerritories /> },
-  /* Copies of an entity's shape laid over another place. */
-  { id: 'overlay', name: 'Overlay', body: <OverlayControls /> },
   {
     /* The colouring modes — Data, Groups, Flags; none on is off — and each mode's own workflow. */
     id: 'data',
@@ -169,6 +162,23 @@ const SECTIONS: SidebarSection[] = [
     name: 'Stickers',
     body: <StickerControls />,
   },
+  /*
+   * Composition and framing only: the part of the canvas that is the picture. Nothing in it
+   * moves the map, zooms it or changes what is drawn.
+   */
+  { id: 'canvas', name: 'Canvas', body: <ScreenControls /> },
+  /*
+   * Doing things to the map's entities, as opposed to colouring or drawing them — three tools,
+   * each its own section; opening one is choosing that tool.
+   *
+   * The Overlay panel's being mounted is what the store reads as the overlay tool being open
+   * (`setOverlayMode`), since a closed section unmounts its body.
+   */
+  /* Copies of an entity's shape laid over another place. */
+  { id: 'overlay', name: 'Overlay', body: <OverlayControls /> },
+  { id: 'merge', name: 'Merge', body: <MergeControls /> },
+  /* Taking the selected entities off the map, and bringing them back. */
+  { id: 'hide', name: 'Hide', body: <HideTerritories /> },
   {
     id: 'legend',
     name: 'Legend',
@@ -182,30 +192,113 @@ const SECTIONS: SidebarSection[] = [
         <Section title="Position & Size">
           <div className="stack">
             <LegendSizeControls />
-            <p className="hint">
-              Drag the legend on the map to move it — it snaps to the canvas's edges and centre —
-              and drag its corner to resize it.
-            </p>
           </div>
         </Section>
       </div>
     ),
   },
-  /*
-   * Composition and framing only: the part of the canvas that is the picture. Nothing in it
-   * moves the map, zooms it or changes what is drawn.
-   */
-  { id: 'canvas', name: 'Canvas', body: <ScreenControls /> },
   {
-    /*
-     * At the bottom: the map out as a blank SVG to edit anywhere, and the edited file back in.
-     * See `SvgExchange` — two controls and no choices.
-     */
+    /* At the bottom: the map out as a blank SVG to edit anywhere, and the edited file back in. */
     id: 'svg',
     name: 'SVG',
     body: <SvgExchange />,
   },
 ]
+
+/**
+ * The menu a right-click on a territory opens, at the pointer: the territory's name, then every
+ * section of the rail in the rail's order, each with its icon. Choosing one opens that section —
+ * the territory is already in the selection (`MapCanvas`), so the section works on it.
+ *
+ * Closes on a choice, a press anywhere else, Escape, a resize or the wheel, like every menu here.
+ */
+function MapSectionMenu({
+  request,
+  onChoose,
+  onClose,
+}: {
+  request: MapMenuRequest
+  onChoose: (sectionId: string) => void
+  onClose: () => void
+}) {
+  const name = useMapStore((s) => {
+    const merge = s.doc.merges.find((m) => m.id === request.entityId)
+    return merge?.name || s.geo?.meta[request.entityId]?.name || request.entityId
+  })
+  const panel = useRef<HTMLDivElement>(null)
+  const [position, setPosition] = useState<{ left: number; top: number } | null>(null)
+
+  useLayoutEffect(() => {
+    const width = panel.current?.offsetWidth ?? 200
+    const height = panel.current?.offsetHeight ?? 320
+    setPosition({
+      left: Math.max(8, Math.min(request.x, window.innerWidth - width - 8)),
+      top: Math.max(8, Math.min(request.y, window.innerHeight - height - 8)),
+    })
+  }, [request])
+
+  useEffect(() => {
+    const onPointer = (event: PointerEvent) => {
+      if (!panel.current?.contains(event.target as Node)) onClose()
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('pointerdown', onPointer, true)
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('resize', onClose)
+    window.addEventListener('wheel', onClose, { passive: true })
+    return () => {
+      window.removeEventListener('pointerdown', onPointer, true)
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('resize', onClose)
+      window.removeEventListener('wheel', onClose)
+    }
+  }, [onClose])
+
+  return createPortal(
+    <div
+      ref={panel}
+      className="top-menu map-menu"
+      role="menu"
+      aria-label={name}
+      style={{ left: position?.left ?? -9999, top: position?.top ?? -9999 }}
+      onContextMenu={(event) => event.preventDefault()}
+    >
+      <span className="top-menu__heading">{name}</span>
+      {SECTIONS.map((section) => (
+        <button
+          key={section.id}
+          type="button"
+          role="menuitem"
+          className="top-menu__item map-menu__item"
+          onClick={() => {
+            onChoose(section.id)
+            onClose()
+          }}
+        >
+          <svg
+            className="map-menu__icon"
+            viewBox="0 0 20 20"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            focusable="false"
+          >
+            {ICONS[section.id]}
+          </svg>
+          <span className="top-menu__name">{section.name}</span>
+        </button>
+      ))}
+    </div>,
+    document.body,
+  )
+}
 
 export function Sidebar() {
   /*
@@ -251,6 +344,11 @@ export function Sidebar() {
     [],
   )
 
+  /* A right-click on the map: the sections, in a menu at the pointer. See `MapSectionMenu`. */
+  const [mapMenu, setMapMenu] = useState<MapMenuRequest | null>(null)
+  useEffect(() => onOpenMapMenu(setMapMenu), [])
+  const closeMapMenu = useCallback(() => setMapMenu(null), [])
+
   const open = SECTIONS.find((section) => section.id === openId) ?? null
   const rendered = SECTIONS.find((section) => section.id === renderedId) ?? null
   const panelRef = useRef<HTMLDivElement>(null)
@@ -264,10 +362,64 @@ export function Sidebar() {
   useEffect(() => setBackHost(rootRef.current?.parentElement ?? null), [])
 
   /*
+   * Where the dropdown's top is, in the sidebar's own coordinates: level with the open section's
+   * button, moved up only as far as it must be to keep the whole card inside the sidebar.
+   *
+   * Every card is the same height (`.sidebar__panel`), whatever is in it — a short section is not
+   * a small card and a long one is not a tall card; a long one scrolls. So a choice made inside a
+   * card never resizes or moves it, and switching sections never changes the card's size. It is
+   * placed again only when the window is resized or the rail scrolled.
+   */
+  const itemRefs = useRef(new Map<string, HTMLButtonElement>())
+  const railRef = useRef<HTMLElement>(null)
+  const [dropTop, setDropTop] = useState(0)
+  useLayoutEffect(() => {
+    if (!renderedId) return
+    const place = () => {
+      const root = rootRef.current
+      const item = itemRefs.current.get(renderedId)
+      const panel = panelRef.current
+      if (!root || !item || !panel) return
+      const box = root.getBoundingClientRect()
+      const at = item.getBoundingClientRect().top - box.top
+      setDropTop(Math.max(DROP_GAP, Math.min(at, box.height - panel.offsetHeight - DROP_GAP)))
+    }
+    place()
+    const observer = new ResizeObserver(place)
+    if (rootRef.current) observer.observe(rootRef.current)
+    const rail = railRef.current
+    rail?.addEventListener('scroll', place, { passive: true })
+    return () => {
+      observer.disconnect()
+      rail?.removeEventListener('scroll', place)
+    }
+  }, [renderedId])
+
+  /*
+   * The pill behind the open section's button. Switching from one open section to another, it
+   * slides from the old button to the new one; opening a section when none was open, it simply
+   * appears on that button — there is nothing to slide from, and sliding in from wherever the
+   * last section was read as a selection moving that nobody made. Closing removes it. Placed
+   * from the button's own box, so it follows a rail whose buttons are shorter on a short window.
+   */
+  const [pill, setPill] = useState<{ top: number; height: number; slide: boolean } | null>(null)
+  useLayoutEffect(() => {
+    const item = openId ? itemRefs.current.get(openId) : undefined
+    if (!item) {
+      setPill(null)
+      return
+    }
+    setPill((current) => ({ top: item.offsetTop, height: item.offsetHeight, slide: current !== null }))
+    // A resize only moves it to where its button now is; it never slides for that.
+    const follow = () => setPill({ top: item.offsetTop, height: item.offsetHeight, slide: false })
+    window.addEventListener('resize', follow)
+    return () => window.removeEventListener('resize', follow)
+  }, [openId])
+
+  /*
    * The phone's Back button: backs out of whatever was opened last. A tool open inside the
-   * section (Merge Groups, Hide, Overlay, Map Detail…) is folded first, most recent first; with
-   * none left, the section closes, exactly as its own collapse button closes it. Nothing else is
-   * touched — no browser history, no map, no document — it only closes panels.
+   * section is folded first, most recent first; with none left, the section closes, exactly as
+   * its own close button closes it. It only closes panels.
    */
   const back = () => {
     if (!closeLatestDisclosure(panelRef.current)) setOpenId(null)
@@ -280,12 +432,23 @@ export function Sidebar() {
 
   return (
     <div className={`sidebar${open ? ' sidebar--open' : ''}`} ref={rootRef}>
-      <nav className="sidebar__rail" aria-label="Map controls">
+      <nav className="sidebar__rail" aria-label="Map controls" ref={railRef}>
+        {pill && (
+          <span
+            className={`rail-pill${pill.slide ? ' rail-pill--slide' : ''}`}
+            aria-hidden="true"
+            style={{ transform: `translateY(${pill.top}px)`, height: pill.height }}
+          />
+        )}
         {SECTIONS.map((section) => {
           const active = section.id === openId
           return (
             <button
               key={section.id}
+              ref={(element) => {
+                if (element) itemRefs.current.set(section.id, element)
+                else itemRefs.current.delete(section.id)
+              }}
               type="button"
               className={`rail-item${active ? ' rail-item--active' : ''}`}
               aria-expanded={active}
@@ -297,8 +460,8 @@ export function Sidebar() {
               <svg
                 className="rail-item__icon"
                 viewBox="0 0 20 20"
-                width="18"
-                height="18"
+                width="20"
+                height="20"
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="1.4"
@@ -320,7 +483,7 @@ export function Sidebar() {
         changes size when this opens, so nothing about the map is recomputed — see the
         note on the grid in `global.css`.
       */}
-      <div className="sidebar__panel" aria-hidden={!open} ref={panelRef}>
+      <div className="sidebar__panel" aria-hidden={!open} ref={panelRef} style={{ top: dropTop }}>
         {rendered && (
           <div className="sidebar__panel-inner">
             <header className="sidebar__head">
@@ -328,8 +491,8 @@ export function Sidebar() {
               <button
                 type="button"
                 className="sidebar__collapse"
-                aria-label="Collapse panel"
-                title="Collapse"
+                aria-label="Close panel"
+                title="Close"
                 onClick={() => choose(rendered.id)}
               >
                 <svg
@@ -343,7 +506,7 @@ export function Sidebar() {
                   strokeLinejoin="round"
                   aria-hidden="true"
                 >
-                  <path d="M9.5 4 5.5 8l4 4" />
+                  <path d="M4.5 4.5l7 7M11.5 4.5l-7 7" />
                 </svg>
               </button>
             </header>
@@ -373,6 +536,8 @@ export function Sidebar() {
         something open to back out of. Floating at the bottom-right, where a thumb holding
         the phone reaches, rather than in the panel's header at the top.
       */}
+      {mapMenu && <MapSectionMenu request={mapMenu} onChoose={setOpenId} onClose={closeMapMenu} />}
+
       {open && backHost && createPortal(
         <button type="button" className="mobile-back" aria-label="Back" title="Back" onClick={back}>
           <svg

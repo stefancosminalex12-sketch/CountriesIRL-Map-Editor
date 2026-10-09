@@ -5,6 +5,7 @@ import { useMapStore } from './state/mapStore'
 import { computeFraming } from './geo/framing'
 import { countriesInRegions } from './geo/regions'
 import { initialiseSettings } from './state/settingsStore'
+import '@fontsource-variable/inter'
 import './styles/global.css'
 
 // Theme and volume are applied before the first render so nothing flashes.

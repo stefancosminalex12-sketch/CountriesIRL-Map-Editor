@@ -53,3 +53,24 @@ export function beginMapDrag(): MapDrag | null {
 export function mapCameraReady(): boolean {
   return begin !== null
 }
+
+/**
+ * Brings one entity into view: the camera centred on it and zoomed so it fills most of the map,
+ * within the map's own zoom limits. Registered by the canvas like the gesture above, and for the
+ * same reason — it is the canvas's zoom behaviour that moves, so the limits and the commit to the
+ * document are the ones every other camera move has. Returns whether it could: false before the
+ * map is drawn, or for an entity that is not drawn (hidden, or outside a hidden scope).
+ */
+type Focus = (id: string) => boolean
+
+let focus: Focus | null = null
+
+/** Registered by the canvas while it is mounted. */
+export function setMapFocus(next: Focus | null): void {
+  focus = next
+}
+
+/** Centres and zooms the map on an entity. See {@link setMapFocus}. */
+export function focusMapOn(id: string): boolean {
+  return focus ? focus(id) : false
+}

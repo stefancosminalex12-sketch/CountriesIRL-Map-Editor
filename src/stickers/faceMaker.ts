@@ -42,12 +42,12 @@ export interface FaceOptions {
  */
 export const FACE_COLORS: Array<{ name: string; color: string }> = [
   { name: 'Light blue', color: '#63c3ea' },
-  { name: 'Blue', color: '#3465e6' },
+  { name: 'Blue', color: '#4278ff' },
   { name: 'Lime', color: '#95d24a' },
   { name: 'Yellow', color: '#fbd23a' },
-  { name: 'Orange', color: '#f79144' },
-  { name: 'Red', color: '#d60402' },
-  { name: 'Purple', color: '#aa87fa' },
+  { name: 'Orange', color: '#ff9442' },
+  { name: 'Red', color: '#ff0400' },
+  { name: 'Purple', color: '#9b70ff' },
   { name: 'Gray', color: '#9ea3ab' },
   { name: 'Black', color: '#22252b' },
 ]

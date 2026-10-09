@@ -58,7 +58,6 @@ export function TemplatePicker({ onApplied }: { onApplied?: () => void } = {}) {
 
   return (
     <div className="stack">
-      <p className="hint">Built-in presets. Click one to set the editor up for that kind of map.</p>
       <ul className="template-list">
         {TEMPLATES.map((template) => (
           <li key={template.id}>

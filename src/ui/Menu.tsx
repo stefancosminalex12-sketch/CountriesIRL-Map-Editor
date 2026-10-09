@@ -11,6 +11,9 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 
+/** Every menu panel, the side menus included — how a press is known to be inside the menu. */
+const MENU_CLASS = 'top-menu'
+
 /**
  * A menu floating under `anchor`. Closes on a press outside it or its anchor, on Escape, and
  * when the window is resized. Kept inside the viewport horizontally.
@@ -53,9 +56,12 @@ export function Popover({
 
   useEffect(() => {
     if (!open) return
+    // A press in this menu or in one of its side menus (`Flyout`, drawn at page level) is the menu's.
+    const inMenu = (target: Node) =>
+      panel.current?.contains(target) || Boolean((target as Element).closest?.(`.${MENU_CLASS}`))
     const onPointer = (event: PointerEvent) => {
       const target = event.target as Node
-      if (panel.current?.contains(target) || anchor.current?.contains(target)) return
+      if (inMenu(target) || anchor.current?.contains(target)) return
       onClose()
     }
     const onKey = (event: KeyboardEvent) => {
@@ -63,7 +69,7 @@ export function Popover({
     }
     // Scrolling the bar moves the anchor out from under the menu, so the menu closes.
     const onScroll = (event: Event) => {
-      if (panel.current?.contains(event.target as Node)) return
+      if (inMenu(event.target as Node)) return
       onClose()
     }
     window.addEventListener('pointerdown', onPointer, true)
@@ -82,7 +88,7 @@ export function Popover({
   return createPortal(
     <div
       ref={panel}
-      className="top-menu"
+      className={MENU_CLASS}
       role="dialog"
       aria-label={label}
       style={{ top: position?.top ?? -9999, left: position?.left ?? -9999 }}
@@ -191,9 +197,14 @@ export function useNarrow(): boolean {
 }
 
 /**
- * The menu at a row's side. It lives inside the File menu's panel, so a press in it counts as a
- * press in the menu, but is fixed to the viewport, so the panel's scrolling does not clip it.
- * To the row's right where there is room, else to the panel's left.
+ * The menu at a row's side, fixed to the viewport so the panel's scrolling does not clip it. To
+ * the row's right where there is room, else to the panel's left.
+ *
+ * Drawn at page level, not inside the panel. The panel is glass — a `backdrop-filter` — and an
+ * element with one becomes the containing block of every fixed element inside it: a side menu
+ * drawn inside the panel was placed and clipped *within* the panel, which grew scrollbars and
+ * swallowed it. A press in it still counts as a press in the menu: `Popover` treats every menu
+ * panel as its own.
  */
 export function Flyout({ row, children }: { row: HTMLElement; children: ReactNode }) {
   const panel = useRef<HTMLDivElement>(null)
@@ -208,9 +219,10 @@ export function Flyout({ row, children }: { row: HTMLElement; children: ReactNod
     const top = Math.max(8, Math.min(rect.top - 7, window.innerHeight - height - 8))
     setPosition({ top, left })
   }, [row, children])
-  return (
-    <div ref={panel} className="top-menu top-flyout" style={{ top: position?.top ?? -9999, left: position?.left ?? -9999 }}>
+  return createPortal(
+    <div ref={panel} className={`${MENU_CLASS} top-flyout`} style={{ top: position?.top ?? -9999, left: position?.left ?? -9999 }}>
       {children}
-    </div>
+    </div>,
+    document.body,
   )
 }

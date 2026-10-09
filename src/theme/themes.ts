@@ -104,69 +104,60 @@ export interface Theme {
 }
 
 /**
- * Dark — a soft graphite studio.
+ * Dark — midnight navy, lifted.
  *
- * Graphite, not black: the backdrop sits near 14% lightness (L* 14.5, up from 11), so it
- * reads as a dim room rather than a void, and every level above it — sidebar, panel,
- * control, hovered control — steps up by a visible 4–7 points of lightness. The wells
- * beneath controls step down as far, so a slider track or an inset reads as recessed.
+ * The chrome is the author's two colours: the top bar, the rail and the panels are `#0b1624`, and
+ * what is chosen in the interface is the off-white `#fefefc` with that navy as its text. Around
+ * them every surface sits a step lighter than a pure midnight would — controls, wells and
+ * hairlines readable at a glance rather than found by peering.
  *
- * Borders are hairlines a shade above the surface they sit on, never darker than it:
- * 12 points of lightness over a panel, 5 over a control. That is enough to draw an edge
- * without outlining everything in black. Text is a soft blue-white at about 11:1 on the
- * panels, bright without glare. Secondary text clears 6:1 on a panel and 5:1 on a control,
- * and disabled text sits 15 points below it, so the three read as three.
- *
- * The accent is a clear sky blue that clears 5.9:1 on the panels. Dark text on it clears
- * 8:1, so an active chip, a selection, a slider thumb and a focus ring are one colour that
- * reads everywhere.
- *
- * The map moved with the chrome: its sea is a step darker than the backdrop, as before, so
- * the map still reads as the canvas the interface frames. Its land is a step lighter, and
- * its borders a softer graphite than the old near-black, while still standing out a little
- * more against the lighter land.
+ * The map is lifted most. Countries are a clear slate blue well above a navy sea, so the land is
+ * the brightest large thing on the screen; borders are cut a little darker than the land, and a
+ * hovered country goes a step brighter still. A selected territory is royal blue, edged in the
+ * off-white. Land outside the chosen region sits between land and sea. Water is one hue
+ * throughout — the sea, the lakes and the rivers — the rivers a lighter tone of it, so they read
+ * as water and never as one more border.
  */
 const dark: Theme = {
   id: 'dark',
   name: 'Dark',
-  description: 'Soft graphite surfaces with a clear sky-blue accent.',
+  description: 'Midnight navy, lifted, with a royal-blue selection and an off-white accent.',
   scheme: 'dark',
   ui: {
-    bg: '#20252c',
-    panel: '#282e36',
-    panelAlt: '#2d333c',
-    panelOverlay: 'rgba(45, 51, 60, 0.66)',
-    surface: '#363d48',
-    surfaceHover: '#404855',
-    inset: '#1c2027',
-    line: '#414956',
-    lineStrong: '#5a6473',
-    text: '#e6eaf0',
-    textDim: '#a6b0be',
-    accent: '#78aee8',
-    accentText: '#0e1319',
-    accentSoft: '#2e4157',
+    bg: '#0a1321',
+    panel: '#0b1624',
+    panelAlt: '#132136',
+    panelOverlay: 'rgba(19, 33, 54, 0.74)',
+    surface: '#1b2c44',
+    surfaceHover: '#253a55',
+    inset: '#08111d',
+    line: '#2a3e58',
+    lineStrong: '#425a78',
+    text: '#f1f5f9',
+    textDim: '#a3b2c4',
+    accent: '#fefefc',
+    accentText: '#0b1624',
+    accentSoft: '#1f3350',
   },
   map: {
-    background: '#1c2128',
-    land: '#404a57',
-    // Graphite ink for light fills, a cool pale slate for dark ones. Together they
-    // clear 3:1 against every palette stop — 17:1 on the palest, 5.5:1 on the deepest.
-    border: '#141920',
-    borderOnDark: '#9eabbc',
-    // The panel and text tones this theme already uses in the chrome, restated as map
-    // tokens: the legend lives inside the SVG, so it cannot read a CSS variable and
-    // still survive being exported to a standalone file.
-    legendSurface: '#282e36',
-    legendText: '#e6eaf0',
-    hover: '#515c6c',
-    selected: '#78aee8',
-    selectedOutline: '#d6e8f9',
-    outsideScopeColor: '#262c33',
-    graticule: '#2d343e',
-    lake: '#283542',
-    lakeOutline: '#202b36',
-    river: '#4379a3',
+    background: '#14253b',
+    land: '#334b68',
+    // A shade under the land on the base map and on light data fills; a pale grey for data
+    // fills dark enough to swallow it. See `resolveBorderColor`.
+    border: '#1a2c42',
+    borderOnDark: '#a3b2c4',
+    // The chrome's panel and text, restated as map tokens: the legend lives inside the SVG, so
+    // it cannot read a CSS variable and still survive being exported to a standalone file.
+    legendSurface: '#0b1624',
+    legendText: '#f1f5f9',
+    hover: '#446285',
+    selected: '#3478f6',
+    selectedOutline: '#fefefc',
+    outsideScopeColor: '#1f3249',
+    graticule: '#1e324b',
+    lake: '#14253b',
+    lakeOutline: '#1a2c42',
+    river: '#5487c0',
   },
 }
 
@@ -200,78 +191,86 @@ const light: Theme = {
     accentSoft: '#d5dbe3',
   },
   map: {
-    background: '#c9d8e2',
-    land: '#f2f0ea',
+    // White water under light-grey land.
+    background: '#ffffff',
+    land: '#e6e6e6',
     // A blue-charcoal rather than the old '#a8afb8', which measured 1.00 against the
     // middle of Red — the same luminance as the fill it was meant to divide.
     border: '#4f5762',
     borderOnDark: '#fdfeff',
     legendSurface: '#e9ebef',
     legendText: '#242a33',
-    hover: '#e2ded2',
+    // A step darker than the land, so the country under the pointer still shows.
+    hover: '#d4d4d4',
     selected: '#3b7ea8',
     selectedOutline: '#1b4c69',
-    outsideScopeColor: '#e4e6e6',
+    // Between the land and the white water: still there, plainly not the region.
+    outsideScopeColor: '#f2f2f2',
     graticule: '#b4c6d2',
-    lake: '#bcd3e2',
-    lakeOutline: '#94b3c8',
+    lake: '#ffffff',
+    lakeOutline: '#c4c4c4',
     river: '#6f9fbb',
   },
 }
 
 /**
- * Geographic — a printed physical map.
+ * Geographic — a clean modern atlas, in teal.
  *
- * The chrome is warm stone and the map is a layered sea under natural land tones,
- * with the graticule on by default and hairline boundaries so the sheet reads as
- * cartography rather than as a UI with a green fill. `landTints` keeps neighbouring
- * countries distinguishable; it is not terrain shading, and no terrain is invented.
+ * The accent is a deep teal (`#0e7c86`): the blue-green between the map's steel-blue and sage
+ * country tones, and clear of its pale-blue water, so the chrome and the sheet read as one design.
+ * Every chosen control — a chip, a tool on the rail, a slider — is that teal with off-white on it;
+ * the panels are near-white with a breath of the same teal, and the text a deep teal-slate.
+ * Champagne gold (`#C49A55`) is the second colour, kept for highlights on the map.
+ *
+ * The map is a political atlas sheet. Countries take four light tones — steel blue, sage, sand
+ * and lavender (`landTints`) — assigned so that no two countries sharing a border take the same
+ * one (`geo/metrics.ts`); four are enough because neighbours are read from real shared borders.
+ * The water is a clean pale blue, the lakes the same water, and the rivers a deeper tone of that
+ * blue so they plainly belong to it. Borders are a soft slate, hover a light teal, and a selected
+ * territory the teal itself, edged in the gold. Land outside the chosen region drops to a quiet
+ * pale grey, so the region keeps all the colour.
  */
 const geographic: Theme = {
   id: 'geographic',
   name: 'Geographic',
-  description: 'Warm stone interface over a printed physical map.',
+  description: 'A clean modern atlas in teal: four light country tones on pale blue water.',
   scheme: 'light',
   ui: {
-    bg: '#cdc4b2',
-    panel: '#ded6c6',
-    panelAlt: '#e5ded0',
-    panelOverlay: 'rgba(229, 222, 208, 0.70)',
-    surface: '#f0ebe0',
-    surfaceHover: '#f8f5ee',
-    inset: '#c2b8a4',
-    line: '#b6ab93',
-    lineStrong: '#95886d',
-    text: '#2f2b23',
-    textDim: '#6b6350',
-    accent: '#38705f',
-    accentText: '#fffffd',
-    accentSoft: '#d3e0d8',
+    bg: '#e4eded',
+    panel: '#f3f8f7',
+    panelAlt: '#f9fbfb',
+    panelOverlay: 'rgba(249, 251, 251, 0.82)',
+    surface: '#ffffff',
+    surfaceHover: '#eaf4f3',
+    inset: '#dae6e6',
+    line: '#cfdcdc',
+    lineStrong: '#a7bcbd',
+    text: '#132a2f',
+    textDim: '#566d72',
+    accent: '#0e7c86',
+    accentText: '#fefefc',
+    accentSoft: '#d8eeee',
   },
   map: {
-    background: '#8fb3c9',
-    land: '#d8d3ae',
-    // Both tones stay in the sheet's warm family so the printed look survives: a
-    // sepia ink and an unbleached paper highlight, never neutral grey or white.
-    border: '#4f4835',
-    borderOnDark: '#f6f1de',
-    legendSurface: '#ded6c6',
-    legendText: '#2f2b23',
-    hover: '#e6dfb8',
-    selected: '#38705f',
-    selectedOutline: '#1c3f35',
-    outsideScopeColor: '#c9c7b4',
-    graticule: '#7ba0b8',
-    // Inland water shares the sea's colour family, as it would on a printed sheet,
-    // with a deeper rim so each lake keeps a defined edge against the land.
-    lake: '#8fb3c9',
-    lakeOutline: '#63899f',
-    river: '#4a7f9c',
+    background: '#e0eef8',
+    land: '#a9c3db',
+    // A soft slate on the light tones and on light data fills; near-white on dark data fills.
+    border: '#8a9bb0',
+    borderOnDark: '#f4f7fa',
+    legendSurface: '#f3f8f7',
+    legendText: '#132a2f',
+    hover: '#86c5d3',
+    selected: '#0e8a94',
+    selectedOutline: '#c49a55',
+    outsideScopeColor: '#eceff2',
+    graticule: '#c6dcec',
+    lake: '#e0eef8',
+    lakeOutline: '#a9c8de',
+    river: '#6aa6d6',
   },
   graticuleByDefault: true,
-  // Closely spaced natural tones — enough to separate neighbours, not enough to
-  // suggest relief. Lowland straw through to a soft sage.
-  landTints: ['#d8d3ae', '#cfcea6', '#d9d0a2', '#c9cca6', '#dcd6b4'],
+  // The four country tones, the first being `map.land`: steel blue, sage, sand, lavender.
+  landTints: ['#a9c3db', '#bcd5c1', '#e4d7b8', '#cbc1e2'],
   // Where hypsometric shading would go, given an elevation raster.
   terrain: ['#cfd8a8', '#bccb8f', '#cfc684', '#c3a86f', '#a6835c', '#87684f', '#f0ece6'],
   // Where bathymetry would go, given sounding data.

@@ -66,7 +66,6 @@ function MapChoices({ done }: { done: () => void }) {
           ))}
         </div>
       ))}
-      <p className="top-menu__hint">Each map keeps its own work. Switching away and back returns it as it was.</p>
     </div>
   )
 }
@@ -169,7 +168,6 @@ function RegionChip({
                 </button>
               ))}
             </div>
-            <p className="top-menu__hint">Click a subregion to add or remove it. Subregions combine with each other and with other regions.</p>
           </div>
         </Popover>
       )}
@@ -274,7 +272,6 @@ function OutsideChoices({ done }: { done: () => void }) {
         <MenuItem
           key={o.id}
           name={o.name}
-          note={o.note}
           active={o.id === outside}
           onChoose={() => {
             dispatch({ op: 'set_style', patch: { outsideScope: o.id } })

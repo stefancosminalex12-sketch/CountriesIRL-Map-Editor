@@ -149,9 +149,6 @@ export function StickerLibrary() {
 
       {message && <p className="hint">{message}</p>}
       <PickedStickerActions />
-      <p className="hint">
-        Uploads are saved in this browser for every map, shrunk to 256 px, which is plenty for a sticker.
-      </p>
     </div>
   )
 }

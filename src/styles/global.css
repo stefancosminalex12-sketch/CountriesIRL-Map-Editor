@@ -1,19 +1,19 @@
 :root {
   /* Defaults mirror the dark theme; `applyUiTokens` overwrites these at start-up
      and on every theme change. No component hardcodes a colour. */
-  --bg: #20252c;
-  --panel: #282e36;
-  --panel-alt: #2d333c;
-  --surface: #363d48;
-  --surface-hover: #404855;
-  --inset: #1c2027;
-  --line: #414956;
-  --line-strong: #5a6473;
-  --text: #e6eaf0;
-  --text-dim: #a6b0be;
-  --accent: #78aee8;
-  --accent-text: #0e1319;
-  --accent-soft: #2e4157;
+  --bg: #0a1321;
+  --panel: #0b1624;
+  --panel-alt: #132136;
+  --surface: #1b2c44;
+  --surface-hover: #253a55;
+  --inset: #08111d;
+  --line: #2a3e58;
+  --line-strong: #425a78;
+  --text: #f1f5f9;
+  --text-dim: #a3b2c4;
+  --accent: #fefefc;
+  --accent-text: #0b1624;
+  --accent-soft: #1f3350;
 
   /*
    * The control system, in five numbers.
@@ -23,13 +23,15 @@
    * settled here rather than argued control by control. Colours still come from the
    * theme; these are the shape, size and timing the theme is poured into.
    */
-  --radius: 6px;
+  --radius: 8px;
   /* Badges, code and the inner wells of larger controls. */
-  --radius-sm: 4px;
+  --radius-sm: 6px;
+  /* Cards and menus that float: one step rounder than the controls inside them. */
+  --radius-lg: 14px;
   /* One row height for anything a pointer aims at. */
   --control-h: 30px;
   --control-h-sm: 26px;
-  --dur: 130ms;
+  --dur: 160ms;
   --ease: cubic-bezier(0.2, 0, 0, 1);
 
   color-scheme: dark;
@@ -109,15 +111,31 @@ body,
 body {
   background: var(--bg);
   color: var(--text);
-  font: 13px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif;
+  /*
+   * Inter, bundled (`@fontsource-variable/inter`, imported in `main.tsx`) rather than fetched,
+   * so the editor looks the same offline and on every system. The system faces stay behind it
+   * for the moment before it loads. `cv11` is Inter's single-storey a, softer at small sizes.
+   */
+  font: 13px/1.45 "Inter Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-feature-settings: "cv11";
+  letter-spacing: -0.003em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   overflow: hidden;
 }
 
 /* ------------------------------------------------------------------ layout */
 
 .app {
+  /*
+   * The bars' sizes, in one place: the grid below lays them out, and the map reads them to
+   * draw itself on under the glass (`useBleed` in `MapCanvas`).
+   */
+  --bar-top: 44px;
+  --bar-left: 60px;
+  --bar-bottom: 28px;
   display: grid;
-  grid-template-rows: 40px 1fr 26px;
+  grid-template-rows: var(--bar-top) 1fr var(--bar-bottom);
   /* One column that never grows past the window: the top bar shrinks its regions instead. */
   grid-template-columns: minmax(0, 1fr);
   height: 100%;
@@ -187,7 +205,7 @@ body {
    * the country paths, the flag tiles, the maritime shapes and the boundary network, to
    * show a panel. That was the lag, and the map sliding sideways was the same bug.
    */
-  grid-template-columns: 56px minmax(0, 1fr);
+  grid-template-columns: var(--bar-left) minmax(0, 1fr);
   min-height: 0;
   /* The frame the phone's Back button is placed in — see `.mobile-back`. */
   position: relative;
@@ -238,7 +256,7 @@ body {
 
 /*
  * The rail occupies the grid column; the panel floats out of it. `overflow: visible` is
- * what lets the panel escape the 56px cell it is anchored to.
+ * what lets the panel escape the rail-wide cell it is anchored to.
  */
 /*
  * Above everything the map draws over itself.
@@ -271,7 +289,7 @@ body {
   flex-direction: column;
   gap: 1px;
   flex: none;
-  width: 56px;
+  width: var(--bar-left);
   padding: 6px;
   /* Ten sections fit a normal window; a short one scrolls rather than clipping. */
   overflow-y: auto;
@@ -363,56 +381,55 @@ body {
 }
 
 /*
- * An overlay pinned to the rail's right edge, floating over the stationary map.
+ * A dropdown beside the rail, floating over the stationary map — the File menu's card, opened
+ * sideways from the section's button rather than down from File.
  *
- * It slides on `transform` rather than `width`. A width animation is a layout animation:
- * it reflows the panel's own contents on every frame of every open and close, and — when
- * the panel was still a grid item — the map with them. A transform is composited, so the
- * whole gesture costs no layout and no paint of anything underneath.
+ * One height for every section, whatever is in it: a short section is not a small card and a long
+ * one scrolls, so a card never resizes as choices are made in it. Its top is set by `Sidebar`,
+ * level with the button and pushed up only as far as it must be to stay inside the sidebar. The card itself has no surface: the head, the body and the phone's map pad
+ * tile it, and the pad's window has to stay a window on the map (see `.sidebar__grip`).
  *
- * Closed it is translated left by its own width, which parks it exactly behind the rail;
- * the rail's higher stacking order hides it there, so the motion reads as sliding out of
- * the rail rather than appearing beside it.
+ * It opens on opacity and a short transform — composited, so opening costs the map no layout
+ * and no paint — from a few pixels toward the rail, so it reads as coming out of the button.
  */
 .sidebar__panel {
   position: absolute;
-  left: 100%;
-  top: 0;
-  bottom: 0;
+  left: calc(100% + 6px);
+  top: 6px;
   z-index: 1;
-  width: 260px;
+  display: flex;
+  flex-direction: column;
+  width: 280px;
+  height: min(460px, calc(100% - 12px));
   overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  box-shadow: 0 10px 28px rgb(0 0 0 / 0.3);
+  opacity: 0;
+  transform: translateX(-6px) scale(0.98);
+  transform-origin: left top;
   /*
-   * No surface of its own: the head, the body and the pad below tile it from top to bottom,
-   * each in glass. Painting it here as well would put a second sheet behind the one small
-   * rectangle that is meant to be a window on the map. See `.sidebar__grip`.
-   */
-  transform: translateX(-100%);
-  /*
-   * Parked, it must not be hit-testable. `pointer-events` rather than `visibility`
-   * alone, because that visibility flip is delayed by a transition and a transition can
-   * be paused, reduced or never started — and while it lingered, the panel sat over the
-   * left 260px of the map swallowing clicks: `elementFromPoint` returned the panel, so
-   * countries under it could not be selected. Interactivity must not depend on an
-   * animation having run.
-   *
-   * `visibility` still follows, delayed, to take the controls out of the tab order once
-   * the slide has finished.
+   * Closed, it must not be hit-testable. `pointer-events` rather than `visibility` alone,
+   * because that visibility flip is delayed by a transition, and while it lingered the panel
+   * sat over the map swallowing clicks. Interactivity must not depend on an animation having run.
+   * `visibility` still follows, delayed, to take the controls out of the tab order.
    */
   pointer-events: none;
   visibility: hidden;
   transition:
+    opacity var(--dur) var(--ease),
     transform var(--dur) var(--ease),
     visibility 0s linear var(--dur);
-  /* Promoted once, so the slide never asks for a new layer mid-gesture. */
-  will-change: transform;
+  will-change: transform, opacity;
 }
 
 .sidebar--open .sidebar__panel {
-  transform: translateX(0);
+  opacity: 1;
+  transform: none;
   pointer-events: auto;
   visibility: visible;
   transition:
+    opacity var(--dur) var(--ease),
     transform var(--dur) var(--ease),
     visibility 0s;
 }
@@ -420,33 +437,24 @@ body {
 .sidebar__panel-inner {
   display: flex;
   flex-direction: column;
-  /* Fixed to the open width so the contents do not reflow while the panel slides. */
-  width: 260px;
-  height: 100%;
+  /*
+   * Shrinks to the card's height cap, so the body below scrolls rather than the card
+   * overflowing; grows to the card's floor (`Sidebar`'s `tallest`), the body taking the room.
+   */
+  flex: 1 1 auto;
+  width: 100%;
   min-height: 0;
 }
 
 /*
- * An open panel is glass over the map, not a wall across it.
- *
- * The surface is the theme's own panel colour at around 70% with a modest blur: the map is
- * plainly there underneath — coastlines, borders, the colours being worked on — while text
- * and controls keep their contrast, because the blur turns whatever is behind into a soft
- * wash rather than detail competing with the words. Nothing fancier: no gradient, no
- * reflection, no edge glow, all of which cost legibility and hide the map.
- *
- * The three surfaces here — the head, the scrolling body and the pad at the foot — tile the
- * panel from top to bottom, so it is full height, as it always was. The controls inside keep
- * their own opaque surfaces (`--surface`, `--inset`), so every input, button and card reads
- * exactly as it did.
+ * The card's three tiles — the head, the scrolling body and the pad at the foot — in the
+ * panel colour, opaque, as the File menu is. The controls inside keep their own surfaces
+ * (`--surface`, `--inset`), so every input, button and card reads exactly as it did.
  */
 .sidebar__head,
 .sidebar__body,
 .sidebar__pad-glass {
-  background: var(--panel-overlay);
-  -webkit-backdrop-filter: blur(10px) saturate(1.1);
-  backdrop-filter: blur(10px) saturate(1.1);
-  border-right: 1px solid var(--line);
+  background: var(--panel);
 }
 
 .sidebar__head {
@@ -1819,6 +1827,31 @@ body {
   display: inline-flex;
 }
 
+.export__icon {
+  flex: none;
+}
+
+/* Search, after undo and redo: one field and its matches, in the File menu's dropdown. */
+.map-search {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+/* In the header's dropdown it sets the dropdown's width; in a tool card it takes the card's. */
+.map-search--popover {
+  width: min(300px, calc(100vw - 32px));
+}
+
+.map-search__list {
+  max-height: min(320px, 50vh);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
 .export__caret {
   width: 0;
   height: 0;
@@ -1879,6 +1912,41 @@ body {
   font-size: 11px;
 }
 
+.export__option {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  padding-top: 8px;
+}
+
+.export__option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+/* The tick box: empty off, the accent with its tick on. */
+.export__check {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.export__option--on .export__check {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
 .export__error {
   margin: 4px 8px 6px;
   color: var(--text-dim);
@@ -1891,10 +1959,12 @@ body {
   position: relative;
   height: 100%;
   width: 100%;
-  overflow: hidden;
+  /* Visible: the map is drawn on past this box, under the glass bars — see `useBleed`. */
+  overflow: visible;
 }
 
 .map-canvas__svg {
+  position: absolute;
   display: block;
   cursor: grab;
 }
@@ -3394,7 +3464,7 @@ body {
 @media (max-width: 760px) {
   .sidebar__panel,
   .sidebar__panel-inner {
-    width: min(300px, calc(100vw - 56px - 8px));
+    width: min(300px, calc(100vw - var(--bar-left) - 14px));
   }
 }
 
@@ -3531,7 +3601,8 @@ body {
  */
 @media (max-height: 560px) {
   .app {
-    grid-template-rows: 32px 1fr 20px;
+    --bar-top: 34px;
+    --bar-bottom: 22px;
   }
 
   .app__header {
@@ -3635,7 +3706,7 @@ body {
 @media (max-width: 360px) {
   .sidebar__panel,
   .sidebar__panel-inner {
-    width: calc(100vw - 56px - 4px);
+    width: calc(100vw - var(--bar-left) - 12px);
   }
 
   .sidebar__body {
@@ -4344,4 +4415,509 @@ body {
 
 .chosen-sticker__thumbs .sticker-thumb + .sticker-thumb {
   margin-left: -12px;
+}
+
+/* ===================================================================== finish */
+
+/*
+ * The finish: glass, depth, motion.
+ *
+ * One layer over everything above, so the look can be read — and changed — in one place.
+ * Nothing here moves a control or changes what it does; it changes how surfaces are told
+ * apart. The rule throughout is **fill and shadow, not outline**: a control is a soft
+ * fill with a faint ring and a small shadow under it, a floating surface is glass with a
+ * deeper shadow, and a hairline is kept only where two surfaces of the same colour meet.
+ */
+:root {
+  /* A control's edge: a ring at about half a hairline's strength, and a shadow a pixel deep. */
+  --ring: 0 0 0 1px color-mix(in srgb, var(--line) 55%, transparent);
+  --lift: 0 1px 2px rgb(0 0 0 / 0.07);
+  /* Anything that floats — menus, tool cards. */
+  --pop: 0 18px 40px -12px rgb(0 0 0 / 0.32), 0 4px 12px rgb(0 0 0 / 0.1);
+  /*
+   * Glass: the theme's own panel colour, partly see-through, over a blur of what is under
+   * it — the map, under the bars. Still the theme's colour first: at these strengths the
+   * map only tints and moves behind it, and the text on it never competes with it.
+   */
+  --glass: color-mix(in srgb, var(--panel) 56%, transparent);
+  --glass-strong: color-mix(in srgb, var(--panel) 72%, transparent);
+  --glass-blur: blur(24px) saturate(180%);
+  /*
+   * What makes it read as glass even with nothing behind it: a lit edge where light catches it
+   * (a bright top line and a faint rim), and a sheen fading down from the top. Stronger on the
+   * light themes, where a faint white edge on a pale panel would simply vanish.
+   */
+  --glass-edge: inset 0 1px 0 rgb(255 255 255 / 0.75), inset 0 0 0 1px rgb(255 255 255 / 0.3);
+  --glass-sheen: linear-gradient(180deg, rgb(255 255 255 / 0.4), rgb(255 255 255 / 0) 65%);
+}
+
+:root[data-theme='dark'] {
+  --glass-edge: inset 0 1px 0 rgb(255 255 255 / 0.12), inset 0 0 0 1px rgb(255 255 255 / 0.05);
+  --glass-sheen: linear-gradient(180deg, rgb(255 255 255 / 0.07), rgb(255 255 255 / 0) 65%);
+}
+
+/* ---------------------------------------------------------------- glass bars */
+
+/* Above the map, which is drawn on under them; the bars themselves are see-through. */
+.app__header,
+.statusbar {
+  position: relative;
+  z-index: 6;
+}
+
+.app__header {
+  background: var(--glass-sheen), var(--glass);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  box-shadow: var(--glass-edge);
+}
+
+.statusbar {
+  background: var(--glass-sheen), var(--glass);
+  box-shadow: var(--glass-edge);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.sidebar {
+  background: transparent;
+  border-right: 0;
+}
+
+/*
+ * The rail is glass on a tall window. Its scroll cue — shadows at whichever end has more
+ * sections — is painted by covering layers in the rail's own colour, which cannot cover
+ * anything once that colour is see-through. It is only needed where the rail scrolls, on a
+ * short window, and there (below) the rail stays solid and keeps it.
+ */
+.sidebar__rail {
+  /* The sheen runs in from the lit left edge, along the rail's length. */
+  background: linear-gradient(90deg, rgb(255 255 255 / 0.04), transparent 70%), var(--glass);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border-right: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  box-shadow: inset -1px 0 0 rgb(255 255 255 / 0.06);
+}
+
+@media (max-height: 560px) {
+  .sidebar__rail {
+    background:
+      linear-gradient(var(--panel) 40%, transparent) center top / 100% 28px no-repeat local,
+      linear-gradient(transparent, var(--panel) 60%) center bottom / 100% 28px no-repeat local,
+      radial-gradient(farthest-side at 50% 0, color-mix(in srgb, var(--text) 26%, transparent), transparent)
+        center top / 100% 10px no-repeat scroll,
+      radial-gradient(farthest-side at 50% 100%, color-mix(in srgb, var(--text) 26%, transparent), transparent)
+        center bottom / 100% 10px no-repeat scroll;
+    background-color: var(--panel);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* ----------------------------------------------------------- floating glass */
+
+.top-menu,
+.export__menu {
+  background: var(--glass-sheen), var(--glass-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid color-mix(in srgb, var(--line-strong) 45%, transparent);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--pop), var(--glass-edge);
+}
+
+/* The tool cards: the same glass, in the tiles that make them (see `.sidebar__panel`). */
+.sidebar__panel {
+  border: 1px solid color-mix(in srgb, var(--line-strong) 45%, transparent);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--pop);
+}
+
+.sidebar__head,
+.sidebar__body,
+.sidebar__pad-glass {
+  background: var(--glass-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+}
+
+.sidebar__head {
+  background: var(--glass-sheen), var(--glass-strong);
+  border-bottom-color: color-mix(in srgb, var(--line) 60%, transparent);
+  box-shadow: var(--glass-edge);
+}
+
+.sidebar__head h2 {
+  font-size: 11px;
+  letter-spacing: 0.09em;
+}
+
+.map-canvas__controls button {
+  background: var(--glass-sheen), var(--glass-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border-color: transparent;
+  border-radius: var(--radius);
+  box-shadow: var(--ring), var(--lift), var(--glass-edge);
+  width: 30px;
+  height: 30px;
+}
+
+.map-canvas__controls button:hover {
+  background: var(--panel);
+}
+
+/*
+ * A lighter blur on phones and touch screens. The glass is redrawn under the bars on every
+ * frame the map moves, and a blur's cost grows with its radius: measured in headless Edge
+ * (`.cache/perf-cdp.mjs`, glass on against off in one build), the full blur costs a desktop
+ * GPU 10–20% more per gesture with no frame lost; a phone has far less to spare.
+ */
+@media (pointer: coarse), (max-width: 620px) {
+  :root {
+    --glass-blur: blur(12px) saturate(160%);
+  }
+}
+
+/* Without blur, or for someone who asked for less of it, glass is simply the solid colour. */
+@media (prefers-reduced-transparency: reduce) {
+  :root,
+  :root[data-theme='dark'] {
+    --glass: var(--panel);
+    --glass-strong: var(--panel);
+    --glass-blur: none;
+    --glass-sheen: none;
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root {
+    --glass: var(--panel);
+    --glass-strong: var(--panel);
+  }
+}
+
+/* --------------------------------------------------------------- controls */
+
+/* Fill and shadow, not outline. */
+.chip,
+.btn,
+.top-button,
+.select select,
+.input {
+  border-color: transparent;
+  box-shadow: var(--ring), var(--lift);
+}
+
+.chip:hover:not(.chip--active),
+.btn:hover:not(:disabled),
+.top-button:hover,
+.top-button--open,
+.select select:hover,
+.input:hover {
+  border-color: transparent;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--line-strong) 60%, transparent), var(--lift);
+}
+
+.chip--active {
+  border-color: transparent;
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.btn--ghost,
+.btn--ghost:hover:not(:disabled) {
+  box-shadow: none;
+}
+
+.chip,
+.btn,
+.top-button {
+  font-weight: 500;
+}
+
+.input:focus,
+.select select:focus {
+  box-shadow: 0 0 0 1px var(--accent), var(--lift);
+}
+
+/* Press: a small compression, so a click is felt. */
+.chip,
+.btn,
+.top-button,
+.rail-item {
+  transition:
+    background-color var(--dur) var(--ease),
+    border-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease),
+    color var(--dur) var(--ease),
+    transform 110ms var(--ease);
+}
+
+.top-button:active,
+.chip:active:not(:disabled),
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* ------------------------------------------------- region bar: segmented */
+
+/*
+ * The regions are one segmented control: a recessed track, and the regions as segments in
+ * it. A region that is on is a raised pill in the accent; one that is off is just its name.
+ * A region with subregions keeps its arrow, as a narrow segment fused to its name.
+ */
+.top-regions {
+  gap: 2px;
+  margin-left: 4px;
+  padding: 3px;
+  border-left: 0;
+  border-radius: calc(var(--radius) + 3px);
+  /* A faint wash of the text colour: a track on the glass that still lets the glass show. */
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 5%, transparent);
+}
+
+.top-regions .chip:not(.chip--active) {
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-dim);
+}
+
+.top-regions .chip:hover:not(.chip--active) {
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  box-shadow: none;
+  color: var(--text);
+}
+
+.top-regions .chip {
+  height: calc(var(--control-h-sm) - 2px);
+}
+
+.top-split--on .top-split__more {
+  box-shadow: inset 1px 0 0 color-mix(in srgb, var(--accent-text) 30%, transparent);
+}
+
+.top-split--open .top-split__more {
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+/* ------------------------------------------------------------------- rail */
+
+/*
+ * The active tool is a pill that slides from tool to tool (`.rail-pill`, placed by
+ * `Sidebar`); the items themselves only change colour. Icons a size up, captions a size up
+ * and medium weight, so the rail reads at a glance.
+ */
+.sidebar__rail {
+  position: relative;
+  gap: 2px;
+}
+
+.rail-item {
+  z-index: 1;
+  border-radius: 10px;
+  padding: 7px 2px 6px;
+}
+
+.rail-item--active,
+.rail-item--active:hover {
+  background: transparent;
+  color: var(--text);
+}
+
+.rail-item__mark {
+  display: none;
+}
+
+.rail-item__caption {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.rail-pill {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  top: 0;
+  z-index: 0;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+  pointer-events: none;
+  /* Appearing on a button: a quick fade in place, no movement. */
+  animation: rail-pill-in var(--dur) var(--ease);
+}
+
+/* Moving from one open section's button to another's: a slide. */
+.rail-pill--slide {
+  animation: none;
+  transition:
+    transform 260ms cubic-bezier(0.3, 0.9, 0.3, 1),
+    height 260ms cubic-bezier(0.3, 0.9, 0.3, 1);
+}
+
+@keyframes rail-pill-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ------------------------------------------------------------------- focus */
+
+.chip:focus-visible,
+.btn:focus-visible,
+.top-button:focus-visible,
+.rail-item:focus-visible,
+.map-canvas__controls button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 75%, transparent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rail-pill,
+  .rail-pill--slide,
+  .chip,
+  .btn,
+  .top-button,
+  .rail-item {
+    transition: none;
+    animation: none;
+  }
+}
+
+/* ------------------------------------------------------------ right-click menu */
+
+/* The sections, from a right-click on a territory: an icon and a name per row. See `MapSectionMenu`. */
+.map-menu {
+  min-width: 200px;
+}
+
+.map-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.map-menu__icon {
+  flex: none;
+  color: var(--text-dim);
+}
+
+.map-menu__item:hover .map-menu__icon {
+  color: var(--text);
+}
+
+/* ------------------------------------------------------------- search tabs */
+
+/* The search field and anything at its right end (Merge's ✓), in one row. */
+.map-search__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.map-search__row .input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The ✓ that finishes a pick: the accent, a square the field's height. */
+.map-search__done {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--control-h);
+  height: var(--control-h);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: var(--accent-text);
+  cursor: pointer;
+  box-shadow: var(--lift);
+  transition:
+    opacity var(--dur) var(--ease),
+    transform 110ms var(--ease);
+}
+
+.map-search__done:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.map-search__done:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+/*
+ * What has been picked, as tabs: each its name and an × at the right, in rows that wrap — the
+ * way tabs sit along a browser's top, here under the field they were found in.
+ */
+.pick-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pick-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  height: 26px;
+  padding: 0 2px 0 10px;
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--ring), var(--lift);
+  font-size: 12px;
+  font-weight: 500;
+  animation: pick-tab-in var(--dur) var(--ease);
+}
+
+.pick-tab__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pick-tab__remove {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.pick-tab__remove:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+@keyframes pick-tab-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pick-tab {
+    animation: none;
+  }
 }

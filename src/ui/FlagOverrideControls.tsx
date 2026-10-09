@@ -26,7 +26,6 @@ import { useNoun } from '../maps/useNoun'
 export function FlagOverrideControls() {
   const overrides = useMapStore((s) => s.doc.flags.overrides)
   const merges = useMapStore((s) => s.doc.merges)
-  const domination = useMapStore((s) => s.doc.flags.worldDomination)
   const selected = useMapStore((s) => s.selectedCountryIds)
   const geo = useMapStore((s) => s.geo)
   const dispatch = useMapStore((s) => s.dispatch)
@@ -123,7 +122,6 @@ export function FlagOverrideControls() {
         visible while it is on. Saying so is better than leaving the author to wonder why the map
         did not change.
       */}
-      {domination && <p className="hint">World Domination is on, so it is covering every flag.</p>}
 
       {customCount > 0 && (
         <button type="button" className="btn btn--ghost" onClick={reset}>

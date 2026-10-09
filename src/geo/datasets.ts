@@ -11,7 +11,7 @@
  * own spec and this loader follows it.
  */
 import { geoArea, geoContains } from 'd3-geo'
-import { feature, mesh, meshArcs } from 'topojson-client'
+import { feature, mesh, meshArcs, neighbors } from 'topojson-client'
 import type {
   Feature,
   FeatureCollection,
@@ -846,7 +846,32 @@ export function loadGeoDataset(id: string): Promise<LoadedDataset> {
       byId.set(countryId, feat)
     }
 
-    const metrics = await computeDatasetMetricsInSlices(features, slicer)
+    /*
+     * Which entities share a border: two geometries that reference the same arc. Read once,
+     * for the colouring that keeps neighbouring countries in different land tones.
+     */
+    const touching = new Map<EntityId, Set<EntityId>>()
+    {
+      const owners: EntityId[] = []
+      const objects: GeometryObject[] = []
+      for (const [id, list] of topoById) {
+        for (const geometry of list) {
+          owners.push(id)
+          objects.push(geometry)
+        }
+      }
+      neighbors(objects as Parameters<typeof neighbors>[0]).forEach((list, i) => {
+        for (const j of list) {
+          const a = owners[i]
+          const b = owners[j]
+          if (a === b) continue
+          let set = touching.get(a)
+          if (!set) touching.set(a, (set = new Set()))
+          set.add(b)
+        }
+      })
+    }
+    const metrics = await computeDatasetMetricsInSlices(features, slicer, touching)
 
     /*
      * The coast of each supplemented entity, classified from its own rings. The coast of

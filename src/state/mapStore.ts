@@ -339,9 +339,10 @@ interface MapStore {
   setActiveOverlay: (id: string | null) => void
   /**
    * Makes an overlay of each selected entity — a country, a region, a merged group — and chooses
-   * the last. One undo step. Returns the new overlays' ids.
+   * the last. One undo step. Returns the new overlays' ids. Given `ids`, makes them of those
+   * instead (the Overlay tool's search) and leaves the selection alone.
    */
-  createOverlaysFromSelection: (asGroup?: boolean) => string[]
+  createOverlaysFromSelection: (asGroup?: boolean, ids?: CountryId[]) => string[]
   /**
    * A copy of an overlay — same shape, look, size and mode — put down at `anchor` (beside the
    * original, so it is plain there are two), named as the next copy of what it copies, and chosen.
@@ -871,7 +872,7 @@ export const useMapStore = create<MapStore>((set, get) => {
    * the entity keeps its colour, geometry and everything else — and it changes as part of the same
    * edit, so one undo takes the overlays away and gives the selection back.
    */
-  createOverlaysFromSelection(asGroup = false) {
+  createOverlaysFromSelection(asGroup = false, ids) {
     const state = get()
     const geo = state.geo
     if (!geo) return []
@@ -879,7 +880,7 @@ export const useMapStore = create<MapStore>((set, get) => {
     const existing = state.doc.overlays ?? []
     const taken = new Set(existing.map((o) => o.id))
     const stamp = Date.now().toString(36)
-    const copyable = state.selectedCountryIds.filter((id) => mergeById.has(id) || geo.byId.has(id))
+    const copyable = (ids ?? state.selectedCountryIds).filter((id) => mergeById.has(id) || geo.byId.has(id))
     if (copyable.length === 0) return []
 
     /*
@@ -921,7 +922,7 @@ export const useMapStore = create<MapStore>((set, get) => {
         : copyable.map((sourceId, index) => ({ ...base(sourceId, index + 1), name: copyName(sourceId) }))
     get().dispatch(overlays.map((overlay) => ({ op: 'create_overlay' as const, overlay })))
     const copied = new Set(copyable)
-    withLastEdit({ selectedCountryIds: get().selectedCountryIds.filter((id) => !copied.has(id)) })
+    if (!ids) withLastEdit({ selectedCountryIds: get().selectedCountryIds.filter((id) => !copied.has(id)) })
     set({ activeOverlayId: overlays[overlays.length - 1].id })
     return overlays.map((o) => o.id)
   },
