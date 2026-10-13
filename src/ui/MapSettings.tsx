@@ -622,17 +622,14 @@ function ScaleField({
 }
 
 /**
- * The base map's three colours: the water, the land and the boundaries.
- *
- * Base appearance, which means they rank below anything a visualisation mode decided —
- * a palette fill, a comparison group, a flag. See `resolveCountryFill` and
- * `resolveBorderInk`.
+ * The two line widths, borders and coastlines, as boxes like the colour wells beside them — sat in
+ * the Selection highlight row, three to a row like the colours above. In the well, where a colour
+ * would be, a line runs through the middle at about the width it sets, and the width sits on the
+ * line as a small pill that is also the handle: drag it, or press anywhere along the well. A plain
+ * range input underneath does the work, so the keyboard and the arrow keys work as on any slider.
+ * See `state/lineWidths.ts`.
  */
-/**
- * The two line widths, borders and coastlines, as boxes like the colour wells beside them: a
- * slider where the colour is, the width over it. See `state/lineWidths.ts`.
- */
-export function LineWidthSliders() {
+export function LineWidthSwatches() {
   const style = useMapStore((s) => s.doc.style)
   const dispatch = useMapStore((s) => s.dispatch)
   const rows: Array<{ key: 'borderWidth' | 'coastlineWidth'; label: string; value: number }> = [
@@ -640,27 +637,45 @@ export function LineWidthSliders() {
     { key: 'coastlineWidth', label: 'Coastlines', value: coastlineWidthOf(style) },
   ]
   return (
-    <div className="swatches swatches--two">
-      {rows.map((row) => (
-        <label key={row.key} className="swatch swatch--slider">
-          <span className="swatch__value">{row.value.toFixed(1)}</span>
-          <input
-            className="slider"
-            type="range"
-            min={LINE_WIDTH.min}
-            max={LINE_WIDTH.max}
-            step={LINE_WIDTH.step}
-            value={row.value}
-            aria-label={`${row.label} width`}
-            onChange={(e) => dispatch({ op: 'set_style', patch: { [row.key]: Number(e.target.value) } })}
-          />
-          <span>{row.label}</span>
-        </label>
-      ))}
-    </div>
+    <>
+      {rows.map((row) => {
+        const share = (row.value - LINE_WIDTH.min) / (LINE_WIDTH.max - LINE_WIDTH.min)
+        return (
+          <label key={row.key} className="swatch swatch--width">
+            <span className="width-well">
+              <span
+                className="width-well__line"
+                style={{ height: Math.min(5, Math.max(1, row.value * 1.25)), background: style.border }}
+              />
+              <span className="width-well__value" style={{ left: `calc(14px + ${share} * (100% - 28px))` }}>
+                {row.value.toFixed(1)}
+              </span>
+              <input
+                className="width-well__input"
+                type="range"
+                min={LINE_WIDTH.min}
+                max={LINE_WIDTH.max}
+                step={LINE_WIDTH.step}
+                value={row.value}
+                aria-label={`${row.label} width`}
+                onChange={(e) => dispatch({ op: 'set_style', patch: { [row.key]: Number(e.target.value) } })}
+              />
+            </span>
+            <span>{row.label}</span>
+          </label>
+        )
+      })}
+    </>
   )
 }
 
+/**
+ * The base map's three colours: the water, the land and the boundaries.
+ *
+ * Base appearance, which means they rank below anything a visualisation mode decided —
+ * a palette fill, a comparison group, a flag. See `resolveCountryFill` and
+ * `resolveBorderInk`.
+ */
 export function MapColorSwatches() {
   const style = useMapStore((s) => s.doc.style)
   const dispatch = useMapStore((s) => s.dispatch)

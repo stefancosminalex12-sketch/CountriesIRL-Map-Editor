@@ -24,7 +24,7 @@
  */
 import { useRef, useState, type ReactNode } from 'react'
 import { Chevron, ChevronRight, Flyout, MenuItem, Popover, useNarrow } from './Menu'
-import { GeographicFeatureToggles, LabelsAndHelpers, LineWidthSliders, MapColorSwatches } from './MapSettings'
+import { GeographicFeatureToggles, LabelsAndHelpers, LineWidthSwatches, MapColorSwatches } from './MapSettings'
 import { DataSources, SelectionHighlight, ThemePicker, TransparencySwitch } from './SettingsPanel'
 import { TemplatePicker } from './TemplatePicker'
 import { useMapStore } from '../state/mapStore'
@@ -311,12 +311,9 @@ const DISPLAY: FileNode[] = [
           <MapColorSwatches />
         </div>
         <div className="sidebar__group">
-          <span className="sidebar__group-label">Line widths</span>
-          <LineWidthSliders />
-        </div>
-        <div className="sidebar__group">
           <span className="sidebar__group-label">Selection highlight</span>
-          <SelectionHighlight />
+          {/* The two line widths in the Selection box's row, three boxes a row like the colours. */}
+          <SelectionHighlight besides={<LineWidthSwatches />} />
         </div>
       </div>
     ),

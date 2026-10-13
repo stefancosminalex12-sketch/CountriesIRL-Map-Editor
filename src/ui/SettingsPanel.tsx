@@ -4,7 +4,7 @@
  * Structured as independent sections so later settings (export defaults, shortcuts,
  * the AI assistant) drop in without rearranging anything.
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { loadCompositionIndex, type CompositionIndex } from '../geo/composition'
 import { glassOn, useSettingsStore } from '../state/settingsStore'
 import { getTheme, THEMES, type ThemeId } from '../theme/themes'
@@ -41,7 +41,8 @@ const HIGHLIGHT_PRESETS = [
  * themes nobody asked about. So the well shows the colour actually in use, and setting
  * it pins that choice across every theme until it is handed back.
  */
-export function SelectionHighlight() {
+/** `besides`: more boxes in the Selection box's row — Appearance puts the line widths there. */
+export function SelectionHighlight({ besides }: { besides?: ReactNode } = {}) {
   const themeId = useSettingsStore((s) => s.themeId)
   const highlight = useSettingsStore((s) => s.selectionHighlight)
   const setHighlight = useSettingsStore((s) => s.setSelectionHighlight)
@@ -59,6 +60,7 @@ export function SelectionHighlight() {
           />
           <span>Selection</span>
         </label>
+        {besides}
       </div>
 
       <div className="preset-colors" role="group" aria-label="Selection highlight presets">
