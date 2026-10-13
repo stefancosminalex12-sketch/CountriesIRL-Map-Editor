@@ -25,7 +25,6 @@ import { STICKER_SIZE } from '../types/map'
 import { Disclosure } from './Panels'
 import { StickerFinder } from './StickerFinder'
 import { StickerLibrary } from './StickerLibrary'
-import { ChosenSticker } from './ChosenSticker'
 import { StickerCreator } from './StickerCreator'
 
 function Thumb({ sticker, size = 28 }: { sticker: Sticker | undefined; size?: number }) {
@@ -151,7 +150,7 @@ export function StickerSize() {
 export function StickerControls() {
   return (
     <div className="stack">
-      <ChosenSticker />
+      {/* Colour and size of a sticker on the map are in its right-click menu (`StickerMenu`). */}
       <Disclosure title="Stickers">
         <StickerLibrary />
       </Disclosure>

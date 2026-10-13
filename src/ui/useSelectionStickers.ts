@@ -43,7 +43,17 @@ export function removeOps(ids: CountryId[]): MapOperation[] {
  * already — off. Says which, or `'none'` when nothing is selected.
  */
 export function tapSticker(stickerId: string): 'on' | 'off' | 'none' {
-  const { doc, selectedCountryIds: ids, dispatch } = useMapStore.getState()
+  const { doc, selectedCountryIds: ids, dispatch, activeStickerId } = useMapStore.getState()
+  /*
+   * Nothing selected but a sticker chosen on the map: the tap replaces that sticker with this
+   * one, on the same territory, and it stays chosen. The same sticker again changes nothing.
+   */
+  if (ids.length === 0 && activeStickerId) {
+    if (resolveStickers(doc).get(activeStickerId) !== stickerId) {
+      dispatch({ op: 'assign_sticker', countryIds: [activeStickerId], stickerId })
+    }
+    return 'on'
+  }
   if (ids.length === 0) return 'none'
   const wearing = resolveStickers(doc)
   if (ids.every((id) => wears(wearing.get(id), stickerId))) {

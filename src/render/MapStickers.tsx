@@ -53,7 +53,7 @@ interface Props {
   stickers: Map<string, Sticker>
   /** The selected entities: their stickers are ringed on screen, and can be dragged. */
   activeIds: readonly string[]
-  /** The chosen sticker, by its wearer: it glows white and can be dragged. */
+  /** The chosen sticker, by its wearer: it is outlined in yellow and can be dragged. */
   chosenId: string | null
   /** Whether the ringed stickers take a press at all. */
   draggable: boolean
@@ -207,13 +207,14 @@ export const MapStickers = memo(function MapStickers({
           </symbol>
         ))}
         {/*
-          The chosen sticker's highlight: a white wash over its own shape — the sticker lit up, the
-          way a chosen item is, rather than a ring drawn round it. Exactly its silhouette, so
-          nothing reaches past its edges, and see-through enough that the face stays itself.
+          The chosen sticker's highlight: a yellow outline round its own shape. Its silhouette,
+          grown a little and filled yellow, drawn behind it, so only the rim shows and the sticker
+          itself is untouched.
         */}
-        <filter id="map-sticker-highlight" x="0" y="0" width="100%" height="100%">
-          <feFlood floodColor="#ffffff" floodOpacity="0.38" />
-          <feComposite in2="SourceAlpha" operator="in" />
+        <filter id="map-sticker-highlight" x="-10%" y="-10%" width="120%" height="120%" primitiveUnits="objectBoundingBox">
+          <feMorphology in="SourceAlpha" operator="dilate" radius="0.035" result="grown" />
+          <feFlood floodColor="#ffd400" />
+          <feComposite in2="grown" operator="in" />
         </filter>
       </defs>
       {placements.map((p) => {
@@ -223,6 +224,19 @@ export const MapStickers = memo(function MapStickers({
         const movable = draggable && (chosen || activeIds.includes(p.id))
         return (
           <Fragment key={p.id}>
+          {/* Behind the sticker, on screen only: the yellow outline that says it is chosen. */}
+          {chosen && (
+            <use
+              href={`#${symbol}`}
+              x={p.x - p.size / 2}
+              y={p.y - p.size / 2}
+              width={p.size}
+              height={p.size}
+              filter="url(#map-sticker-highlight)"
+              pointerEvents="none"
+              data-export="none"
+            />
+          )}
           <use
             href={`#${symbol}`}
             x={p.x - p.size / 2}
@@ -245,19 +259,6 @@ export const MapStickers = memo(function MapStickers({
             onPointerEnter={(event: ReactPointerEvent<SVGElement>) => primeStickerInk(event.currentTarget)}
             style={movable ? { cursor: 'move', touchAction: 'none' } : { cursor: 'pointer' }}
           />
-          {/* Over the sticker, on screen only: the wash that says it is chosen. */}
-          {chosen && (
-            <use
-              href={`#${symbol}`}
-              x={p.x - p.size / 2}
-              y={p.y - p.size / 2}
-              width={p.size}
-              height={p.size}
-              filter="url(#map-sticker-highlight)"
-              pointerEvents="none"
-              data-export="none"
-            />
-          )}
           </Fragment>
         )
       })}
