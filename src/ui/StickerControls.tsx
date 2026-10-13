@@ -26,6 +26,7 @@ import { describeRungs, moodOfValue, resolveStickers, stickersOf } from '../stat
 import { MOODS } from '../stickers/moods'
 import { faceSticker, faceStickerId, saveLadder, stickerIndex, useStickerLibrary } from '../stickers/stickerLibrary'
 import { BetterSwitch } from './BetterSwitch'
+import { MoodButtons } from './MoodButtons'
 import type { Sticker } from '../stickers/types'
 import { STICKER_SIZE } from '../types/map'
 import { Disclosure } from './Panels'
@@ -132,8 +133,6 @@ export function StickerTiers() {
 export function StickerMoods() {
   const doc = useMapStore((s) => s.doc)
   const dispatch = useMapStore((s) => s.dispatch)
-  const mode = stickersOf(doc)
-  const on = !!mode.moods
   const layer = doc.layers.find((l) => l.id === doc.activeLayerId) ?? doc.layers[0]
   const lowerIsBetter = !!layer?.colorScale.lowerIsBetter
   const numeric = colourModeOf(doc) === 'data' && layer?.colorScale.mode === 'numeric'
@@ -151,28 +150,7 @@ export function StickerMoods() {
 
   return (
     <div className="stack">
-      <div className="sticker-moods__actions">
-        <button
-          type="button"
-          className={`btn${on ? ' btn--on' : ''}`}
-          aria-pressed={on}
-          onClick={() =>
-            dispatch({ op: 'set_stickers', patch: on ? { moods: false } : { moods: true, auto: false, enabled: true } })
-          }
-        >
-          {on ? 'Moods from data: on' : 'Moods from data'}
-        </button>
-        {on && (
-          <button
-            type="button"
-            className="btn"
-            title="Give every country a different face from its mood"
-            onClick={() => dispatch({ op: 'set_stickers', patch: { moodSeed: (mode.moodSeed ?? 0) + 1 } })}
-          >
-            Shuffle
-          </button>
-        )}
-      </div>
+      <MoodButtons />
 
       {!readable && <p className="hint">Colour the map by data first (Data → Custom or Predefined), then every country with a number gets a face.</p>}
 
@@ -240,7 +218,7 @@ export function StickerControls() {
         <StickerLibrary />
       </Disclosure>
       {/* A face on every country, chosen by its number: the quick way to a sticker map. */}
-      <Disclosure title="Moods">
+      <Disclosure title="Moods" defaultOpen>
         <StickerMoods />
       </Disclosure>
       <Disclosure title="Emoji">

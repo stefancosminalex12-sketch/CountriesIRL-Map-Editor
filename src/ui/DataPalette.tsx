@@ -40,6 +40,7 @@ import {
   type PaletteSteps,
 } from '../state/palettes'
 import { BetterSwitch } from './BetterSwitch'
+import { MoodButtons } from './MoodButtons'
 import { describeBand, getPreset, THRESHOLD_PRESETS } from '../state/presets'
 import { CountryPicker } from './CountryPicker'
 import { Inspector } from './Inspector'
@@ -387,7 +388,11 @@ function PaletteControls({ dataKey }: { dataKey: string }) {
           </div>
         </div>
       ) : (
-        <BetterSwitch />
+        <>
+          <BetterSwitch />
+          {/* The faces, right where the map was just coloured by mood. */}
+          <MoodButtons />
+        </>
       )}
 
       {/* The ramp itself, low on the left. Nothing explains a palette like it. */}
