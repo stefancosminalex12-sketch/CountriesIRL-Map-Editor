@@ -2382,3 +2382,12 @@ export function visibleLabels(placed: PlacedLabel[], zoom: number): VisibleLabel
 export function lineAdvance(fontSize: number): number {
   return fontSize * LINE_HEIGHT
 }
+
+/**
+ * The room at a point on an entity's largest piece — the distance to its nearest edge, in map
+ * units — or 0 where the point is not on it. For a sticker placed by hand-picked coordinates.
+ */
+export function roomAt(shape: LabelShape, x: number, y: number): number {
+  if (!shape.mainland) return 0
+  return Math.max(0, signedDistance(x, y, shape.mainland.edges))
+}

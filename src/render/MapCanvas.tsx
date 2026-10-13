@@ -58,6 +58,7 @@ import {
   LABEL_LINE_BREAK,
   layoutLabels,
   MAX_MAP_ZOOM,
+  roomAt,
   stickerSpot,
   visibleLabels,
   type LabelShape,
@@ -75,6 +76,7 @@ import { StickerMenu, type StickerMenuRequest } from '../ui/StickerMenu'
 import { CountryCoast, CountryPath, MAP_SCALE_VAR, screenStrokeWidth } from './CountryPath'
 import { flagCodeFor, hasFlag, preloadFlags, useFlagStore } from '../flags/flagStore'
 import { answerWord, mainCountryAnswers } from '../state/mainCountry'
+import { STICKER_ANCHORS } from '../stickers/anchors'
 import { entityFlagCode } from '../flags/flagChoices'
 import { resolveScreen } from './screenFrame'
 import { mergeCountries } from '../geo/merge'
@@ -276,8 +278,10 @@ const STICKER_MAX = 64
  * Where a territory's sticker goes and how large it is, before the author's own size and place:
  * near the middle a reader sees (`stickerSpot`), sized by area and held to the room there.
  */
-function stickerFit(shape: LabelShape): { x: number; y: number; size: number } {
-  const spot = stickerSpot(shape) ?? shape.spots[0] ?? shape.groupSpots[0]
+function stickerFit(shape: LabelShape, anchor?: readonly [number, number] | null): { x: number; y: number; size: number } {
+  // A territory with a place of its own (`STICKER_ANCHORS`), where that place is on its land.
+  const anchored = anchor ? { x: anchor[0], y: anchor[1], r: roomAt(shape, anchor[0], anchor[1]) } : null
+  const spot = (anchored && anchored.r > 0 ? anchored : null) ?? stickerSpot(shape) ?? shape.spots[0] ?? shape.groupSpots[0]
   const unit = shape.unit
   // Never below the room at the pole: the area law grows slower than a giant's room does.
   const earned = Math.max(
@@ -1363,6 +1367,15 @@ export function MapCanvas() {
     },
     [mergeGeometry, insets, projection],
   )
+  /** A territory's own sticker place (`STICKER_ANCHORS`), projected, or null for the usual middle. */
+  const stickerAnchor = useCallback(
+    (id: string): [number, number] | null => {
+      const anchor = STICKER_ANCHORS[id]
+      const at = anchor ? stickerProjectionOf(id)?.([anchor[0], anchor[1]]) : null
+      return at && Number.isFinite(at[0]) && Number.isFinite(at[1]) ? [at[0], at[1]] : null
+    },
+    [stickerProjectionOf],
+  )
 
   /**
    * Whether a point, in map units, is on an entity's own land as the map draws it — what keeps a
@@ -1411,7 +1424,7 @@ export function MapCanvas() {
       const stickerId = stickerAssignments.get(shape.id)
       if (!stickerId || !stickerArtwork.has(stickerId)) continue
       if (style.outsideScope === 'hidden' && !merged.has(shape.id) && !scopeCountryIds.has(shape.id)) continue
-      const fit = stickerFit(shape)
+      const fit = stickerFit(shape, stickerAnchor(shape.id))
       let { x, y } = fit
       const own = stickerMode.sizes?.[shape.id] ?? 1
       const size = fit.size * stickerMode.size * own
@@ -1423,7 +1436,7 @@ export function MapCanvas() {
       out.push({ id: shape.id, stickerId, x, y, size })
     }
     return out
-  }, [stickersOn, stickerAssignments, stickerArtwork, labelShapes, mergeGeometry, scopeCountryIds, style.outsideScope, stickerMode.size, stickerMode.sizes, stickerMode.positions, stickerProjectionOf, stickerOnLand])
+  }, [stickersOn, stickerAssignments, stickerArtwork, labelShapes, mergeGeometry, scopeCountryIds, style.outsideScope, stickerMode.size, stickerMode.sizes, stickerMode.positions, stickerProjectionOf, stickerOnLand, stickerAnchor])
 
   /**
    * The main country's question, answered under every other country with a number: the word in
@@ -1447,13 +1460,13 @@ export function MapCanvas() {
         const top = sticker.y + sticker.size * (ANSWER_FACE_BOTTOM - ANSWER_OVERLAP)
         out.push({ id: shape.id, word, x: sticker.x, y: top + fontSize * ANSWER_CAP, fontSize })
       } else {
-        const fit = stickerFit(shape)
+        const fit = stickerFit(shape, stickerAnchor(shape.id))
         const fontSize = Math.max(fit.size * ANSWER_SIZE * 1.3, ANSWER_MIN * shape.unit * scale)
         out.push({ id: shape.id, word, x: fit.x, y: fit.y + (fontSize * ANSWER_CAP) / 2, fontSize })
       }
     }
     return out
-  }, [answers, stickerPlacements, labelShapes, style.outsideScope, scopeCountryIds, geo, stickerMode.size])
+  }, [answers, stickerPlacements, labelShapes, style.outsideScope, scopeCountryIds, geo, stickerMode.size, stickerAnchor])
 
   /** A sticker let go after a drag: its centre, in map units, kept as longitude and latitude. */
   const moveSticker = useCallback(

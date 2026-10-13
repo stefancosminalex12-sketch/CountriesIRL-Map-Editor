@@ -469,7 +469,14 @@ export function importMapSvg(
   const layerName =
     legend?.title ?? (valueKey && valueKey !== 'data-value' ? prettyKey(valueKey) : null) ?? title ?? layer.name
 
-  if (withColour.length > 0) {
+  /*
+   * A map set up for Moods (`MapDocument.uploadDefaults`, the Europe Mapping template) reads the
+   * numbers, not the file's colours: the Moods scale colours them and the faces follow.
+   */
+  const defaults = doc.uploadDefaults
+  const moods = !!defaults?.moods && withValue.length > 0 && withValue.every((r) => typeof r.value === 'number')
+
+  if (withColour.length > 0 && !moods) {
     /*
      * Colours kept exactly: every entity's value is pinned to the colour it was given. A value
      * is its number where it has one, and otherwise the legend's label for its colour, or the
@@ -543,11 +550,17 @@ export function importMapSvg(
   }
   if (title) ops.push({ op: 'set_caption', patch: { enabled: true, text: title } })
   if (labels) ops.push({ op: 'set_labels', patch: { enabled: true } })
+  if (moods) {
+    ops.push({ op: 'set_active_palette', paletteId: 'moods-9' })
+    ops.push({ op: 'set_stickers', patch: { moods: true, auto: false, enabled: true } })
+  }
+  // Last, over the legend the branches above turn on: the map asked for none.
+  if (defaults?.legend === false) ops.push({ op: 'set_legend', patch: { visible: false } })
 
   const results = dispatch(ops)
   const refused = results.filter((r) => !r.ok)
   const values = results.filter((r) => r.ok && r.op.op === 'set_country_value').length
-  const colours = new Set(withColour.map((r) => r.colour)).size
+  const colours = moods ? 0 : new Set(withColour.map((r) => r.colour)).size
   const legendItems = withColour.length > 0 || !withValue.length ? (legend?.items.length ?? 0) : 0
 
   const parts: string[] = [`${reads.size} matched`]

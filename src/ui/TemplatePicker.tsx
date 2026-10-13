@@ -11,6 +11,39 @@ import { useState } from 'react'
 import { useMapStore } from '../state/mapStore'
 import { TEMPLATES, templateOps, type MapTemplate } from '../state/templates'
 import { openSidebarSection } from './sidebarEvents'
+import { MAP_SVG_ID } from '../render/MapCanvas'
+import { getLiveProjection } from '../render/liveProjection'
+import { squareScreen } from '../render/screenFrame'
+
+/** Two frames, or a moment in a tab that gets none: the map has redrawn for the new region. */
+const redrawn = () =>
+  new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+    setTimeout(resolve, 400)
+  })
+
+/**
+ * A template's square frame (`TemplateFrame`), placed round its landmarks on the map as it is now
+ * drawn — after the template's region and projection are in. One more edit, after the first.
+ */
+async function placeFrame(template: MapTemplate, before: ReturnType<typeof getLiveProjection>): Promise<void> {
+  const frame = template.frame
+  if (!frame) return
+  // The map has a new projection once the region and projection are in; at most a few seconds.
+  for (let waited = 0; getLiveProjection() === before && waited < 3000; waited += 50) {
+    await new Promise((resolve) => setTimeout(resolve, 50))
+  }
+  await redrawn()
+  const projection = getLiveProjection()
+  const canvas = document.getElementById(MAP_SVG_ID)
+  if (!projection || !canvas) return
+  const box = canvas.getBoundingClientRect()
+  const project = (points: readonly [number, number][]) =>
+    points.map((p) => projection([p[0], p[1]])).filter((p): p is [number, number] => !!p)
+  const { transform, dispatch } = useMapStore.getState()
+  const rect = squareScreen(project(frame.west), project(frame.top), project(frame.bottom), transform, box.width, box.height)
+  if (rect) dispatch({ op: 'set_screen', patch: { enabled: true, rect, aspect: '1:1' } })
+}
 
 /** `onApplied` is called once a template has been applied — the File menu closes on it. */
 export function TemplatePicker({ onApplied }: { onApplied?: () => void } = {}) {
@@ -33,7 +66,9 @@ export function TemplatePicker({ onApplied }: { onApplied?: () => void } = {}) {
       return
     }
     const { doc, dispatch } = useMapStore.getState()
+    const before = getLiveProjection()
     dispatch(templateOps(template, doc))
+    void placeFrame(template, before)
     finish(template, `Applied ${template.name}.`)
   }
 

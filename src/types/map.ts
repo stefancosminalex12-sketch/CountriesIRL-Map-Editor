@@ -922,6 +922,15 @@ export interface MapDocument {
   mainCountryId?: CountryId | null
   /** How much of its flag's contrast the main country keeps, 0.2–1; absent is 1, the flag as drawn. */
   mainFlagContrast?: number
+  /**
+   * What data uploaded as an SVG turns on (`io/svgExchange.ts`), for a map set up for one kind of
+   * video — the Europe Mapping template: `moods` colours the numbers on the Moods scale with the
+   * faces on, whatever colours the file has; `legend: false` keeps the legend off. Absent: an
+   * upload keeps the file's colours and shows its legend, as it always has.
+   */
+  uploadDefaults?: { moods?: boolean; legend?: boolean }
+  /** Export → Transparent background, kept with the map so a template can turn it on. */
+  exportTransparent?: boolean
   legend: LegendConfig
   /** The composition frame. See {@link ScreenFrame}. */
   screen: ScreenFrame

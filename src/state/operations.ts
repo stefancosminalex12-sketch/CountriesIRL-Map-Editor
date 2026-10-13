@@ -165,6 +165,10 @@ export type MapOperation =
   | { op: 'set_main_country'; countryId: CountryId | null }
   /** The main country's flag toned down: 1 as drawn, down to 0.2 (see `FLAG_CONTRAST`). */
   | { op: 'set_main_flag_contrast'; contrast: number }
+  /** What an uploaded SVG's data turns on. See `MapDocument.uploadDefaults`. */
+  | { op: 'set_upload_defaults'; patch: { moods?: boolean; legend?: boolean } }
+  /** Export → Transparent background. See `MapDocument.exportTransparent`. */
+  | { op: 'set_export_transparent'; transparent: boolean }
   | { op: 'clear_sticker'; countryIds: CountryId[] }
   /** One sticker's own size, as a multiplier (see `StickerMode.sizes`); null for the usual size. */
   | { op: 'size_sticker'; countryIds: CountryId[]; size: number | null }
@@ -232,6 +236,8 @@ const IMPLEMENTED: Record<MapOperationType, true> = {
   set_stickers: true,
   set_main_country: true,
   set_main_flag_contrast: true,
+  set_upload_defaults: true,
+  set_export_transparent: true,
   assign_sticker: true,
   clear_sticker: true,
   size_sticker: true,

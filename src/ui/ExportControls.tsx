@@ -40,7 +40,9 @@ export function ExportControls() {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState<ExportFormat | null>(null)
   /* Leave the sea out of PNG and SVG exports, so the image is the land alone. */
-  const [transparentWater, setTransparentWater] = useState(false)
+  // Kept with the map, so a template can turn it on (`MapDocument.exportTransparent`).
+  const transparentWater = useMapStore((s) => !!s.doc.exportTransparent)
+  const dispatch = useMapStore((s) => s.dispatch)
   const [error, setError] = useState<string | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -165,7 +167,7 @@ export function ExportControls() {
             role="menuitemcheckbox"
             aria-checked={transparentWater}
             className={`export__item export__option${transparentWater ? ' export__option--on' : ''}`}
-            onClick={() => setTransparentWater((on) => !on)}
+            onClick={() => dispatch({ op: 'set_export_transparent', transparent: !transparentWater })}
           >
             <span className="export__check" aria-hidden="true">
               {transparentWater ? '✓' : ''}

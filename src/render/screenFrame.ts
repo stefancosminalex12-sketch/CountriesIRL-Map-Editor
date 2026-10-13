@@ -150,3 +150,44 @@ export function fitRegionScreen(
     height: Math.min(h, height),
   }
 }
+
+/** Room left between the landmarks and a square frame's edges, as a share of its side. */
+const SQUARE_MARGIN = 0.008
+
+/**
+ * A square frame placed by landmarks, for a template (`TemplateFrame`): its left edge just west of
+ * the `west` points, its top just above the `top` ones and its bottom just below the `bottom` ones,
+ * as the map is drawn now. Points are already projected, in map units; `transform` is the camera.
+ * Held inside the canvas — a frame larger than it shrinks about its top-left landmarks.
+ */
+export function squareScreen(
+  west: [number, number][],
+  top: [number, number][],
+  bottom: [number, number][],
+  transform: { k: number; x: number; y: number },
+  width: number,
+  height: number,
+): ScreenRect | null {
+  const screen = (points: [number, number][]) =>
+    points
+      .map(([x, y]) => [x * transform.k + transform.x, y * transform.k + transform.y] as const)
+      .filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y))
+  const w = screen(west)
+  const t = screen(top)
+  const b = screen(bottom)
+  if (w.length === 0 || t.length === 0 || b.length === 0) return null
+  const x0 = Math.min(...w.map(([x]) => x))
+  const y0 = Math.min(...t.map(([, y]) => y))
+  const y1 = Math.max(...b.map(([, y]) => y))
+  if (!(y1 > y0)) return null
+  const inner = y1 - y0
+  const side = inner / (1 - 2 * SQUARE_MARGIN)
+  const pad = side * SQUARE_MARGIN
+  const fit = Math.max(MIN_SCREEN, Math.min(side, width, height))
+  return {
+    x: clamp(x0 - pad, 0, Math.max(0, width - fit)),
+    y: clamp(y0 - pad, 0, Math.max(0, height - fit)),
+    width: fit,
+    height: fit,
+  }
+}

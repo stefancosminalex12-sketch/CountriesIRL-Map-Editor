@@ -179,6 +179,10 @@ export function validateOperation(op: MapOperation, ctx: ExecutionContext = {}):
       return typeof op.contrast === 'number' && op.contrast >= FLAG_CONTRAST.min && op.contrast <= FLAG_CONTRAST.max
         ? null
         : `contrast must be a number from ${FLAG_CONTRAST.min} to ${FLAG_CONTRAST.max}`
+    case 'set_upload_defaults':
+      return op.patch && typeof op.patch === 'object' ? null : 'patch must be an object'
+    case 'set_export_transparent':
+      return typeof op.transparent === 'boolean' ? null : 'transparent must be true or false'
     case 'set_main_country':
       return op.countryId === null || (typeof op.countryId === 'string' && op.countryId !== '') ? null : 'countryId must be an entity id or null'
     case 'set_active_preset':
@@ -640,6 +644,10 @@ function applyOperation(doc: MapDocument, op: MapOperation): MapDocument {
     }
     case 'set_main_country':
       return { ...doc, mainCountryId: op.countryId }
+    case 'set_upload_defaults':
+      return { ...doc, uploadDefaults: { ...doc.uploadDefaults, ...op.patch } }
+    case 'set_export_transparent':
+      return { ...doc, exportTransparent: op.transparent }
     case 'set_main_flag_contrast':
       return { ...doc, mainFlagContrast: op.contrast }
     case 'set_active_preset':
