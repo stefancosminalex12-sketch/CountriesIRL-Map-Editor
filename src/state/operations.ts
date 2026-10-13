@@ -161,6 +161,10 @@ export type MapOperation =
       patch: { enabled?: boolean; auto?: boolean; ladder?: string[]; size?: number; moods?: boolean; moodSeed?: number }
     }
   | { op: 'assign_sticker'; countryIds: CountryId[]; stickerId: string | null }
+  /** The country the map compares every other one with (see `MapDocument.mainCountryId`); null for none. */
+  | { op: 'set_main_country'; countryId: CountryId | null }
+  /** The main country's flag toned down: 1 as drawn, down to 0.2 (see `FLAG_CONTRAST`). */
+  | { op: 'set_main_flag_contrast'; contrast: number }
   | { op: 'clear_sticker'; countryIds: CountryId[] }
   /** One sticker's own size, as a multiplier (see `StickerMode.sizes`); null for the usual size. */
   | { op: 'size_sticker'; countryIds: CountryId[]; size: number | null }
@@ -226,6 +230,8 @@ const IMPLEMENTED: Record<MapOperationType, true> = {
   clear_water_paint: true,
   set_flags: true,
   set_stickers: true,
+  set_main_country: true,
+  set_main_flag_contrast: true,
   assign_sticker: true,
   clear_sticker: true,
   size_sticker: true,

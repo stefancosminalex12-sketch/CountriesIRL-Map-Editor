@@ -19,6 +19,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import { createPortal } from 'react-dom'
 import { HideTerritories } from './MapSettings'
 import { SvgExchange } from './SvgExchange'
+import { MainCountryItems } from './MainCountryItems'
 import { onOpenMapMenu, onOpenSidebarSection, type MapMenuRequest } from './sidebarEvents'
 import { useMapStore } from '../state/mapStore'
 import { closeLatestDisclosure } from './Panels'
@@ -266,6 +267,7 @@ function MapSectionMenu({
       onContextMenu={(event) => event.preventDefault()}
     >
       <span className="top-menu__heading">{name}</span>
+      <MainCountryItems entityId={request.entityId} onClose={onClose} />
       {SECTIONS.map((section) => (
         <button
           key={section.id}

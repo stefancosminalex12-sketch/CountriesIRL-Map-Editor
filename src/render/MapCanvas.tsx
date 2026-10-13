@@ -74,6 +74,7 @@ import { LoadingScreen } from '../ui/LoadingScreen'
 import { StickerMenu, type StickerMenuRequest } from '../ui/StickerMenu'
 import { CountryCoast, CountryPath, MAP_SCALE_VAR, screenStrokeWidth } from './CountryPath'
 import { flagCodeFor, hasFlag, preloadFlags, useFlagStore } from '../flags/flagStore'
+import { answerWord, mainCountryAnswers } from '../state/mainCountry'
 import { entityFlagCode } from '../flags/flagChoices'
 import { resolveScreen } from './screenFrame'
 import { mergeCountries } from '../geo/merge'
@@ -270,6 +271,38 @@ const STICKER_ROOM_FLOOR = 7
 /** The smallest and largest a sticker is fitted at, in map units at the labels' reference scale. */
 const STICKER_MIN = 4.6
 const STICKER_MAX = 64
+
+/**
+ * Where a territory's sticker goes and how large it is, before the author's own size and place:
+ * near the middle a reader sees (`stickerSpot`), sized by area and held to the room there.
+ */
+function stickerFit(shape: LabelShape): { x: number; y: number; size: number } {
+  const spot = stickerSpot(shape) ?? shape.spots[0] ?? shape.groupSpots[0]
+  const unit = shape.unit
+  // Never below the room at the pole: the area law grows slower than a giant's room does.
+  const earned = Math.max(
+    STICKER_AREA_FACTOR * unit * Math.pow(shape.area / (unit * unit), STICKER_AREA_EXPONENT),
+    (shape.spots[0]?.r ?? 0) * STICKER_POLE_ROOM,
+  )
+  const fits = Math.max((spot?.r ?? 0) * STICKER_FIT, STICKER_ROOM_FLOOR * unit)
+  return {
+    x: spot ? spot.x : (shape.minX + shape.maxX) / 2,
+    y: spot ? spot.y : (shape.minY + shape.maxY) / 2,
+    size: Math.min(Math.max(Math.min(earned, fits), STICKER_MIN * unit), STICKER_MAX * unit),
+  }
+}
+
+/*
+ * The main country's Yes and No (`state/mainCountry.ts`), under each sticker. A face is drawn
+ * with its bottom edge `ANSWER_FACE_BOTTOM` of the sticker below its centre (`faceMaker`'s frame);
+ * the word's capitals start `ANSWER_OVERLAP` above that edge, so it sits a touch over the face's
+ * very bottom and clear of every feature. Sized by the sticker.
+ */
+const ANSWER_FACE_BOTTOM = 0.3125
+const ANSWER_OVERLAP = 0.035
+const ANSWER_SIZE = 0.28
+/** Arial Black's capital height, as a share of its size: from the baseline to the top of a Y. */
+const ANSWER_CAP = 0.72
 
 const ZOOM_RANGE: [number, number] = [1, MAX_MAP_ZOOM]
 /** How much of the map's width or height an entity searched for is zoomed to fill. */
@@ -1372,18 +1405,10 @@ export function MapCanvas() {
       const stickerId = stickerAssignments.get(shape.id)
       if (!stickerId || !stickerArtwork.has(stickerId)) continue
       if (style.outsideScope === 'hidden' && !merged.has(shape.id) && !scopeCountryIds.has(shape.id)) continue
-      const spot = stickerSpot(shape) ?? shape.spots[0] ?? shape.groupSpots[0]
-      let x = spot ? spot.x : (shape.minX + shape.maxX) / 2
-      let y = spot ? spot.y : (shape.minY + shape.maxY) / 2
-      const unit = shape.unit
-      // Never below the room at the pole: the area law grows slower than a giant's room does.
-      const earned = Math.max(
-        STICKER_AREA_FACTOR * unit * Math.pow(shape.area / (unit * unit), STICKER_AREA_EXPONENT),
-        (shape.spots[0]?.r ?? 0) * STICKER_POLE_ROOM,
-      )
-      const fits = Math.max((spot?.r ?? 0) * STICKER_FIT, STICKER_ROOM_FLOOR * unit)
+      const fit = stickerFit(shape)
+      let { x, y } = fit
       const own = stickerMode.sizes?.[shape.id] ?? 1
-      const size = Math.min(Math.max(Math.min(earned, fits), STICKER_MIN * unit), STICKER_MAX * unit) * stickerMode.size * own
+      const size = fit.size * stickerMode.size * own
       const moved = stickerMode.positions?.[shape.id]
       const at = moved ? stickerProjectionOf(shape.id)?.(moved) : null
       if (at && Number.isFinite(at[0]) && Number.isFinite(at[1]) && stickerOnLand(shape.id, at[0], at[1])) {
@@ -1393,6 +1418,35 @@ export function MapCanvas() {
     }
     return out
   }, [stickersOn, stickerAssignments, stickerArtwork, labelShapes, mergeGeometry, scopeCountryIds, style.outsideScope, stickerMode.size, stickerMode.sizes, stickerMode.positions, stickerProjectionOf, stickerOnLand])
+
+  /**
+   * The main country's question, answered under every other country with a number: the word in
+   * its language and where it goes — under its sticker, overlapping the face's bottom edge by a
+   * touch, or in the middle of the country where it wears none. See `state/mainCountry.ts`.
+   */
+  const answers = useMemo(() => mainCountryAnswers(doc), [doc])
+  const answerPlacements = useMemo(() => {
+    if (answers.size === 0) return []
+    const placed = new Map(stickerPlacements.map((p) => [p.id, p]))
+    const out: Array<{ id: string; word: string; x: number; y: number; fontSize: number }> = []
+    for (const shape of labelShapes) {
+      const yes = answers.get(shape.id)
+      if (yes === undefined) continue
+      if (style.outsideScope === 'hidden' && !scopeCountryIds.has(shape.id)) continue
+      const word = answerWord(yes, shape.id, geo?.meta[shape.id]?.parent?.id)
+      const sticker = placed.get(shape.id)
+      if (sticker) {
+        const fontSize = sticker.size * ANSWER_SIZE
+        const top = sticker.y + sticker.size * (ANSWER_FACE_BOTTOM - ANSWER_OVERLAP)
+        out.push({ id: shape.id, word, x: sticker.x, y: top + fontSize * ANSWER_CAP, fontSize })
+      } else {
+        const fit = stickerFit(shape)
+        const fontSize = fit.size * ANSWER_SIZE * 1.3
+        out.push({ id: shape.id, word, x: fit.x, y: fit.y + (fontSize * ANSWER_CAP) / 2, fontSize })
+      }
+    }
+    return out
+  }, [answers, stickerPlacements, labelShapes, style.outsideScope, scopeCountryIds, geo])
 
   /** A sticker let go after a drag: its centre, in map units, kept as longitude and latitude. */
   const moveSticker = useCallback(
@@ -2473,6 +2527,41 @@ export function MapCanvas() {
    * of strings, never any geometry.
    */
   const loadedFlags = useFlagStore((s) => s.flags)
+
+  /**
+   * The main country's flag (`MapDocument.mainCountryId`), over its fill and under everything on
+   * the land — its sticker included, which it keeps. Clipped to the country's own outline and
+   * framed on its main landmass, so the whole flag shows on the mainland; a far island keeps its
+   * ordinary fill. Toned down by `mainFlagContrast`. Not in Flags mode, where it already wears one.
+   */
+  const mainId = doc.mainCountryId ?? null
+  const mainFlagCode = useMemo(() => {
+    if (!mainId || !geo) return null
+    const code = flagCodeFor(mainId, geo.meta[mainId]?.iso2)
+    return code && hasFlag(code) ? code : null
+  }, [mainId, geo])
+  const requestMainFlag = useFlagStore((s) => s.request)
+  useEffect(() => {
+    if (mainFlagCode) requestMainFlag([mainFlagCode])
+  }, [mainFlagCode, requestMainFlag])
+  const mainFlag = useMemo(() => {
+    if (!mainId || !mainFlagCode || flagsOn || leftOutIds.has(mainId)) return null
+    const src = loadedFlags[mainFlagCode]
+    const shape = shapes.find((s) => s.id === mainId)
+    const box = labelShapes.find((s) => s.id === mainId)
+    if (!src || !shape || !box) return null
+    return {
+      id: mainId,
+      src,
+      d: shape.d,
+      clipPath: shape.clipId ? `url(#map-inset-${shape.clipId})` : undefined,
+      x: box.minX,
+      y: box.minY,
+      width: Math.max(box.maxX - box.minX, 1e-6),
+      height: Math.max(box.maxY - box.minY, 1e-6),
+    }
+  }, [mainId, mainFlagCode, flagsOn, leftOutIds, loadedFlags, shapes, labelShapes])
+  const mainContrast = doc.mainFlagContrast ?? 1
 
   /**
    * The one fill every shape uses while the world is dominated, or null.
@@ -3848,6 +3937,42 @@ export function MapCanvas() {
           </g>
 
           {/*
+            The main country's flag: over the selection, so the flag stays in sight while its
+            contrast is set from the menu a right-click opens (which selects it).
+          */}
+          {mainFlag && (
+            <g pointerEvents="none" clipPath={mainFlag.clipPath}>
+              <defs>
+                <clipPath id="main-country-outline">
+                  <path d={mainFlag.d} />
+                </clipPath>
+                {/* Contrast toward mid-grey: each channel scaled about the middle. */}
+                {mainContrast < 1 && (
+                  <filter id="main-flag-contrast" colorInterpolationFilters="sRGB">
+                    <feComponentTransfer>
+                      <feFuncR type="linear" slope={mainContrast} intercept={(1 - mainContrast) / 2} />
+                      <feFuncG type="linear" slope={mainContrast} intercept={(1 - mainContrast) / 2} />
+                      <feFuncB type="linear" slope={mainContrast} intercept={(1 - mainContrast) / 2} />
+                    </feComponentTransfer>
+                  </filter>
+                )}
+              </defs>
+              <image
+                href={mainFlag.src}
+                x={mainFlag.x}
+                y={mainFlag.y}
+                width={mainFlag.width}
+                height={mainFlag.height}
+                preserveAspectRatio="xMidYMid slice"
+                clipPath="url(#main-country-outline)"
+                filter={mainContrast < 1 ? 'url(#main-flag-contrast)' : undefined}
+              />
+              {/* Selected, it shows as a tint over the flag rather than hiding it. */}
+              {selected.has(mainFlag.id) && <path d={mainFlag.d} fill={style.selected} fillOpacity={0.35} />}
+            </g>
+          )}
+
+          {/*
             Second flags, over the territories that earned one.
 
             After the country paths, so a territory's own framing replaces the repeat of
@@ -4095,6 +4220,33 @@ export function MapCanvas() {
               onLand={stickerOnLand}
               onMove={moveSticker}
             />
+          )}
+
+          {/*
+            The main country's Yes and No, over the stickers' bottom edge. Styled on the
+            elements themselves, not by a class, so an export carries the look exactly.
+          */}
+          {answerPlacements.length > 0 && (
+            <g pointerEvents="none">
+              {answerPlacements.map((a) => (
+                <text
+                  key={a.id}
+                  x={a.x}
+                  y={a.y}
+                  textAnchor="middle"
+                  fontFamily="'Arial Black', Arial, sans-serif"
+                  fontWeight={900}
+                  fontSize={a.fontSize}
+                  fill="#ffffff"
+                  stroke="#000000"
+                  strokeWidth={a.fontSize * 0.16}
+                  strokeLinejoin="round"
+                  paintOrder="stroke"
+                >
+                  {a.word}
+                </text>
+              ))}
+            </g>
           )}
 
           {textOn && <MapLabels placements={labelsToDraw} labels={labels} />}

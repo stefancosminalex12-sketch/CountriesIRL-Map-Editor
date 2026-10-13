@@ -14,6 +14,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useMapStore } from '../state/mapStore'
 import { ChosenSticker } from './ChosenSticker'
+import { MainCountryItems } from './MainCountryItems'
 import { removeOps } from './useSelectionStickers'
 
 export interface StickerMenuRequest {
@@ -69,6 +70,8 @@ export function StickerMenu({ request, onClose }: { request: StickerMenuRequest;
       onContextMenu={(event) => event.preventDefault()}
     >
       <span className="top-menu__heading">{name}</span>
+      {/* A sticker is its country: the main-country choice is here too, where the click usually lands. */}
+      <MainCountryItems entityId={request.entityId} onClose={onClose} />
       <ChosenSticker only={[request.entityId]} />
       <button
         type="button"

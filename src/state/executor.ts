@@ -5,6 +5,7 @@
  * document plus a per-operation result. No React, no store, no side effects, so the
  * same path serves the UI, the future AI assistant, tests and replay.
  */
+import { FLAG_CONTRAST } from './mainCountry'
 import { MAX_COMPARISON_GROUPS, OVERLAY_SCALE_RANGE, STICKER_SIZE, WATER_OPACITY } from '../types/map'
 import { hasFlag } from '../flags/flagStore'
 import { BUILT_IN_PALETTES, createCountryEntry, createGroup } from './defaults'
@@ -174,6 +175,12 @@ export function validateOperation(op: MapOperation, ctx: ExecutionContext = {}):
       return null
     case 'set_active_palette':
       return PALETTE_IDS.has(op.paletteId) ? null : `Unknown palette "${op.paletteId}"`
+    case 'set_main_flag_contrast':
+      return typeof op.contrast === 'number' && op.contrast >= FLAG_CONTRAST.min && op.contrast <= FLAG_CONTRAST.max
+        ? null
+        : `contrast must be a number from ${FLAG_CONTRAST.min} to ${FLAG_CONTRAST.max}`
+    case 'set_main_country':
+      return op.countryId === null || (typeof op.countryId === 'string' && op.countryId !== '') ? null : 'countryId must be an entity id or null'
     case 'set_active_preset':
       return PRESET_IDS.has(op.presetId) ? null : `Unknown preset "${op.presetId}"`
     case 'set_comparison': {
@@ -631,6 +638,10 @@ function applyOperation(doc: MapDocument, op: MapOperation): MapDocument {
       }
       return { ...doc, stickers: { ...mode, positions } }
     }
+    case 'set_main_country':
+      return { ...doc, mainCountryId: op.countryId }
+    case 'set_main_flag_contrast':
+      return { ...doc, mainFlagContrast: op.contrast }
     case 'set_active_preset':
       return { ...doc, activePresetId: op.presetId }
     case 'set_comparison':

@@ -4823,6 +4823,11 @@ body {
   color: var(--text);
 }
 
+/* A setting inside the menu — the main country's flag contrast — with the items' side padding. */
+.map-menu__field {
+  padding: 4px 10px 8px;
+}
+
 /* ------------------------------------------------------------- search tabs */
 
 /* The search field and anything at its right end (Merge's ✓), in one row. */

@@ -913,6 +913,15 @@ export interface MapDocument {
    * existed; read it through `stickersOf`.
    */
   stickers?: StickerMode
+  /**
+   * The country the map is about — "Was your country richer than Romania?" — set from its
+   * right-click menu. It wears its flag over its fill, and every other country with a number
+   * says Yes or No under its sticker, in its own language: whether its number is better than
+   * this one's (see `state/mainCountry.ts`). Absent or null for none.
+   */
+  mainCountryId?: CountryId | null
+  /** How much of its flag's contrast the main country keeps, 0.2–1; absent is 1, the flag as drawn. */
+  mainFlagContrast?: number
   legend: LegendConfig
   /** The composition frame. See {@link ScreenFrame}. */
   screen: ScreenFrame
