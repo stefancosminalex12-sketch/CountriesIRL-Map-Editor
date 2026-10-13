@@ -232,13 +232,17 @@ const flagFaces = new Map<string, Sticker>()
  * A flag face as worn by one territory: the face filled with `flagSrc`, the artwork of the flag it
  * flies. Drawn once per face and flag, and kept.
  */
-export function flagFaceSticker(stickerId: string, code: string, flagSrc: string): Sticker | undefined {
-  const key = `${stickerId}@${code}`
+export function flagFaceSticker(stickerId: string, code: string, flagSrc: string, contrast = 1): Sticker | undefined {
+  const key = contrast < 1 ? `${stickerId}@${code}~${contrast.toFixed(2)}` : `${stickerId}@${code}`
   const known = flagFaces.get(key)
   if (known) return known
   const face = parseFaceSticker(stickerId)
   if (!face || face.color !== 'flag') return undefined
-  const sticker = { id: key, name: face.preset.name, src: faceDataUri({ ...presetFace(face.preset, 'flag'), flagHref: flagSrc }) }
+  const sticker = {
+    id: key,
+    name: face.preset.name,
+    src: faceDataUri({ ...presetFace(face.preset, 'flag'), flagHref: flagSrc, flagContrast: contrast }),
+  }
   flagFaces.set(key, sticker)
   return sticker
 }

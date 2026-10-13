@@ -28,6 +28,8 @@ export interface FaceOptions {
   color: string
   /** The flag a `'flag'` ball is filled with, as an image URL (a data URI, so exports keep it). */
   flagHref?: string
+  /** How much of the flag's contrast a flag ball keeps, 0–1: the main country's Flag contrast. Absent is 1. */
+  flagContrast?: number
   eyes: EyeId
   brows: BrowId
   mouth: MouthId
@@ -1502,12 +1504,27 @@ function flagAspect(href: string): number {
  * to cover the ball's square, and centred — so no band of the ball is ever left bare, whatever
  * shape the flag is. (Clipped to the ball by the caller.)
  */
-function flagCover(href: string): string {
+function flagCover(href: string, contrast = 1): string {
   const ratio = flagAspect(href)
   const width = ratio >= 1 ? 100 * ratio : 100
   const height = ratio >= 1 ? 100 : 100 / ratio
+  /*
+   * Toned down toward mid-grey when asked (the main country's Flag contrast): the flag only, so the
+   * eyes and the outline drawn over it keep theirs. The same transfer as the country's own flag.
+   */
+  const toned = contrast < 1
+  const k = Math.max(0, Math.min(1, contrast))
+  const b = ((1 - k) / 2).toFixed(3)
+  const filter = toned
+    ? `<filter id="flagContrast" color-interpolation-filters="sRGB"><feComponentTransfer>` +
+      `<feFuncR type="linear" slope="${k}" intercept="${b}"/><feFuncG type="linear" slope="${k}" intercept="${b}"/>` +
+      `<feFuncB type="linear" slope="${k}" intercept="${b}"/></feComponentTransfer></filter>`
+    : ''
   // White under it, for a flag that is not a rectangle (Nepal's) or has clear parts.
-  return `<rect x="10" y="10" width="100" height="100" fill="#ffffff"/><image href="${href}" x="${(60 - width / 2).toFixed(2)}" y="${(60 - height / 2).toFixed(2)}" width="${width.toFixed(2)}" height="${height.toFixed(2)}" preserveAspectRatio="none"/>`
+  return (
+    filter +
+    `<rect x="10" y="10" width="100" height="100" fill="#ffffff"/><image href="${href}" x="${(60 - width / 2).toFixed(2)}" y="${(60 - height / 2).toFixed(2)}" width="${width.toFixed(2)}" height="${height.toFixed(2)}" preserveAspectRatio="none"${toned ? ' filter="url(#flagContrast)"' : ''}/>`
+  )
 }
 
 /** The face as standalone SVG markup. */
@@ -1545,7 +1562,7 @@ export function faceSvg(options: FaceOptions): string {
     ? `<circle cx="60" cy="60" r="50" fill="${base}"/>`
     : `<g clip-path="url(#head)">` +
       (options.flagHref
-        ? flagCover(options.flagHref)
+        ? flagCover(options.flagHref, options.flagContrast)
         : `<rect x="10" y="10" width="100" height="50" fill="#ffffff"/><rect x="10" y="60" width="100" height="50" fill="#dc143c"/>`) +
       `</g>`
 

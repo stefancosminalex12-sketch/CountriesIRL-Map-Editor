@@ -66,7 +66,7 @@ import { MapLabels } from './MapLabels'
 import { MapStickers, STICKER_DRAG_MARKER, STICKER_MARKER, type PlacedSticker } from './MapStickers'
 import { beneathStickers, onStickerInk } from './stickerHit'
 import { resolveStickers, stickersOf } from '../state/stickers'
-import { flagFaceSticker, parseFaceSticker, stickerIndex, useStickerLibrary } from '../stickers/stickerLibrary'
+import { faceOf, faceStickerId, flagFaceSticker, parseFaceSticker, stickerIndex, useStickerLibrary } from '../stickers/stickerLibrary'
 import type { Sticker } from '../stickers/types'
 import { OverlayMenu, type OverlayMenuRequest } from '../ui/OverlayMenu'
 import { openMapMenu } from '../ui/sidebarEvents'
@@ -2684,10 +2684,27 @@ export function MapCanvas() {
     if (codes.length) requestFlags(codes)
   }, [stickerFlagCodes, requestFlags])
   const drawnStickers = useMemo(() => {
-    if (stickerFlagCodes.size === 0) return { placements: stickerPlacements, artwork: stickerArtwork }
+    /*
+     * The main country's face wears its flag too, at the same Flag contrast as the country: the
+     * same face, drawn in the flag rather than its own colour. Only as drawn — the sticker on the
+     * country is unchanged, so it can still be swapped, and is itself again once the country is
+     * not the main one. A picture that is not a face keeps its own look.
+     */
+    const mainFace = mainFlag && mainFlagCode ? stickerPlacements.find((p) => p.id === mainFlag.id) : undefined
+    const mainFaceOf = mainFace ? faceOf(mainFace.stickerId) : null
+    const mainSticker =
+      mainFace && mainFaceOf && mainFlagCode
+        ? flagFaceSticker(faceStickerId(mainFaceOf.preset.id, 'flag'), mainFlagCode, mainFlag!.src, mainContrast)
+        : undefined
+    if (stickerFlagCodes.size === 0 && !mainSticker) return { placements: stickerPlacements, artwork: stickerArtwork }
     const artwork = new Map<string, Sticker>()
     const placements: PlacedSticker[] = []
     for (const p of stickerPlacements) {
+      if (mainSticker && p.id === mainFace!.id) {
+        artwork.set(mainSticker.id, mainSticker)
+        placements.push({ ...p, stickerId: mainSticker.id })
+        continue
+      }
       const code = stickerFlagCodes.get(p.id)
       if (p.stickerId.endsWith(':flag') && parseFaceSticker(p.stickerId)) {
         const src = code ? loadedFlags[code] : undefined
@@ -2702,7 +2719,7 @@ export function MapCanvas() {
       }
     }
     return { placements, artwork }
-  }, [stickerPlacements, stickerArtwork, stickerFlagCodes, loadedFlags])
+  }, [stickerPlacements, stickerArtwork, stickerFlagCodes, loadedFlags, mainFlag, mainFlagCode, mainContrast])
 
   /*
    * The overlays as drawn. A Land overlay is more of the map, so in Flags mode it is what the map's
