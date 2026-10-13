@@ -278,9 +278,12 @@ const STICKER_MAX = 64
  * Where a territory's sticker goes and how large it is, before the author's own size and place:
  * near the middle a reader sees (`stickerSpot`), sized by area and held to the room there.
  */
-function stickerFit(shape: LabelShape, anchor?: readonly [number, number] | null): { x: number; y: number; size: number } {
+function stickerFit(
+  shape: LabelShape,
+  anchor?: { x: number; y: number; scale: number } | null,
+): { x: number; y: number; size: number } {
   // A territory with a place of its own (`STICKER_ANCHORS`), where that place is on its land.
-  const anchored = anchor ? { x: anchor[0], y: anchor[1], r: roomAt(shape, anchor[0], anchor[1]) } : null
+  const anchored = anchor ? { x: anchor.x, y: anchor.y, r: roomAt(shape, anchor.x, anchor.y) } : null
   const spot = (anchored && anchored.r > 0 ? anchored : null) ?? stickerSpot(shape) ?? shape.spots[0] ?? shape.groupSpots[0]
   const unit = shape.unit
   // Never below the room at the pole: the area law grows slower than a giant's room does.
@@ -292,7 +295,7 @@ function stickerFit(shape: LabelShape, anchor?: readonly [number, number] | null
   return {
     x: spot ? spot.x : (shape.minX + shape.maxX) / 2,
     y: spot ? spot.y : (shape.minY + shape.maxY) / 2,
-    size: Math.min(Math.max(Math.min(earned, fits), STICKER_MIN * unit), STICKER_MAX * unit),
+    size: Math.min(Math.max(Math.min(earned, fits), STICKER_MIN * unit), STICKER_MAX * unit) * (anchor?.scale ?? 1),
   }
 }
 
@@ -1369,10 +1372,10 @@ export function MapCanvas() {
   )
   /** A territory's own sticker place (`STICKER_ANCHORS`), projected, or null for the usual middle. */
   const stickerAnchor = useCallback(
-    (id: string): [number, number] | null => {
+    (id: string): { x: number; y: number; scale: number } | null => {
       const anchor = STICKER_ANCHORS[id]
-      const at = anchor ? stickerProjectionOf(id)?.([anchor[0], anchor[1]]) : null
-      return at && Number.isFinite(at[0]) && Number.isFinite(at[1]) ? [at[0], at[1]] : null
+      const at = anchor ? stickerProjectionOf(id)?.([anchor.at[0], anchor.at[1]]) : null
+      return at && Number.isFinite(at[0]) && Number.isFinite(at[1]) ? { x: at[0], y: at[1], scale: anchor.scale ?? 1 } : null
     },
     [stickerProjectionOf],
   )
