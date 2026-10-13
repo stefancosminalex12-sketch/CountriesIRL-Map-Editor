@@ -992,6 +992,12 @@ export interface LabelShape {
    * whether a position proposed over some island group is actually on this country's land.
    */
   mainland: { edges: Edges; box: [number, number, number, number] } | null
+  /**
+   * Where the largest piece's area balances (the centroid of its outer ring) — the middle a
+   * reader sees, which the pole is not for a long country: Sweden's pole is in Lapland. Null
+   * without a usable piece. What `stickerSpot` pulls a sticker towards.
+   */
+  centre: { x: number; y: number } | null
 }
 
 function profileAt(x: number, y: number, r: number, edges: Edges, limit: number): LabelSpot {
@@ -1105,6 +1111,7 @@ export function buildLabelShape(
     area: effectiveArea(land, footprint, largestShare),
     mainArea: main.area,
     mainland: { edges: toEdges(main.polygon), box: mainBox },
+    centre: ringCentroid(main.polygon[0]),
     minX,
     minY,
     maxX,
@@ -1119,6 +1126,72 @@ export function buildLabelShape(
       scattered && hull && hull.length >= 3 ? findSpots([sampleRing(hull)], boundsOf(hull)) : [],
     frame,
   }
+}
+
+/** Where a ring's area balances, or null for a ring with none. */
+function ringCentroid(ring: Ring | undefined): { x: number; y: number } | null {
+  if (!ring || ring.length < 3) return null
+  let area = 0
+  let cx = 0
+  let cy = 0
+  for (let i = 0, len = ring.length, j = len - 1; i < len; j = i++) {
+    const cross = ring[j][0] * ring[i][1] - ring[i][0] * ring[j][1]
+    area += cross
+    cx += (ring[j][0] + ring[i][0]) * cross
+    cy += (ring[j][1] + ring[i][1]) * cross
+  }
+  if (area === 0) return null
+  return { x: cx / (3 * area), y: cy / (3 * area) }
+}
+
+/** How much of the pole's room a sticker's spot keeps, at the least, when it moves to the middle. */
+const STICKER_ROOM_KEPT = 0.6
+const stickerSpots = new WeakMap<LabelShape, { x: number; y: number; r: number } | null>()
+
+/**
+ * Where a sticker sits: as near the middle of the country as a reader sees it (its `centre`) as
+ * still leaves it room — at least {@link STICKER_ROOM_KEPT} of the pole's. The pole alone puts a
+ * long country's sticker at its widest part — Sweden's in Lapland, Germany's off to the west —
+ * where the eye looks for it in the middle. A compact country's centre is its pole, near enough,
+ * and costs one distance; a long one's is searched for, coarse then fine. `r` is the room there.
+ *
+ * Null for a shape with no interior, which keeps the label spots' answer.
+ */
+export function stickerSpot(shape: LabelShape): { x: number; y: number; r: number } | null {
+  if (stickerSpots.has(shape)) return stickerSpots.get(shape)!
+  const found = searchStickerSpot(shape)
+  stickerSpots.set(shape, found)
+  return found
+}
+
+function searchStickerSpot(shape: LabelShape): { x: number; y: number; r: number } | null {
+  const pole = shape.spots[0]
+  const target = shape.centre
+  if (!pole || !target || !shape.mainland) return null
+  const { edges, box } = shape.mainland
+  const need = pole.r * STICKER_ROOM_KEPT
+
+  const atCentre = signedDistance(target.x, target.y, edges)
+  if (atCentre >= need) return { x: target.x, y: target.y, r: atCentre }
+
+  let best: { x: number; y: number; r: number } = { x: pole.x, y: pole.y, r: pole.r }
+  let bestGap = Math.hypot(pole.x - target.x, pole.y - target.y)
+  const consider = (x: number, y: number) => {
+    const gap = Math.hypot(x - target.x, y - target.y)
+    if (gap >= bestGap) return
+    const r = signedDistance(x, y, edges)
+    if (r < need) return
+    best = { x, y, r }
+    bestGap = gap
+  }
+  const steps = 16
+  const cellX = (box[2] - box[0]) / steps
+  const cellY = (box[3] - box[1]) / steps
+  for (let i = 0; i <= steps; i++) for (let j = 0; j <= steps; j++) consider(box[0] + cellX * i, box[1] + cellY * j)
+  // Finer, around the best so far, for a spot that is not held to the coarse grid.
+  const { x: bx, y: by } = best
+  for (let i = -4; i <= 4; i++) for (let j = -4; j <= 4; j++) consider(bx + (cellX * i) / 4, by + (cellY * j) / 4)
+  return best
 }
 
 /**
@@ -1146,6 +1219,7 @@ function fallbackShape(
     area: 0,
     mainArea: 0,
     mainland: null,
+    centre: null,
     minX: box[0][0],
     minY: box[0][1],
     maxX: box[1][0],

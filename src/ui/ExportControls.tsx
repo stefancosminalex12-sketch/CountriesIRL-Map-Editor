@@ -25,6 +25,7 @@ import { getProjectionDef, resolveProjectionId } from '../geo/projections'
 import { getRegion } from '../geo/regions'
 import { useMapStore } from '../state/mapStore'
 import { withFullDetail } from '../render/landDetail'
+import { withRegionOnly } from '../render/regionOnly'
 
 const FORMATS: { id: ExportFormat; label: string; hint: string }[] = [
   { id: 'png', label: 'PNG', hint: 'Lossless, 2× resolution' },
@@ -91,7 +92,13 @@ export function ExportControls() {
        * scale, or an SVG someone will zoom into — must carry every one of them. The map is
        * redrawn at full detail, captured, and released back to the view's own detail.
        */
-      const result = await withFullDetail(() => renderMapExport(svg, { format, filename, background, transparentWater }))
+      const capture = () => withFullDetail(() => renderMapExport(svg, { format, filename, background, transparentWater }))
+      /*
+       * Transparent background is the region on nothing: no sea, and none of the land outside the
+       * region either (`render/regionOnly.ts`), drawn as hidden for the moment of the capture.
+       * Not for a JPG, which keeps everything (it has no transparency to show the gap with).
+       */
+      const result = transparentWater && format !== 'jpg' ? await withRegionOnly(capture) : await capture()
       downloadBlob(result.blob, result.filename)
       setOpen(false)
     } catch (cause) {
@@ -164,8 +171,8 @@ export function ExportControls() {
               {transparentWater ? '✓' : ''}
             </span>
             <span className="export__option-text">
-              <span className="export__label">Transparent water</span>
-              <span className="export__hint">PNG and SVG: just the land, no sea</span>
+              <span className="export__label">Transparent background</span>
+              <span className="export__hint">PNG and SVG: just the region's countries, no sea</span>
             </span>
           </button>
           {error && <p className="export__error">{error}</p>}

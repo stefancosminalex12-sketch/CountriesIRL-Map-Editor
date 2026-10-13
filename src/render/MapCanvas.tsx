@@ -58,6 +58,7 @@ import {
   LABEL_LINE_BREAK,
   layoutLabels,
   MAX_MAP_ZOOM,
+  stickerSpot,
   visibleLabels,
   type LabelShape,
 } from './labelPlacement'
@@ -107,6 +108,7 @@ import { usePinchZoom } from './pinchZoom'
 import { MapOverlays, OVERLAY_MARKER } from './MapOverlays'
 import { anchorAt, overlayKey, overlaySource, type OverlaySource } from './overlayGeometry'
 import { WATER_LAYER } from './exportMap'
+import { useRegionOnly } from './regionOnly'
 import type { MapDocument, MapOverlay } from '../types/map'
 import {
   outlinesAlongSegment,
@@ -243,10 +245,30 @@ const NO_CHUNKS: string[] = []
 const NO_COAST_PATHS: Map<string, string> = new Map()
 const NO_LABEL_SHAPES: LabelShape[] = []
 
-/** A sticker's edge, as a multiple of the radius of the largest circle inside its territory. */
-const STICKER_ROOM = 1.6
+/*
+ * A sticker's size follows its territory's area — `STICKER_AREA_FACTOR × area^STICKER_AREA_EXPONENT`,
+ * in the labels' size-law units — so a larger country wears a larger face: Serbia's is where it was
+ * (7), Romania's a step up from it, Moldova's and Slovenia's a step down. It was the room at the
+ * pole once, which put every country smaller than Hungary on the floor at the same size, and long
+ * ones like Sweden and the UK below countries half their size.
+ */
+const STICKER_AREA_FACTOR = 1.64
+const STICKER_AREA_EXPONENT = 0.35
+/**
+ * The size a sticker had before, as a multiple of the room at the pole, and still the least a large
+ * one is given: the area law grows slower than room does, and would shrink Russia's or Brazil's.
+ */
+const STICKER_POLE_ROOM = 1.6
+/**
+ * The most a sticker's edge may be, as a multiple of the room where it sits (the radius of the
+ * largest circle there): the face, 5/7 of the sticker, then just fills that circle. What keeps a
+ * long, thin country's face inside it; never below {@link STICKER_ROOM_FLOOR}, so a small country's
+ * face may still spill over its border rather than shrink out of sight.
+ */
+const STICKER_FIT = 2.8
+const STICKER_ROOM_FLOOR = 7
 /** The smallest and largest a sticker is fitted at, in map units at the labels' reference scale. */
-const STICKER_MIN = 7
+const STICKER_MIN = 4.6
 const STICKER_MAX = 64
 
 const ZOOM_RANGE: [number, number] = [1, MAX_MAP_ZOOM]
@@ -656,15 +678,17 @@ export function MapCanvas() {
    * would be ringed in the old theme's green.
    */
   const selectionHighlight = useSettingsStore((s) => s.selectionHighlight)
+  // A Transparent background export draws the land outside the region as hidden (`regionOnly.ts`).
+  const regionOnly = useRegionOnly()
   const style = useMemo(() => {
-    const base = doc.style
+    const base = regionOnly ? { ...doc.style, outsideScope: 'hidden' as const } : doc.style
     if (!selectionHighlight) return base
     return {
       ...base,
       selected: selectionHighlight,
       selectedOutline: reanchorTone(selectionHighlight, base.selectedOutline, base.selected),
     }
-  }, [doc.style, selectionHighlight])
+  }, [doc.style, selectionHighlight, regionOnly])
   const layer = useMemo(
     () => doc.layers.find((l) => l.id === doc.activeLayerId) ?? doc.layers[0],
     [doc.layers, doc.activeLayerId],
@@ -1348,12 +1372,18 @@ export function MapCanvas() {
       const stickerId = stickerAssignments.get(shape.id)
       if (!stickerId || !stickerArtwork.has(stickerId)) continue
       if (style.outsideScope === 'hidden' && !merged.has(shape.id) && !scopeCountryIds.has(shape.id)) continue
-      const spot = shape.spots[0] ?? shape.groupSpots[0]
+      const spot = stickerSpot(shape) ?? shape.spots[0] ?? shape.groupSpots[0]
       let x = spot ? spot.x : (shape.minX + shape.maxX) / 2
       let y = spot ? spot.y : (shape.minY + shape.maxY) / 2
-      const room = spot ? spot.r * STICKER_ROOM : 0
+      const unit = shape.unit
+      // Never below the room at the pole: the area law grows slower than a giant's room does.
+      const earned = Math.max(
+        STICKER_AREA_FACTOR * unit * Math.pow(shape.area / (unit * unit), STICKER_AREA_EXPONENT),
+        (shape.spots[0]?.r ?? 0) * STICKER_POLE_ROOM,
+      )
+      const fits = Math.max((spot?.r ?? 0) * STICKER_FIT, STICKER_ROOM_FLOOR * unit)
       const own = stickerMode.sizes?.[shape.id] ?? 1
-      const size = Math.min(Math.max(room, STICKER_MIN * shape.unit), STICKER_MAX * shape.unit) * stickerMode.size * own
+      const size = Math.min(Math.max(Math.min(earned, fits), STICKER_MIN * unit), STICKER_MAX * unit) * stickerMode.size * own
       const moved = stickerMode.positions?.[shape.id]
       const at = moved ? stickerProjectionOf(shape.id)?.(moved) : null
       if (at && Number.isFinite(at[0]) && Number.isFinite(at[1]) && stickerOnLand(shape.id, at[0], at[1])) {
@@ -1444,6 +1474,19 @@ export function MapCanvas() {
     return pieces.length > 0 ? chunkPieces(pieces) : NO_CHUNKS
   }, [riverWater, waterTolerance])
 
+  /*
+   * What the border networks and the lakes and rivers leave out: the hidden territories, and —
+   * while the land outside the region is not drawn — every territory outside it, so its borders
+   * and waters go with it instead of hanging in the empty space where it was.
+   */
+  const outsideHidden = style.outsideScope === 'hidden'
+  const leftOutIds = useMemo(() => {
+    if (!outsideHidden || !geo) return hiddenIds
+    const ids = new Set(hiddenIds)
+    for (const id of Object.keys(geo.meta)) if (!scopeCountryIds.has(id)) ids.add(id)
+    return ids.size === hiddenIds.size ? hiddenIds : ids
+  }, [outsideHidden, geo, hiddenIds, scopeCountryIds])
+
   /**
    * Hide Territories, for the lakes and the rivers.
    *
@@ -1456,13 +1499,13 @@ export function MapCanvas() {
    * while something is hidden and one of them is drawn.
    */
   const hiddenWaterClip = useMemo(() => {
-    if (hiddenIds.size === 0 || !projection || !geo) return ''
+    if (leftOutIds.size === 0 || !projection || !geo) return ''
     if (!(style.showLakes && lakeChunks.length > 0) && !(style.showRivers && riverChunks.length > 0)) return ''
-    const footprint = hiddenFootprint(geo, hiddenIds, lakes)
+    const footprint = hiddenFootprint(geo, leftOutIds, lakes)
     if (!footprint) return ''
     const d = geoPath(projection)(footprint) ?? ''
     return d ? `M-1e6,-1e6H1e6V1e6H-1e6Z${d}` : ''
-  }, [hiddenIds, projection, geo, lakes, style.showLakes, style.showRivers, lakeChunks, riverChunks])
+  }, [leftOutIds, projection, geo, lakes, style.showLakes, style.showRivers, lakeChunks, riverChunks])
 
   /**
    * The named oceans and seas, one projected path each.
@@ -1617,18 +1660,18 @@ export function MapCanvas() {
 
     if (prepareBorders) {
       layers.borders = split(
-        (include) => bordersWithout(geo, hiddenIds, include, false, groupOf),
-        (include) => borderArcsWithout(geo, hiddenIds, include, false, groupOf),
+        (include) => bordersWithout(geo, leftOutIds, include, false, groupOf),
+        (include) => borderArcsWithout(geo, leftOutIds, include, false, groupOf),
       )
     }
     if (prepareNational) {
       layers.national = split(
-        (include) => bordersWithout(geo, hiddenIds, include, true, groupOf),
-        (include) => borderArcsWithout(geo, hiddenIds, include, true, groupOf),
+        (include) => bordersWithout(geo, leftOutIds, include, true, groupOf),
+        (include) => borderArcsWithout(geo, leftOutIds, include, true, groupOf),
       )
     }
     return layers
-  }, [projection, geo, hiddenIds, insets, prepareBorders, prepareNational, mergeGeometry, land])
+  }, [projection, geo, leftOutIds, insets, prepareBorders, prepareNational, mergeGeometry, land])
 
   /**
    * Each entity's coast on its own, through the projection that draws the entity.
