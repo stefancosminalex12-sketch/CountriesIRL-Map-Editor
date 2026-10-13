@@ -267,11 +267,11 @@ export function createMapDocument(
       border: '#0d1116',
       borderOnDark: '#93a1b3',
       /*
-       * Up from 0.6. A hairline was part of why boundaries vanished, but only part:
-       * the contrast fix does the heavy lifting, and this stays fine enough that a
-       * dense region like the Balkans does not turn into a mesh of lines.
+       * Twice the 0.8 it was (2026-10-14): the maps are watched as phone videos, where a
+       * hairline border is lost. Up from 0.6 before that, when the contrast fix did the heavy
+       * lifting against boundaries vanishing.
        */
-      borderWidth: 0.8,
+      borderWidth: 1.6,
       legendSurface: '#22272f',
       legendText: '#e2e6ec',
       hover: '#3d4855',
