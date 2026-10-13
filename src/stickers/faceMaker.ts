@@ -1618,7 +1618,9 @@ export function faceSvg(options: FaceOptions): string {
     behind +
     fill +
     `<circle cx="60" cy="60" r="50" fill="url(#ballLight)"/>` +
-    `<circle cx="60" cy="60" r="50" fill="none" stroke="${ink}" stroke-width="${options.outline ? 5 : 2.8}"/>` +
+    // White round a black ball, which is usually on a black country (the Moods "Doomed"), where a
+    // black edge would vanish into it.
+    `<circle cx="60" cy="60" r="50" fill="none" stroke="${dark ? '#ffffff' : ink}" stroke-width="${options.outline ? 5 : 2.8}"/>` +
     eyes +
     brows +
     mouth +
