@@ -129,24 +129,31 @@ export function MapScreen({
     const claimed = (event: Event) =>
       !!(event.target as Element | null)?.closest?.('.map-screen__handle, [data-legend]')
 
-    /* Keep the map still: an edge handle already stops its own gesture. */
+    /*
+     * Keep the map still under a one-finger move. A mouse needs nothing here: the frame moves on
+     * the right button, which the map's pan ignores.
+     */
     const claim = (event: Event) => {
       if (claimed(event)) return
       const touches = (event as TouchEvent).touches
-      if (touches) {
-        // One finger is a move; two are a pinch, and the map keeps those.
-        if (touches.length !== 1 || !inside(touches[0])) return
-      } else {
-        const mouse = event as MouseEvent
-        if (mouse.button !== 0 || !inside(mouse)) return
-      }
+      // One finger outside the frame is a move; two are a pinch, and the map keeps those.
+      if (!touches || touches.length !== 1 || inside(touches[0])) return
       event.stopPropagation()
     }
 
+    /*
+     * Which presses move the frame. With a mouse, the **right** button, anywhere on the map: the
+     * left one is the map's — panning, selecting, dragging a sticker — inside the frame as much
+     * as outside it, where it used to drag the frame along with whatever was meant. A right-click
+     * that does not move still opens the territory's menu. A finger has no right button, so a
+     * one-finger drag that starts outside the frame moves it instead.
+     */
+    const moves = (event: PointerEvent) =>
+      event.pointerType === 'mouse' ? event.button === 2 : event.button === 0 && !inside(event)
+
     const onDown = (event: PointerEvent) => {
-      if (event.button !== 0 || !event.isPrimary) return
+      if (!event.isPrimary || !moves(event)) return
       if (claimed(event)) return
-      if (!inside(event)) return
 
       const startX = event.clientX
       const startY = event.clientY
@@ -177,16 +184,18 @@ export function MapScreen({
         if (!live) return
 
         /*
-         * A drag ends over a country, and the browser would follow the pointerup with a
-         * click that selects it. Swallowed once, in the capture phase — the same guard
-         * d3-drag uses so a pan does not double as a selection.
+         * A drag ends over a country, and the browser follows the release with a click that
+         * would select it — or, for the right button, the menu a right-click opens. Swallowed
+         * once, in the capture phase — the same guard d3-drag uses so a pan does not double as
+         * a selection.
          */
         const swallow = (click: Event) => {
           click.stopPropagation()
           click.preventDefault()
         }
-        window.addEventListener('click', swallow, { capture: true, once: true })
-        window.setTimeout(() => window.removeEventListener('click', swallow, true), 0)
+        const kind = event.pointerType === 'mouse' && event.button === 2 ? 'contextmenu' : 'click'
+        window.addEventListener(kind, swallow, { capture: true, once: true })
+        window.setTimeout(() => window.removeEventListener(kind, swallow, true), 0)
 
         const dx = next.clientX - startX
         const dy = next.clientY - startY
@@ -218,8 +227,9 @@ export function MapScreen({
 
   if (!active && !drag) return null
 
+  /* An edge or a corner, like the whole frame: the right button with a mouse, a finger otherwise. */
   const onDown = (grip: Grip) => (event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return
+    if (event.pointerType === 'mouse' ? event.button !== 2 : event.button !== 0) return
     event.stopPropagation()
     event.preventDefault()
     try {
@@ -488,6 +498,8 @@ export function MapScreen({
           onPointerMove={onMove}
           onPointerUp={end}
           onPointerCancel={end}
+          // The right button resizes here; it opens no menu.
+          onContextMenu={(event) => event.preventDefault()}
         />
       ))}
     </div>
