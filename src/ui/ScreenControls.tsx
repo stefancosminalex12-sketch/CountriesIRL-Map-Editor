@@ -145,7 +145,7 @@ export function ScreenControls() {
         />
       </div>
       {/* The frame moves on the right button, so the left one is the map's (`MapScreen`). */}
-      {screen.enabled && <p className="hint">Right-drag the map to move the frame; right-drag an edge or corner to resize it.</p>}
+      {screen.enabled && <p className="hint">Right-drag outside the frame to move it; right-drag an edge or corner to resize it.</p>}
 
       <Section title="Aspect Ratio">
       <div className="stack">

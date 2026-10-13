@@ -142,14 +142,13 @@ export function MapScreen({
     }
 
     /*
-     * Which presses move the frame. With a mouse, the **right** button, anywhere on the map: the
-     * left one is the map's — panning, selecting, dragging a sticker — inside the frame as much
-     * as outside it, where it used to drag the frame along with whatever was meant. A right-click
-     * that does not move still opens the territory's menu. A finger has no right button, so a
-     * one-finger drag that starts outside the frame moves it instead.
+     * Which presses move the frame: ones that start **outside** it — the right button with a mouse,
+     * one finger on a touchscreen. Inside the frame every press is the map's — panning, selecting,
+     * dragging a sticker, a right-click's menu — where a left drag used to drag the frame along
+     * with whatever was meant. A right-click outside that does not move opens the menu as before.
      */
     const moves = (event: PointerEvent) =>
-      event.pointerType === 'mouse' ? event.button === 2 : event.button === 0 && !inside(event)
+      !inside(event) && (event.pointerType === 'mouse' ? event.button === 2 : event.button === 0)
 
     const onDown = (event: PointerEvent) => {
       if (!event.isPrimary || !moves(event)) return

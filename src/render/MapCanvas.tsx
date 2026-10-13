@@ -3030,6 +3030,23 @@ export function MapCanvas() {
     }
   }, [width, height, setTransform, placeCamera])
 
+  /*
+   * With a canvas frame on, the map pans a screen further each way than the view it was fitted
+   * to. The frame is a crop of that view, and held to it the map could not be slid at all at the
+   * first zoom, nor moved beyond where it started when zoomed in — so no other part of it could be
+   * brought into the frame. Without a frame the map stays held to its view, as it always has.
+   * After the zoom's own setup above, so a resize that rebuilds it is widened again.
+   */
+  useEffect(() => {
+    const zoom = zoomRef.current
+    if (!zoom) return
+    const pad = screenOn ? 1 : 0
+    zoom.translateExtent([
+      [-width * pad, -height * pad],
+      [width * (1 + pad), height * (1 + pad)],
+    ])
+  }, [screenOn, width, height])
+
   // A new framing means a new composition — start it at its fitted extent.
   useEffect(() => {
     const svg = svgRef.current
