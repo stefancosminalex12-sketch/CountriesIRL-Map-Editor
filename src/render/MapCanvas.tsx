@@ -82,6 +82,7 @@ import { borderArcsWithout, bordersWithout, coastByEntity } from '../geo/dataset
 const NO_HIDDEN: ReadonlySet<string> = new Set()
 import { MapScreen } from './MapScreen'
 import { MapCaption } from './MapCaption'
+import { activePalette } from '../state/palettes'
 import { getPreset } from '../state/presets'
 import { formatDataValue } from '../state/legend'
 import { useMapStore } from '../state/mapStore'
@@ -2641,7 +2642,7 @@ export function MapCanvas() {
   }, [mergeFlagCodes, requestFlags])
 
   const fillContext = useMemo(() => {
-    const palette = doc.palettes.find((p) => p.id === doc.activePaletteId)
+    const palette = activePalette(doc)
     return {
       layer,
       palette,
@@ -2656,6 +2657,8 @@ export function MapCanvas() {
     flagsOn,
     doc.palettes,
     doc.activePaletteId,
+    doc.layers,
+    doc.activeLayerId,
     doc.activePresetId,
     doc.countries,
     doc.comparison,

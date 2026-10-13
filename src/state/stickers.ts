@@ -2,7 +2,9 @@
  * Which sticker each entity wears.
  *
  * Two sources, in order. A sticker the author put on an entity by hand (`overrides`) wins,
- * including the explicit "no sticker here". Otherwise, with **Follow the data** on and the map in
+ * including the explicit "no sticker here". Otherwise, with **Moods** on, the entity's number picks
+ * its mood and a face from that mood's group (`moodOfValue`, `stickers/moods.ts`). Or, with
+ * **Follow the data** on and the map in
  * Data mode, the entity's number picks a rung of the ladder through the scale already colouring
  * it, so the face and the fill always agree about where a country stands:
  *
@@ -21,7 +23,8 @@ import { computeDomain, normalizedPosition, paletteBucket } from './colors'
 import { classifyValue, describeBand, getPreset } from './presets'
 import { formatDataValue } from './legend'
 import { DEFAULT_STICKER_LADDER } from '../stickers/builtin'
-import { savedLadder } from '../stickers/stickerLibrary'
+import { MOODS, moodFace, moodForRung } from '../stickers/moods'
+import { faceStickerId, savedLadder } from '../stickers/stickerLibrary'
 import { STICKER_SIZE, type CountryId, type MapDocument, type StickerMode } from '../types/map'
 
 /**
@@ -88,6 +91,16 @@ export function rungForValue(doc: MapDocument, value: unknown, rungs: number): n
 }
 
 /**
+ * The mood (index into `MOODS`, 0 the best) a value earns under the active scale, or null when it
+ * earns none. The palette scale is read at nine rungs, one per mood, so with the Moods palette a
+ * country's face is the colour of its fill; a predefined scale's bands are spread over the nine.
+ */
+export function moodOfValue(doc: MapDocument, value: unknown, lowerIsBetter: boolean): number | null {
+  const rung = rungForValue(doc, value, MOODS.length)
+  return rung === null ? null : moodForRung(rung, MOODS.length, lowerIsBetter)
+}
+
+/**
  * Every entity that wears a sticker, and which.
  *
  * Entities only: whether one is drawn, hidden or out of scope is the renderer's question.
@@ -97,7 +110,17 @@ export function resolveStickers(doc: MapDocument): Map<CountryId, string> {
   const out = new Map<CountryId, string>()
   if (!mode.enabled) return out
 
-  if (mode.auto && mode.ladder.length > 0) {
+  if (mode.moods) {
+    const reading = dataReading(doc)
+    if (reading) {
+      const lowerIsBetter = !!reading.layer.colorScale.lowerIsBetter
+      const seed = mode.moodSeed ?? 0
+      for (const [id, entry] of Object.entries(doc.countries)) {
+        const mood = moodOfValue(doc, entry.properties[reading.layer.dataKey], lowerIsBetter)
+        if (mood !== null) out.set(id, faceStickerId(moodFace(mood, id, seed), MOODS[mood].color))
+      }
+    }
+  } else if (mode.auto && mode.ladder.length > 0) {
     const reading = dataReading(doc)
     if (reading) {
       for (const [id, entry] of Object.entries(doc.countries)) {

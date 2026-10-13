@@ -158,7 +158,7 @@ export type MapOperation =
    */
   | {
       op: 'set_stickers'
-      patch: { enabled?: boolean; auto?: boolean; ladder?: string[]; size?: number }
+      patch: { enabled?: boolean; auto?: boolean; ladder?: string[]; size?: number; moods?: boolean; moodSeed?: number }
     }
   | { op: 'assign_sticker'; countryIds: CountryId[]; stickerId: string | null }
   | { op: 'clear_sticker'; countryIds: CountryId[] }

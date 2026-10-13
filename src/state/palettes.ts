@@ -38,9 +38,10 @@
  * be mistaken for it, and why the diverging centre is `#d8d1e2` rather than a paler
  * lilac that sat too near the Light theme's `#f2f0ea`.
  */
-import type { Palette } from '../types/map'
+import { MOODS } from '../stickers/moods'
+import type { MapDocument, Palette } from '../types/map'
 
-export type PaletteFamilyId = 'blue' | 'red' | 'green' | 'diverging'
+export type PaletteFamilyId = 'blue' | 'red' | 'green' | 'diverging' | 'moods'
 export type PaletteSteps = 6 | 9
 
 export interface PaletteFamily {
@@ -48,8 +49,8 @@ export interface PaletteFamily {
   name: string
   /** `sequential` runs light → dark; `diverging` runs dark → light → dark. */
   kind: 'sequential' | 'diverging'
-  /** Ramps by step count, lowest value first. */
-  ramps: Record<PaletteSteps, string[]>
+  /** Ramps by step count, lowest value first. A family with none at a count is not offered at it. */
+  ramps: Partial<Record<PaletteSteps, string[]>>
 }
 
 export const PALETTE_FAMILIES: PaletteFamily[] = [
@@ -141,6 +142,22 @@ export const PALETTE_FAMILIES: PaletteFamily[] = [
       ],
     },
   },
+  {
+    /*
+     * The sticker colours, so a country is the colour of the face it wears (see
+     * `stickers/moods.ts`): black for the worst value, light blue for the best. Nine only — one
+     * stop per mood — and the one ramp that turns round with the layer's **Lower is better**
+     * (`ColorScale.lowerIsBetter`, applied by `activePalette`): the others say "more", which has
+     * no direction to flip, where this one says "better".
+     *
+     * An exception to "no ramp reaches the land": black and gray are moods, and a reader who
+     * knows the faces reads them as the bottom of the scale, not as missing data.
+     */
+    id: 'moods',
+    name: 'Moods',
+    kind: 'sequential',
+    ramps: { 9: MOODS.map((m) => m.color).reverse() },
+  },
 ]
 
 export const PALETTE_STEPS: PaletteSteps[] = [6, 9]
@@ -157,20 +174,28 @@ export function parsePaletteId(
   const [family, steps] = id.split('-')
   const known = PALETTE_FAMILIES.find((f) => f.id === family)
   const count = Number(steps)
-  if (!known || (count !== 6 && count !== 9)) return null
+  if (!known || (count !== 6 && count !== 9) || !known.ramps[count]) return null
   return { family: known.id, steps: count }
 }
 
-/** Every family at every resolution, as documents store them. */
+/** The step counts `family` comes in. */
+export function stepsOf(family: PaletteFamilyId): PaletteSteps[] {
+  const known = PALETTE_FAMILIES.find((f) => f.id === family)
+  return PALETTE_STEPS.filter((steps) => known?.ramps[steps])
+}
+
+/** Every family at every resolution it has, as documents store them. */
 export function buildPalettes(): Palette[] {
   const out: Palette[] = []
   for (const family of PALETTE_FAMILIES) {
     for (const steps of PALETTE_STEPS) {
+      const colors = family.ramps[steps]
+      if (!colors) continue
       out.push({
         id: paletteId(family.id, steps),
         name: `${family.name} · ${steps}`,
         kind: family.kind,
-        colors: family.ramps[steps],
+        colors,
       })
     }
   }
@@ -178,3 +203,21 @@ export function buildPalettes(): Palette[] {
 }
 
 export const DEFAULT_PALETTE_ID = paletteId('blue', 6)
+
+const BUILT_IN = buildPalettes()
+
+/** Whether a palette id is the Moods ramp. */
+export const isMoodPalette = (id: string | null | undefined) => !!id && id.startsWith('moods-')
+
+/**
+ * The palette the active layer is drawn with, as the renderer, the legend and the panel read it:
+ * the document's own copy — or the built-in one, for a document made before it existed — with the
+ * Moods ramp turned round when the layer says lower is better.
+ */
+export function activePalette(doc: MapDocument): Palette | undefined {
+  const palette =
+    doc.palettes.find((p) => p.id === doc.activePaletteId) ?? BUILT_IN.find((p) => p.id === doc.activePaletteId)
+  if (!palette || !isMoodPalette(palette.id)) return palette
+  const layer = doc.layers.find((l) => l.id === doc.activeLayerId) ?? doc.layers[0]
+  return layer?.colorScale.lowerIsBetter ? { ...palette, colors: [...palette.colors].reverse() } : palette
+}

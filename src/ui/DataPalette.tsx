@@ -31,13 +31,15 @@ import { flagCodeFor, hasFlag, useFlagStore } from '../flags/flagStore'
 import { useMapStore } from '../state/mapStore'
 import { MapToggle } from './MapToggle'
 import {
+  activePalette,
   PALETTE_FAMILIES,
-  PALETTE_STEPS,
   paletteId,
   parsePaletteId,
+  stepsOf,
   type PaletteFamilyId,
   type PaletteSteps,
 } from '../state/palettes'
+import { BetterSwitch } from './BetterSwitch'
 import { describeBand, getPreset, THRESHOLD_PRESETS } from '../state/presets'
 import { CountryPicker } from './CountryPicker'
 import { Inspector } from './Inspector'
@@ -328,11 +330,12 @@ function PaletteControls({ dataKey }: { dataKey: string }) {
   const doc = useMapStore((s) => s.doc)
   const dispatch = useMapStore((s) => s.dispatch)
 
-  const palette = doc.palettes.find((p) => p.id === doc.activePaletteId)
+  const palette = activePalette(doc)
   const chosen = parsePaletteId(doc.activePaletteId) ?? {
     family: 'blue' as PaletteFamilyId,
     steps: 6 as PaletteSteps,
   }
+  const steps = stepsOf(chosen.family)
 
   /*
    * How much data there is to colour, read through the same two functions the
@@ -348,11 +351,12 @@ function PaletteControls({ dataKey }: { dataKey: string }) {
       <SelectField
         label="Colours"
         value={chosen.family}
-        onChange={(family) => {
-          dispatch({
-            op: 'set_active_palette',
-            paletteId: paletteId(family as PaletteFamilyId, chosen.steps),
-          })
+        onChange={(value) => {
+          // A family that does not come in the current count (Moods: nine only) takes its own.
+          const family = value as PaletteFamilyId
+          const offered = stepsOf(family)
+          const count = offered.includes(chosen.steps) ? chosen.steps : offered[offered.length - 1]
+          dispatch({ op: 'set_active_palette', paletteId: paletteId(family, count) })
         }}
       >
         {PALETTE_FAMILIES.map((family) => (
@@ -362,24 +366,29 @@ function PaletteControls({ dataKey }: { dataKey: string }) {
         ))}
       </SelectField>
 
-      <div className="field">
-        <span className="field__label">Steps</span>
-        <div className="mode-switch mode-switch--pair">
-          {PALETTE_STEPS.map((steps) => (
-            <button
-              key={steps}
-              type="button"
-              className={`chip${chosen.steps === steps ? ' chip--active' : ''}`}
-              aria-pressed={chosen.steps === steps}
-              onClick={() => {
-                dispatch({ op: 'set_active_palette', paletteId: paletteId(chosen.family, steps) })
-              }}
-            >
-              {steps}
-            </button>
-          ))}
+      {/* Moods is the sticker colours, nine of them, and says "better" rather than "more". */}
+      {steps.length > 1 ? (
+        <div className="field">
+          <span className="field__label">Steps</span>
+          <div className="mode-switch mode-switch--pair">
+            {steps.map((count) => (
+              <button
+                key={count}
+                type="button"
+                className={`chip${chosen.steps === count ? ' chip--active' : ''}`}
+                aria-pressed={chosen.steps === count}
+                onClick={() => {
+                  dispatch({ op: 'set_active_palette', paletteId: paletteId(chosen.family, count) })
+                }}
+              >
+                {count}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      ) : (
+        <BetterSwitch />
+      )}
 
       {/* The ramp itself, low on the left. Nothing explains a palette like it. */}
       <div className="ramp" aria-hidden="true">

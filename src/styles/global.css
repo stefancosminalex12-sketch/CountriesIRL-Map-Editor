@@ -3754,6 +3754,13 @@ body {
   font-size: 12px;
 }
 
+/* Moods: the switch and Shuffle side by side. */
+.sticker-moods__actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 /* The tiers, lowest first: rank, picture, name and range, then the reorder buttons. */
 .sticker-ladder {
   list-style: none;

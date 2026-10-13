@@ -13,6 +13,7 @@
  * keep the SVG the exporter serialises identical to the one on screen.
  */
 import { computeCategories, computeDomain } from './colors'
+import { activePalette } from './palettes'
 import { getPreset } from './presets'
 import { waterName, WATER_REGIONS } from '../geo/waters'
 import type { LegendIconId, MapDocument, MapValue } from '../types/map'
@@ -282,7 +283,7 @@ function deriveLegendModel(doc: MapDocument): LegendModel | null {
    */
   if (layer.colorScale.mode === 'categorical') {
     const manual = doc.legend.source === 'manual' && doc.legend.entries.length > 0
-    const palette = doc.palettes.find((p) => p.id === doc.activePaletteId)
+    const palette = activePalette(doc)
     const rows: LegendRow[] = manual
       ? doc.legend.entries.map((entry) => ({ color: entry.color, label: entry.label }))
       : computeCategories(doc.countries, layer.dataKey).map((category, index) => ({
@@ -305,7 +306,7 @@ function deriveLegendModel(doc: MapDocument): LegendModel | null {
    * actually sits.
    */
   if (layer.colorScale.mode === 'numeric') {
-    const palette = doc.palettes.find((p) => p.id === doc.activePaletteId)
+    const palette = activePalette(doc)
     // No palette is a broken document rather than an empty one; there is no ramp to draw.
     if (!palette) return null
 

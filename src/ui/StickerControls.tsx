@@ -7,6 +7,8 @@
  *   only those, the stickers on the map, never the Library;
  * - **Library** — every sticker: the author's own and the gallery of faces. Select territories on
  *   the map and tap one to put it on them; tap it again to take it off;
+ * - **Moods** — a face on every country with a number, from the group of faces for its mood and in
+ *   the mood's colour (`stickers/moods.ts`): the quick way to a sticker map;
  * - **Emoji**, **Create** — more stickers, added to the Library;
  * - **Size**;
  * - **Tiers** — the ladder, lowest value first, with what each rung covers under the active
@@ -18,8 +20,12 @@
  */
 import { useMemo } from 'react'
 import { useMapStore } from '../state/mapStore'
-import { describeRungs, resolveStickers, stickersOf } from '../state/stickers'
-import { saveLadder, stickerIndex, useStickerLibrary } from '../stickers/stickerLibrary'
+import { colourModeOf } from '../state/colourMode'
+import { isMoodPalette, paletteId } from '../state/palettes'
+import { describeRungs, moodOfValue, resolveStickers, stickersOf } from '../state/stickers'
+import { MOODS } from '../stickers/moods'
+import { faceSticker, faceStickerId, saveLadder, stickerIndex, useStickerLibrary } from '../stickers/stickerLibrary'
+import { BetterSwitch } from './BetterSwitch'
 import type { Sticker } from '../stickers/types'
 import { STICKER_SIZE } from '../types/map'
 import { Disclosure } from './Panels'
@@ -64,9 +70,9 @@ export function StickerTiers() {
           <button
             key={String(auto)}
             type="button"
-            className={`chip${mode.auto === auto ? ' chip--active' : ''}`}
-            aria-pressed={mode.auto === auto}
-            onClick={() => dispatch({ op: 'set_stickers', patch: { auto } })}
+            className={`chip${!mode.moods && mode.auto === auto ? ' chip--active' : ''}`}
+            aria-pressed={!mode.moods && mode.auto === auto}
+            onClick={() => dispatch({ op: 'set_stickers', patch: { auto, moods: false } })}
           >
             {auto ? 'Follow the data' : 'By hand only'}
           </button>
@@ -118,6 +124,85 @@ export function StickerTiers() {
   )
 }
 
+/**
+ * Moods: every country with a number wears a face from its mood's group, in the mood's colour —
+ * nine moods, best first (see `stickers/moods.ts`). Live: the faces follow the data, each country
+ * keeping its face until Shuffle deals new ones. Faces put on by hand still win.
+ */
+export function StickerMoods() {
+  const doc = useMapStore((s) => s.doc)
+  const dispatch = useMapStore((s) => s.dispatch)
+  const mode = stickersOf(doc)
+  const on = !!mode.moods
+  const layer = doc.layers.find((l) => l.id === doc.activeLayerId) ?? doc.layers[0]
+  const lowerIsBetter = !!layer?.colorScale.lowerIsBetter
+  const numeric = colourModeOf(doc) === 'data' && layer?.colorScale.mode === 'numeric'
+  const readable = colourModeOf(doc) === 'data' && (numeric || layer?.colorScale.mode === 'threshold')
+
+  const counts = useMemo(() => {
+    const out = MOODS.map(() => 0)
+    if (!layer) return out
+    for (const entry of Object.values(doc.countries)) {
+      const mood = moodOfValue(doc, entry.properties[layer.dataKey], lowerIsBetter)
+      if (mood !== null) out[mood]++
+    }
+    return out
+  }, [doc, layer, lowerIsBetter])
+
+  return (
+    <div className="stack">
+      <div className="sticker-moods__actions">
+        <button
+          type="button"
+          className={`btn${on ? ' btn--on' : ''}`}
+          aria-pressed={on}
+          onClick={() =>
+            dispatch({ op: 'set_stickers', patch: on ? { moods: false } : { moods: true, auto: false, enabled: true } })
+          }
+        >
+          {on ? 'Moods from data: on' : 'Moods from data'}
+        </button>
+        {on && (
+          <button
+            type="button"
+            className="btn"
+            title="Give every country a different face from its mood"
+            onClick={() => dispatch({ op: 'set_stickers', patch: { moodSeed: (mode.moodSeed ?? 0) + 1 } })}
+          >
+            Shuffle
+          </button>
+        )}
+      </div>
+
+      {!readable && <p className="hint">Colour the map by data first (Data → Custom or Predefined), then every country with a number gets a face.</p>}
+
+      <BetterSwitch />
+
+      {/* The countries the colour of their faces: the Moods ramp, nine steps. */}
+      {numeric && !isMoodPalette(doc.activePaletteId) && (
+        <button type="button" className="btn btn--ghost" onClick={() => dispatch({ op: 'set_active_palette', paletteId: paletteId('moods', 9) })}>
+          Colour the countries to match
+        </button>
+      )}
+
+      <ol className="sticker-ladder">
+        {MOODS.map((mood, i) => (
+          <li key={mood.id} className="sticker-ladder__row">
+            <span className="sticker-ladder__rank">{i + 1}</span>
+            <Thumb sticker={faceSticker(faceStickerId(mood.faces[0], mood.color))} />
+            <span className="sticker-ladder__text">
+              <span className="sticker-ladder__name">{mood.name}</span>
+              <span className="sticker-ladder__range">
+                {mood.level} · {mood.faces.length} faces{counts[i] ? ` · ${counts[i]} on map` : ''}
+              </span>
+            </span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  )
+}
+
 export function StickerSize() {
   const size = useMapStore((s) => stickersOf(s.doc).size)
   const dispatch = useMapStore((s) => s.dispatch)
@@ -153,6 +238,10 @@ export function StickerControls() {
       {/* Colour and size of a sticker on the map are in its right-click menu (`StickerMenu`). */}
       <Disclosure title="Stickers">
         <StickerLibrary />
+      </Disclosure>
+      {/* A face on every country, chosen by its number: the quick way to a sticker map. */}
+      <Disclosure title="Moods">
+        <StickerMoods />
       </Disclosure>
       <Disclosure title="Emoji">
         <StickerFinder />

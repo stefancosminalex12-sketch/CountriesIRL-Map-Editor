@@ -141,6 +141,10 @@ export function validateOperation(op: MapOperation, ctx: ExecutionContext = {}):
       ) {
         return `size must be a number from ${STICKER_SIZE.min} to ${STICKER_SIZE.max}`
       }
+      const { moodSeed } = op.patch
+      if (moodSeed !== undefined && (typeof moodSeed !== 'number' || !Number.isInteger(moodSeed))) {
+        return 'moodSeed must be a whole number'
+      }
       return null
     }
     case 'size_sticker':

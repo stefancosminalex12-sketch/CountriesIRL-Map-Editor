@@ -63,6 +63,12 @@ export interface ColorScale {
   categoryColors: Record<string, string>
   /** Used for countries with no value. */
   noDataColor: string | null
+  /**
+   * Whether a lower number is the better one — unemployment, inflation — where a higher one
+   * usually is. Read only by what says "better" rather than "more": the Moods ramp and the mood
+   * stickers (see `stickers/moods.ts`). Absent means higher is better.
+   */
+  lowerIsBetter?: boolean
 }
 
 /* ------------------------------------------------------------------- legend */
@@ -436,6 +442,13 @@ export interface StickerMode {
   auto: boolean
   /** Sticker ids, the lowest value's first. */
   ladder: string[]
+  /**
+   * Whether every entity with a number wears a face from its mood (see `stickers/moods.ts`),
+   * in the mood's colour. Outranks `auto`: the two are two answers to the same question.
+   */
+  moods?: boolean
+  /** Which face of its mood's group each entity draws; Shuffle changes it. Absent is 0. */
+  moodSeed?: number
   /**
    * Stickers chosen by hand, as entity id → sticker id, or `null` for "no sticker here" even
    * where the data would give one. Outranks the ladder; deleting an entry hands the entity back
