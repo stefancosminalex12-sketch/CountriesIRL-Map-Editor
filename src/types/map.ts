@@ -629,7 +629,10 @@ export interface MapStyle {
   border: string
   /** The same line where the fill beneath is too dark for `border` to read. */
   borderOnDark: string
+  /** The borders' width. See `state/lineWidths.ts`. */
   borderWidth: number
+  /** The coastlines' width; absent is 0.8. See `state/lineWidths.ts`. */
+  coastlineWidth?: number
   /** Legend panel fill. A map token, not a CSS variable, so exports stay standalone. */
   legendSurface: string
   /** Legend text and rules. */

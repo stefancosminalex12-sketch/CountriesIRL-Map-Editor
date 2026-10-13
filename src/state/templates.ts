@@ -105,6 +105,7 @@ function frozen<T>(value: T): T {
  * - Data on, Custom, the Moods colours; and so an uploaded SVG's numbers go straight onto that
  *   scale with the faces on — whatever colours the file has — and the legend stays off, for the
  *   first upload and every one after (`uploadDefaults`).
+ * - Borders at twice the usual width (1.6) for a phone screen, the coastline at the usual 0.8.
  * - Export with Transparent background on, so the map drops onto the video as it is.
  */
 const EUROPE_MAPPING: MapTemplate = {
@@ -117,6 +118,8 @@ const EUROPE_MAPPING: MapTemplate = {
     projection: 'conicEqualArea',
     palette: 'moods-9',
     legend: { visible: false },
+    // Borders doubled for a phone screen, where a hairline is lost; the coast stays at 0.8.
+    style: { borderWidth: 1.6, coastlineWidth: 0.8 },
     stickers: { enabled: true, auto: false, moods: true },
     uploadDefaults: { moods: true, legend: false },
     exportTransparent: true,

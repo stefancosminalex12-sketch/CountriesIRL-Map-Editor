@@ -267,11 +267,12 @@ export function createMapDocument(
       border: '#0d1116',
       borderOnDark: '#93a1b3',
       /*
-       * Twice the 0.8 it was (2026-10-14): the maps are watched as phone videos, where a
-       * hairline border is lost. Up from 0.6 before that, when the contrast fix did the heavy
-       * lifting against boundaries vanishing.
+       * Up from 0.6, when the contrast fix did the heavy lifting against boundaries vanishing.
+       * Both widths are set in Display → Appearance; the Europe Mapping template doubles the
+       * borders for phone videos. See `state/lineWidths.ts`.
        */
-      borderWidth: 1.6,
+      borderWidth: 0.8,
+      coastlineWidth: 0.8,
       legendSurface: '#22272f',
       legendText: '#e2e6ec',
       hover: '#3d4855',

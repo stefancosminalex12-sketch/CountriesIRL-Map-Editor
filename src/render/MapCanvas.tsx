@@ -77,6 +77,7 @@ import { CountryCoast, CountryPath, MAP_SCALE_VAR, screenStrokeWidth } from './C
 import { flagCodeFor, hasFlag, preloadFlags, useFlagStore } from '../flags/flagStore'
 import { answerWord, mainCountryAnswers } from '../state/mainCountry'
 import { STICKER_ANCHORS } from '../stickers/anchors'
+import { coastlineWidthOf } from '../state/lineWidths'
 import { entityFlagCode } from '../flags/flagChoices'
 import { resolveScreen } from './screenFrame'
 import { mergeCountries } from '../geo/merge'
@@ -172,6 +173,8 @@ const NO_OVERLAYS: MapOverlay[] = []
 interface CachedCountryElement {
   d: string
   coast: string | undefined
+  /** The coast's own width when it is drawn over a thinner outline, else 0. */
+  coastAt: number
   outlineOn: boolean
   paint: CountryPaint
   element: ReactElement
@@ -735,6 +738,21 @@ export function MapCanvas() {
       selectedOutline: reanchorTone(selectionHighlight, base.selectedOutline, base.selected),
     }
   }, [doc.style, selectionHighlight, regionOnly])
+
+  /*
+   * Borders and coastlines each have their own width. With both drawn, every country's outline is
+   * one stroke carrying its coast and its borders, at the thinner of the two; the thicker one is
+   * then drawn again over it on its own — the border network, or each country's coast. Equal, as
+   * on a fresh map, nothing extra is drawn. Flags mode keeps one width for both.
+   */
+  const borderWidth = style.borderWidth
+  const coastWidth = coastlineWidthOf(style)
+  const splitLines = !doc.flags.enabled && style.showBorders && style.showCoastlines && borderWidth !== coastWidth
+  const bordersOver = splitLines && borderWidth > coastWidth
+  const coastOver = splitLines && coastWidth > borderWidth
+  /** The width each country's own outline is drawn at (outside Flags mode). */
+  const outlineWidth =
+    style.showBorders && style.showCoastlines ? Math.min(borderWidth, coastWidth) : style.showCoastlines ? coastWidth : borderWidth
   const layer = useMemo(
     () => doc.layers.find((l) => l.id === doc.activeLayerId) ?? doc.layers[0],
     [doc.layers, doc.activeLayerId],
@@ -1644,7 +1662,7 @@ export function MapCanvas() {
    */
   const bordersNeeded =
     style.showBorders &&
-    (!style.showCoastlines || (doc.flags.enabled && doc.flags.internationalBorders))
+    (!style.showCoastlines || bordersOver || (doc.flags.enabled && doc.flags.internationalBorders))
   const prepareBorders = useLayerLatch(bordersNeeded)
 
   /**
@@ -1656,7 +1674,7 @@ export function MapCanvas() {
    * drawn instead. That is what makes the two switches independent: neither layer is ever
    * a side effect of the other's stroke, and neither changes how the other looks.
    */
-  const coastlinesNeeded = style.showCoastlines && !style.showBorders
+  const coastlinesNeeded = style.showCoastlines && (!style.showBorders || coastOver)
   const prepareCoastlines = useLayerLatch(coastlinesNeeded)
 
   /**
@@ -3243,7 +3261,7 @@ export function MapCanvas() {
         stroke: flagFill ? FLAG_BORDER_COLOR : borderInk,
         strokeWidth: flagFill
           ? flagBorderWidth(flagTileById.get(shape.id), style.borderWidth, zoomK)
-          : style.borderWidth,
+          : flagsOn ? style.borderWidth : outlineWidth,
         paintOrder: flagFill ? 'stroke' : undefined,
       },
       clipPath: shape.clipId ? `url(#map-inset-${shape.clipId})` : undefined,
@@ -3274,7 +3292,7 @@ export function MapCanvas() {
       fill: flagFill ?? fill,
       outline: {
         stroke: flagFill ? FLAG_BORDER_COLOR : borderInk,
-        strokeWidth: style.borderWidth,
+        strokeWidth: flagsOn ? style.borderWidth : outlineWidth,
         paintOrder: flagFill ? 'stroke' : undefined,
       },
       clipPath: shape.clipId ? `url(#map-inset-${shape.clipId})` : undefined,
@@ -3307,7 +3325,7 @@ export function MapCanvas() {
     clipPath: string | undefined,
     under: boolean,
   ) => {
-    if (!coastAlone || (outline.paintOrder === 'stroke') !== under) return null
+    if (!(coastAlone || coastOver) || (outline.paintOrder === 'stroke') !== under) return null
     const d = coastPaths.get(id)
     if (!d) return null
     return (
@@ -3315,7 +3333,7 @@ export function MapCanvas() {
         entityId={id}
         d={d}
         stroke={outline.stroke}
-        strokeWidth={outline.strokeWidth}
+        strokeWidth={coastOver ? coastWidth : outline.strokeWidth}
         transform={transform}
         clipPath={clipPath}
       />
@@ -3516,13 +3534,14 @@ export function MapCanvas() {
     for (const { shape, paint } of countryPaints) {
       if (!paint) continue
       lines.push(drawsLine(shape.id, paint))
-      const coast = coastAlone ? coastPaths.get(shape.id) : undefined
+      const coast = coastAlone || coastOver ? coastPaths.get(shape.id) : undefined
+      const coastAt = coastOver ? coastWidth : 0
       const old = previous.get(shape.id)
       const element =
-        old && old.d === shape.d && old.coast === coast && old.outlineOn === outlineOn && samePaint(old.paint, paint)
+        old && old.d === shape.d && old.coast === coast && old.coastAt === coastAt && old.outlineOn === outlineOn && samePaint(old.paint, paint)
           ? old.element
           : countryElement(shape, paint)
-      next.set(shape.id, { d: shape.d, coast, outlineOn, paint, element })
+      next.set(shape.id, { d: shape.d, coast, coastAt, outlineOn, paint, element })
       indexById.set(shape.id, elements.length)
       elements.push(element)
       layerShapes.push(shape)
@@ -3541,7 +3560,7 @@ export function MapCanvas() {
     countryChunkCache.current = chunks
     return { chunks, lined, shapes: layerShapes, indexById }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [countryPaints, outlineOn, coastAlone, coastPaths])
+  }, [countryPaints, outlineOn, coastAlone, coastOver, coastWidth, coastPaths])
   /* The hovered entity, painted hovered, in its own place in the layer: one chunk changes. */
   let countryChunks = countryLayer.chunks
   let countryLined = countryLayer.lined
@@ -4075,7 +4094,7 @@ export function MapCanvas() {
             of its countries equally.
           */}
           {style.showBorders &&
-            !style.showCoastlines &&
+            (!style.showCoastlines || bordersOver) &&
             lineNetworks.borders.map((layer) =>
               layer.chunks.map((d, index) => (
                 <path

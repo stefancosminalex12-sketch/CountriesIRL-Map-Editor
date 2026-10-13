@@ -1,5 +1,6 @@
 /** Rendering controls. Every change goes through an operation. The map, its detail and projection are in the top bar (`TopBar`). */
 import { useMapStore } from '../state/mapStore'
+import { coastlineWidthOf, LINE_WIDTH } from '../state/lineWidths'
 import { EntitySearch } from './EntitySearch'
 import { MapToggle } from './MapToggle'
 import { waterName } from '../geo/waters'
@@ -627,6 +628,39 @@ function ScaleField({
  * a palette fill, a comparison group, a flag. See `resolveCountryFill` and
  * `resolveBorderInk`.
  */
+/**
+ * The two line widths, borders and coastlines, as boxes like the colour wells beside them: a
+ * slider where the colour is, the width over it. See `state/lineWidths.ts`.
+ */
+export function LineWidthSliders() {
+  const style = useMapStore((s) => s.doc.style)
+  const dispatch = useMapStore((s) => s.dispatch)
+  const rows: Array<{ key: 'borderWidth' | 'coastlineWidth'; label: string; value: number }> = [
+    { key: 'borderWidth', label: 'Borders', value: style.borderWidth },
+    { key: 'coastlineWidth', label: 'Coastlines', value: coastlineWidthOf(style) },
+  ]
+  return (
+    <div className="swatches swatches--two">
+      {rows.map((row) => (
+        <label key={row.key} className="swatch swatch--slider">
+          <span className="swatch__value">{row.value.toFixed(1)}</span>
+          <input
+            className="slider"
+            type="range"
+            min={LINE_WIDTH.min}
+            max={LINE_WIDTH.max}
+            step={LINE_WIDTH.step}
+            value={row.value}
+            aria-label={`${row.label} width`}
+            onChange={(e) => dispatch({ op: 'set_style', patch: { [row.key]: Number(e.target.value) } })}
+          />
+          <span>{row.label}</span>
+        </label>
+      ))}
+    </div>
+  )
+}
+
 export function MapColorSwatches() {
   const style = useMapStore((s) => s.doc.style)
   const dispatch = useMapStore((s) => s.dispatch)
