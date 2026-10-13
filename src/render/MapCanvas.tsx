@@ -301,6 +301,12 @@ function stickerFit(shape: LabelShape): { x: number; y: number; size: number } {
 const ANSWER_FACE_BOTTOM = 0.3125
 const ANSWER_OVERLAP = 0.035
 const ANSWER_SIZE = 0.28
+/**
+ * The smallest a word is, in map units at the labels' reference scale (times the Size slider):
+ * what a Serbia-sized sticker's word is. A smaller country's sticker still shrinks; its Yes or No
+ * does not, so Luxembourg's "Jo" and Malta's "Iva" stay readable on a phone.
+ */
+const ANSWER_MIN = 1.96
 /** Arial Black's capital height, as a share of its size: from the baseline to the top of a Y. */
 const ANSWER_CAP = 0.72
 
@@ -1429,6 +1435,7 @@ export function MapCanvas() {
     if (answers.size === 0) return []
     const placed = new Map(stickerPlacements.map((p) => [p.id, p]))
     const out: Array<{ id: string; word: string; x: number; y: number; fontSize: number }> = []
+    const scale = stickerMode.size
     for (const shape of labelShapes) {
       const yes = answers.get(shape.id)
       if (yes === undefined) continue
@@ -1436,17 +1443,17 @@ export function MapCanvas() {
       const word = answerWord(yes, shape.id, geo?.meta[shape.id]?.parent?.id)
       const sticker = placed.get(shape.id)
       if (sticker) {
-        const fontSize = sticker.size * ANSWER_SIZE
+        const fontSize = Math.max(sticker.size * ANSWER_SIZE, ANSWER_MIN * shape.unit * scale)
         const top = sticker.y + sticker.size * (ANSWER_FACE_BOTTOM - ANSWER_OVERLAP)
         out.push({ id: shape.id, word, x: sticker.x, y: top + fontSize * ANSWER_CAP, fontSize })
       } else {
         const fit = stickerFit(shape)
-        const fontSize = fit.size * ANSWER_SIZE * 1.3
+        const fontSize = Math.max(fit.size * ANSWER_SIZE * 1.3, ANSWER_MIN * shape.unit * scale)
         out.push({ id: shape.id, word, x: fit.x, y: fit.y + (fontSize * ANSWER_CAP) / 2, fontSize })
       }
     }
     return out
-  }, [answers, stickerPlacements, labelShapes, style.outsideScope, scopeCountryIds, geo])
+  }, [answers, stickerPlacements, labelShapes, style.outsideScope, scopeCountryIds, geo, stickerMode.size])
 
   /** A sticker let go after a drag: its centre, in map units, kept as longitude and latitude. */
   const moveSticker = useCallback(
