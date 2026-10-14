@@ -55,6 +55,12 @@ export interface TemplateFrame {
   west: readonly [number, number][]
   top: readonly [number, number][]
   bottom: readonly [number, number][]
+  /**
+   * Where the square, at the size the points above give it, is then placed: its top just above
+   * this territory's main landmass and its left edge just west of that one's — the whole of each
+   * in the picture, measured on its outline as drawn rather than at a point.
+   */
+  place?: { topOf: string; westOf: string }
 }
 
 export interface MapTemplate {
@@ -131,6 +137,8 @@ const EUROPE_MAPPING: MapTemplate = {
     top: [[-16.1, 66.55], [25.8, 71.2]],
     // Crete's and Cyprus's south coasts, and Malta.
     bottom: [[24.7, 34.8], [32.9, 34.56], [14.4, 35.8]],
+    // Then moved so all of Iceland and all of mainland Portugal are in, at the same size.
+    place: { topOf: 'ISL', westOf: 'PRT' },
   },
   openSection: 'data',
   next: 'Upload your SVG with the data and the faces appear; right-click a country to make it the main one.',

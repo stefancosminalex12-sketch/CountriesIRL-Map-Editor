@@ -14,6 +14,8 @@ import { openSidebarSection } from './sidebarEvents'
 import { MAP_SVG_ID } from '../render/MapCanvas'
 import { getLiveProjection } from '../render/liveProjection'
 import { squareScreen } from '../render/screenFrame'
+import { geoArea, geoPath, type GeoProjection } from 'd3-geo'
+import type { Geometry, Polygon } from 'geojson'
 
 /** Two frames, or a moment in a tab that gets none: the map has redrawn for the new region. */
 const redrawn = () =>
@@ -41,8 +43,54 @@ async function placeFrame(template: MapTemplate, before: ReturnType<typeof getLi
   const project = (points: readonly [number, number][]) =>
     points.map((p) => projection([p[0], p[1]])).filter((p): p is [number, number] => !!p)
   const { transform, dispatch } = useMapStore.getState()
-  const rect = squareScreen(project(frame.west), project(frame.top), project(frame.bottom), transform, box.width, box.height)
-  if (rect) dispatch({ op: 'set_screen', patch: { enabled: true, rect, aspect: '1:1' } })
+  const sized = squareScreen(project(frame.west), project(frame.top), project(frame.bottom), transform, box.width, box.height)
+  if (!sized) return
+  let rect = sized
+  /*
+   * Placed by outlines: the top just above one territory's main landmass, the left edge just west
+   * of another's, at the size measured above — so the whole of each is in, however its coast runs.
+   */
+  const geo = useMapStore.getState().geo
+  if (frame.place && geo) {
+    const top = mainlandBounds(geo.byId.get(frame.place.topOf)?.geometry, projection)
+    const west = mainlandBounds(geo.byId.get(frame.place.westOf)?.geometry, projection)
+    if (top && west) {
+      const pad = sized.width * 0.008
+      const x = west[0][0] * transform.k + transform.x - pad
+      const y = top[0][1] * transform.k + transform.y - pad
+      // The same size — grown only as far as the bottom landmarks need, so moving up cuts none off.
+      const lowest = Math.max(...project(frame.bottom).map(([, by]) => by * transform.k + transform.y))
+      const side = Math.min(Math.max(sized.width, lowest + pad - y), box.width, box.height)
+      rect = {
+        x: Math.min(Math.max(0, x), Math.max(0, box.width - side)),
+        y: Math.min(Math.max(0, y), Math.max(0, box.height - side)),
+        width: side,
+        height: side,
+      }
+    }
+  }
+  dispatch({ op: 'set_screen', patch: { enabled: true, rect, aspect: '1:1' } })
+}
+
+/** The projected bounds of a territory's largest piece — Iceland without its islets, mainland Portugal. */
+function mainlandBounds(geometry: Geometry | undefined, projection: GeoProjection): [[number, number], [number, number]] | null {
+  if (!geometry) return null
+  let polygon: Polygon | null = null
+  if (geometry.type === 'Polygon') polygon = geometry
+  else if (geometry.type === 'MultiPolygon') {
+    let best = -1
+    for (const coordinates of geometry.coordinates) {
+      const piece: Polygon = { type: 'Polygon', coordinates }
+      const area = geoArea(piece)
+      if (area > best) {
+        best = area
+        polygon = piece
+      }
+    }
+  }
+  if (!polygon) return null
+  const bounds = geoPath(projection).bounds(polygon)
+  return Number.isFinite(bounds[0][0]) && Number.isFinite(bounds[0][1]) ? bounds : null
 }
 
 /** `onApplied` is called once a template has been applied — the File menu closes on it. */

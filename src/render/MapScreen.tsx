@@ -14,6 +14,7 @@
  * rather than asking the map to draw again.
  */
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useMapStore } from '../state/mapStore'
 import { MIN_SCREEN, type ScreenRect } from './screenFrame'
 import type { ScreenAspectId } from '../types/map'
@@ -86,149 +87,161 @@ export function MapScreen({
 
   const rect = drag?.rect ?? moved ?? screen
 
+  /** Edit mode: the frame moves and resizes only while it is on. See the effect below. */
+  const [editing, setEditing] = useState(false)
+  const editingRef = useRef(false)
+  editingRef.current = editing
+  /** The frame's menu, open at the pointer, or null. */
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
+
   /**
-   * Moving the whole frame.
+   * Editing the frame, and keeping the map outside it still.
    *
-   * Intercepted on the map element rather than handled by an overlay covering the
-   * frame, and that is the load-bearing choice. An overlay large enough to catch a drag
-   * anywhere inside the picture would also swallow every hover and every click in it —
-   * the country readout would go quiet and half the map would stop being selectable the
-   * moment a frame was drawn. Nothing is covered here: `pointerdown` is taken in the
-   * capture phase, and `mousemove`, `mouseover` and `click` are left entirely alone, so
-   * picking and hovering inside the frame behave exactly as they do outside it.
+   * **The frame is changed only in Edit mode.** A right-click on an edge or a corner — where the
+   * double-arrow cursor shows — or anywhere outside the frame opens a menu with **Edit canvas**.
+   * While editing, a left drag inside the frame moves it and a drag on an edge or a corner resizes
+   * it; **Done**, or Escape, ends it. Outside Edit mode every press inside the frame is the map's —
+   * panning, selecting, dragging a sticker — and no drag ever moves the frame by accident.
    *
-   * The map must not pan under the gesture, so the corresponding `mousedown` and
-   * single-finger `touchstart` are stopped before they reach the `<svg>` d3-zoom
-   * listens on — the same problem the legend solves with a clause in d3's own filter,
-   * solved the same way round: the gesture belongs to whoever it started on. A second
-   * finger is left alone, so pinch-zoom inside the frame still reaches the map.
+   * **Outside the frame the map is out of reach**: it is workspace, not the picture. A press, a
+   * click, a hover or a drag there that lands on the map is stopped before the map hears it, so a
+   * country beyond the edge — Russia's east, Kazakhstan — cannot be selected, highlighted or
+   * dragged; a right-click there opens the frame's menu instead. The wheel still zooms. Only
+   * events on the map itself are taken: the zoom buttons and every panel stay as they are.
    *
-   * Only the frame's *position* changes. Its size, its ratio, the projection, the zoom
-   * and the translation are not read and not written.
+   * All of it on the map element, in the capture phase, ahead of the `<svg>` that d3-zoom, the
+   * selection gestures and the country picking listen on.
    */
   useEffect(() => {
     const container = containerRef.current
     if (!container || !active) return
 
-    // Read from a ref so the listeners are installed once per frame geometry rather
-    // than re-bound on every pointermove of a move in progress.
     const base = screen
-    const inside = (event: { clientX: number; clientY: number }) => {
+    const point = (event: { clientX: number; clientY: number }) => {
       const box = container.getBoundingClientRect()
-      const x = event.clientX - box.left
-      const y = event.clientY - box.top
+      return { x: event.clientX - box.left, y: event.clientY - box.top }
+    }
+    const inside = (event: { clientX: number; clientY: number }) => {
+      const { x, y } = point(event)
       return x >= base.x && x <= base.x + base.width && y >= base.y && y <= base.y + base.height
     }
-    /*
-     * A gesture belongs to whatever it started on.
-     *
-     * An edge handle is a resize and the legend is a legend drag — both sit inside the
-     * picture, and neither should also move the frame. The same rule d3's own filter
-     * applies to the legend, applied here for the same reason.
-     */
-    const claimed = (event: Event) =>
-      !!(event.target as Element | null)?.closest?.('.map-screen__handle, [data-legend]')
-
-    /*
-     * Keep the map still under a one-finger move. A mouse needs nothing here: the frame moves on
-     * the right button, which the map's pan ignores.
-     */
-    const claim = (event: Event) => {
-      if (claimed(event)) return
+    /** Whether an event landed on the map's own drawing — not a panel, a button or a handle. */
+    const onMap = (event: Event) => {
+      const target = event.target as Element | null
+      return !!target?.closest?.('svg') && !target.closest('.map-screen__handle, [data-legend]')
+    }
+    const at = (event: Event): { clientX: number; clientY: number } => {
+      const touch = (event as TouchEvent).changedTouches?.[0]
+      return touch ?? (event as MouseEvent)
+    }
+    const pinch = (event: Event) => {
       const touches = (event as TouchEvent).touches
-      // One finger outside the frame is a move; two are a pinch, and the map keeps those.
-      if (!touches || touches.length !== 1 || inside(touches[0])) return
-      event.stopPropagation()
+      return !!touches && touches.length > 1
     }
 
-    /*
-     * Which presses move the frame: ones that start **outside** it — the right button with a mouse,
-     * one finger on a touchscreen. Inside the frame every press is the map's — panning, selecting,
-     * dragging a sticker, a right-click's menu — where a left drag used to drag the frame along
-     * with whatever was meant. A right-click outside that does not move opens the menu as before.
-     */
-    const moves = (event: PointerEvent) =>
-      !inside(event) && (event.pointerType === 'mouse' ? event.button === 2 : event.button === 0)
+    /* Outside the frame: nothing reaches the map, and the hover it last had is let go. */
+    let hoverCleared = false
+    const keepOut = (event: Event) => {
+      if (!onMap(event) || inside(at(event))) {
+        hoverCleared = false
+        return
+      }
+      // Two fingers are a pinch: the map keeps those wherever they are.
+      if (pinch(event)) return
+      event.stopPropagation()
+      if (!hoverCleared && (event.type === 'pointermove' || event.type === 'mousemove')) {
+        hoverCleared = true
+        useMapStore.getState().setHovered(null)
+      }
+    }
+    const menuOutside = (event: MouseEvent) => {
+      if (!onMap(event) || inside(event)) return
+      event.preventDefault()
+      event.stopPropagation()
+      setMenu({ x: event.clientX, y: event.clientY })
+    }
 
+    /* Edit mode: a press inside the frame moves it; the map under it does nothing. */
+    const holdInside = (event: Event) => {
+      if (!editingRef.current || !onMap(event) || !inside(at(event)) || pinch(event)) return
+      event.stopPropagation()
+    }
     const onDown = (event: PointerEvent) => {
-      if (!event.isPrimary || !moves(event)) return
-      if (claimed(event)) return
+      if (!editingRef.current || !event.isPrimary || event.button !== 0) return
+      if (!onMap(event) || !inside(event)) return
+      event.stopPropagation()
 
       const startX = event.clientX
       const startY = event.clientY
       let live = false
-
+      const place = (next: PointerEvent) => ({
+        x: Math.min(Math.max(0, base.x + next.clientX - startX), Math.max(0, width - base.width)),
+        y: Math.min(Math.max(0, base.y + next.clientY - startY), Math.max(0, height - base.height)),
+        width: base.width,
+        height: base.height,
+      })
       const move = (next: PointerEvent) => {
-        const dx = next.clientX - startX
-        const dy = next.clientY - startY
-        if (!live && Math.hypot(dx, dy) < MOVE_THRESHOLD) return
+        if (!live && Math.hypot(next.clientX - startX, next.clientY - startY) < MOVE_THRESHOLD) return
         live = true
-        /*
-         * Position only, and clamped so the frame stays describable: a crop cannot
-         * name geography that is off the canvas. Width and height are carried through
-         * untouched, so a preset's ratio survives a move exactly.
-         */
-        setMoved({
-          x: Math.min(Math.max(0, base.x + dx), Math.max(0, width - base.width)),
-          y: Math.min(Math.max(0, base.y + dy), Math.max(0, height - base.height)),
-          width: base.width,
-          height: base.height,
-        })
+        setMoved(place(next))
       }
-
       const up = (next: PointerEvent) => {
         window.removeEventListener('pointermove', move)
         window.removeEventListener('pointerup', up)
         window.removeEventListener('pointercancel', up)
         if (!live) return
-
-        /*
-         * A drag ends over a country, and the browser follows the release with a click that
-         * would select it — or, for the right button, the menu a right-click opens. Swallowed
-         * once, in the capture phase — the same guard d3-drag uses so a pan does not double as
-         * a selection.
-         */
-        const swallow = (click: Event) => {
-          click.stopPropagation()
-          click.preventDefault()
-        }
-        const kind = event.pointerType === 'mouse' && event.button === 2 ? 'contextmenu' : 'click'
-        window.addEventListener(kind, swallow, { capture: true, once: true })
-        window.setTimeout(() => window.removeEventListener(kind, swallow, true), 0)
-
-        const dx = next.clientX - startX
-        const dy = next.clientY - startY
-        const rectNext = {
-          x: Math.min(Math.max(0, base.x + dx), Math.max(0, width - base.width)),
-          y: Math.min(Math.max(0, base.y + dy), Math.max(0, height - base.height)),
-          width: base.width,
-          height: base.height,
-        }
         setMoved(null)
         // One operation for the gesture, and `aspect` is re-stated rather than changed.
-        dispatch({ op: 'set_screen', patch: { rect: rectNext, aspect } })
+        dispatch({ op: 'set_screen', patch: { rect: place(next), aspect } })
       }
-
       window.addEventListener('pointermove', move)
       window.addEventListener('pointerup', up)
       window.addEventListener('pointercancel', up)
     }
 
+    const outsideTypes = [
+      'pointerdown', 'pointermove', 'pointerup', 'mousedown', 'mousemove', 'mouseup', 'mouseover',
+      'click', 'dblclick', 'auxclick', 'touchstart', 'touchmove',
+    ]
+    const editTypes = ['mousedown', 'touchstart', 'click', 'dblclick']
+    for (const type of outsideTypes) container.addEventListener(type, keepOut, true)
+    for (const type of editTypes) container.addEventListener(type, holdInside, true)
     container.addEventListener('pointerdown', onDown, true)
-    container.addEventListener('mousedown', claim, true)
-    container.addEventListener('touchstart', claim, true)
+    container.addEventListener('contextmenu', menuOutside, true)
     return () => {
+      for (const type of outsideTypes) container.removeEventListener(type, keepOut, true)
+      for (const type of editTypes) container.removeEventListener(type, holdInside, true)
       container.removeEventListener('pointerdown', onDown, true)
-      container.removeEventListener('mousedown', claim, true)
-      container.removeEventListener('touchstart', claim, true)
+      container.removeEventListener('contextmenu', menuOutside, true)
     }
   }, [containerRef, active, screen, width, height, aspect, dispatch])
 
+  /* Escape ends Edit mode; a frame turned off is not being edited. */
+  useEffect(() => {
+    if (!editing) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setEditing(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [editing])
+  useEffect(() => {
+    if (!active) setEditing(false)
+  }, [active])
+
+  /* A move cursor over the map inside the frame while it is being edited. */
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+    container.classList.toggle('is-editing-frame', editing)
+    return () => container.classList.remove('is-editing-frame')
+  }, [containerRef, editing])
+
   if (!active && !drag) return null
 
-  /* An edge or a corner, like the whole frame: the right button with a mouse, a finger otherwise. */
+  /* An edge or a corner resizes the frame in Edit mode, and only then. */
   const onDown = (grip: Grip) => (event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.pointerType === 'mouse' ? event.button !== 2 : event.button !== 0) return
+    if (!editing || event.button !== 0) return
     event.stopPropagation()
     event.preventDefault()
     try {
@@ -469,7 +482,7 @@ export function MapScreen({
     <div
       className={`map-screen${drag ? ' map-screen--dragging' : ''}${
         moved ? ' map-screen--moving' : ''
-      }`}
+      }${editing ? ' map-screen--editing' : ''}`}
     >
       {/*
         The workspace outside the picture: a light blur and a little dimming, enough to
@@ -497,10 +510,93 @@ export function MapScreen({
           onPointerMove={onMove}
           onPointerUp={end}
           onPointerCancel={end}
-          // The right button resizes here; it opens no menu.
-          onContextMenu={(event) => event.preventDefault()}
+          // The frame's menu: Edit canvas, or Done while editing.
+          onContextMenu={(event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            setMenu({ x: event.clientX, y: event.clientY })
+          }}
         />
       ))}
+
+      {/* While editing: say so, and the way out. */}
+      {editing && (
+        <button
+          type="button"
+          className="btn map-screen__done"
+          style={{ left: rect.x + rect.width / 2, top: rect.y + 10 }}
+          onClick={() => setEditing(false)}
+        >
+          Done editing
+        </button>
+      )}
+
+      {menu && (
+        <FrameMenu
+          at={menu}
+          editing={editing}
+          onChoose={() => setEditing(!editing)}
+          onClose={() => setMenu(null)}
+        />
+      )}
     </div>
+  )
+}
+
+/**
+ * The frame's menu, at the pointer: Edit canvas, or Done editing while it is being edited. Closes
+ * on a choice, a press anywhere else, Escape or the wheel, like the other menus on the map.
+ */
+function FrameMenu({
+  at,
+  editing,
+  onChoose,
+  onClose,
+}: {
+  at: { x: number; y: number }
+  editing: boolean
+  onChoose: () => void
+  onClose: () => void
+}) {
+  const panel = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const onPointer = (event: PointerEvent) => {
+      if (!panel.current?.contains(event.target as Node)) onClose()
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('pointerdown', onPointer, true)
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('wheel', onClose, { passive: true })
+    return () => {
+      window.removeEventListener('pointerdown', onPointer, true)
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('wheel', onClose)
+    }
+  }, [onClose])
+  return createPortal(
+    <div
+      ref={panel}
+      className="top-menu map-menu"
+      role="menu"
+      aria-label="Canvas"
+      style={{ left: Math.min(at.x, window.innerWidth - 220), top: Math.min(at.y, window.innerHeight - 90) }}
+      onContextMenu={(event) => event.preventDefault()}
+    >
+      <span className="top-menu__heading">Canvas</span>
+      <button
+        type="button"
+        role="menuitem"
+        className="top-menu__item map-menu__item"
+        onClick={() => {
+          onChoose()
+          onClose()
+        }}
+      >
+        <span className="top-menu__name">{editing ? 'Done editing' : 'Edit canvas'}</span>
+      </button>
+    </div>,
+    document.body,
   )
 }

@@ -3093,6 +3093,32 @@ body {
   cursor: grabbing;
 }
 
+/* Edit mode: the frame in the accent, dashed, and a move cursor over the map inside it. */
+.map-screen--editing .map-screen__frame {
+  box-shadow: 0 0 0 2px var(--accent);
+  outline: 1px dashed rgb(255 255 255 / 0.8);
+  outline-offset: -1px;
+}
+
+.map-screen--editing .map-screen__handle::after {
+  opacity: 0.9;
+}
+
+.map-canvas.is-editing-frame svg {
+  cursor: move;
+}
+
+.map-screen__done {
+  position: absolute;
+  transform: translateX(-50%);
+  pointer-events: auto;
+  z-index: 1;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
 /* A hairline, so the crop is legible without becoming a border in its own right. */
 .map-screen__frame {
   position: absolute;

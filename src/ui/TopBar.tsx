@@ -3,11 +3,11 @@
  *
  * - **File** — the map's own settings, one row each, every row opening its choices in a menu at
  *   its side, the way a desktop app's menus cascade:
+ *   - **Templates**, first — the built-in presets, which set up the rows below;
  *   - **Map** — every map, grouped World / Europe / USA;
  *   - **Resolution** — the open map's levels of detail (only when it has more than one);
  *   - **Projection**;
  *   - **Outside region** — how the land outside the chosen region is drawn;
- *   - **Templates** — the built-in presets;
  *   - **Display** — cascading once more, to Appearance, Geographic Features and Labels &
  *     Helpers, each a panel of the switches the rail's Display section held;
  *   - **Settings**, last — the editor's own preferences: Appearance (the theme) and Data
@@ -439,6 +439,16 @@ function FileMenu() {
   const back = () => setPath((current) => current.slice(0, -1))
 
   const root: FileNode[] = [
+    // First: a template sets up the map below it — the region, the projection, the colours.
+    {
+      id: 'templates',
+      name: 'Templates',
+      render: (done) => (
+        <div className="top-flyout__body">
+          <TemplatePicker onApplied={done} />
+        </div>
+      ),
+    },
     { id: 'map', name: 'Map', value: atlas.menuName ?? atlas.name, render: (done) => <MapChoices done={done} /> },
     ...(datasets.length > 1
       ? [{ id: 'resolution', name: 'Resolution', value: dataset ? shortDataset(dataset) : '—', render: (done: () => void) => <ResolutionChoices done={done} /> }]
@@ -449,15 +459,6 @@ function FileMenu() {
       name: 'Outside region',
       value: OUTSIDE.find((o) => o.id === outside)?.name ?? outside,
       render: (done) => <OutsideChoices done={done} />,
-    },
-    {
-      id: 'templates',
-      name: 'Templates',
-      render: (done) => (
-        <div className="top-flyout__body">
-          <TemplatePicker onApplied={done} />
-        </div>
-      ),
     },
     { id: 'display', name: 'Display', children: DISPLAY },
     { id: 'settings', name: 'Settings', children: SETTINGS },
