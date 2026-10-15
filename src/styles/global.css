@@ -4187,8 +4187,9 @@ body {
   gap: 10px;
 }
 
-.top-file__row--open {
-  background: var(--surface-hover);
+/* The row whose menu is open: the hover's soft tint, a step stronger. */
+.top-menu__item.top-file__row--open {
+  background: color-mix(in srgb, var(--text) 10%, transparent);
 }
 
 .top-file__name {
@@ -4288,9 +4289,13 @@ body {
   text-align: left;
 }
 
+/*
+ * A soft tint of the text colour, like the region bar's track, rather than a solid grey: darker on a
+ * light theme and lighter on a dark one, so it reads on the menu's glass in every theme.
+ */
 .top-menu__item:hover,
 .top-menu__item:focus-visible {
-  background: var(--surface-hover);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
   outline: none;
 }
 
@@ -5283,4 +5288,12 @@ body {
   .attached-card {
     animation: none;
   }
+}
+
+/* While the File menu is open, the tool card and its attached box are hidden, and come back after. */
+html.file-menu-open .sidebar--open .sidebar__panel,
+html.file-menu-open .sidebar__attached {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
 }

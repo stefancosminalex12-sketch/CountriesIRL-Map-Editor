@@ -22,7 +22,7 @@
  * scroll sideways on a narrow screen without clipping them; scrolling it closes an open menu.
  * Every change is the same operation or store action the old panels used.
  */
-import { useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Chevron, ChevronRight, Flyout, MenuItem, Popover, useNarrow } from './Menu'
 import { GeographicFeatureToggles, LabelsAndHelpers, LineWidthSwatches, MapColorSwatches } from './MapSettings'
 import { DataSources, SelectionHighlight, ThemePicker, TransparencySwitch } from './SettingsPanel'
@@ -379,14 +379,14 @@ function FileRows({
   rows,
   depth,
   path,
-  narrow,
   show,
+  hide,
 }: {
   rows: FileNode[]
   depth: number
   path: string[]
-  narrow: boolean
   show: (depth: number, id: string, element: HTMLElement) => void
+  hide: (depth: number) => void
 }) {
   return (
     <div className="top-file" role="menu">
@@ -398,10 +398,8 @@ function FileRows({
           aria-haspopup="true"
           aria-expanded={path[depth] === r.id}
           className={`top-menu__item top-file__row${path[depth] === r.id ? ' top-file__row--open' : ''}`}
-          onPointerEnter={(event) => {
-            if (event.pointerType === 'mouse' && !narrow) show(depth, r.id, event.currentTarget)
-          }}
-          onClick={(event) => show(depth, r.id, event.currentTarget)}
+          // Opened by a click, never by hovering: hovering only highlights. A second click closes it.
+          onClick={(event) => (path[depth] === r.id ? hide(depth) : show(depth, r.id, event.currentTarget))}
           onKeyDown={(event) => {
             if (event.key === 'ArrowRight') show(depth, r.id, event.currentTarget)
           }}
@@ -437,6 +435,18 @@ function FileMenu() {
     setAnchors((current) => [...current.slice(0, depth), element])
   }
   const back = () => setPath((current) => current.slice(0, -1))
+  /** Closes the row open at `depth`, and everything it opened. */
+  const hide = (depth: number) => setPath((current) => current.slice(0, depth))
+
+  /*
+   * While File is open, the open tool card — and its attached box — steps out of the way, and
+   * comes back as it was when File closes: the two would overlap at the top-left. See the
+   * `file-menu-open` rule in the stylesheet.
+   */
+  useEffect(() => {
+    document.documentElement.classList.toggle('file-menu-open', open)
+    return () => document.documentElement.classList.remove('file-menu-open')
+  }, [open])
 
   const root: FileNode[] = [
     // First: a template sets up the map below it — the region, the projection, the colours.
@@ -492,20 +502,20 @@ function FileMenu() {
               <span className="top-menu__name">{parentName}</span>
             </button>
             {deepest.children ? (
-              <FileRows rows={deepest.children} depth={path.length} path={path} narrow={narrow} show={show} />
+              <FileRows rows={deepest.children} depth={path.length} path={path} show={show} hide={hide} />
             ) : (
               deepest.render?.(close)
             )}
           </div>
         ) : (
           <>
-            <FileRows rows={root} depth={0} path={path} narrow={narrow} show={show} />
+            <FileRows rows={root} depth={0} path={path} show={show} hide={hide} />
             {!narrow &&
               levels.map((node, depth) =>
                 node && anchors[depth] ? (
                   <Flyout key={`${depth}:${node.id}`} row={anchors[depth]}>
                     {node.children ? (
-                      <FileRows rows={node.children} depth={depth + 1} path={path} narrow={narrow} show={show} />
+                      <FileRows rows={node.children} depth={depth + 1} path={path} show={show} hide={hide} />
                     ) : (
                       node.render?.(close)
                     )}

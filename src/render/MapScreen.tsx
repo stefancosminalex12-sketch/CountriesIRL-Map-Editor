@@ -639,6 +639,8 @@ function usePanelHoles(active: boolean, containerRef: React.RefObject<HTMLElemen
       frame = 0
       const box = container.getBoundingClientRect()
       const next = [...document.querySelectorAll(OVER_MAP)]
+        // A card hidden for the moment (under the File menu) is not over the map.
+        .filter((el) => getComputedStyle(el).visibility !== 'hidden')
         .map((el) => el.getBoundingClientRect())
         .filter((r) => r.width > 0 && r.height > 0)
         .map((r) => ({ x: r.left - box.left, y: r.top - box.top, w: r.width, h: r.height }))
@@ -658,6 +660,7 @@ function usePanelHoles(active: boolean, containerRef: React.RefObject<HTMLElemen
      */
     const observer = new MutationObserver(schedule)
     observer.observe(document.body, { childList: true })
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
     for (const root of document.querySelectorAll('.sidebar, .app__header')) {
       observer.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'hidden', 'style'] })
     }
