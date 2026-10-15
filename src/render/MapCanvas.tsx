@@ -113,6 +113,7 @@ import { MapOverlays, OVERLAY_MARKER } from './MapOverlays'
 import { anchorAt, overlayKey, overlaySource, type OverlaySource } from './overlayGeometry'
 import { WATER_LAYER } from './exportMap'
 import { useRegionOnly } from './regionOnly'
+import { HoverLabel } from './HoverLabel'
 import type { MapDocument, MapOverlay } from '../types/map'
 import {
   outlinesAlongSegment,
@@ -4428,20 +4429,8 @@ export function MapCanvas() {
         <button type="button" onClick={resetZoom} title="Fit to region">⌖</button>
       </div>
 
-      {hoveredName && (
-        <div className="map-canvas__hover-label">
-          {/*
-            A subdivision's ISO 3166-2 code where it has one — DE-BY rather than DEU-1591.
-            A water region has no code of that kind, so it is named and nothing more.
-          */}
-          {hoveredCountryId && (
-            <span className="map-canvas__hover-code">
-              {geo?.meta[hoveredCountryId]?.source?.iso31662 || hoveredCountryId}
-            </span>
-          )}
-          {hoveredName}
-        </div>
-      )}
+      {/* The name under the pointer, beside it. See `HoverLabel`. */}
+      {hoveredName && <HoverLabel name={hoveredName} containerRef={containerRef} />}
 
       {/*
         The loading screen: while a map loads — and while a progressive map's first outlines are

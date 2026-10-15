@@ -10,7 +10,7 @@
  *   - **Outside region** — how the land outside the chosen region is drawn;
  *   - **Display** — cascading once more, to Appearance, Geographic Features and Labels &
  *     Helpers, each a panel of the switches the rail's Display section held;
- *   - **Settings**, last — the editor's own preferences: Appearance (the theme) and Data
+ *   - **Settings**, last — the editor's own preferences: Theme and Data
  *     Sources, as the rail's Settings section held them.
  *   On a narrow screen there is no room at the side, so a row opens its choices in place of the
  *   rows, with a way back up a level.
@@ -342,7 +342,7 @@ const DISPLAY: FileNode[] = [
 const SETTINGS: FileNode[] = [
   {
     id: 'theme',
-    name: 'Appearance',
+    name: 'Theme',
     render: () => (
       <div className="stack top-flyout__body">
         <span className="sidebar__group-label">Theme</span>

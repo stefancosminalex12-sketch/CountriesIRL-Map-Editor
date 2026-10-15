@@ -2103,24 +2103,19 @@ body {
   border-color: var(--line-strong);
 }
 
+/* The name beside the pointer, placed by `HoverLabel`. Above the map and the canvas frame. */
 .map-canvas__hover-label {
   position: absolute;
-  left: 10px;
-  bottom: 10px;
+  left: 0;
+  top: 0;
+  z-index: 4;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 4px 8px;
   pointer-events: none;
-  display: flex;
-  gap: 8px;
-  align-items: baseline;
-}
-
-.map-canvas__hover-code {
-  color: var(--text-dim);
-  font-size: 11px;
-  font-family: ui-monospace, Menlo, Consolas, monospace;
+  white-space: nowrap;
+  will-change: transform;
 }
 
 .map-canvas__status {
