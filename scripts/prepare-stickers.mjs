@@ -84,4 +84,35 @@ const index = {
   icons,
 }
 writeFileSync(join(OUT_DIR, 'index.json'), JSON.stringify(index))
+
+/*
+ * The MIT notice the artwork must travel with. The emoji are Microsoft's Fluent Emoji
+ * (github.com/microsoft/fluentui-emoji), rendered to WebP by LobeHub; both are MIT, and the
+ * package ships no licence file of its own, so the notice is written here.
+ */
+writeFileSync(
+  join(OUT_DIR, 'LICENSE'),
+  `Fluent Emoji 3D stickers (fluent-emoji-3d/)
+
+Artwork: Fluent Emoji, Copyright (c) Microsoft Corporation. https://github.com/microsoft/fluentui-emoji
+Rendering: @lobehub/fluent-emoji-3d, Copyright (c) 2023 LobeHub. https://github.com/lobehub/fluent-emoji
+
+Both under the MIT License:
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+associated documentation files (the "Software"), to deal in the Software without restriction,
+including without limitation the rights to use, copy, modify, merge, publish, distribute,
+sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or
+substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES
+OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+`,
+)
 console.log(`[stickers] ${icons.length} Fluent Emoji 3D (MIT) -> public/stickers/${PREFIX}`)

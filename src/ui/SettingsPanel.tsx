@@ -164,6 +164,15 @@ export function DataSources() {
       <p className="hint">
         <strong>flag-icons</strong> — flag artwork, by Panayiotis Lipiridis. MIT licence.
       </p>
+      <p className="hint">
+        <strong>Wikimedia Commons</strong> — the historical and regional flags (the Soviet Union,
+        Yugoslavia, Austria-Hungary, the Russian Empire, Scotland, Wales and others), each under
+        the licence on its Commons page.
+      </p>
+      <p className="hint">
+        <strong>Fluent Emoji</strong> — the emoji stickers: Fluent Emoji by Microsoft, rendered in
+        3D by LobeHub (@lobehub/fluent-emoji-3d). MIT licence.
+      </p>
       <AdministrativeSources />
       <p className="hint">
         <strong>U.S. Census Bureau</strong> — the Official USA Administrative Map, and Puerto

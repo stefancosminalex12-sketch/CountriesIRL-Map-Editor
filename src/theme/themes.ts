@@ -185,7 +185,9 @@ const light: Theme = {
     lineStrong: '#a3a9b3',
     // The author's navy for what is chosen and for the ink, and an off-white instead of pure white.
     text: '#0b1725',
-    textDim: '#657081',
+    // At least 4.5:1 (WCAG AA for small text) on every surface, the inset track included (4.69);
+    // the old '#657081' measured 3.47 there.
+    textDim: '#525c6b',
     accent: '#0b1725',
     accentText: '#fffffd',
     accentSoft: '#d5dbe3',
@@ -246,7 +248,8 @@ const geographic: Theme = {
     line: '#cfdcdc',
     lineStrong: '#a7bcbd',
     text: '#132a2f',
-    textDim: '#566d72',
+    // At least 4.5:1 on every surface (4.89 on the inset); the old '#566d72' measured 4.30 there.
+    textDim: '#4f6469',
     accent: '#0e7c86',
     accentText: '#fefefc',
     accentSoft: '#d8eeee',

@@ -154,6 +154,13 @@ export const FLAG_EXTRAS: ReadonlyArray<{ code: string; name: string }> = ${JSON
   'utf8',
 )
 
+/*
+ * flag-icons' MIT licence asks for its notice to go with the artwork, so it is shipped beside it.
+ * The historical flags are Wikimedia Commons files, each under the licence on its Commons page
+ * (`scripts/historical-flags.mjs` names them).
+ */
+copyFileSync(join(dirname(require.resolve('flag-icons/package.json')), 'LICENSE'), join(OUT_DIR, 'LICENSE'))
+
 console.log(`[flags] ${copied.length} flags -> public/flags`)
 console.log(`[flags] ${Object.keys(TERRITORY_FLAGS).length} territories flagged by policy`)
 for (const code of overridden) console.log(`[flags] ${code} overridden — ${FLAG_OVERRIDES[code]}`)
