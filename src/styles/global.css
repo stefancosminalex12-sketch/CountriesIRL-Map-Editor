@@ -5297,3 +5297,16 @@ html.file-menu-open .sidebar__attached {
   opacity: 0;
   pointer-events: none;
 }
+
+/* File → Maps: the families on the region bar's track, and the chosen one's maps under it. */
+.top-maps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 240px;
+}
+
+.top-regions.top-maps__families {
+  align-self: flex-start;
+  margin-left: 0;
+}

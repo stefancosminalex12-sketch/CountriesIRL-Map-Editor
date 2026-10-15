@@ -4,7 +4,7 @@
  * - **File** — the map's own settings, one row each, every row opening its choices in a menu at
  *   its side, the way a desktop app's menus cascade:
  *   - **Templates**, first — the built-in presets, which set up the rows below;
- *   - **Map** — every map, grouped World / Europe / USA;
+ *   - **Maps** — World, Europe and USA as buttons, and the chosen one's maps under them;
  *   - **Resolution** — the open map's levels of detail (only when it has more than one);
  *   - **Projection**;
  *   - **Outside region** — how the land outside the chosen region is drawn;
@@ -44,28 +44,46 @@ function noteFor(atlas: Atlas): string {
 }
 
 /** Every map, grouped by family. `done` is called once one is chosen. */
+/**
+ * File → Maps: the map families as a row of buttons on the region bar's track — World, Europe,
+ * USA — and the chosen family's maps under it. Opens on the family of the map that is open; a
+ * click on another family shows its maps instead, and a click on a map opens it.
+ */
 function MapChoices({ done }: { done: () => void }) {
   const atlasId = useMapStore((s) => s.doc.scope.atlasId)
   const setAtlas = useMapStore((s) => s.setAtlas)
+  const [family, setFamily] = useState<string>(() => ATLASES.find((a) => a.id === atlasId)?.family ?? ATLAS_FAMILIES[0].id)
   return (
-    <div className="top-menu__families">
-      {ATLAS_FAMILIES.map((family) => (
-        <div key={family.id} className="top-menu__group">
-          <span className="top-menu__heading">{family.name}</span>
-          {ATLASES.filter((a) => a.family === family.id).map((a) => (
-            <MenuItem
-              key={a.id}
-              name={a.menuName ?? a.name}
-              note={noteFor(a)}
-              active={a.id === atlasId}
-              onChoose={() => {
-                if (a.id !== atlasId) setAtlas(a.id)
-                done()
-              }}
-            />
-          ))}
-        </div>
-      ))}
+    <div className="top-maps">
+      <div className="top-regions top-maps__families" role="tablist" aria-label="Map families">
+        {ATLAS_FAMILIES.map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            role="tab"
+            aria-selected={f.id === family}
+            className={`chip${f.id === family ? ' chip--active' : ''}`}
+            onClick={() => setFamily(f.id)}
+          >
+            <Tick />
+            {f.name}
+          </button>
+        ))}
+      </div>
+      <div className="top-menu__group" role="tabpanel">
+        {ATLASES.filter((a) => a.family === family).map((a) => (
+          <MenuItem
+            key={a.id}
+            name={a.menuName ?? a.name}
+            note={noteFor(a)}
+            active={a.id === atlasId}
+            onChoose={() => {
+              if (a.id !== atlasId) setAtlas(a.id)
+              done()
+            }}
+          />
+        ))}
+      </div>
     </div>
   )
 }
@@ -459,7 +477,7 @@ function FileMenu() {
         </div>
       ),
     },
-    { id: 'map', name: 'Map', value: atlas.menuName ?? atlas.name, render: (done) => <MapChoices done={done} /> },
+    { id: 'map', name: 'Maps', value: atlas.menuName ?? atlas.name, render: (done) => <MapChoices done={done} /> },
     ...(datasets.length > 1
       ? [{ id: 'resolution', name: 'Resolution', value: dataset ? shortDataset(dataset) : '—', render: (done: () => void) => <ResolutionChoices done={done} /> }]
       : []),
