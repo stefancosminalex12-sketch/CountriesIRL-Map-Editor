@@ -1,0 +1,564 @@
+[
+ {
+  "year": 1914,
+  "units": 141,
+  "unclaimed": [
+   "ABW",
+   "ALA",
+   "ATA",
+   "ATF",
+   "BHR",
+   "BMU",
+   "COK",
+   "COM",
+   "CPV",
+   "CYM",
+   "FLK",
+   "FRO",
+   "FSM",
+   "GGY",
+   "GIB",
+   "GUM",
+   "HMD",
+   "IMN",
+   "IOT",
+   "JEY",
+   "KIR",
+   "MAC",
+   "MDV",
+   "MHL",
+   "MNP",
+   "MUS",
+   "NCL",
+   "NFK",
+   "NRU",
+   "PCN",
+   "PLW",
+   "PYF",
+   "SGS",
+   "SHN",
+   "SLB",
+   "SPM",
+   "STP",
+   "SYC",
+   "TUV",
+   "UMI",
+   "VGB",
+   "VUT",
+   "XBN",
+   "XCP",
+   "XCS",
+   "XIO",
+   "XSN",
+   "XSP",
+   "XSR"
+  ],
+  "failures": [],
+  "overlaps": [
+   {
+    "base": "ARE",
+    "kept": "Trucial States (UK)",
+    "gave": "Aden Protectorate (UK)",
+    "km2": 65317
+   },
+   {
+    "base": "CAN",
+    "kept": "Newfoundland",
+    "gave": "Canada",
+    "km2": 374136
+   },
+   {
+    "base": "GAB",
+    "kept": "French Equatorial Africa (France)",
+    "gave": "Kamerun (Germany)",
+    "km2": 10413
+   },
+   {
+    "base": "OMN",
+    "kept": "Muscat and Oman",
+    "gave": "Aden Protectorate (UK)",
+    "km2": 288753
+   },
+   {
+    "base": "OMN",
+    "kept": "Trucial States (UK)",
+    "gave": "Aden Protectorate (UK)",
+    "km2": 8566
+   },
+   {
+    "base": "PNG",
+    "kept": "Papua (Australia)",
+    "gave": "German New Guinea (Germany)",
+    "km2": 210784
+   },
+   {
+    "base": "SAU",
+    "kept": "Trucial States (UK)",
+    "gave": "Aden Protectorate (UK)",
+    "km2": 28328
+   },
+   {
+    "base": "SAU",
+    "kept": "Muscat and Oman",
+    "gave": "Aden Protectorate (UK)",
+    "km2": 12721
+   },
+   {
+    "base": "SOM",
+    "kept": "British East Africa (UK)",
+    "gave": "Italian Somaliland (Italy)",
+    "km2": 104759
+   },
+   {
+    "base": "TUR",
+    "kept": "Russian Empire",
+    "gave": "Ottoman Empire",
+    "km2": 26115
+   },
+   {
+    "base": "YEM",
+    "kept": "Muscat and Oman",
+    "gave": "Aden Protectorate (UK)",
+    "km2": 4995
+   }
+  ],
+  "overlapsKm2": 1137162,
+  "reconciledKm2": 3316984,
+  "badMerges": [],
+  "moves": [
+   {
+    "base": "MCO",
+    "to": "Monaco",
+    "km2": 19
+   },
+   {
+    "base": "SMR",
+    "to": "San Marino",
+    "km2": 60
+   },
+   {
+    "base": "LIE",
+    "to": "Liechtenstein",
+    "km2": 137
+   },
+   {
+    "base": "GRL",
+    "to": "Greenland (Denmark)",
+    "km2": 2137328
+   },
+   {
+    "base": "AND",
+    "to": "Andorra",
+    "km2": 452
+   },
+   {
+    "base": "TUR",
+    "from": "Bulgaria",
+    "to": "Ottoman Empire",
+    "km2": 23609
+   },
+   {
+    "base": "MDA",
+    "from": "Romania",
+    "to": "Russian Empire",
+    "km2": 28930
+   },
+   {
+    "base": "UKR",
+    "from": "Romania",
+    "to": "Russian Empire",
+    "km2": 17179
+   },
+   {
+    "base": "FRA",
+    "from": "Italy",
+    "to": "France",
+    "km2": 11672
+   },
+   {
+    "base": "KWT",
+    "to": "Kuwait (UK)",
+    "km2": 17469
+   },
+   {
+    "base": "TCD",
+    "from": "French West Africa (France)",
+    "to": "French Equatorial Africa (France)",
+    "km2": 1235885
+   },
+   {
+    "base": "CAF",
+    "from": "French West Africa (France)",
+    "to": "French Equatorial Africa (France)",
+    "km2": 476948
+   },
+   {
+    "base": "COG",
+    "from": "French West Africa (France)",
+    "to": "French Equatorial Africa (France)",
+    "km2": 36752
+   }
+  ],
+  "stripsKm2": 475987,
+  "entities": 195
+ },
+ {
+  "year": 1938,
+  "units": 160,
+  "unclaimed": [
+   "ABW",
+   "ALA",
+   "ATA",
+   "ATF",
+   "BHR",
+   "BMU",
+   "COK",
+   "COM",
+   "CPV",
+   "CYM",
+   "FLK",
+   "FRO",
+   "FSM",
+   "GGY",
+   "GIB",
+   "HMD",
+   "IMN",
+   "IOT",
+   "JEY",
+   "MAC",
+   "MDV",
+   "MHL",
+   "MLT",
+   "MUS",
+   "NFK",
+   "NRU",
+   "PCN",
+   "PLW",
+   "PYF",
+   "SGS",
+   "SHN",
+   "SPM",
+   "STP",
+   "SYC",
+   "TUV",
+   "UMI",
+   "VGB",
+   "XBN",
+   "XCP",
+   "XCS",
+   "XIO",
+   "XSN",
+   "XSP",
+   "XSR"
+  ],
+  "failures": [],
+  "overlaps": [
+   {
+    "base": "CHN",
+    "kept": "Manchukuo (Japan)",
+    "gave": "Empire of Japan",
+    "km2": 1109549
+   },
+   {
+    "base": "CHN",
+    "kept": "Burma (UK)",
+    "gave": "British Raj (UK)",
+    "km2": 2377
+   },
+   {
+    "base": "FRA",
+    "kept": "France",
+    "gave": "Switzerland",
+    "km2": 1197
+   },
+   {
+    "base": "MAR",
+    "kept": "Spanish Morocco (Spain)",
+    "gave": "Morocco (France)",
+    "km2": 36323
+   },
+   {
+    "base": "MMR",
+    "kept": "Burma (UK)",
+    "gave": "British Raj (UK)",
+    "km2": 640602
+   },
+   {
+    "base": "PER",
+    "kept": "Peru",
+    "gave": "Ecuador",
+    "km2": 189949
+   },
+   {
+    "base": "POL",
+    "kept": "Germany",
+    "gave": "Poland",
+    "km2": 23682
+   },
+   {
+    "base": "POL",
+    "kept": "Free City of Danzig",
+    "gave": "Poland",
+    "km2": 1003
+   },
+   {
+    "base": "PRK",
+    "kept": "Manchukuo (Japan)",
+    "gave": "Empire of Japan",
+    "km2": 1782
+   },
+   {
+    "base": "RUS",
+    "kept": "Manchukuo (Japan)",
+    "gave": "Empire of Japan",
+    "km2": 6428
+   },
+   {
+    "base": "THA",
+    "kept": "Burma (UK)",
+    "gave": "British Raj (UK)",
+    "km2": 2234
+   },
+   {
+    "base": "TUR",
+    "kept": "Hatay State",
+    "gave": "Syria (France)",
+    "km2": 5206
+   },
+   {
+    "base": "YEM",
+    "kept": "Yemen",
+    "gave": "Saudi Arabia",
+    "km2": 97433
+   }
+  ],
+  "overlapsKm2": 2122864,
+  "reconciledKm2": 3375634,
+  "badMerges": [],
+  "moves": [
+   {
+    "base": "MCO",
+    "to": "Monaco",
+    "km2": 19
+   },
+   {
+    "base": "SMR",
+    "to": "San Marino",
+    "km2": 60
+   },
+   {
+    "base": "LIE",
+    "to": "Liechtenstein",
+    "km2": 137
+   },
+   {
+    "base": "GRL",
+    "to": "Greenland (Denmark)",
+    "km2": 2137328
+   },
+   {
+    "base": "VAT",
+    "to": "Vatican City",
+    "km2": 0
+   },
+   {
+    "base": "TUR",
+    "from": "Greece",
+    "to": "Turkey",
+    "km2": 25489
+   },
+   {
+    "base": "TUR",
+    "from": "Soviet Union",
+    "to": "Turkey",
+    "km2": 148553
+   },
+   {
+    "base": "TUR",
+    "from": "Syria (France)",
+    "to": "Turkey",
+    "km2": 106908
+   },
+   {
+    "base": "ISL",
+    "to": "Iceland",
+    "km2": 101557
+   },
+   {
+    "base": "LBN",
+    "to": "Lebanon (France)",
+    "km2": 9996
+   },
+   {
+    "base": "JOR",
+    "to": "Transjordan (UK)",
+    "km2": 88825
+   },
+   {
+    "base": "KWT",
+    "to": "Kuwait (UK)",
+    "km2": 17469
+   },
+   {
+    "base": "SAU",
+    "from": "Iraq",
+    "to": "Saudi Arabia",
+    "km2": 21304
+   },
+   {
+    "base": "NAM",
+    "from": "Union of South Africa",
+    "to": "South West Africa (South Africa)",
+    "km2": 813588
+   },
+   {
+    "base": "PNG",
+    "to": "Papua and New Guinea (Australia)",
+    "km2": 467570
+   }
+  ],
+  "stripsKm2": 515586,
+  "entities": 210
+ },
+ {
+  "year": 1945,
+  "units": 166,
+  "unclaimed": [
+   "ABW",
+   "ALA",
+   "ATF",
+   "BHR",
+   "BMU",
+   "COK",
+   "COM",
+   "CPV",
+   "CYM",
+   "FLK",
+   "FRO",
+   "FSM",
+   "GGY",
+   "GIB",
+   "GUM",
+   "HMD",
+   "IMN",
+   "IOT",
+   "JEY",
+   "KIR",
+   "MAC",
+   "MDV",
+   "MHL",
+   "MLT",
+   "MNP",
+   "MUS",
+   "NCL",
+   "NFK",
+   "NRU",
+   "PCN",
+   "PLW",
+   "PYF",
+   "SGS",
+   "SHN",
+   "SLB",
+   "SPM",
+   "STP",
+   "SYC",
+   "TUV",
+   "UMI",
+   "VGB",
+   "VUT",
+   "XBN",
+   "XCP",
+   "XCS",
+   "XIO",
+   "XSN",
+   "XSP",
+   "XSR"
+  ],
+  "failures": [],
+  "overlaps": [
+   {
+    "base": "CAN",
+    "kept": "Newfoundland",
+    "gave": "Canada",
+    "km2": 374136
+   },
+   {
+    "base": "FRA",
+    "kept": "France",
+    "gave": "Switzerland",
+    "km2": 1197
+   },
+   {
+    "base": "MAR",
+    "kept": "Spanish Morocco (Spain)",
+    "gave": "Morocco (France)",
+    "km2": 36323
+   },
+   {
+    "base": "SAU",
+    "kept": "Aden Protectorate (UK)",
+    "gave": "Yemen",
+    "km2": 1202
+   },
+   {
+    "base": "YEM",
+    "kept": "Aden Protectorate (UK)",
+    "gave": "Yemen",
+    "km2": 291014
+   }
+  ],
+  "overlapsKm2": 704181,
+  "reconciledKm2": 3431037,
+  "badMerges": [],
+  "moves": [
+   {
+    "base": "MCO",
+    "to": "Monaco",
+    "km2": 19
+   },
+   {
+    "base": "SMR",
+    "to": "San Marino",
+    "km2": 60
+   },
+   {
+    "base": "LIE",
+    "to": "Liechtenstein",
+    "km2": 137
+   },
+   {
+    "base": "GRL",
+    "to": "Greenland (Denmark)",
+    "km2": 2137328
+   },
+   {
+    "base": "VAT",
+    "to": "Vatican City",
+    "km2": 0
+   },
+   {
+    "base": "KWT",
+    "to": "Kuwait (UK)",
+    "km2": 17471
+   },
+   {
+    "base": "SAU",
+    "from": "Iraq",
+    "to": "Saudi Arabia",
+    "km2": 10707
+   },
+   {
+    "base": "SAU",
+    "from": "Transjordan (UK)",
+    "to": "Saudi Arabia",
+    "km2": 7451
+   }
+  ],
+  "stripsKm2": 539020,
+  "entities": 220
+ },
+ {
+  "year": 1990,
+  "entities": 233
+ }
+]
