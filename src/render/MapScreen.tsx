@@ -141,10 +141,14 @@ export function MapScreen({
       return !!touches && touches.length > 1
     }
 
-    /* Outside the frame: nothing reaches the map, and the hover it last had is let go. */
+    /*
+     * Outside the frame — and everywhere while the frame is being edited — nothing reaches the map,
+     * and the hover it last had is let go: in Edit mode the map is locked, and no country can be
+     * selected, deselected or changed until Done.
+     */
     let hoverCleared = false
     const keepOut = (event: Event) => {
-      if (!onMap(event) || inside(at(event))) {
+      if (!onMap(event) || (!editingRef.current && inside(at(event)))) {
         hoverCleared = false
         return
       }
@@ -156,8 +160,9 @@ export function MapScreen({
         useMapStore.getState().setHovered(null)
       }
     }
+    // Outside the frame, or anywhere on the map while editing: the frame's menu, never a country's.
     const menuOutside = (event: MouseEvent) => {
-      if (!onMap(event) || inside(event)) return
+      if (!onMap(event) || (inside(event) && !editingRef.current)) return
       event.preventDefault()
       event.stopPropagation()
       setMenu({ x: event.clientX, y: event.clientY })

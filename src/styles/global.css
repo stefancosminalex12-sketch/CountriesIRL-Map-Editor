@@ -3093,15 +3093,14 @@ body {
   cursor: grabbing;
 }
 
-/* Edit mode: the frame in the accent, dashed, and a move cursor over the map inside it. */
+/*
+ * Edit mode: the frame as a fine dotted line — no heavy border — and a move cursor over the map
+ * inside it. The grips on the edges and corners show only under the pointer (below).
+ */
 .map-screen--editing .map-screen__frame {
-  box-shadow: 0 0 0 2px var(--accent);
-  outline: 1px dashed rgb(255 255 255 / 0.8);
+  box-shadow: none;
+  outline: 2px dotted var(--accent);
   outline-offset: -1px;
-}
-
-.map-screen--editing .map-screen__handle::after {
-  opacity: 0.9;
 }
 
 .map-canvas.is-editing-frame svg {
@@ -3161,7 +3160,8 @@ body {
   transition: opacity var(--dur) var(--ease);
 }
 
-.map-screen__handle:hover::after,
+/* A grip shows only while editing, under the pointer or while it is being dragged. */
+.map-screen--editing .map-screen__handle:hover::after,
 .map-screen--dragging .map-screen__handle::after {
   opacity: 0.9;
 }
