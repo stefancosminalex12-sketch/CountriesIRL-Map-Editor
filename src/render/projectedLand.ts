@@ -256,8 +256,59 @@ export function assistOf(land: ProjectedLand): AssistIndex {
  * than per dataset, so a session that visits every map still holds three sets of outlines and
  * not three per map — on a phone that is the difference that matters.
  */
-const REMEMBERED_VIEWS = 3
+/*
+ * On a computer with room to spare, every region of a map rather than three: the region chips
+ * are World and six continents, and switching between them is the commonest thing done on the
+ * map. Held there, a switch is a recall — tens of milliseconds — instead of projecting the world
+ * again, and `prewarmLand` fills them in before the first click. A phone, or a device that says
+ * it is short of memory, keeps three, as before.
+ */
+const ROOMY =
+  typeof navigator !== 'undefined' &&
+  typeof matchMedia === 'function' &&
+  !matchMedia('(pointer: coarse)').matches &&
+  ((navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 8) >= 4
+const REMEMBERED_VIEWS = ROOMY ? 9 : 3
 let remembered: ProjectedLand[] = []
+
+/** Whether this device keeps every region's land, and has it prepared ahead of a click. */
+export const CAN_PREWARM = ROOMY
+
+/** A view to prepare: its key, and how to make its projection — only when it is reached. */
+export interface PrewarmView {
+  key: string
+  make: () => { projection: GeoProjection; insets: ResolvedInset[] } | null
+}
+
+/**
+ * Projects views ahead of time, one after another and a slice at a time, off the render path, so
+ * the first switch to any of them is a recall. A view already remembered is skipped; nothing
+ * already remembered is pushed out of the way of the one on screen, which goes back to the front
+ * whenever it is drawn. Stops as soon as `cancelled` says so.
+ */
+export async function prewarmLand(
+  geo: LoadedDataset,
+  views: PrewarmView[],
+  width: number,
+  height: number,
+  cancelled: () => boolean,
+): Promise<void> {
+  for (const view of views) {
+    if (cancelled()) return
+    if (remembered.some((land) => land.geo === geo && land.key === view.key)) continue
+    // A breath between views, so a click in the meantime is answered first.
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    if (cancelled()) return
+    const made = view.make()
+    if (!made) continue
+    const land = await projectLandInSlices(geo, view.key, made.projection, made.insets, width, height, cancelled)
+    if (!land || cancelled()) return
+    // Behind what is already held, so the view on screen stays the most recent.
+    if (!remembered.some((other) => other.geo === geo && other.key === land.key)) {
+      remembered = [...remembered, land].slice(0, REMEMBERED_VIEWS)
+    }
+  }
+}
 
 function recallLand(geo: LoadedDataset, key: string): ProjectedLand | null {
   const hit = remembered.find((land) => land.geo === geo && land.key === key) ?? null

@@ -15,7 +15,7 @@ import { useKeyed } from './useKeyed'
 import { getAtlas } from '../maps/atlas'
 import { buildInsets, insetForEntity, insetForGroup } from '../maps/insets'
 import { buildProjection } from '../geo/fit'
-import { countriesInRegions } from '../geo/regions'
+import { countriesInRegions, regionsForAtlas } from '../geo/regions'
 import { computeFraming } from '../geo/framing'
 import {
   buildComparisonContext,
@@ -98,7 +98,7 @@ import {
   EMPTY_ASSIST_INDEX,
   pickAssistedCountryAt,
 } from './smallEntities'
-import { anchorsOf, assistOf, useProjectedLand } from './projectedLand'
+import { anchorsOf, assistOf, CAN_PREWARM, prewarmLand, useProjectedLand, type PrewarmView } from './projectedLand'
 import { reportDrawnTolerance, useFullDetail } from './landDetail'
 import { setMapCamera, setMapFocus } from './mapCamera'
 import { useGatedMemo } from './useGatedMemo'
@@ -319,6 +319,11 @@ const ANSWER_SIZE = 0.28
 const ANSWER_MIN = 1.96
 /** Arial Black's capital height, as a share of its size: from the baseline to the top of a Y. */
 const ANSWER_CAP = 0.72
+
+/** What a view of the land is remembered by: everything that decides its projection. See `projectedLand.ts`. */
+function landKeyOf(regionIds: readonly string[], projectionId: string, padding: number, width: number, height: number, tolerance: number): string {
+  return `${[...regionIds].sort().join('+')}|${projectionId}|${padding}|${width}x${height}|t${tolerance}`
+}
 
 const ZOOM_RANGE: [number, number] = [1, MAX_MAP_ZOOM]
 /** How much of the map's width or height an entity searched for is zoomed to fill. */
@@ -821,7 +826,7 @@ export function MapCanvas() {
   // enlarged coarse borders on screen until an asynchronous replacement finished.
   // Keep every point at every zoom so live and settled navigation draw the same land.
   const landTolerance = 0
-  const landKey = `${[...scope.regionIds].sort().join('+')}|${scope.projectionId}|${scope.padding}|${fit.width}x${fit.height}|t${landTolerance}`
+  const landKey = landKeyOf(scope.regionIds, scope.projectionId, scope.padding, fit.width, fit.height, landTolerance)
   const land = useProjectedLand(
     geo,
     targetProjection,
@@ -834,6 +839,38 @@ export function MapCanvas() {
   )
   const projection = land?.projection ?? null
   const insets = land?.insets ?? NO_INSETS
+
+  /*
+   * Every region of this map, prepared ahead of a click (`prewarmLand`): once the land on screen
+   * is drawn and the page has been quiet a moment, each region chip's view is projected in the
+   * background, a slice at a time, so switching to it is a recall rather than a reprojection of
+   * the world. Only where the views can all be kept (`CAN_PREWARM`), and not for a progressive
+   * dataset, whose views are each far larger. Restarted — skipping what is ready — whenever the
+   * view on screen changes, and stopped by anything that would change the views it prepares.
+   */
+  useEffect(() => {
+    if (!CAN_PREWARM || !geo || geo.dataset.progressive || !land || land.geo !== geo) return
+    if (fit.width < 2 || fit.height < 2) return
+    let cancelled = false
+    const views: PrewarmView[] = regionsForAtlas(scope.atlasId).map((region) => ({
+      key: landKeyOf([region.id], scope.projectionId, scope.padding, fit.width, fit.height, 0),
+      make: () => {
+        const projection = buildProjection({
+          framing: computeFraming([region.id], geo),
+          projectionId: scope.projectionId,
+          width: fit.width,
+          height: fit.height,
+          padding: scope.padding,
+        })
+        return { projection, insets: buildInsets(atlas, projection, fit.width, fit.height, geo.meta) }
+      },
+    }))
+    const timer = window.setTimeout(() => void prewarmLand(geo, views, fit.width, fit.height, () => cancelled), 1500)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [geo, land, atlas, scope.atlasId, scope.projectionId, scope.padding, fit.width, fit.height])
 
   useEffect(() => {
     /*
