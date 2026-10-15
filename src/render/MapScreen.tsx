@@ -87,6 +87,8 @@ export function MapScreen({
 
   const rect = drag?.rect ?? moved ?? screen
 
+  const holes = usePanelHoles(active, containerRef)
+
   /** Edit mode: the frame moves and resizes only while it is on. See the effect below. */
   const [editing, setEditing] = useState(false)
   const editingRef = useRef(false)
@@ -483,6 +485,7 @@ export function MapScreen({
       className={`map-screen${drag ? ' map-screen--dragging' : ''}${
         moved ? ' map-screen--moving' : ''
       }${editing ? ' map-screen--editing' : ''}`}
+      style={holes.length > 0 ? { clipPath: holesClip(holes, width, height) } : undefined}
     >
       {/*
         The workspace outside the picture: a light blur and a little dimming, enough to
@@ -599,4 +602,76 @@ function FrameMenu({
     </div>,
     document.body,
   )
+}
+
+/** A panel's box over the map, in the map's coordinates. */
+interface Hole {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+/** What floats over the map: the open tool card, its attached box, the File menu and the menus. */
+const OVER_MAP = '.sidebar--open .sidebar__panel, .attached-card, .top-flyout, .top-menu'
+
+/**
+ * Where panels sit over the map, so the workspace's dimming and blur can leave them out: the
+ * panels are glass, and the darkened workspace showed through them, so a card looked dull and
+ * smoky over the edge of the frame and clean beside it. Measured whenever the page changes
+ * (a panel opening, a menu, a resize), at most once a frame.
+ */
+function usePanelHoles(active: boolean, containerRef: React.RefObject<HTMLElement | null>): Hole[] {
+  const [holes, setHoles] = useState<Hole[]>([])
+  useEffect(() => {
+    const container = containerRef.current
+    if (!active || !container) {
+      setHoles([])
+      return
+    }
+    let frame = 0
+    const measure = () => {
+      frame = 0
+      const box = container.getBoundingClientRect()
+      const next = [...document.querySelectorAll(OVER_MAP)]
+        .map((el) => el.getBoundingClientRect())
+        .filter((r) => r.width > 0 && r.height > 0)
+        .map((r) => ({ x: r.left - box.left, y: r.top - box.top, w: r.width, h: r.height }))
+      setHoles((previous) =>
+        previous.length === next.length &&
+        previous.every((h, i) => Math.abs(h.x - next[i].x) < 0.5 && Math.abs(h.y - next[i].y) < 0.5 && Math.abs(h.w - next[i].w) < 0.5 && Math.abs(h.h - next[i].h) < 0.5)
+          ? previous
+          : next,
+      )
+    }
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(measure)
+    }
+    /*
+     * Watched where panels come and go — the sidebar, the top bar, and the page's own children for
+     * the menus put there — and not the map, whose camera changes styles every frame of a pan.
+     */
+    const observer = new MutationObserver(schedule)
+    observer.observe(document.body, { childList: true })
+    for (const root of document.querySelectorAll('.sidebar, .app__header')) {
+      observer.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'hidden', 'style'] })
+    }
+    window.addEventListener('resize', schedule)
+    document.addEventListener('transitionend', schedule, true)
+    measure()
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', schedule)
+      document.removeEventListener('transitionend', schedule, true)
+      if (frame) cancelAnimationFrame(frame)
+    }
+  }, [active, containerRef])
+  return holes
+}
+
+/** The workspace with the panels cut out of it, as a clip path (even-odd). */
+function holesClip(holes: Hole[], width: number, height: number): string {
+  let d = `M0 0H${width}V${height}H0Z`
+  for (const h of holes) d += `M${h.x} ${h.y}h${h.w}v${h.h}h${-h.w}Z`
+  return `path(evenodd, '${d}')`
 }

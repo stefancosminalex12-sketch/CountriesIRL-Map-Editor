@@ -28,6 +28,7 @@ import { LegendControls, LegendSizeControls } from './LegendControls'
 import { ScreenControls } from './ScreenControls'
 import { MergeControls } from './MergeControls'
 import { MapGrip } from './MapGrip'
+import { AttachedSlot } from './AttachedBox'
 import { OverlayControls } from './OverlayControls'
 import { SelectionControls } from './SelectionControls'
 import { StickerControls } from './StickerControls'
@@ -114,6 +115,9 @@ const ICONS: Record<string, ReactNode> = {
 
 /** The space kept between the dropdown and the sidebar's top and bottom edges, in pixels. */
 const DROP_GAP = 6
+/** The gap between the card and a box attached to it, and the least room worth a box beneath. */
+const ATTACHED_GAP = 6
+const ATTACHED_MIN = 150
 
 interface SidebarSection {
   id: string
@@ -378,6 +382,28 @@ export function Sidebar() {
   const itemRefs = useRef(new Map<string, HTMLButtonElement>())
   const railRef = useRef<HTMLElement>(null)
   const [dropTop, setDropTop] = useState(0)
+  /*
+   * Where a box attached to the card goes (`AttachedBox`): right under it, or — when the card sits
+   * too near the foot of the sidebar to leave a useful box beneath — beside it, level with its top.
+   * Measured from the card itself, so it follows the card wherever it is placed.
+   */
+  const [attachedHost, setAttachedHost] = useState<HTMLDivElement | null>(null)
+  const [attachedAt, setAttachedAt] = useState<{ top: number; beside: boolean }>({ top: 0, beside: false })
+  useLayoutEffect(() => {
+    const panel = panelRef.current
+    const root = rootRef.current
+    if (!panel || !root) return
+    const place = () => {
+      const below = dropTop + panel.offsetHeight + ATTACHED_GAP
+      const room = root.getBoundingClientRect().height - below - DROP_GAP
+      setAttachedAt(room >= ATTACHED_MIN ? { top: below, beside: false } : { top: dropTop, beside: true })
+    }
+    place()
+    const observer = new ResizeObserver(place)
+    observer.observe(panel)
+    observer.observe(root)
+    return () => observer.disconnect()
+  }, [dropTop, renderedId])
   useLayoutEffect(() => {
     if (!renderedId) return
     const place = () => {
@@ -524,7 +550,7 @@ export function Sidebar() {
               says these are different things, which is the truth.
             */}
             <div className="sidebar__body" key={rendered.id}>
-              {rendered.body}
+              <AttachedSlot.Provider value={attachedHost}>{rendered.body}</AttachedSlot.Provider>
             </div>
             {/*
               The map, through the bottom of the panel — on a phone, where an open panel
@@ -536,13 +562,21 @@ export function Sidebar() {
         )}
       </div>
 
+      {/* Boxes attached to the card: a selection's controls, beneath it. See `AttachedBox`. */}
+      <div
+        className={`sidebar__attached${attachedAt.beside ? ' sidebar__attached--beside' : ''}`}
+        ref={setAttachedHost}
+        hidden={!open}
+        style={{ top: attachedAt.top }}
+      />
+
+      {mapMenu && <MapSectionMenu request={mapMenu} onChoose={setOpenId} onClose={closeMapMenu} />}
+
       {/*
         Back, on a phone only (`.mobile-back` in the stylesheet) and only while there is
         something open to back out of. Floating at the bottom-right, where a thumb holding
         the phone reaches, rather than in the panel's header at the top.
       */}
-      {mapMenu && <MapSectionMenu request={mapMenu} onChoose={setOpenId} onClose={closeMapMenu} />}
-
       {open && backHost && createPortal(
         <button type="button" className="mobile-back" aria-label="Back" title="Back" onClick={back}>
           <svg

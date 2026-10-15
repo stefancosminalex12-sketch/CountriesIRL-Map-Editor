@@ -47,6 +47,7 @@ import { Inspector } from './Inspector'
 import { FlagOverrideControls } from './FlagOverrideControls'
 import { useEffect, useRef, useState } from 'react'
 import { SelectField } from './Select'
+import { AttachedBox } from './AttachedBox'
 
 type ColorMode = 'none' | 'data' | 'comparison' | 'flags'
 /** Which shape the data scale takes. Mirrors `ColorScale.mode`: numeric, threshold, categorical. */
@@ -55,6 +56,7 @@ type DataScale = 'palette' | 'predefined' | 'imported'
 export function DataPalette() {
   const doc = useMapStore((s) => s.doc)
   const dispatch = useMapStore((s) => s.dispatch)
+  const selectedCount = useMapStore((s) => s.selectedCountryIds.length)
 
   const layer = doc.layers.find((l) => l.id === doc.activeLayerId) ?? doc.layers[0]
   const key = layer?.dataKey ?? 'value'
@@ -212,10 +214,10 @@ export function DataPalette() {
             Bounded, so a large selection scrolls here instead of pushing everything
             below it — the Merge panel in particular — down the section.
           */}
-                      <hr className="rule" />
-            <div className="selection-scroll">
-              <Inspector />
-            </div>
+          {/* In its own box under the card, so the card above never changes as countries are picked. */}
+          <AttachedBox show={selectedCount > 0} label="Selected countries">
+            <Inspector />
+          </AttachedBox>
         </>
       )}
 
@@ -307,11 +309,10 @@ export function DataPalette() {
             Flags mode reports the same information it does everywhere else — with the
             one control that is specific to this mode underneath it.
           */}
-                      <hr className="rule" />
-            <div className="selection-scroll">
-              <Inspector />
-            </div>
+          <AttachedBox show={selectedCount > 0} label="Selected countries">
+            <Inspector />
             <FlagOverrideControls />
+          </AttachedBox>
         </>
       )}
 
