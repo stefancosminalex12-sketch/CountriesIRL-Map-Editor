@@ -216,11 +216,19 @@ const WORLD_DATASETS: GeoDataset[] = [
  * historical-basemaps' borders (GPL v3) cut into the modern map's Natural Earth land at 25m, and
  * for 1990 from the modern map's own countries. See `data/historical/README.md`.
  */
+const WORLD_YEAR_NOTES: Record<number, string> = {
+  1914: 'Before the First World War',
+  1938: 'Before the Second World War',
+  1945: 'After the Second World War',
+  1990: 'The end of the Cold War',
+}
+
 const WORLD_YEARS: GeoDataset[] = [1914, 1938, 1945, 1990].map((year) => ({
   id: `world-${year}`,
   atlasId: 'world',
-  name: `World in ${year}`,
+  name: `World ${year}`,
   label: String(year),
+  description: WORLD_YEAR_NOTES[year],
   era: 'historical',
   year,
   detail: '25m',

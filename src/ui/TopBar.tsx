@@ -4,7 +4,8 @@
  * - **File** — the map's own settings, one row each, every row opening its choices in a menu at
  *   its side, the way a desktop app's menus cascade:
  *   - **Templates**, first — the built-in presets, which set up the rows below;
- *   - **Maps** — World, Europe and USA as buttons, and the chosen one's maps under them;
+ *   - **Maps** — World, Europe and USA as buttons, and the chosen one's maps under them; under
+ *     World, the World map in its past years too ("World 1990", "World 1945"…);
  *   - **Resolution** — the open map's levels of detail (only when it has more than one);
  *   - **Projection**;
  *   - **Outside region** — how the land outside the chosen region is drawn;
@@ -14,8 +15,6 @@
  *     Sources, as the rail's Settings section held them.
  *   On a narrow screen there is no room at the side, so a row opens its choices in place of the
  *   rows, with a way back up a level.
- * - **Year** — the year the map is of, today's ({@link MODERN_YEAR}) or one of the World map's
- *   past years, chosen on a pocket watch (`YearPicker`).
  * - **Regions** — the open map's regions as split buttons. The name selects and deselects
  *   (regions combine: Europe + Asia frames Eurasia); the arrow box attached to its right opens
  *   the region's subregions, which combine the same way.
@@ -29,11 +28,10 @@ import { Chevron, ChevronRight, Flyout, MenuItem, Popover, useNarrow } from './M
 import { GeographicFeatureToggles, LabelsAndHelpers, LineWidthSwatches, MapColorSwatches } from './MapSettings'
 import { DataSources, SelectionHighlight, ThemePicker, TransparencySwitch } from './SettingsPanel'
 import { TemplatePicker } from './TemplatePicker'
-import { YearControl } from './YearPicker'
 import { useMapStore } from '../state/mapStore'
 import { ATLAS_FAMILIES, ATLASES, getAtlas, MODERN_YEAR, yearOfDataset, type Atlas } from '../maps/atlas'
 import { regionsForAtlas, subregionsOf, type RegionPreset } from '../geo/regions'
-import { datasetsForAtlas } from '../geo/datasets'
+import { datasetsForAtlas, getDataset } from '../geo/datasets'
 import { noteDetailChosen } from '../maps/startingDetail'
 import { AUTO_PROJECTION_ID, PROJECTIONS } from '../geo/projections'
 import type { MapStyle, ProjectionId, RegionId } from '../types/map'
@@ -51,10 +49,16 @@ function noteFor(atlas: Atlas): string {
  * File → Maps: the map families as a row of buttons on the region bar's track — World, Europe,
  * USA — and the chosen family's maps under it. Opens on the family of the map that is open; a
  * click on another family shows its maps instead, and a click on a map opens it.
+ *
+ * A map with past years (`Atlas.years`) lists them under itself, newest first: "World 1990",
+ * "World 1945". One is the same map in that year — `setYear`, which keeps the region, frame and
+ * colours — so the map itself reads as today's while a year is open.
  */
 function MapChoices({ done }: { done: () => void }) {
   const atlasId = useMapStore((s) => s.doc.scope.atlasId)
+  const year = useMapStore((s) => yearOfDataset(s.doc.scope.datasetId))
   const setAtlas = useMapStore((s) => s.setAtlas)
+  const setYear = useMapStore((s) => s.setYear)
   const [family, setFamily] = useState<string>(() => ATLASES.find((a) => a.id === atlasId)?.family ?? ATLAS_FAMILIES[0].id)
   return (
     <div className="top-maps">
@@ -74,18 +78,31 @@ function MapChoices({ done }: { done: () => void }) {
         ))}
       </div>
       <div className="top-menu__group" role="tabpanel">
-        {ATLASES.filter((a) => a.family === family).map((a) => (
+        {ATLASES.filter((a) => a.family === family).map((a) => [
           <MenuItem
             key={a.id}
             name={a.menuName ?? a.name}
             note={noteFor(a)}
-            active={a.id === atlasId}
+            active={a.id === atlasId && year === MODERN_YEAR}
             onChoose={() => {
               if (a.id !== atlasId) setAtlas(a.id)
+              else if (year !== MODERN_YEAR) setYear(MODERN_YEAR)
               done()
             }}
-          />
-        ))}
+          />,
+          ...[...(a.years ?? [])].reverse().map((d) => (
+            <MenuItem
+              key={d.id}
+              name={d.name}
+              note={d.description}
+              active={a.id === atlasId && year === d.year}
+              onChoose={() => {
+                setYear(d.year as number)
+                done()
+              }}
+            />
+          )),
+        ])}
       </div>
     </div>
   )
@@ -485,7 +502,13 @@ function FileMenu() {
         </div>
       ),
     },
-    { id: 'map', name: 'Maps', value: atlas.menuName ?? atlas.name, render: (done) => <MapChoices done={done} /> },
+    {
+      id: 'map',
+      name: 'Maps',
+      // A past year is named as the Maps list names it: "World 1945".
+      value: getDataset(scope.datasetId).era === 'historical' ? getDataset(scope.datasetId).name : (atlas.menuName ?? atlas.name),
+      render: (done) => <MapChoices done={done} />,
+    },
     // A past year is one map, at one detail.
     ...(datasets.length > 1 && dataset
       ? [{ id: 'resolution', name: 'Resolution', value: dataset ? shortDataset(dataset) : '—', render: (done: () => void) => <ResolutionChoices done={done} /> }]
@@ -556,12 +579,11 @@ function FileMenu() {
   )
 }
 
-/** The left of the bar: the File menu, the year, and the open map's regions. */
+/** The left of the bar: the File menu and the open map's regions. */
 export function TopBarScope() {
   return (
     <div className="top-scope">
       <FileMenu />
-      <YearControl />
       <RegionBar />
     </div>
   )

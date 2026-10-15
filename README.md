@@ -642,16 +642,14 @@ The data files are committed like the Official USA map's: about 68 MB in `data/e
 
 #### The World in other years
 
-The **Year** control, between File and the regions, shows the year the map is of: 2026 for every
-modern map. It opens a pocket watch with a single window. The years are printed on a disc behind
-it, and the disc turns: by the arrows beside the window, the wheel, the arrow keys, or by dragging
-the dial round. The year it settles on opens a moment later, so turning past three years loads
-only the fourth (`src/ui/YearPicker.tsx`).
+File → Maps lists them under World, newest first: **World 1990**, **World 1945**, **World 1938**
+and **World 1914**, after Modern World. (A Year control on a pocket watch, `src/ui/YearPicker.tsx`,
+is built and kept for later, but not in the top bar for now.)
 
 The years are the World map's `years` (`maps/atlas.ts`): 1914, 1938, 1945 and 1990, each a
 dataset of the same document. Switching year keeps the region, the frame, the colours and the
 stickers, and a value given in one year waits in the document while another is shown. From any
-other map, a past year opens the World map. On a past year:
+other map, a year opens the World map; Modern World goes back to today's. On a past year:
 
 - only the continents are offered, because the subregions are made of today's countries;
 - there is no Resolution row, because each year has one detail level, 25m.

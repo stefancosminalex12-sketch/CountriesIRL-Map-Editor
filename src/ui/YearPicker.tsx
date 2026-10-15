@@ -1,4 +1,7 @@
 /**
+ * NOT IN USE for now: the years are chosen in File → Maps ("World 1990"…). Kept for when the top
+ * bar gets it back.
+ *
  * The Year control: between File and the regions, "Year" with the open map's year under it, and
  * behind it a pocket watch.
  *
@@ -19,12 +22,9 @@ import { getAtlas, DEFAULT_ATLAS_ID, MODERN_YEAR, yearOfDataset } from '../maps/
 /** Oldest first, today last. */
 const YEARS = [...(getAtlas(DEFAULT_ATLAS_ID).years ?? []).map((d) => d.year as number), MODERN_YEAR]
 
-/** What each year's map shows, engraved under the window. */
+/** What each year's map shows, engraved under the window: the dataset's own line. */
 const CAPTIONS: Record<number, string> = {
-  1914: 'Before the First World War',
-  1938: 'Before the Second World War',
-  1945: 'After the Second World War',
-  1990: 'The end of the Cold War',
+  ...Object.fromEntries((getAtlas(DEFAULT_ATLAS_ID).years ?? []).map((d) => [d.year, d.description ?? ''])),
   [MODERN_YEAR]: 'Today',
 }
 
