@@ -142,7 +142,7 @@ function presetsOf(m) {
   const out = []
   if (!m) return out
   if (m.region === 'Europe' || EUROPE_EXTRA.has(m.id)) out.push('europe')
-  if (m.region === 'Asia') out.push('asia')
+  if (m.region === 'Asia' || m.id === 'RUS') out.push('asia')
   if (m.region === 'Africa') out.push('africa')
   if (m.region === 'Americas' && AMERICAS_NORTH.has(m.subregion)) out.push('north-america')
   if (m.region === 'Americas' && m.subregion === 'South America') out.push('south-america')
@@ -434,6 +434,8 @@ function buildYear(year, sources) {
       region: main?.region ?? 'Other',
       subregion: main?.subregion ?? 'Other',
       regions: [...regions],
+      // The modern country with most of its land, which it answers Yes or No in the language of.
+      modern: ranked[0][0],
       // A colony is named "Place (Ruler)".
       independent: !entity.name.includes('('),
       lat: Number(lat.toFixed(3)),
@@ -495,6 +497,8 @@ function build1990() {
         officialName: union.officialName,
         region: lead?.region ?? 'Other',
         subregion: lead?.subregion ?? 'Other',
+        // Every region a member is in: the Soviet Union is on a map of Asia as well as Europe.
+        regions: [...new Set(union.members.flatMap((id) => presetsOf(modernMeta[id])))],
         independent: true,
         lat: Number(lat.toFixed(3)),
         lng: Number(lng.toFixed(3)),

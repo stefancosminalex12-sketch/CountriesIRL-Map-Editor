@@ -20,8 +20,9 @@ import { lakeLayerForDetail, loadLakes, type LoadedLakes } from '../geo/lakes'
 import { riverLayerForDetail, loadRivers, type LoadedRivers } from '../geo/rivers'
 import { loadMaritime, type LoadedMaritime } from '../geo/maritime'
 import { isWaterId, loadWaters, partitionByWater, type LoadedWaters } from '../geo/waters'
-import { countriesInRegions, resolveFraming } from '../geo/regions'
-import { getAtlas } from '../maps/atlas'
+import { countriesInRegions, getRegion, resolveFraming } from '../geo/regions'
+import { DEFAULT_ATLAS_ID, getAtlas, MODERN_YEAR, yearOfDataset } from '../maps/atlas'
+import { startingDatasetId } from '../maps/startingDetail'
 import type { CountryId, MapDocument, RegionId } from '../types/map'
 
 export type Transform = { k: number; x: number; y: number }
@@ -328,6 +329,11 @@ interface MapStore {
   loadDataset: (datasetId: string) => Promise<void>
   /** Opens another atlas, parking the current map's state and restoring the target's. */
   setAtlas: (atlasId: string) => void
+  /**
+   * Opens the World map as it was in `year` — {@link MODERN_YEAR} for today's — keeping the
+   * rest of the map: its region, frame, mode, colours and stickers.
+   */
+  setYear: (year: number) => void
   dispatch: (ops: MapOperation | MapOperation[]) => OperationResult[]
 
   undo: () => void
@@ -647,6 +653,30 @@ export const useMapStore = create<MapStore>((set, get) => {
     })
 
     void get().loadDataset(next.doc.scope.datasetId)
+  },
+
+  setYear(year) {
+    // The years are the World map's; from any other map, a year opens it.
+    if (get().doc.scope.atlasId !== DEFAULT_ATLAS_ID) get().setAtlas(DEFAULT_ATLAS_ID)
+    const atlas = getAtlas(DEFAULT_ATLAS_ID)
+    const { scope } = get().doc
+    const past = year === MODERN_YEAR ? null : atlas.years?.find((d) => d.year === year)
+    if (year !== MODERN_YEAR && !past) return
+    /*
+     * Today's map at the detail it opens at — the author's choice this session, if they made
+     * one — and a past year at its own. A year is a dataset of the same document, so the
+     * values, stickers and frame stay; a value given to a country of one year waits in the
+     * document while another year is shown, as one given to a unit of another level does.
+     */
+    const datasetId = past ? past.id : yearOfDataset(scope.datasetId) === MODERN_YEAR ? scope.datasetId : startingDatasetId(atlas)
+    if (datasetId === scope.datasetId) return
+    const ops: MapOperation[] = [{ op: 'set_scope_dataset', datasetId }]
+    // A past year offers the continents only: the subregions are made of today's countries.
+    if (past) {
+      const regionIds = [...new Set(scope.regionIds.map((id) => getRegion(id).parentId ?? id))]
+      if (regionIds.join() !== scope.regionIds.join()) ops.push({ op: 'set_scope_regions', regionIds })
+    }
+    get().dispatch(ops)
   },
 
   dispatch(input) {

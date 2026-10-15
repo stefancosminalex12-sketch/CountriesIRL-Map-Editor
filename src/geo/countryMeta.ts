@@ -33,6 +33,17 @@ export interface EntityMeta {
   region: string
   /** The level below it: an ISO subregion, a census division. */
   subregion: string
+  /**
+   * The continents this entity is on, by region preset id, where `region` alone cannot say:
+   * a historical state on two of them, like the Ottoman Empire of 1914 in Europe and Asia.
+   * Absent, the presets' own rules decide from `region` and `subregion`.
+   */
+  regions?: string[]
+  /**
+   * On a past year's map, the modern country holding most of the entity's land, by the World
+   * map's id: the German Empire's is `DEU`. What it answers in, where it has no words of its own.
+   */
+  modern?: string
   independent: boolean
   lat: number
   lng: number

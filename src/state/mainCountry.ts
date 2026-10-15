@@ -31,7 +31,11 @@ const WORDS: Record<string, [yes: string, no: string]> = {
   sm: ['Ioe', 'Leai'], to: ['Io', 'Ikai'],
 }
 
-/** Each language's countries, by ISO 3166 alpha-3 (and the dataset's own codes for the rest). */
+/**
+ * Each language's countries, by ISO 3166 alpha-3 (and the dataset's own codes for the rest: the
+ * 1990 map's Soviet Union, Yugoslavia and Czechoslovakia). A state of an older year answers in
+ * the language of the modern country holding most of its land (`EntityMeta.modern`).
+ */
 const COUNTRIES: Record<string, string> = {
   fr: 'FRA MCO SEN MLI BFA NER TCD GIN CIV TGO BEN CMR GAB COG COD CAF DJI COM NCL PYF GUF GLP MTQ REU MYT SPM WLF BLM MAF ATF',
   es: 'ESP MEX GTM HND SLV NIC CRI PAN CUB DOM PRI COL VEN ECU PER BOL CHL ARG URY PRY GNQ',
@@ -39,8 +43,8 @@ const COUNTRIES: Record<string, string> = {
   it: 'ITA SMR VAT',
   de: 'DEU AUT CHE LIE',
   nl: 'NLD BEL SUR ABW CUW SXM BES',
-  lb: 'LUX', ro: 'ROU MDA', ru: 'RUS', uk: 'UKR', be: 'BLR', pl: 'POL', cs: 'CZE', sk: 'SVK',
-  hu: 'HUN', bg: 'BGR', sh: 'SRB HRV BIH MNE', mk: 'MKD', sl: 'SVN', sq: 'ALB XKX KOS',
+  lb: 'LUX', ro: 'ROU MDA', ru: 'RUS SUN', uk: 'UKR', be: 'BLR', pl: 'POL', cs: 'CZE CSK', sk: 'SVK',
+  hu: 'HUN', bg: 'BGR', sh: 'SRB HRV BIH MNE YUG', mk: 'MKD', sl: 'SVN', sq: 'ALB XKX KOS',
   el: 'GRC CYP', tr: 'TUR CYN', sv: 'SWE ALA', no: 'NOR SJM', da: 'DNK', fo: 'FRO', is: 'ISL',
   fi: 'FIN', et: 'EST', lv: 'LVA', lt: 'LTU', mt: 'MLT', ca: 'AND', kl: 'GRL',
   ka: 'GEO', hy: 'ARM', az: 'AZE', kk: 'KAZ', uz: 'UZB', ky: 'KGZ', tg: 'TJK', tk: 'TKM', mn: 'MNG',
@@ -55,7 +59,7 @@ const COUNTRIES: Record<string, string> = {
 const LANGUAGE_OF = new Map<string, string>()
 for (const [language, codes] of Object.entries(COUNTRIES)) for (const code of codes.split(' ')) LANGUAGE_OF.set(code, language)
 
-/** Yes or No in an entity's language: its own, or its country's for a region. */
+/** Yes or No in an entity's language: its own, or its country's for a region (`parentId`). */
 export function answerWord(yes: boolean, entityId: string, parentId?: string | null): string {
   const language = LANGUAGE_OF.get(entityId) ?? (parentId ? LANGUAGE_OF.get(parentId) : undefined) ?? 'en'
   return WORDS[language][yes ? 0 : 1]

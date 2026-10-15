@@ -5310,3 +5310,157 @@ html.file-menu-open .sidebar__attached {
   align-self: flex-start;
   margin-left: 0;
 }
+
+/* --------------------------------------------------------------------- year */
+
+/*
+ * The Year control (`YearPicker`): "Year" over the year, and the pocket watch it opens. The
+ * watch is an object, brass and enamel, the same on every theme; only its shadow follows it.
+ */
+:root {
+  --watch-metal-hi: #f6e2a8;
+  --watch-metal: #caa055;
+  --watch-metal-lo: #7d5f26;
+  --watch-dial-hi: #fffaf0;
+  --watch-dial: #efe4cc;
+  --watch-window: #fbf6ea;
+  --watch-ink: #2b2117;
+  --watch-shadow: drop-shadow(0 14px 22px rgb(0 0 0 / 0.28)) drop-shadow(0 2px 4px rgb(0 0 0 / 0.18));
+}
+
+:root[data-theme='dark'] {
+  --watch-dial-hi: #f4ecdb;
+  --watch-dial: #e2d5b8;
+  --watch-shadow: drop-shadow(0 16px 26px rgb(0 0 0 / 0.55)) drop-shadow(0 2px 4px rgb(0 0 0 / 0.35));
+}
+
+/* Two lines in the bar's height: the word, small, and the year under it. */
+.top-button.top-year {
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 0;
+  flex: none;
+  height: 34px;
+  min-width: 52px;
+  padding: 0 10px;
+  line-height: 1;
+}
+
+.top-year__label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.top-year__value {
+  margin-top: 3px;
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 620px) {
+  .top-button.top-year {
+    height: 30px;
+    min-width: 46px;
+    padding: 0 7px;
+  }
+}
+
+/* The watch floats on its own: no menu box round it. */
+.top-menu.year-popover {
+  padding: 0;
+  max-height: none;
+  overflow: visible;
+  background: none;
+  border: none;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.year-watch__face {
+  display: block;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+  filter: var(--watch-shadow);
+}
+
+.year-watch__face:focus {
+  outline: none;
+}
+
+.year-watch__face--held {
+  cursor: grabbing;
+}
+
+/* The disc turns to its year with a little settle, as a detent would. Held, it follows the hand. */
+.year-watch__disc {
+  transform-origin: 0 0;
+  transition: transform 460ms cubic-bezier(0.34, 1.45, 0.5, 1);
+}
+
+.year-watch__year {
+  transition: opacity 380ms var(--ease);
+}
+
+.year-watch__face--held .year-watch__disc,
+.year-watch__face--held .year-watch__year {
+  transition: none;
+}
+
+.year-watch__year {
+  fill: var(--watch-ink);
+  font-size: 25px;
+  font-weight: 700;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.year-watch__caption {
+  fill: var(--watch-ink);
+  opacity: 0.72;
+  font-size: 8.5px;
+  font-style: italic;
+  font-family: Georgia, 'Times New Roman', serif;
+}
+
+.year-watch__step {
+  cursor: pointer;
+}
+
+.year-watch__step circle {
+  fill: transparent;
+}
+
+.year-watch__step path {
+  stroke: var(--watch-ink);
+  opacity: 0.75;
+}
+
+.year-watch__step:hover circle {
+  fill: rgb(43 33 23 / 0.08);
+}
+
+.year-watch__step:hover path {
+  opacity: 1;
+}
+
+.year-watch__step--off {
+  pointer-events: none;
+}
+
+.year-watch__step--off path {
+  opacity: 0.2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .year-watch__disc {
+    transition: none;
+  }
+}

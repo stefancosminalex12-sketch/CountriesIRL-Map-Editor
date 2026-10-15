@@ -154,6 +154,24 @@ writeFileSync(
   }
 }
 
+/* ----------------------------------------------------------------- Historical */
+
+/**
+ * Written whole by `scripts/historical/build-historical.mjs` — the World map in 1914, 1938, 1945
+ * and 1990 — so this only copies it, with its licence (GPL v3, from historical-basemaps).
+ */
+{
+  const src = resolve(root, 'data/historical')
+  const dest = resolve(outDir, 'historical')
+  if (existsSync(resolve(src, 'world-1914.json'))) {
+    rmSync(dest, { recursive: true, force: true })
+    cpSync(src, dest, { recursive: true, filter: (path) => !path.endsWith('report.json') })
+    console.log(`[prepare-data] historical world maps -> public/geo/historical/`)
+  } else {
+    console.warn('[prepare-data] missing data/historical/ - run: node scripts/historical/build-historical.mjs')
+  }
+}
+
 console.log(
   `[prepare-data] ${CURATED.length - missing.length} of ${CURATED.length} curated layers copied, ` +
     `${Object.keys(byId).length} countries indexed -> public/geo/`,

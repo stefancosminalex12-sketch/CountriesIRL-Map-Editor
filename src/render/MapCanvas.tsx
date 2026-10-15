@@ -1512,7 +1512,7 @@ export function MapCanvas() {
       const yes = answers.get(shape.id)
       if (yes === undefined) continue
       if (style.outsideScope === 'hidden' && !scopeCountryIds.has(shape.id)) continue
-      const word = answerWord(yes, shape.id, geo?.meta[shape.id]?.parent?.id)
+      const word = answerWord(yes, shape.id, geo?.meta[shape.id]?.parent?.id ?? geo?.meta[shape.id]?.modern)
       const sticker = placed.get(shape.id)
       if (sticker) {
         const fontSize = Math.max(sticker.size * ANSWER_SIZE, ANSWER_MIN * shape.unit * scale)

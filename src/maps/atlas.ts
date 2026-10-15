@@ -145,7 +145,16 @@ export interface Atlas {
    * simply has no default of its own to fall back to.
    */
   ownFlags: boolean
+  /**
+   * The same map in other years, oldest first: the World in 1914, 1938, 1945 and 1990. Chosen
+   * with the Year control in the top bar; the datasets above are the map today
+   * ({@link MODERN_YEAR}). Not levels of detail, so not in the Resolution menu.
+   */
+  years?: GeoDataset[]
 }
+
+/** The year the modern maps are of, as the Year control shows it. */
+export const MODERN_YEAR = 2026
 
 const WORLD_DATASETS: GeoDataset[] = [
   {
@@ -201,6 +210,25 @@ const WORLD_DATASETS: GeoDataset[] = [
     identify: 'feature-id',
   },
 ]
+
+/**
+ * The World in other years: built by `scripts/historical/build-historical.mjs` from
+ * historical-basemaps' borders (GPL v3) cut into the modern map's Natural Earth land at 25m, and
+ * for 1990 from the modern map's own countries. See `data/historical/README.md`.
+ */
+const WORLD_YEARS: GeoDataset[] = [1914, 1938, 1945, 1990].map((year) => ({
+  id: `world-${year}`,
+  atlasId: 'world',
+  name: `World in ${year}`,
+  label: String(year),
+  era: 'historical',
+  year,
+  detail: '25m',
+  url: `geo/historical/world-${year}.json`,
+  objectName: 'countries',
+  metaUrl: `geo/historical/world-${year}-meta.json`,
+  identify: 'feature-id',
+}))
 
 /**
  * The modern world by region: each country drawn at the level of subdivision that suits it.
@@ -436,6 +464,7 @@ export const ATLASES: Atlas[] = [
     defaultRegionIds: ['world'],
     insets: [],
     ownFlags: true,
+    years: WORLD_YEARS,
   },
   {
     id: 'admin-world',
@@ -716,10 +745,15 @@ export function getAtlas(id: string): Atlas {
 /** The atlas a dataset belongs to, so a loaded map can answer for itself. */
 export function atlasForDataset(datasetId: string): Atlas {
   for (const atlas of ATLASES) {
-    if (atlas.datasets.some((d) => d.id === datasetId)) return atlas
+    if (atlas.datasets.some((d) => d.id === datasetId) || atlas.years?.some((d) => d.id === datasetId)) return atlas
   }
   return ATLASES[0]
 }
 
-/** Every dataset in every atlas, for the registry lookups in `datasets.ts`. */
-export const ALL_DATASETS: GeoDataset[] = ATLASES.flatMap((a) => a.datasets)
+/** Every dataset in every atlas, its other years included, for the registry lookups in `datasets.ts`. */
+export const ALL_DATASETS: GeoDataset[] = ATLASES.flatMap((a) => [...a.datasets, ...(a.years ?? [])])
+
+/** The year a dataset's map is of: its own for a past year, {@link MODERN_YEAR} for today's. */
+export function yearOfDataset(datasetId: string): number {
+  return ALL_DATASETS.find((d) => d.id === datasetId && d.era === 'historical')?.year ?? MODERN_YEAR
+}

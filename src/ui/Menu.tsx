@@ -25,6 +25,7 @@ export function Popover({
   children,
   label,
   align = 'start',
+  className,
 }: {
   anchor: RefObject<HTMLElement>
   open: boolean
@@ -32,6 +33,8 @@ export function Popover({
   children: ReactNode
   label: string
   align?: 'start' | 'end'
+  /** Added to the panel's own class, for a popover that is not a list of choices. */
+  className?: string
 }) {
   const panel = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null)
@@ -88,7 +91,7 @@ export function Popover({
   return createPortal(
     <div
       ref={panel}
-      className={MENU_CLASS}
+      className={className ? `${MENU_CLASS} ${className}` : MENU_CLASS}
       role="dialog"
       aria-label={label}
       style={{ top: position?.top ?? -9999, left: position?.left ?? -9999 }}

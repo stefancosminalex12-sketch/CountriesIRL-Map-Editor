@@ -595,6 +595,16 @@ export function resolveFraming(regionIds: RegionId[]): ScopeFraming {
   }
 }
 
+/**
+ * Whether an entity belongs to a region. One that lists its continents (`regions`: a historical
+ * state on two of them, like the Ottoman Empire of 1914) is on exactly those; anything else is
+ * decided by the preset's own rule. The world takes everything either way.
+ */
+export function belongsTo(preset: RegionPreset, m: EntityMeta): boolean {
+  if (m.regions && !preset.parentId && preset.id !== 'world') return m.regions.includes(preset.id)
+  return preset.includes(m)
+}
+
 /** Country ids belonging to the given regions, used for scope highlighting/cropping. */
 export function countriesInRegions(
   regionIds: RegionId[],
@@ -606,7 +616,7 @@ export function countriesInRegions(
   for (const m of Object.values(meta)) {
     // A subdivision belongs wherever its country does — including a country a preset
     // names as a transcontinental extra, so Türkiye's provinces are on a map of Europe.
-    if (presets.some((p) => p.includes(m) || (m.parent && p.alsoInclude?.includes(m.parent.id)))) {
+    if (presets.some((p) => belongsTo(p, m) || (m.parent && p.alsoInclude?.includes(m.parent.id)))) {
       out.add(m.id)
     }
   }
@@ -630,7 +640,7 @@ export function memberDomain(regionIds: RegionId[], countryId: string, meta: Ent
     const preset = getRegion(id)
     const part = preset.memberDomains?.[countryId]
     if (part) box = unionBBox(box, part)
-    else if (meta && (preset.includes(meta) || preset.alsoInclude?.includes(countryId))) return null
+    else if (meta && (belongsTo(preset, meta) || preset.alsoInclude?.includes(countryId))) return null
   }
   return box
 }

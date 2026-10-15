@@ -640,6 +640,31 @@ Generalising adds crossings where a thin spit's two shores run a few hundred met
 
 The data files are committed like the Official USA map's: about 68 MB in `data/europe/`.
 
+#### The World in other years
+
+The **Year** control, between File and the regions, shows the year the map is of: 2026 for every
+modern map. It opens a pocket watch with a single window. The years are printed on a disc behind
+it, and the disc turns: by the arrows beside the window, the wheel, the arrow keys, or by dragging
+the dial round. The year it settles on opens a moment later, so turning past three years loads
+only the fourth (`src/ui/YearPicker.tsx`).
+
+The years are the World map's `years` (`maps/atlas.ts`): 1914, 1938, 1945 and 1990, each a
+dataset of the same document. Switching year keeps the region, the frame, the colours and the
+stickers, and a value given in one year waits in the document while another is shown. From any
+other map, a past year opens the World map. On a past year:
+
+- only the continents are offered, because the subregions are made of today's countries;
+- there is no Resolution row, because each year has one detail level, 25m.
+
+A historical entity lists its continents (`EntityMeta.regions`), so the Ottoman Empire of 1914 is
+on a map of Europe and of Asia. It also names the modern country with most of its land
+(`modern`), which is the language its Yes or No is in.
+
+Built by `scripts/historical/build-historical.mjs`. 1914, 1938 and 1945 are historical-basemaps'
+borders (GPL v3) cut into the modern map's own land, so they have its coastline. 1990 is the
+modern map's countries joined as they were. The source's many errors are corrected in
+`scripts/historical/curation.mjs`, each with its reason; see `data/historical/README.md`.
+
 
 ### How region framing works
 

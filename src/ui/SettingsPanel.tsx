@@ -193,6 +193,14 @@ export function DataSources() {
         permitted with attribution). NUTS 3 regions for Greece and Slovenia: Eurostat, via
         EuroGlobalMap. Around Europe, and Russia east of 51°E: Natural Earth.
       </p>
+      {/* The World map's past years (`scripts/historical/build-historical.mjs`). */}
+      <p className="hint">
+        <strong>historical-basemaps</strong> — the borders of the World map in 1914, 1938 and
+        1945: Andrés Ourednik, historical-basemaps, github.com/aourednik/historical-basemaps, GNU
+        General Public License v3. Corrected where they are not of the year, and cut into Natural
+        Earth’s land, so those three maps are GPL v3 too (geo/historical/LICENSE). 1990 is Natural
+        Earth’s countries joined as they were. A few outlines: Natural Earth admin-1.
+      </p>
       {/* The figures behind Templates → Predefined Data (`data/predefinedData.ts`). */}
       <p className="hint">
         <strong>UNDP</strong> — Human Development Index, 2022: Human Development Report 2023/24,

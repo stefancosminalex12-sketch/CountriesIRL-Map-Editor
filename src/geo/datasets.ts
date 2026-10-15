@@ -134,9 +134,12 @@ export function getDataset(id: string): GeoDataset {
   return ALL_DATASETS.find((d) => d.id === id) ?? ALL_DATASETS[0]
 }
 
-/** The datasets one atlas offers, which is what the resolution picker lists. */
+/**
+ * The datasets one atlas offers, which is what the resolution picker lists: today's map at each
+ * level, not the same map in another year (`Atlas.years`, chosen with the Year control).
+ */
 export function datasetsForAtlas(atlasId: string): GeoDataset[] {
-  return ALL_DATASETS.filter((d) => d.atlasId === atlasId)
+  return ALL_DATASETS.filter((d) => d.atlasId === atlasId && d.era === 'modern')
 }
 
 export interface LoadedDataset {

@@ -14,6 +14,8 @@
  *     Sources, as the rail's Settings section held them.
  *   On a narrow screen there is no room at the side, so a row opens its choices in place of the
  *   rows, with a way back up a level.
+ * - **Year** — the year the map is of, today's ({@link MODERN_YEAR}) or one of the World map's
+ *   past years, chosen on a pocket watch (`YearPicker`).
  * - **Regions** — the open map's regions as split buttons. The name selects and deselects
  *   (regions combine: Europe + Asia frames Eurasia); the arrow box attached to its right opens
  *   the region's subregions, which combine the same way.
@@ -27,8 +29,9 @@ import { Chevron, ChevronRight, Flyout, MenuItem, Popover, useNarrow } from './M
 import { GeographicFeatureToggles, LabelsAndHelpers, LineWidthSwatches, MapColorSwatches } from './MapSettings'
 import { DataSources, SelectionHighlight, ThemePicker, TransparencySwitch } from './SettingsPanel'
 import { TemplatePicker } from './TemplatePicker'
+import { YearControl } from './YearPicker'
 import { useMapStore } from '../state/mapStore'
-import { ATLAS_FAMILIES, ATLASES, getAtlas, type Atlas } from '../maps/atlas'
+import { ATLAS_FAMILIES, ATLASES, getAtlas, MODERN_YEAR, yearOfDataset, type Atlas } from '../maps/atlas'
 import { regionsForAtlas, subregionsOf, type RegionPreset } from '../geo/regions'
 import { datasetsForAtlas } from '../geo/datasets'
 import { noteDetailChosen } from '../maps/startingDetail'
@@ -108,12 +111,15 @@ function RegionChip({
   activeChildren,
   isActive,
   toggle,
+  past,
 }: {
   region: RegionPreset
   active: boolean
   activeChildren: number
   isActive: (id: RegionId) => boolean
   toggle: (id: RegionId) => void
+  /** A past year's map, whose countries today's subregions are not made of: no subregions. */
+  past: boolean
 }) {
   const [open, setOpen] = useState(false)
   const anchor = useRef<HTMLDivElement>(null)
@@ -123,7 +129,7 @@ function RegionChip({
     const next = regionIds.filter((id) => !ids.includes(id))
     setRegions(next.length > 0 ? next : ['world'])
   }
-  const children = subregionsOf(region.id)
+  const children = past ? [] : subregionsOf(region.id)
   const hasChildren = children.length > 0
   const lit = active || activeChildren > 0
 
@@ -197,6 +203,7 @@ function RegionBar() {
   const regionIds = useMapStore((s) => s.doc.scope.regionIds)
   const atlasId = useMapStore((s) => s.doc.scope.atlasId)
   const toggleRegion = useMapStore((s) => s.toggleRegion)
+  const past = useMapStore((s) => yearOfDataset(s.doc.scope.datasetId) !== MODERN_YEAR)
   const regions = regionsForAtlas(atlasId)
   const isWorld = regionIds.includes('world')
   const isActive = (id: RegionId) => (id === 'world' ? isWorld : !isWorld && regionIds.includes(id))
@@ -212,6 +219,7 @@ function RegionBar() {
           activeChildren={subregionsOf(region.id).filter((c) => isActive(c.id)).length}
           isActive={isActive}
           toggle={toggleRegion}
+          past={past}
         />
       ))}
     </div>
@@ -478,7 +486,8 @@ function FileMenu() {
       ),
     },
     { id: 'map', name: 'Maps', value: atlas.menuName ?? atlas.name, render: (done) => <MapChoices done={done} /> },
-    ...(datasets.length > 1
+    // A past year is one map, at one detail.
+    ...(datasets.length > 1 && dataset
       ? [{ id: 'resolution', name: 'Resolution', value: dataset ? shortDataset(dataset) : '—', render: (done: () => void) => <ResolutionChoices done={done} /> }]
       : []),
     { id: 'projection', name: 'Projection', value: projectionName(scope.projectionId), render: (done) => <ProjectionChoices done={done} /> },
@@ -547,11 +556,12 @@ function FileMenu() {
   )
 }
 
-/** The left of the bar: the File menu and the open map's regions. */
+/** The left of the bar: the File menu, the year, and the open map's regions. */
 export function TopBarScope() {
   return (
     <div className="top-scope">
       <FileMenu />
+      <YearControl />
       <RegionBar />
     </div>
   )
