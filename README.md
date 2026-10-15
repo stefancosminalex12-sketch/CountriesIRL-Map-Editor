@@ -1896,6 +1896,18 @@ regions as raised accent pills. **The rail's active tool is a pill that slides**
 tool (`.rail-pill`), with icons and captions a size up. Presses compress slightly; all of it
 honours *Reduce motion*.
 
+### Autosave and New map
+
+The map is kept in the browser as it is edited (`state/autosave.ts`): the one on screen and the
+ones parked on other maps, as plain documents in localStorage, written a moment after each change
+and at once when the page is hidden. A refresh, a closed tab or a phone reloading the page brings
+it back. Nothing leaves the device. A saved map from another `schemaVersion` is not restored.
+The page asks before it is left only when a write has failed (storage full or switched off).
+
+So a refresh no longer starts over; **File → New map** does. It clears what was made on the map
+(values, stickers, groups, merges, labels, the frame) and keeps the view, the way undo does, and
+it is one undo step rather than a confirmation.
+
 ### Loading screen and the transparent interface
 
 **While a map loads, the CountriesIRL logo fills the screen** (`ui/LoadingScreen.tsx`): one solid

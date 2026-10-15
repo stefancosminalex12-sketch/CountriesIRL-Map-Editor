@@ -3,6 +3,7 @@
  *
  * - **File** — the map's own settings, one row each, every row opening its choices in a menu at
  *   its side, the way a desktop app's menus cascade:
+ *   - **New map**, first — not a menu but the action: this map started again (`newMap`), undoable;
  *   - **Templates**, first — the built-in presets, which set up the rows below;
  *   - **Maps** — World, Europe and USA as buttons, and the chosen one's maps under them; under
  *     World, the World map in its past years too ("World 1990", "World 1945"…);
@@ -340,6 +341,8 @@ interface FileNode {
   value?: string
   children?: FileNode[]
   render?: (done: () => void) => ReactNode
+  /** A row that does something rather than open a menu: run, then the File menu closes. */
+  action?: () => void
 }
 
 /** The map's look: the same three panels the rail's Display section held. */
@@ -424,16 +427,33 @@ function FileRows({
   path,
   show,
   hide,
+  close,
 }: {
   rows: FileNode[]
   depth: number
   path: string[]
   show: (depth: number, id: string, element: HTMLElement) => void
   hide: (depth: number) => void
+  close: () => void
 }) {
   return (
     <div className="top-file" role="menu">
-      {rows.map((r) => (
+      {rows.map((r) =>
+        r.action ? (
+          <button
+            key={r.id}
+            type="button"
+            role="menuitem"
+            className="top-menu__item top-file__row top-file__row--action"
+            onClick={() => {
+              r.action!()
+              close()
+            }}
+          >
+            <span className="top-file__name">{r.name}</span>
+            {r.value && <span className="top-file__value">{r.value}</span>}
+          </button>
+        ) : (
         <button
           key={r.id}
           type="button"
@@ -451,7 +471,8 @@ function FileRows({
           {r.value && <span className="top-file__value">{r.value}</span>}
           <ChevronRight />
         </button>
-      ))}
+        ),
+      )}
     </div>
   )
 }
@@ -491,8 +512,11 @@ function FileMenu() {
     return () => document.documentElement.classList.remove('file-menu-open')
   }, [open])
 
+  const newMap = useMapStore((s) => s.newMap)
   const root: FileNode[] = [
-    // First: a template sets up the map below it — the region, the projection, the colours.
+    // First: start again. The map is kept as it is edited, so a refresh no longer does this.
+    { id: 'new', name: 'New map', value: 'Undo brings it back', action: newMap },
+    // Then a template, which sets up the map below it — the region, the projection, the colours.
     {
       id: 'templates',
       name: 'Templates',
@@ -552,20 +576,20 @@ function FileMenu() {
               <span className="top-menu__name">{parentName}</span>
             </button>
             {deepest.children ? (
-              <FileRows rows={deepest.children} depth={path.length} path={path} show={show} hide={hide} />
+              <FileRows rows={deepest.children} depth={path.length} path={path} show={show} hide={hide} close={close} />
             ) : (
               deepest.render?.(close)
             )}
           </div>
         ) : (
           <>
-            <FileRows rows={root} depth={0} path={path} show={show} hide={hide} />
+            <FileRows rows={root} depth={0} path={path} show={show} hide={hide} close={close} />
             {!narrow &&
               levels.map((node, depth) =>
                 node && anchors[depth] ? (
                   <Flyout key={`${depth}:${node.id}`} row={anchors[depth]}>
                     {node.children ? (
-                      <FileRows rows={node.children} depth={depth + 1} path={path} show={show} hide={hide} />
+                      <FileRows rows={node.children} depth={depth + 1} path={path} show={show} hide={hide} close={close} />
                     ) : (
                       node.render?.(close)
                     )}

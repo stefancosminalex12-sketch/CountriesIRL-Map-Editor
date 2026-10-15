@@ -334,6 +334,13 @@ interface MapStore {
    * rest of the map: its region, frame, mode, colours and stickers.
    */
   setYear: (year: number) => void
+  /**
+   * Starts this map again: everything made on it cleared — values, stickers, groups, merges,
+   * labels, the frame — and the view kept, as undo keeps it (the map, its year, region,
+   * projection and look). One undo step, so a slip is undone, not confirmed. Now that the map is
+   * saved as it is edited (`autosave.ts`), a refresh no longer starts over; this does.
+   */
+  newMap: () => void
   dispatch: (ops: MapOperation | MapOperation[]) => OperationResult[]
 
   undo: () => void
@@ -677,6 +684,24 @@ export const useMapStore = create<MapStore>((set, get) => {
       if (regionIds.join() !== scope.regionIds.join()) ops.push({ op: 'set_scope_regions', regionIds })
     }
     get().dispatch(ops)
+  },
+
+  newMap() {
+    const state = get()
+    const blank = withCurrentView(createMapDocument({}, state.doc.scope.atlasId), state.doc)
+    if (sameDocument(blank, state.doc)) return
+    const history = recorded(state.past, { doc: state.doc, selection: selectionOf(state) }, null)
+    lastEdit = history.past[history.past.length - 1]
+    set({
+      doc: blank,
+      past: history.past,
+      future: history.future,
+      selectedCountryIds: [],
+      selectedWaterIds: [],
+      activeMergeId: null,
+      activeOverlayId: null,
+      activeStickerId: null,
+    })
   },
 
   dispatch(input) {

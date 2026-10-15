@@ -5,11 +5,16 @@ import { useMapStore } from './state/mapStore'
 import { computeFraming } from './geo/framing'
 import { countriesInRegions } from './geo/regions'
 import { initialiseSettings } from './state/settingsStore'
+import { restoreSavedMap, startAutosave } from './state/autosave'
 import '@fontsource-variable/inter'
 import './styles/global.css'
 
 // Theme and volume are applied before the first render so nothing flashes.
 initialiseSettings()
+
+// The map as it was left, before the first render loads its dataset; then saved as it changes.
+restoreSavedMap()
+startAutosave()
 
 /**
  * Development bridge for the operation pipeline.
