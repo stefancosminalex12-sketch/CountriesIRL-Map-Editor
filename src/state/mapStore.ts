@@ -842,23 +842,29 @@ export const useMapStore = create<MapStore>((set, get) => {
   },
 
   setRegions(regionIds) {
-    get().dispatch({ op: 'set_scope_regions', regionIds: regionIds.length ? regionIds : ['world'] })
+    const home = getAtlas(get().doc.scope.atlasId).defaultRegionIds
+    get().dispatch({ op: 'set_scope_regions', regionIds: regionIds.length ? regionIds : [...home] })
   },
 
+  /*
+   * The map's own whole region — the World, Europe, the United States — is on alone: choosing it
+   * takes every other region off, and choosing another takes it off. With none left, it comes back.
+   */
   toggleRegion(regionId) {
     const current = get().doc.scope.regionIds
+    const home = getAtlas(get().doc.scope.atlasId).defaultRegionIds
 
-    if (regionId === 'world') {
-      get().setRegions(['world'])
+    if (home.includes(regionId)) {
+      get().setRegions([regionId])
       return
     }
 
-    const withoutWorld = current.filter((id) => id !== 'world')
-    const next = withoutWorld.includes(regionId)
-      ? withoutWorld.filter((id) => id !== regionId)
-      : [...withoutWorld, regionId]
+    const withoutHome = current.filter((id) => !home.includes(id))
+    const next = withoutHome.includes(regionId)
+      ? withoutHome.filter((id) => id !== regionId)
+      : [...withoutHome, regionId]
 
-    get().setRegions(next.length ? next : ['world'])
+    get().setRegions(next)
   },
 
   /* ------------------------------------------------------------ merge groups */

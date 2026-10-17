@@ -43,9 +43,15 @@ export function buildInsets(
   entities?: Record<string, { id: string; parent?: { id: string } }>,
   /** The part of the canvas the map is fitted into — its frame — when not all of it: the insets go in it too. */
   box?: { x: number; y: number; width: number; height: number } | null,
+  /**
+   * The scale the insets are a multiple of, when not the main map's: the whole country's, on a
+   * view of one of its regions — so Alaska keeps the size of its box there rather than growing
+   * with the zoom.
+   */
+  baseScale?: number | null,
 ): ResolvedInset[] {
   if (!main || atlas.insets.length === 0 || width < 2 || height < 2) return []
-  const scale = main.scale()
+  const scale = baseScale ?? main.scale()
   if (!Number.isFinite(scale) || scale <= 0) return []
 
   /*

@@ -447,6 +447,64 @@ for (const [continent, defs] of Object.entries(SUBREGIONS) as [ContinentId, Subr
   for (const def of defs) REGIONS.push(subregionPreset(parent, def))
 }
 
+/* ------------------------------------------------------- USA Census regions */
+
+/**
+ * The US Census Bureau's four regions and nine divisions, for the region bar of the USA maps.
+ *
+ * Framing presets like the subregions: choosing one moves the camera to it and marks what is in
+ * it, and draws no new border. Every unit of both USA maps carries its Census region and division
+ * (`region`, `subregion`), its state's for a county or a subdivision, so the membership is read
+ * from the data rather than listed. The domain is each one's contiguous extent: Alaska and Hawaii
+ * belong to the West and the Pacific division, but drawn where they are they would set a frame
+ * a quarter of the globe wide, so — as on the United States' own frame — they do not decide it.
+ */
+interface CensusArea {
+  slug: string
+  name: string
+  /** The Census region (`region`) or division (`subregion`) the units carry. */
+  match: { region: string } | { division: string }
+  definition: string
+  domain: BBox
+}
+
+const CENSUS_AREAS: CensusArea[] = [
+  { slug: 'northeast', name: 'Northeast', match: { region: 'Northeast' }, definition: 'US Census Northeast region: New England and the Middle Atlantic', domain: [-80.6, 38.9, -66.9, 47.5] },
+  { slug: 'midwest', name: 'Midwest', match: { region: 'Midwest' }, definition: 'US Census Midwest region: the East and West North Central divisions', domain: [-104.1, 36, -80.5, 49.4] },
+  { slug: 'south', name: 'South', match: { region: 'South' }, definition: 'US Census South region: the South Atlantic, East South Central and West South Central divisions', domain: [-106.7, 24.4, -75, 40.7] },
+  { slug: 'west', name: 'West', match: { region: 'West' }, definition: 'US Census West region: the Mountain and Pacific divisions, Alaska and Hawaii included', domain: [-124.8, 31.3, -102, 49.1] },
+  { slug: 'new-england', name: 'New England', match: { division: 'New England' }, definition: 'US Census New England division: Connecticut, Maine, Massachusetts, New Hampshire, Rhode Island, Vermont', domain: [-73.8, 40.9, -66.9, 47.5] },
+  { slug: 'mid-atlantic', name: 'Mid-Atlantic', match: { division: 'Middle Atlantic' }, definition: 'US Census Middle Atlantic division: New Jersey, New York, Pennsylvania', domain: [-80.6, 38.9, -71.8, 45.1] },
+  { slug: 'east-north-central', name: 'East North Central', match: { division: 'East North Central' }, definition: 'US Census East North Central division: Illinois, Indiana, Michigan, Ohio, Wisconsin', domain: [-92.9, 36.9, -80.5, 48.3] },
+  { slug: 'west-north-central', name: 'West North Central', match: { division: 'West North Central' }, definition: 'US Census West North Central division: Iowa, Kansas, Minnesota, Missouri, Nebraska, North Dakota, South Dakota', domain: [-104.1, 36, -89.1, 49.4] },
+  { slug: 'south-atlantic', name: 'South Atlantic', match: { division: 'South Atlantic' }, definition: 'US Census South Atlantic division: Delaware, DC, Florida, Georgia, Maryland, North Carolina, South Carolina, Virginia, West Virginia', domain: [-87.7, 24.4, -75, 40.7] },
+  { slug: 'east-south-central', name: 'East South Central', match: { division: 'East South Central' }, definition: 'US Census East South Central division: Alabama, Kentucky, Mississippi, Tennessee', domain: [-91.7, 30.1, -81.9, 39.2] },
+  { slug: 'west-south-central', name: 'West South Central', match: { division: 'West South Central' }, definition: 'US Census West South Central division: Arkansas, Louisiana, Oklahoma, Texas', domain: [-106.7, 25.8, -88.8, 37] },
+  { slug: 'mountain', name: 'Mountain', match: { division: 'Mountain' }, definition: 'US Census Mountain division: Arizona, Colorado, Idaho, Montana, Nevada, New Mexico, Utah, Wyoming', domain: [-120.1, 31.3, -102, 49.1] },
+  { slug: 'pacific', name: 'Pacific', match: { division: 'Pacific' }, definition: 'US Census Pacific division: California, Oregon, Washington, Alaska and Hawaii', domain: [-124.8, 32.5, -114.1, 49.1] },
+]
+
+{
+  const usa = REGIONS.find((r) => r.id === 'usa')!
+  for (const area of CENSUS_AREAS) {
+    const [, south, , north] = area.domain
+    const band = (north - south) / 6
+    const match = area.match
+    REGIONS.push({
+      id: `usa/${area.slug}`,
+      name: area.name,
+      parentId: 'usa',
+      definition: area.definition,
+      includes: 'region' in match ? (m) => m.region === match.region : (m) => m.subregion === match.division,
+      framing: { domain: area.domain, trim: usa.framing.trim, margin: HOME_MARGIN, fill: { amount: 0 } },
+      bbox: area.domain,
+      projectionId: 'conicEqualArea',
+      parallels: [south + band, north - band],
+      autoParallels: true,
+    })
+  }
+}
+
 /** The subregions listed under one continent, in the order they are declared. */
 export function subregionsOf(id: RegionId): RegionPreset[] {
   return REGIONS.filter((r) => r.parentId === id)
@@ -649,10 +707,20 @@ export function memberDomain(regionIds: RegionId[], countryId: string, meta: Ent
   return box
 }
 
-/** The regions one atlas offers, in the order it declares them. */
+/** The regions one atlas offers along its bar, in the order it declares them. */
 export function regionsForAtlas(atlasId: string): RegionPreset[] {
-  const ids = getAtlas(atlasId).regionIds
+  const atlas = getAtlas(atlasId)
+  const ids = atlas.regionBar ? atlas.regionBar.map((entry) => entry.id) : atlas.regionIds
   return ids.map(getRegion)
+}
+
+/**
+ * What a region's ▾ opens on an atlas's bar: the atlas's own list where it gives one — Northern
+ * Europe's Scandinavia, Baltic States, British Isles — otherwise every subregion under it.
+ */
+export function barChildren(atlasId: string, id: RegionId): RegionPreset[] {
+  const entry = getAtlas(atlasId).regionBar?.find((e) => e.id === id)
+  return entry ? (entry.children ?? []).map(getRegion) : subregionsOf(id)
 }
 
 export function describeRegions(regionIds: RegionId[]): string {

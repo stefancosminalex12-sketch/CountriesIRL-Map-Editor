@@ -133,6 +133,12 @@ export interface Atlas {
   note?: string
   /** The regions this atlas offers, as ids into the region registry. */
   regionIds: RegionId[]
+  /**
+   * The region bar, where it is not simply `regionIds` with every subregion under each: its
+   * chips in order, and what each one's ▾ opens. Europe's six parts with their smaller areas;
+   * the USA's four Census regions with their divisions. Areas to frame, not new borders.
+   */
+  regionBar?: { id: RegionId; children?: RegionId[] }[]
   defaultRegionIds: RegionId[]
   /** See {@link MapInset}. Empty for an atlas whose geography holds together. */
   insets: MapInset[]
@@ -459,6 +465,29 @@ const EUROPE_ADMIN_DATASETS: GeoDataset[] = [
   },
 ]
 
+/**
+ * The Europe maps' bar: the continent, then its six parts, each opening the smaller areas in it.
+ * An area can sit under two parts — the Alps are Western and Central — since each is a frame.
+ */
+const EUROPE_BAR: Atlas['regionBar'] = [
+  { id: 'europe' },
+  { id: 'europe/western', children: ['europe/benelux', 'europe/dach', 'europe/alpine'] },
+  { id: 'europe/northern', children: ['europe/scandinavia', 'europe/scandinavian-peninsula', 'europe/nordic', 'europe/baltic', 'europe/british-isles'] },
+  { id: 'europe/central', children: ['europe/visegrad', 'europe/dach', 'europe/alpine', 'europe/carpathian'] },
+  { id: 'europe/eastern', children: ['europe/baltic', 'europe/carpathian', 'europe/black-sea'] },
+  { id: 'europe/southern', children: ['europe/iberian', 'europe/italian', 'europe/mediterranean', 'europe/adriatic', 'europe/southwestern'] },
+  { id: 'europe/balkans', children: ['europe/balkans-greece', 'europe/yugoslavia', 'europe/southeastern', 'europe/adriatic'] },
+]
+
+/** The USA maps' bar: the country, then the Census Bureau's four regions, each opening its divisions. */
+const USA_BAR: Atlas['regionBar'] = [
+  { id: 'usa' },
+  { id: 'usa/northeast', children: ['usa/new-england', 'usa/mid-atlantic'] },
+  { id: 'usa/midwest', children: ['usa/east-north-central', 'usa/west-north-central'] },
+  { id: 'usa/south', children: ['usa/south-atlantic', 'usa/east-south-central', 'usa/west-south-central'] },
+  { id: 'usa/west', children: ['usa/mountain', 'usa/pacific'] },
+]
+
 export const ATLASES: Atlas[] = [
   {
     id: 'world',
@@ -517,6 +546,7 @@ export const ATLASES: Atlas[] = [
      */
     regionIds: ['europe'],
     defaultRegionIds: ['europe'],
+    regionBar: EUROPE_BAR,
     insets: [],
     ownFlags: true,
   },
@@ -531,6 +561,7 @@ export const ATLASES: Atlas[] = [
     note: 'Each country’s own subdivisions · EuroGlobalMap 1:1M',
     regionIds: ['europe'],
     defaultRegionIds: ['europe'],
+    regionBar: EUROPE_BAR,
     insets: [],
     // Subdivisions have no artwork of their own; any unit can be assigned a flag.
     ownFlags: false,
@@ -544,6 +575,7 @@ export const ATLASES: Atlas[] = [
     defaultDatasetId: 'usa-states-10m',
     regionIds: ['usa'],
     defaultRegionIds: ['usa'],
+    regionBar: USA_BAR,
     /*
      * Alaska and Hawaii, on the conventional plan: both in the bottom-left, Alaska
      * larger and outboard, Hawaii smaller and inboard of it. The rotations and
@@ -675,6 +707,7 @@ export const ATLASES: Atlas[] = [
     datasetLabel: 'Detail',
     regionIds: ['usa'],
     defaultRegionIds: ['usa'],
+    regionBar: USA_BAR,
     /*
      * Alaska and Hawaii where the USA States map puts them, and the territories beside them:
      * Puerto Rico with the Virgin Islands off Florida, Guam with the Northern Mariana Islands

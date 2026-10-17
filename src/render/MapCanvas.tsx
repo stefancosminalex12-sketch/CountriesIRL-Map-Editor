@@ -12,7 +12,7 @@ import { select } from 'd3-selection'
 import { zoom, zoomIdentity, zoomTransform, type ZoomBehavior } from 'd3-zoom'
 import { useElementSize, type Size } from './useElementSize'
 import { useKeyed } from './useKeyed'
-import { getAtlas } from '../maps/atlas'
+import { getAtlas, type Atlas } from '../maps/atlas'
 import { buildInsets, insetForEntity, insetForGroup } from '../maps/insets'
 import { buildProjection } from '../geo/fit'
 import { countriesInRegions, regionsForAtlas } from '../geo/regions'
@@ -81,7 +81,7 @@ import { coastlineWidthOf } from '../state/lineWidths'
 import { entityFlagCode } from '../flags/flagChoices'
 import { resolveScreen } from './screenFrame'
 import { mergeCountries } from '../geo/merge'
-import { borderArcsWithout, bordersWithout, coastByEntity } from '../geo/datasets'
+import { borderArcsWithout, bordersWithout, coastByEntity, type LoadedDataset } from '../geo/datasets'
 
 /** No territories hidden: the borders of a group copy are its members', whatever the map hides. */
 const NO_HIDDEN: ReadonlySet<string> = new Set()
@@ -114,7 +114,7 @@ import { anchorAt, overlayKey, overlaySource, type OverlaySource } from './overl
 import { WATER_LAYER } from './exportMap'
 import { useRegionOnly } from './regionOnly'
 import { HoverLabel } from './HoverLabel'
-import type { MapDocument, MapOverlay } from '../types/map'
+import type { MapDocument, MapOverlay, ProjectionId, RegionId } from '../types/map'
 import {
   outlinesAlongSegment,
   outlinesInRect,
@@ -325,6 +325,39 @@ const ANSWER_CAP = 0.72
 function landKeyOf(regionIds: readonly string[], projectionId: string, padding: number, width: number, height: number, tolerance: number, area: FitArea): string {
   const box = area ? `@${Math.round(area.x)},${Math.round(area.y)},${Math.round(area.width)}x${Math.round(area.height)}` : ''
   return `${[...regionIds].sort().join('+')}|${projectionId}|${padding}|${width}x${height}${box}|t${tolerance}`
+}
+
+/**
+ * The atlas's insets as they apply to a view, and the scale they are a multiple of.
+ *
+ * On the map's own whole region, every inset at the main map's scale, as always. On a part of it
+ * — a Census region or division — only the insets of what is in that part, at the whole
+ * country's scale: the West and the Pacific division keep Alaska and Hawaii in their boxes at the
+ * size they have on the whole map, where the main map's zoom would have made them several times
+ * larger than their boxes; the Midwest has none, and the territories belong to no region.
+ */
+function insetView(
+  atlas: Atlas,
+  regionIds: readonly RegionId[],
+  geo: LoadedDataset | null,
+  fitTo: { projectionId: ProjectionId | 'auto'; width: number; height: number; padding: number; box: FitArea },
+): { atlas: Atlas; baseScale: number | null } {
+  const home = atlas.defaultRegionIds
+  if (atlas.insets.length === 0 || regionIds.every((id) => home.includes(id))) return { atlas, baseScale: null }
+  if (!geo || fitTo.width < 2 || fitTo.height < 2) return { atlas: { ...atlas, insets: [] }, baseScale: null }
+  const inRegion = countriesInRegions([...regionIds], geo.meta)
+  const insets = atlas.insets.filter((inset) => {
+    const keys = new Set([...inset.members, ...(inset.parents ?? [])])
+    for (const id of inRegion) {
+      if (keys.has(id)) return true
+      const parent = geo.meta[id]?.parent?.id
+      if (parent && keys.has(parent)) return true
+    }
+    return false
+  })
+  if (insets.length === 0) return { atlas: { ...atlas, insets }, baseScale: null }
+  const whole = buildProjection({ framing: computeFraming(home, geo), ...fitTo })
+  return { atlas: { ...atlas, insets }, baseScale: whole.scale() }
 }
 
 /** The part of the canvas the map is fitted into — its frame — or `null` for all of it. */
@@ -821,8 +854,11 @@ export function MapCanvas() {
   const atlas = useMemo(() => getAtlas(scope.atlasId), [scope.atlasId])
   /* In the projection's own space, so it follows the fitted size rather than the live one. */
   const targetInsets = useMemo(
-    () => buildInsets(atlas, targetProjection, fit.width, fit.height, geo?.meta, fitArea),
-    [atlas, targetProjection, fit.width, fit.height, geo, fitArea],
+    () => {
+      const view = insetView(atlas, scope.regionIds, geo, { projectionId: scope.projectionId, width: fit.width, height: fit.height, padding: scope.padding, box: fitArea })
+      return buildInsets(view.atlas, targetProjection, fit.width, fit.height, geo?.meta, fitArea, view.baseScale)
+    },
+    [atlas, scope.regionIds, scope.projectionId, scope.padding, targetProjection, fit.width, fit.height, geo, fitArea],
   )
 
   /**
@@ -880,7 +916,8 @@ export function MapCanvas() {
           padding: scope.padding,
           box: fitArea,
         })
-        return { projection, insets: buildInsets(atlas, projection, fit.width, fit.height, geo.meta, fitArea) }
+        const view = insetView(atlas, [region.id], geo, { projectionId: scope.projectionId, width: fit.width, height: fit.height, padding: scope.padding, box: fitArea })
+        return { projection, insets: buildInsets(view.atlas, projection, fit.width, fit.height, geo.meta, fitArea, view.baseScale) }
       },
     }))
     const timer = window.setTimeout(() => void prewarmLand(geo, views, fit.width, fit.height, () => cancelled), 1500)

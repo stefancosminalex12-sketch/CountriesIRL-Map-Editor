@@ -31,7 +31,7 @@ import { DataSources, SelectionHighlight, ThemePicker, TransparencySwitch } from
 import { TemplatePicker } from './TemplatePicker'
 import { useMapStore } from '../state/mapStore'
 import { ATLAS_FAMILIES, ATLASES, getAtlas, MODERN_YEAR, yearOfDataset, type Atlas } from '../maps/atlas'
-import { regionsForAtlas, subregionsOf, type RegionPreset } from '../geo/regions'
+import { barChildren, regionsForAtlas, type RegionPreset } from '../geo/regions'
 import { datasetsForAtlas, getDataset } from '../geo/datasets'
 import { noteDetailChosen } from '../maps/startingDetail'
 import { AUTO_PROJECTION_ID, PROJECTIONS } from '../geo/projections'
@@ -143,11 +143,13 @@ function RegionChip({
   const anchor = useRef<HTMLDivElement>(null)
   const setRegions = useMapStore((s) => s.setRegions)
   const regionIds = useMapStore((s) => s.doc.scope.regionIds)
+  const atlasId = useMapStore((s) => s.doc.scope.atlasId)
+  // With nothing left on, the map is its own whole region again: the World, Europe, the United States.
   const deselect = (ids: RegionId[]) => {
     const next = regionIds.filter((id) => !ids.includes(id))
-    setRegions(next.length > 0 ? next : ['world'])
+    setRegions(next.length > 0 ? next : getAtlas(atlasId).defaultRegionIds)
   }
-  const children = past ? [] : subregionsOf(region.id)
+  const children = past ? [] : barChildren(atlasId, region.id)
   const hasChildren = children.length > 0
   const lit = active || activeChildren > 0
 
@@ -223,9 +225,11 @@ function RegionBar() {
   const toggleRegion = useMapStore((s) => s.toggleRegion)
   const past = useMapStore((s) => yearOfDataset(s.doc.scope.datasetId) !== MODERN_YEAR)
   const regions = regionsForAtlas(atlasId)
-  const isWorld = regionIds.includes('world')
-  const isActive = (id: RegionId) => (id === 'world' ? isWorld : !isWorld && regionIds.includes(id))
-  if (regions.length <= 1 && regions.every((r) => subregionsOf(r.id).length === 0)) return null
+  /* The map's own whole region — the World, Europe, the United States — is on alone or not at all. */
+  const home = getAtlas(atlasId).defaultRegionIds
+  const isHome = regionIds.every((id) => home.includes(id))
+  const isActive = (id: RegionId) => (home.includes(id) ? isHome : !isHome && regionIds.includes(id))
+  if (regions.length <= 1 && regions.every((r) => barChildren(atlasId, r.id).length === 0)) return null
 
   return (
     <div className="top-regions" role="group" aria-label="Regions">
@@ -234,7 +238,7 @@ function RegionBar() {
           key={region.id}
           region={region}
           active={isActive(region.id)}
-          activeChildren={subregionsOf(region.id).filter((c) => isActive(c.id)).length}
+          activeChildren={barChildren(atlasId, region.id).filter((c) => isActive(c.id)).length}
           isActive={isActive}
           toggle={toggleRegion}
           past={past}

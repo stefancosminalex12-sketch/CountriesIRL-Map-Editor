@@ -571,6 +571,8 @@ export type RegionId =
   | 'oceania'
   /** The USA States atlas. Region ids are unique across atlases — see `maps/atlas.ts`. */
   | 'usa'
+  /** A Census region or division of the USA maps, `usa/slug` — see `geo/regions.ts`. */
+  | `usa/${string}`
   /** A continent's subregion, `continent/slug` — see `geo/subregions.ts`. */
   | `${'europe' | 'asia' | 'africa' | 'north-america' | 'south-america' | 'oceania'}/${string}`
 
