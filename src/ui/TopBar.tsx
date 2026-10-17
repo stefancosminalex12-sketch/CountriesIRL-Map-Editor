@@ -31,7 +31,7 @@ import { DataSources, SelectionHighlight, ThemePicker, TransparencySwitch } from
 import { TemplatePicker } from './TemplatePicker'
 import { useMapStore } from '../state/mapStore'
 import { ATLAS_FAMILIES, ATLASES, getAtlas, MODERN_YEAR, yearOfDataset, type Atlas } from '../maps/atlas'
-import { barChildren, regionsForAtlas, type RegionPreset } from '../geo/regions'
+import { barChildren, getRegion, regionsForAtlas, type RegionPreset } from '../geo/regions'
 import { datasetsForAtlas, getDataset } from '../geo/datasets'
 import { noteDetailChosen } from '../maps/startingDetail'
 import { AUTO_PROJECTION_ID, PROJECTIONS } from '../geo/projections'
@@ -87,7 +87,7 @@ function MapChoices({ done }: { done: () => void }) {
             active={a.id === atlasId && year === MODERN_YEAR}
             onChoose={() => {
               if (a.id !== atlasId) setAtlas(a.id)
-              else if (year !== MODERN_YEAR) setYear(MODERN_YEAR)
+              else if (year !== MODERN_YEAR) setYear(MODERN_YEAR, a.id)
               done()
             }}
           />,
@@ -98,7 +98,7 @@ function MapChoices({ done }: { done: () => void }) {
               note={d.description}
               active={a.id === atlasId && year === d.year}
               onChoose={() => {
-                setYear(d.year as number)
+                setYear(d.year as number, a.id)
                 done()
               }}
             />
@@ -224,9 +224,10 @@ function RegionBar() {
   const atlasId = useMapStore((s) => s.doc.scope.atlasId)
   const toggleRegion = useMapStore((s) => s.toggleRegion)
   const past = useMapStore((s) => yearOfDataset(s.doc.scope.datasetId) !== MODERN_YEAR)
-  const regions = regionsForAtlas(atlasId)
   /* The map's own whole region — the World, Europe, the United States — is on alone or not at all. */
   const home = getAtlas(atlasId).defaultRegionIds
+  // A past year of a map whose bar is made of today's countries — Europe's parts — has its whole region alone.
+  const regions = past && getAtlas(atlasId).regionBar ? home.map(getRegion) : regionsForAtlas(atlasId)
   const isHome = regionIds.every((id) => home.includes(id))
   const isActive = (id: RegionId) => (home.includes(id) ? isHome : !isHome && regionIds.includes(id))
   if (regions.length <= 1 && regions.every((r) => barChildren(atlasId, r.id).length === 0)) return null

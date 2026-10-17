@@ -152,8 +152,8 @@ export interface Atlas {
    */
   ownFlags: boolean
   /**
-   * The same map in other years, oldest first: the World in 1914, 1938, 1945 and 1990. Chosen
-   * with the Year control in the top bar; the datasets above are the map today
+   * The same map in other years, oldest first: the World in 1914, 1938, 1945 and 1990; Europe in
+   * 1914, 1938 and 1945. Listed under the map in File → Maps; the datasets above are the map today
    * ({@link MODERN_YEAR}). Not levels of detail, so not in the Resolution menu.
    */
   years?: GeoDataset[]
@@ -233,6 +233,28 @@ const WORLD_YEARS: GeoDataset[] = [1914, 1938, 1945, 1990].map((year) => ({
   id: `world-${year}`,
   atlasId: 'world',
   name: `World ${year}`,
+  label: String(year),
+  description: WORLD_YEAR_NOTES[year],
+  era: 'historical',
+  year,
+  detail: '25m',
+  url: `geo/historical/world-${year}.json`,
+  objectName: 'countries',
+  metaUrl: `geo/historical/world-${year}-meta.json`,
+  identify: 'feature-id',
+}))
+
+/**
+ * Europe in 1914, 1938 and 1945: the World map's own past years — the same curated borders and
+ * the same countries, values and flags — opened on the Europe map, framed on Europe, with the
+ * rest of the world around it as context like today's Europe map. Not cut into EuroGlobalMap's
+ * coast: historical-basemaps' borders were drawn and corrected against Natural Earth's, and only
+ * fit it. Its 25m land draws Europe with about as many points as the Light detail.
+ */
+const EUROPE_YEARS: GeoDataset[] = [1914, 1938, 1945].map((year) => ({
+  id: `europe-${year}`,
+  atlasId: 'europe-countries',
+  name: `Europe ${year}`,
   label: String(year),
   description: WORLD_YEAR_NOTES[year],
   era: 'historical',
@@ -549,6 +571,7 @@ export const ATLASES: Atlas[] = [
     regionBar: EUROPE_BAR,
     insets: [],
     ownFlags: true,
+    years: EUROPE_YEARS,
   },
   {
     id: 'europe-admin',

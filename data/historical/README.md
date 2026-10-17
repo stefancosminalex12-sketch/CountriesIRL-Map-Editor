@@ -4,6 +4,9 @@
 `countries`), each with a `-meta.json` entity table in the modern map's format. Built by
 `scripts/historical/build-historical.mjs`; `report.json` is that build's report.
 
+The Europe Countries map opens the same files for Europe 1914, 1938 and 1945 (`EUROPE_YEARS` in
+`src/maps/atlas.ts`), framed on Europe: one set of borders and corrections for both maps.
+
 ## Sources and licence
 
 - **Borders of 1914, 1938 and 1945:** Andrés Ourednik, *historical-basemaps*

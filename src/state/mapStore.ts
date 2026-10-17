@@ -348,10 +348,11 @@ interface MapStore {
   /** Opens another atlas, parking the current map's state and restoring the target's. */
   setAtlas: (atlasId: string) => void
   /**
-   * Opens the World map as it was in `year` — {@link MODERN_YEAR} for today's — keeping the
-   * rest of the map: its region, frame, mode, colours and stickers.
+   * Opens a map as it was in `year` — {@link MODERN_YEAR} for today's — keeping the rest of the
+   * map: its region, frame, mode, colours and stickers. The map is `atlasId`'s, or the open one's
+   * when it has past years (World, Europe Countries), or else the World's.
    */
-  setYear: (year: number) => void
+  setYear: (year: number, atlasId?: string) => void
   /**
    * Starts this map again: everything made on it cleared — values, stickers, groups, merges,
    * labels, the frame — and the view kept, as undo keeps it (the map, its year, region,
@@ -694,10 +695,11 @@ export const useMapStore = create<MapStore>((set, get) => {
     void get().loadDataset(next.doc.scope.datasetId)
   },
 
-  setYear(year) {
-    // The years are the World map's; from any other map, a year opens it.
-    if (get().doc.scope.atlasId !== DEFAULT_ATLAS_ID) get().setAtlas(DEFAULT_ATLAS_ID)
-    const atlas = getAtlas(DEFAULT_ATLAS_ID)
+  setYear(year, atlasId) {
+    // The open map's years, if it has any; from a map without them, the World's.
+    const open = getAtlas(get().doc.scope.atlasId)
+    const atlas = atlasId ? getAtlas(atlasId) : open.years?.length ? open : getAtlas(DEFAULT_ATLAS_ID)
+    if (get().doc.scope.atlasId !== atlas.id) get().setAtlas(atlas.id)
     const { scope } = get().doc
     const past = year === MODERN_YEAR ? null : atlas.years?.find((d) => d.year === year)
     if (year !== MODERN_YEAR && !past) return
