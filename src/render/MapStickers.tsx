@@ -53,7 +53,7 @@ interface Props {
   stickers: Map<string, Sticker>
   /** The selected entities: their stickers are ringed on screen, and can be dragged. */
   activeIds: readonly string[]
-  /** The chosen sticker, by its wearer: it is outlined in yellow and can be dragged. */
+  /** The chosen sticker, by its wearer: it is outlined in gold and can be dragged. */
   chosenId: string | null
   /** Whether the ringed stickers take a press at all. */
   draggable: boolean
@@ -207,13 +207,13 @@ export const MapStickers = memo(function MapStickers({
           </symbol>
         ))}
         {/*
-          The chosen sticker's highlight: a yellow outline round its own shape. Its silhouette,
-          grown a little and filled yellow, drawn behind it, so only the rim shows and the sticker
+          The chosen sticker's highlight: a gold outline round its own shape. Its silhouette,
+          grown a little and filled gold, drawn behind it, so only the rim shows and the sticker
           itself is untouched.
         */}
         <filter id="map-sticker-highlight" x="-10%" y="-10%" width="120%" height="120%" primitiveUnits="objectBoundingBox">
           <feMorphology in="SourceAlpha" operator="dilate" radius="0.035" result="grown" />
-          <feFlood floodColor="#ffd400" />
+          <feFlood floodColor="#e9b000" />
           <feComposite in2="grown" operator="in" />
         </filter>
       </defs>
@@ -224,7 +224,7 @@ export const MapStickers = memo(function MapStickers({
         const movable = draggable && (chosen || activeIds.includes(p.id))
         return (
           <Fragment key={p.id}>
-          {/* Behind the sticker, on screen only: the yellow outline that says it is chosen. */}
+          {/* Behind the sticker, on screen only: the gold outline that says it is chosen. */}
           {chosen && (
             <use
               href={`#${symbol}`}

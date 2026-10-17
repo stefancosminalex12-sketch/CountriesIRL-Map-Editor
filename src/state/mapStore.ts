@@ -372,6 +372,17 @@ interface MapStore {
    * becomes the group the panel is editing — which is where Add to group will put things.
    */
   createMergeGroup: () => string
+  /**
+   * New group: what is selected goes into a new group in one step, the group stays closed and
+   * the selection is cleared — one undo. With nothing selected, an empty group to fill, as
+   * `createMergeGroup`. Returns the new group's id.
+   */
+  createGroupFromSelection: () => string
+  /**
+   * Moves entities into a group — dragged there from the selection or from another group, out
+   * of which they are taken in the same step. They leave the selection. One undo.
+   */
+  moveToMerge: (ids: CountryId[], mergeId: string) => void
   setOverlayMode: (on: boolean) => void
   setActiveOverlay: (id: string | null) => void
   setActiveSticker: (id: CountryId | null) => void
@@ -882,6 +893,45 @@ export const useMapStore = create<MapStore>((set, get) => {
     get().dispatch({ op: 'create_merge', id, name, members: [], merged: false })
     set({ activeMergeId: id })
     return id
+  },
+
+  createGroupFromSelection(): string {
+    const state = get()
+    const held = new Set(state.doc.merges.flatMap((m) => m.members))
+    const groupIds = new Set(state.doc.merges.map((m) => m.id))
+    const members = state.selectedCountryIds.filter((id) => !groupIds.has(id) && !held.has(id) && !!state.geo?.byId.has(id))
+    if (members.length === 0) return get().createMergeGroup()
+    const { id, name } = nextGroup(state.doc.merges)
+    get().dispatch({ op: 'create_merge', id, name, members, merged: false })
+    // Closed — the group being edited, if any, stays the one — and the selection is done with.
+    withLastEdit({ selectedCountryIds: [] })
+    return id
+  },
+
+  moveToMerge(ids, mergeId) {
+    const state = get()
+    const geo = state.geo
+    const target = state.doc.merges.find((m) => m.id === mergeId)
+    if (!geo || !target) return
+    const groupIds = new Set(state.doc.merges.map((m) => m.id))
+    const moving = [...new Set(ids)].filter((id) => !groupIds.has(id) && geo.byId.has(id) && !target.members.includes(id))
+    if (moving.length === 0) return
+    const leaving = new Set(moving)
+    const emptied: string[] = []
+    const ops: MapOperation[] = []
+    for (const merge of state.doc.merges) {
+      if (merge.id === mergeId || !merge.members.some((m) => leaving.has(m))) continue
+      const members = merge.members.filter((m) => !leaving.has(m))
+      if (members.length === 0) emptied.push(merge.id)
+      ops.push({ op: 'update_merge', id: merge.id, patch: { members } })
+    }
+    ops.push({ op: 'update_merge', id: mergeId, patch: { members: [...target.members, ...moving] } })
+    get().dispatch(ops)
+    // Off the selection, as New group takes it — and a merged body left empty is no longer there to select.
+    const selected = get().selectedCountryIds
+    if (selected.some((id) => leaving.has(id) || emptied.includes(id))) {
+      withLastEdit({ selectedCountryIds: selected.filter((id) => !leaving.has(id) && !emptied.includes(id)) })
+    }
   },
 
   /** Chooses the group the panel is editing. The map selection is left exactly as it is. */

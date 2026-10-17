@@ -32,8 +32,8 @@ export function useTapMessage() {
   const geo = useMapStore((s) => s.geo)
   const tap = (stickerId: string) => {
     const { selectedCountryIds: selected, activeStickerId, doc } = useMapStore.getState()
-    // With nothing selected, a tap works on the sticker chosen on the map.
-    const ids = selected.length > 0 ? selected : activeStickerId ? [activeStickerId] : []
+    // A sticker chosen on the map is what a tap works on; otherwise the selection.
+    const ids = activeStickerId ? [activeStickerId] : selected
     const nameOf = (id: string) => doc.merges.find((m) => m.id === id)?.name ?? geo?.meta[id]?.name ?? id
     const label = ids.length === 1 ? nameOf(ids[0]) : `${ids.length} ${noun.many}`
     const done = tapSticker(stickerId)

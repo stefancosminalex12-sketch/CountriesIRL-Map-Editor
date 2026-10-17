@@ -45,10 +45,11 @@ export function removeOps(ids: CountryId[]): MapOperation[] {
 export function tapSticker(stickerId: string): 'on' | 'off' | 'none' {
   const { doc, selectedCountryIds: ids, dispatch, activeStickerId } = useMapStore.getState()
   /*
-   * Nothing selected but a sticker chosen on the map: the tap replaces that sticker with this
-   * one, on the same territory, and it stays chosen. The same sticker again changes nothing.
+   * A sticker chosen on the map: the tap replaces that sticker with this one straight away, on
+   * the same territory, and it stays chosen — whatever else is selected. The same sticker again
+   * changes nothing.
    */
-  if (ids.length === 0 && activeStickerId) {
+  if (activeStickerId) {
     if (resolveStickers(doc).get(activeStickerId) !== stickerId) {
       dispatch({ op: 'assign_sticker', countryIds: [activeStickerId], stickerId })
     }

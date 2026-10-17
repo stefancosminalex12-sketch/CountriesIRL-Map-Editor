@@ -3769,17 +3769,22 @@ export function MapCanvas() {
           // An overlay tapped or dragged is chosen by the overlay layer, not selected here.
           if ((event.target as Element | null)?.closest?.(`[${OVERLAY_MARKER}]`)) return
           /*
-           * A click on a sticker chooses the sticker, not its territory: it glows white, can be
-           * dragged, and is what the Stickers panel's colour and size work on, while the selection
-           * stays as it was. A second click lets it go. A click anywhere else lets it go too —
-           * and then does what that click does.
+           * A click on a sticker chooses that sticker and nothing else: it is outlined in gold, can
+           * be dragged, and is what the Stickers panel's list, colour and size work on — so the
+           * territories selected before are let go (Undo gives them back), or a tap in the list
+           * would have changed all of theirs. A second click lets it go. A click anywhere else lets
+           * it go too — and then does what that click does.
            */
           const under = throughStickers(event)
           const sticker = under.sticker
           const store = useMapStore.getState()
           if (sticker) {
             const wearer = sticker.getAttribute(STICKER_MARKER)
-            if (wearer) store.setActiveSticker(store.activeStickerId === wearer ? null : wearer)
+            if (wearer && store.activeStickerId === wearer) store.setActiveSticker(null)
+            else if (wearer) {
+              if (store.selectedCountryIds.length > 0) store.clearSelection()
+              store.setActiveSticker(wearer)
+            }
             return
           }
           if (store.activeStickerId) store.setActiveSticker(null)

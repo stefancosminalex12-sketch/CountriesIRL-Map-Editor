@@ -2808,19 +2808,85 @@ body {
  * above it and the section below it therefore never move, which is the whole point:
  * a control that shifts while it is being used is a control that gets mis-tapped.
  */
+/*
+ * The groups, in the card's own scroll. It used to be a scroll of its own, taller than the card's
+ * body it sat in: its lower half and its scrollbar were under the card's edge, and a wheel over it
+ * scrolled it alone, so the card never moved to show the rest. One scroll, the card's, reaches all.
+ */
 .merge-scroll {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  height: min(360px, 46vh);
-  overflow-y: auto;
-  overscroll-behavior: contain;
 }
 
-@media (pointer: coarse) {
-  .merge-scroll {
-    height: min(400px, 50vh);
-  }
+/* The group a dragged territory would go into, lit while it is over it. */
+.merge-group--drop {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+/* What can be dragged onto a group: the selected names, and each member by its grip. */
+.merge-draggable,
+.merge-drag-grip {
+  cursor: grab;
+  /* A finger on one drags it rather than scrolling the card. */
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* While a territory is dragged, nothing on the page selects as text under the pointer. */
+:root.merge-dragging,
+:root.merge-dragging * {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  cursor: grabbing !important;
+}
+
+.merge-drag-grip {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 16px;
+  align-self: stretch;
+  color: var(--text-dim);
+}
+
+.merge-drag-grip:hover {
+  color: var(--text);
+}
+
+.merge-members__row .merge-members__code {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.pick-tab--all {
+  padding-right: 10px;
+  font-weight: 600;
+}
+
+.pick-tab--more {
+  padding-right: 10px;
+  color: var(--text-dim);
+  box-shadow: none;
+  background: transparent;
+}
+
+/* The names being dragged, following the pointer above everything. */
+.merge-drag-ghost {
+  position: fixed;
+  z-index: 1000;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translate(10px, -50%);
+  box-shadow: var(--lift);
 }
 
 
