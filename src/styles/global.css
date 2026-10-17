@@ -1378,6 +1378,64 @@ body {
   gap: 4px;
 }
 
+/*
+ * Support us, just before Undo and Redo: the website's button — a rust outline pill with a
+ * heart, filled on hover. Rust is CountriesIRL's accent (#b3391f); on the dark theme a lighter
+ * rust, so the words keep 4.5:1 on the navy panel.
+ */
+.support-link {
+  --support: #b3391f;
+  --support-on: #fbfaf8;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: var(--control-h-sm);
+  padding: 0 11px;
+  border: 1px solid var(--support);
+  border-radius: 999px;
+  color: var(--support);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+
+.support-link svg {
+  flex: none;
+  fill: currentColor;
+}
+
+.support-link:hover,
+.support-link:focus-visible {
+  background: var(--support);
+  color: var(--support-on);
+}
+
+:root[data-theme='dark'] .support-link {
+  --support: #e8735a;
+  --support-on: #0b1723;
+}
+
+/* A phone: the heart alone, as on the website, so the bar keeps its room. */
+@media (max-width: 640px) {
+  .support-link {
+    width: var(--control-h-sm);
+    padding: 0;
+    justify-content: center;
+  }
+
+  .support-link__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
 /** Secondary weight: no surface until it is wanted. */
 .btn--ghost {
   height: var(--control-h-sm);
