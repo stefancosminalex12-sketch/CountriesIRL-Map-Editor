@@ -12,8 +12,10 @@
  *   - **Outside region** — how the land outside the chosen region is drawn;
  *   - **Display** — cascading once more, to Appearance, Geographic Features and Labels &
  *     Helpers, each a panel of the switches the rail's Display section held;
- *   - **Settings**, last — the editor's own preferences: Theme and Data
- *     Sources, as the rail's Settings section held them.
+ *   - **Settings** — the editor's own preferences: Theme and Data Sources, as the rail's
+ *     Settings section held them;
+ *   - **Studio**, last — not a menu but a way out: back to the CountriesIRL Studio, where all the
+ *     apps are (`STUDIO_URL`).
  *   On a narrow screen there is no room at the side, so a row opens its choices in place of the
  *   rows, with a way back up a level.
  * - **Regions** — the open map's regions as split buttons. The name selects and deselects
@@ -348,6 +350,25 @@ interface FileNode {
   render?: (done: () => void) => ReactNode
   /** A row that does something rather than open a menu: run, then the File menu closes. */
   action?: () => void
+  /** A row that goes somewhere else: a link, drawn like the other rows. */
+  href?: string
+}
+
+/**
+ * The CountriesIRL Studio, where all the apps are. Opened over the whole window (`_top`): inside
+ * the Studio's own Maps tab the editor is a frame, and going there in the frame would put the
+ * Studio inside itself.
+ */
+const STUDIO_URL = 'https://studio.countriesirl.com/'
+
+/** A small arrow pointing back, for the Studio row. */
+function BackIcon() {
+  return (
+    <svg className="top-file__back-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+      <path d="M13 8H3.5" />
+      <path d="M7.5 3.5 3 8l4.5 4.5" />
+    </svg>
+  )
 }
 
 /** The map's look: the same three panels the rail's Display section held. */
@@ -444,7 +465,12 @@ function FileRows({
   return (
     <div className="top-file" role="menu">
       {rows.map((r) =>
-        r.action ? (
+        r.href ? (
+          <a key={r.id} role="menuitem" className="top-menu__item top-file__row top-file__row--action top-file__row--link" href={r.href} target="_top" onClick={close}>
+            <BackIcon />
+            <span className="top-file__name">{r.name}</span>
+          </a>
+        ) : r.action ? (
           <button
             key={r.id}
             type="button"
@@ -551,6 +577,8 @@ function FileMenu() {
     },
     { id: 'display', name: 'Display', children: DISPLAY },
     { id: 'settings', name: 'Settings', children: SETTINGS },
+    // Last: out of the editor, back to the Studio and its other apps.
+    { id: 'studio', name: 'Studio', href: STUDIO_URL },
   ]
 
   /** What each open row opens: rows to cascade into, or its content. */

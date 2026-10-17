@@ -17,7 +17,7 @@
 import { create } from 'zustand'
 import { fitBoxOf, useMapStore } from './mapStore'
 import { createMapDocument } from './defaults'
-import { ALL_DATASETS } from '../maps/atlas'
+import { ALL_DATASETS, REPLACED_DATASETS } from '../maps/atlas'
 import type { MapDocument } from '../types/map'
 
 const KEY = 'map-editor.document.v1'
@@ -35,12 +35,22 @@ interface Saved {
 export const useAutosave = create<{ failed: boolean }>(() => ({ failed: false }))
 
 const SCHEMA = createMapDocument().schemaVersion
-const DATASETS = new Set(ALL_DATASETS.map((d) => d.id))
+// The details no longer offered still open: as the one that replaced them (`onOfferedDataset`).
+const DATASETS = new Set([...ALL_DATASETS.map((d) => d.id), ...Object.keys(REPLACED_DATASETS)])
 
 /** A saved document this editor can open as it is. */
 function usable(doc: unknown): doc is MapDocument {
   const d = doc as MapDocument | null
   return Boolean(d && d.schemaVersion === SCHEMA && d.scope && DATASETS.has(d.scope.datasetId))
+}
+
+/**
+ * A saved map on a detail no longer offered — Europe's Standard, Light or 1:1,000,000 — opens at the
+ * detail that replaced it. Its values are kept: they are keyed by entity, and the entities are the same.
+ */
+function onOfferedDataset(doc: MapDocument): MapDocument {
+  const next = REPLACED_DATASETS[doc.scope.datasetId]
+  return next ? { ...doc, scope: { ...doc.scope, datasetId: next } } : doc
 }
 
 /** Puts the saved maps back. Called once, before the editor first renders. */
@@ -56,13 +66,13 @@ export function restoreSavedMap(): void {
   const parked = Object.fromEntries(
     Object.entries(saved.parked ?? {})
       .filter(([, doc]) => usable(doc))
-      .map(([atlasId, doc]) => [atlasId, { doc, past: [], future: [], selectedCountryIds: [], selectedWaterIds: [] }]),
+      .map(([atlasId, doc]) => [atlasId, { doc: onOfferedDataset(doc), past: [], future: [], selectedCountryIds: [], selectedWaterIds: [] }]),
   )
   /*
    * A map saved with a frame on, from before a map kept the frame it was composed in, was composed
    * against the whole canvas: it keeps that, rather than refitting into its frame on the next load.
    */
-  let doc = saved.doc
+  let doc = onOfferedDataset(saved.doc)
   if (doc.scope.fitRect === undefined && doc.screen.enabled) doc = { ...doc, scope: { ...doc.scope, fitRect: null } }
   useMapStore.setState({ doc, parked, fitBox: fitBoxOf(doc) })
 }

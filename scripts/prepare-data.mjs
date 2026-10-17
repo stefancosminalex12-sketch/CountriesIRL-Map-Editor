@@ -32,6 +32,10 @@ const CURATED = [
   'countries-25m.json',
   'countries-10m.json',
   'us-states-10m.json',
+  // USA States at the World map's other details, made from 10m — `scripts/build-levels.mjs`.
+  'us-states-25m.json',
+  'us-states-50m.json',
+  'us-states-110m.json',
   'lakes-10m.geojson',
   'lakes-50m.geojson',
   'lakes-25m.geojson',

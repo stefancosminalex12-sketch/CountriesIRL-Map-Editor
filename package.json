@@ -19,7 +19,8 @@
     "build-europe": "node --max-old-space-size=14000 scripts/europe/build-europe.mjs",
     "prepare-flags": "node scripts/prepare-flags.mjs",
     "prepare-stickers": "node scripts/prepare-stickers.mjs",
-    "fetch-eez": "node scripts/fetch-eez.mjs"
+    "fetch-eez": "node scripts/fetch-eez.mjs",
+    "build-levels": "node --max-old-space-size=12000 scripts/build-levels.mjs"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.2.5",

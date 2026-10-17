@@ -29,7 +29,7 @@
  * work with.
  */
 import { createRequire } from 'node:module'
-import { writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { readEntityMeta } from './entity-meta.mjs'
@@ -69,7 +69,9 @@ const HAND_MAINTAINED = new Set(['VAT'])
 
 /* ------------------------------------------------------------------ sources */
 
-const meta = readEntityMeta(resolve(root, 'public/geo/country-meta.json'))
+// The id indexes as well as the entities: `readEntityMeta` returns only the entities.
+const metaPath = resolve(root, 'public/geo/country-meta.json')
+const meta = { ...JSON.parse(readFileSync(metaPath, 'utf8')), entities: readEntityMeta(metaPath) }
 
 /** The same id resolution the runtime loader uses, so the two can never disagree. */
 function idOf(raw) {
@@ -119,6 +121,22 @@ const layers = {
   '110m': loadLayer('countries-110m.json'),
   '50m': loadLayer('countries-50m.json'),
   '10m': loadLayer('countries-10m.json'),
+}
+
+/*
+ * Entities only the curated World map has — the ones `build-geography.mjs` cuts out of a country
+ * (Bir Tawil, the Southern Patagonian Ice Field) — are taken from its own 10m, by the id the build
+ * stamps on each feature, so they have a shape at 50m and 110m too instead of vanishing there.
+ */
+{
+  const require10 = JSON.parse(readFileSync(resolve(root, 'data/natural-earth/countries-10m.json'), 'utf8'))
+  const known = new Set([...layers['110m'].keys(), ...layers['50m'].keys(), ...layers['10m'].keys()])
+  for (const raw of feature(require10, Object.values(require10.objects)[0]).features) {
+    if (!raw.id || known.has(raw.id) || !raw.geometry) continue
+    const polygons = raw.geometry.type === 'Polygon' ? [raw.geometry.coordinates] : raw.geometry.coordinates
+    const usable = polygons.map((p) => p.map(distinct).filter((r) => r.length >= 3)).filter((p) => p.length)
+    if (usable.length) layers['10m'].set(raw.id, usable)
+  }
 }
 
 /* ------------------------------------------------------------ simplification */
@@ -339,7 +357,7 @@ for (const id of [...everyId].sort()) {
 
   entries.push({
     id,
-    name: meta[id]?.name ?? id,
+    name: meta.entities[id]?.name ?? id,
     appliesToDetail: missing,
     sourceDetail,
     polygons,
@@ -400,14 +418,15 @@ const file = `/**
  */
 import type { Position } from 'geojson'
 import type { CountryId } from '../types/map'
+import type { GeoDetail } from './datasets'
 
 export interface LowDetailCountry {
   id: CountryId
   name: string
   /** Resolutions whose own layer has no geometry for this entity. */
-  appliesToDetail: ('110m' | '50m' | '10m')[]
+  appliesToDetail: GeoDetail[]
   /** The layer the shape was lifted from, before simplification. */
-  sourceDetail: '110m' | '50m' | '10m'
+  sourceDetail: GeoDetail
   polygons: Position[][][]
 }
 

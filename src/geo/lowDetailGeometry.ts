@@ -11,7 +11,7 @@
  * Simplification only removes points: nothing is drawn, invented, moved or scaled,
  * and no polygon is ever merged or dropped, so archipelagos keep their distribution.
  *
- * 76 entities, 619 polygons, 3538 points (from 9703 in the source).
+ * 78 entities, 621 polygons, 3548 points (from 9754 in the source).
  */
 import type { Position } from 'geojson'
 import type { CountryId } from '../types/map'
@@ -2336,6 +2336,17 @@ export const LOW_DETAIL_COUNTRIES: LowDetailCountry[] = [
     ],
   },
   {
+    id: 'XBT',
+    name: "Bir Tawil",
+    appliesToDetail: ['110m', '50m'],
+    sourceDetail: '10m',
+    polygons: [
+      [
+        [[33.1811,21.9953], [34.0843,21.9955], [33.999,21.7673], [33.5583,21.7109]],
+      ],
+    ],
+  },
+  {
     id: 'XCB',
     name: "Cyprus U.N. Buffer Zone",
     appliesToDetail: ['110m', '50m'],
@@ -2414,6 +2425,17 @@ export const LOW_DETAIL_COUNTRIES: LowDetailCountry[] = [
       ],
       [
         [[105.7133,-10.4365], [105.6953,-10.5649], [105.6485,-10.5125], [105.5837,-10.5159], [105.5945,-10.4534], [105.6557,-10.4703]],
+      ],
+    ],
+  },
+  {
+    id: 'XPI',
+    name: "Southern Patagonian Ice Field",
+    appliesToDetail: ['110m', '50m'],
+    sourceDetail: '10m',
+    polygons: [
+      [
+        [[-73.0983,-49.2727], [-73.0597,-49.555], [-73.1969,-49.6825], [-73.4651,-49.7599], [-73.5882,-49.5406], [-73.4712,-49.3171]],
       ],
     ],
   },

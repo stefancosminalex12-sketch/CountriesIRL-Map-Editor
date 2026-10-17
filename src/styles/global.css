@@ -4312,6 +4312,20 @@ body {
 }
 
 /* The row whose menu is open: the hover's soft tint, a step stronger. */
+/* Studio, the last row: a way out of the editor, set off from the menu above it by a rule. */
+.top-menu__item.top-file__row--link {
+  gap: 8px;
+  margin-top: 4px;
+  border-top: 1px solid var(--line);
+  color: inherit;
+  text-decoration: none;
+}
+
+.top-file__back-icon {
+  flex: none;
+  color: var(--text-dim);
+}
+
 .top-menu__item.top-file__row--open {
   background: color-mix(in srgb, var(--text) 10%, transparent);
 }

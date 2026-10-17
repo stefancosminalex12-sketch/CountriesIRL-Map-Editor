@@ -102,7 +102,12 @@ export interface GeoDataset {
    * The water drawn over this dataset's land, where it is not Natural Earth's: the official
    * USA map draws USGS lakes and rivers, at the scale of its Census boundaries.
    */
-  water?: { lakes: LakeLayer; rivers: RiverLayer }
+  water?: { lakes: LakeLayer; rivers?: RiverLayer }
+  /**
+   * Kept and loadable, not offered in the Resolution menu yet — Europe's 1:1,000,000. A saved map
+   * on it opens at its replacement (`REPLACED_DATASETS`).
+   */
+  hidden?: boolean
   /**
    * The entities' codes and sources, kept out of the entity table and fetched only when the
    * inspector asks — for a dataset of tens of thousands of units. See `entityDetails.ts`.
@@ -139,7 +144,7 @@ export function getDataset(id: string): GeoDataset {
  * level, not the same map in another year (`Atlas.years`, chosen with the Year control).
  */
 export function datasetsForAtlas(atlasId: string): GeoDataset[] {
-  return ALL_DATASETS.filter((d) => d.atlasId === atlasId && d.era === 'modern')
+  return ALL_DATASETS.filter((d) => d.atlasId === atlasId && d.era === 'modern' && !d.hidden)
 }
 
 export interface LoadedDataset {

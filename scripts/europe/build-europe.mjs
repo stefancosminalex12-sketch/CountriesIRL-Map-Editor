@@ -311,10 +311,12 @@ function interiorGaps(topology) {
 
 /* ------------------------------------------------------- Europe Countries */
 
+/*
+ * The 1:1,000,000 only. The map's 110m, 50m, 25m and 10m are made from it afterwards by
+ * `scripts/build-levels.mjs`, matched to the World map's details; run that after this.
+ */
 const DETAIL = {
   full: { label: 'Full Detail (1:1M)', tolerance: 0 },
-  standard: { label: 'Standard', tolerance: 120 },
-  light: { label: 'Light', tolerance: 600 },
 }
 
 const countryUnits = [

@@ -20,7 +20,7 @@
  * written against `US-CA` can never be mistaken for one written against a country.
  */
 import type { GeoDataset } from '../geo/datasets'
-import { EGM_LAKES, USGS_LAKES } from '../geo/lakes'
+import { EGM_LAKES, USGS_LAKES, type LakeLayer } from '../geo/lakes'
 import { RIVER_LAYERS, USGS_RIVERS } from '../geo/rivers'
 import type { RegionId } from '../types/map'
 
@@ -325,22 +325,25 @@ const ADMIN_DATASETS: GeoDataset[] = [
   },
 ]
 
-const USA_DATASETS: GeoDataset[] = [
-  {
-    id: 'usa-states-10m',
-    atlasId: 'usa-states',
-    name: 'United States',
-    era: 'modern',
-    year: null,
-    detail: '10m',
-    url: 'geo/us-states-10m.json',
-    objectName: 'states',
-    metaUrl: 'geo/us-state-meta.json',
-    // Natural Earth already carries `US-CA` on the feature, so nothing has to be
-    // matched by name or numeric code the way a country dataset does.
-    identify: 'feature-id',
-  },
-]
+/**
+ * The USA States map at the World map's four details: Natural Earth 10m, and 25m, 50m and 110m
+ * made from it by `scripts/build-levels.mjs` with as many points as the World map's own. Lakes and
+ * rivers are the World map's at the same detail.
+ */
+const USA_DATASETS: GeoDataset[] = (['110m', '50m', '25m', '10m'] as const).map((detail) => ({
+  id: `usa-states-${detail}`,
+  atlasId: 'usa-states',
+  name: 'United States',
+  era: 'modern',
+  year: null,
+  detail,
+  url: `geo/us-states-${detail}.json`,
+  objectName: 'states',
+  metaUrl: 'geo/us-state-meta.json',
+  // Natural Earth already carries `US-CA` on the feature, so nothing has to be
+  // matched by name or numeric code the way a country dataset does.
+  identify: 'feature-id',
+}))
 
 /**
  * The United States from official U.S. government data, at three levels.
@@ -410,7 +413,8 @@ const USA_OFFICIAL_DATASETS: GeoDataset[] = [
  *
  * Separate from the World and Modern Administrative World maps, which stay Natural Earth's and
  * unchanged. Lakes are EuroGlobalMap's own, drawn at the scale of its coastlines; rivers are the
- * World map's Natural Earth rivers.
+ * World map's Natural Earth rivers. Europe Countries comes at four details, below; the
+ * administrative levels at the 1:1,000,000.
  */
 const EUROPE_BASE = {
   name: 'Europe',
@@ -423,7 +427,37 @@ const EUROPE_BASE = {
   water: { lakes: EGM_LAKES, rivers: RIVER_LAYERS[0] },
 } as const
 
+/*
+ * The administrative levels' lakes: EuroGlobalMap's at the 10m detail (1.1 MB) rather than its
+ * full 1:1,000,000 (7.5 MB) — the same lakes, within a kilometre, a seventh of the download.
+ */
+const EUROPE_ADMIN_WATER = { lakes: { id: 'egm-lakes-10m', detail: '10m', url: 'geo/europe/lakes-10m.geojson' }, rivers: RIVER_LAYERS[0] } as const
+
+/**
+ * Europe Countries at the World map's four details, made from EuroGlobalMap's 1:1,000,000 by
+ * `scripts/build-levels.mjs` with as many points as the World map's own, and the lakes with them;
+ * rivers are the World map's at the same detail. 110m draws 50m's lakes, as the World map does.
+ *
+ * The 1:1,000,000 itself is kept and loadable, not offered yet (`hidden`).
+ */
+const EGM_LAKES_BY_DETAIL: Record<'10m' | '25m' | '50m', LakeLayer> = {
+  '10m': { id: 'egm-lakes-10m', detail: '10m', url: 'geo/europe/lakes-10m.geojson' },
+  '25m': { id: 'egm-lakes-25m', detail: '25m', url: 'geo/europe/lakes-25m.geojson' },
+  '50m': { id: 'egm-lakes-50m', detail: '50m', url: 'geo/europe/lakes-50m.geojson' },
+}
+
 const EUROPE_COUNTRY_DATASETS: GeoDataset[] = [
+  ...(['110m', '50m', '25m', '10m'] as const).map(
+    (detail): GeoDataset => ({
+      ...EUROPE_BASE,
+      atlasId: 'europe-countries',
+      id: `europe-countries-${detail}`,
+      detail,
+      url: `geo/europe/countries-${detail}.json`,
+      metaUrl: 'geo/europe/countries-meta.json',
+      water: { lakes: EGM_LAKES_BY_DETAIL[detail === '110m' ? '50m' : detail] },
+    }),
+  ),
   {
     ...EUROPE_BASE,
     atlasId: 'europe-countries',
@@ -433,30 +467,24 @@ const EUROPE_COUNTRY_DATASETS: GeoDataset[] = [
     url: 'geo/europe/countries-full.json',
     metaUrl: 'geo/europe/countries-meta.json',
     progressive: true,
-  },
-  {
-    ...EUROPE_BASE,
-    atlasId: 'europe-countries',
-    id: 'europe-countries-standard',
-    label: 'Standard',
-    description: 'Generalised to about 120 m: every island and border kept, lighter to draw.',
-    url: 'geo/europe/countries-standard.json',
-    metaUrl: 'geo/europe/countries-meta.json',
-  },
-  {
-    ...EUROPE_BASE,
-    atlasId: 'europe-countries',
-    id: 'europe-countries-light',
-    label: 'Light',
-    description: 'Generalised to about 600 m, for the whole continent at a glance.',
-    url: 'geo/europe/countries-light.json',
-    metaUrl: 'geo/europe/countries-meta.json',
+    hidden: true,
   },
 ]
+
+/**
+ * Datasets a map no longer offers, and the one a saved map on them opens at instead: Europe's
+ * Standard and Light, replaced by the four details, and its 1:1,000,000, not offered yet.
+ */
+export const REPLACED_DATASETS: Record<string, string> = {
+  'europe-countries-standard': 'europe-countries-10m',
+  'europe-countries-light': 'europe-countries-25m',
+  'europe-countries-full': 'europe-countries-10m',
+}
 
 const EUROPE_ADMIN_DATASETS: GeoDataset[] = [
   {
     ...EUROPE_BASE,
+    water: EUROPE_ADMIN_WATER,
     atlasId: 'europe-admin',
     id: 'europe-admin-regions',
     label: 'Regions',
@@ -467,6 +495,7 @@ const EUROPE_ADMIN_DATASETS: GeoDataset[] = [
   },
   {
     ...EUROPE_BASE,
+    water: EUROPE_ADMIN_WATER,
     atlasId: 'europe-admin',
     id: 'europe-admin-standard',
     label: 'Standard',
@@ -477,6 +506,7 @@ const EUROPE_ADMIN_DATASETS: GeoDataset[] = [
   },
   {
     ...EUROPE_BASE,
+    water: EUROPE_ADMIN_WATER,
     atlasId: 'europe-admin',
     id: 'europe-admin-detailed',
     label: 'Detailed',
@@ -554,12 +584,8 @@ export const ATLASES: Atlas[] = [
     family: 'europe',
     noun: { one: 'country', many: 'countries' },
     datasets: EUROPE_COUNTRY_DATASETS,
-    /*
-     * Light, which draws the continent with about as many points as the World map draws it: at
-     * 1:1M the borders at this scale were ten times denser than the World map's, and read
-     * thicker and jagged at the same width. Full Detail is a click away under Resolution.
-     */
-    defaultDatasetId: 'europe-countries-light',
+    // 25m, as the World map: the automatic choice (25m on a desktop, 50m on a phone) is `startingDetail`.
+    defaultDatasetId: 'europe-countries-25m',
     datasetLabel: 'Detail',
     note: 'Countries and territories · EuroGlobalMap 1:1M',
     /*
@@ -595,7 +621,7 @@ export const ATLASES: Atlas[] = [
     family: 'usa',
     noun: { one: 'state', many: 'states' },
     datasets: USA_DATASETS,
-    defaultDatasetId: 'usa-states-10m',
+    defaultDatasetId: 'usa-states-25m',
     regionIds: ['usa'],
     defaultRegionIds: ['usa'],
     regionBar: USA_BAR,

@@ -22,9 +22,9 @@
  *   resizing, changing region, projection or panel never reconsiders it — a map that is on
  *   10m because someone asked for 10m stays there.
  *
- * Only the World map actually offers 25m and 50m; the administrative, USA and Europe atlases
- * have one resolution each (their levels are different geographies, not different resolutions
- * of one), so for those this returns exactly what it always did.
+ * The World, Europe Countries and USA States maps offer 110m, 50m, 25m and 10m, so each opens at
+ * 25m on a desktop and 50m on a phone. The administrative maps' levels are different geographies,
+ * not resolutions of one, so for those this returns their own default.
  */
 import type { Atlas } from './atlas'
 import type { GeoDataset } from '../geo/datasets'
@@ -95,13 +95,18 @@ let chosenDetail: GeoDataset['detail'] | null = null
 
 /** Whether an atlas's datasets are resolutions of one map, rather than different geographies. */
 function offersResolutions(atlas: Atlas): boolean {
-  return new Set(atlas.datasets.map((dataset) => dataset.detail)).size > 1
+  return new Set(offered(atlas).map((dataset) => dataset.detail)).size > 1
+}
+
+/** The details a map offers: not one kept but not shown yet, like Europe's 1:1,000,000. */
+function offered(atlas: Atlas) {
+  return atlas.datasets.filter((dataset) => !dataset.hidden)
 }
 
 /** Called when the author chooses a detail themselves. See the note above. */
 export function noteDetailChosen(atlas?: Atlas, datasetId?: string): void {
   automatic = false
-  const dataset = atlas?.datasets.find((d) => d.id === datasetId)
+  const dataset = atlas && offered(atlas).find((d) => d.id === datasetId)
   if (atlas && dataset && offersResolutions(atlas)) chosenDetail = dataset.detail
 }
 
@@ -120,11 +125,11 @@ export function detailIsAutomatic(): boolean {
 export function startingDatasetId(atlas: Atlas): string {
   if (isCompactDevice()) {
     if (!automatic) return atlas.defaultDatasetId
-    const chosen = atlas.datasets.find((dataset) => dataset.detail === STARTING_DETAIL)
+    const chosen = offered(atlas).find((dataset) => dataset.detail === STARTING_DETAIL)
     return chosen ? chosen.id : atlas.defaultDatasetId
   }
   if (!offersResolutions(atlas)) return atlas.defaultDatasetId
   const detail = chosenDetail ?? DESKTOP_DETAIL
-  const chosen = atlas.datasets.find((dataset) => dataset.detail === detail)
+  const chosen = offered(atlas).find((dataset) => dataset.detail === detail)
   return chosen ? chosen.id : atlas.defaultDatasetId
 }
