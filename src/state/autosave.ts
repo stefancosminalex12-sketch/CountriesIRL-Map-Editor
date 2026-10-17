@@ -15,7 +15,7 @@
  * opens fresh rather than on a map it may misread.
  */
 import { create } from 'zustand'
-import { useMapStore } from './mapStore'
+import { fitBoxOf, useMapStore } from './mapStore'
 import { createMapDocument } from './defaults'
 import { ALL_DATASETS } from '../maps/atlas'
 import type { MapDocument } from '../types/map'
@@ -58,7 +58,13 @@ export function restoreSavedMap(): void {
       .filter(([, doc]) => usable(doc))
       .map(([atlasId, doc]) => [atlasId, { doc, past: [], future: [], selectedCountryIds: [], selectedWaterIds: [] }]),
   )
-  useMapStore.setState({ doc: saved.doc, parked })
+  /*
+   * A map saved with a frame on, from before a map kept the frame it was composed in, was composed
+   * against the whole canvas: it keeps that, rather than refitting into its frame on the next load.
+   */
+  let doc = saved.doc
+  if (doc.scope.fitRect === undefined && doc.screen.enabled) doc = { ...doc, scope: { ...doc.scope, fitRect: null } }
+  useMapStore.setState({ doc, parked, fitBox: fitBoxOf(doc) })
 }
 
 function write(): void {

@@ -41,6 +41,8 @@ export function buildInsets(
   width: number,
   height: number,
   entities?: Record<string, { id: string; parent?: { id: string } }>,
+  /** The part of the canvas the map is fitted into — its frame — when not all of it: the insets go in it too. */
+  box?: { x: number; y: number; width: number; height: number } | null,
 ): ResolvedInset[] {
   if (!main || atlas.insets.length === 0 || width < 2 || height < 2) return []
   const scale = main.scale()
@@ -63,9 +65,10 @@ export function buildInsets(
     }
   }
 
+  const area = box && box.width >= 2 && box.height >= 2 ? box : { x: 0, y: 0, width, height }
   return atlas.insets.map((inset) => {
-    const anchorX = inset.anchor.x * width
-    const anchorY = inset.anchor.y * height
+    const anchorX = area.x + inset.anchor.x * area.width
+    const anchorY = area.y + inset.anchor.y * area.height
 
     const projection = geoConicEqualArea()
       .rotate([inset.rotate[0], inset.rotate[1]])
@@ -76,8 +79,8 @@ export function buildInsets(
       // rather than a bounds measurement — and it cannot drift as geometry changes.
       .translate([anchorX, anchorY])
 
-    const frameW = inset.frame.width * width
-    const frameH = inset.frame.height * height
+    const frameW = inset.frame.width * area.width
+    const frameH = inset.frame.height * area.height
 
     return {
       inset,

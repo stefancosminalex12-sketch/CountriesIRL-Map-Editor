@@ -32,7 +32,9 @@ export function ScreenControls() {
    * kept in step with it.
    */
   const canvas = typeof document === 'undefined' ? null : document.getElementById(MAP_SVG_ID)
-  const box = canvas?.getBoundingClientRect()
+  // The canvas's own box, which the frame is placed in — not the drawing, which runs on under the
+  // bars (`useBleed`) and put a ratio's frame off-centre, partly under the zoom buttons.
+  const box = (canvas?.parentElement ?? canvas)?.getBoundingClientRect()
   const width = Math.max(1, Math.round(box?.width ?? 1))
   const height = Math.max(1, Math.round(box?.height ?? 1))
   const rect = screen.rect
@@ -64,10 +66,12 @@ export function ScreenControls() {
       remove()
       return
     }
-    dispatch({
-      op: 'set_screen',
-      patch: { enabled: true, rect: fitAspect(ratio, width, height), aspect: id },
-    })
+    // A ratio is a fresh composition, so the map is fitted into the new frame with the margin
+    // every map has — where a dragged or typed frame is placed over the map as it is.
+    dispatch([
+      { op: 'set_screen', patch: { enabled: true, rect: fitAspect(ratio, width, height), aspect: id } },
+      { op: 'refit_scope' },
+    ])
   }
 
   /*

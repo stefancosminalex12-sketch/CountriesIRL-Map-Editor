@@ -322,9 +322,13 @@ const ANSWER_MIN = 1.96
 const ANSWER_CAP = 0.72
 
 /** What a view of the land is remembered by: everything that decides its projection. See `projectedLand.ts`. */
-function landKeyOf(regionIds: readonly string[], projectionId: string, padding: number, width: number, height: number, tolerance: number): string {
-  return `${[...regionIds].sort().join('+')}|${projectionId}|${padding}|${width}x${height}|t${tolerance}`
+function landKeyOf(regionIds: readonly string[], projectionId: string, padding: number, width: number, height: number, tolerance: number, area: FitArea): string {
+  const box = area ? `@${Math.round(area.x)},${Math.round(area.y)},${Math.round(area.width)}x${Math.round(area.height)}` : ''
+  return `${[...regionIds].sort().join('+')}|${projectionId}|${padding}|${width}x${height}${box}|t${tolerance}`
 }
+
+/** The part of the canvas the map is fitted into — its frame — or `null` for all of it. */
+type FitArea = { x: number; y: number; width: number; height: number } | null
 
 const ZOOM_RANGE: [number, number] = [1, MAX_MAP_ZOOM]
 /** How much of the map's width or height an entity searched for is zoomed to fill. */
@@ -782,6 +786,17 @@ export function MapCanvas() {
     [screenOn, doc.screen.rect, width, height],
   )
 
+  /**
+   * What the map is fitted into: the canvas frame it is composed in while the frame is on, so
+   * every map sits inside the frame with the same margin; the whole canvas otherwise. Read when
+   * the map is framed (`fitBox` in the store), never while the frame is dragged.
+   */
+  const fitBox = useMapStore((s) => s.fitBox)
+  const fitArea: FitArea = useMemo(
+    () => (screenOn && fitBox ? resolveScreen(fitBox, fit.width, fit.height) : null),
+    [screenOn, fitBox, fit.width, fit.height],
+  )
+
   /** The projection this view asks for. What is drawn through is `projection`, below. */
   const targetProjection = useMemo(() => {
     if (fit.width < 2 || fit.height < 2) return null
@@ -791,8 +806,9 @@ export function MapCanvas() {
       width: fit.width,
       height: fit.height,
       padding: scope.padding,
+      box: fitArea,
     })
-  }, [framing, scope.projectionId, scope.padding, fit.width, fit.height])
+  }, [framing, scope.projectionId, scope.padding, fit.width, fit.height, fitArea])
 
   /**
    * The atlas's insets, resolved against this viewport and this projection.
@@ -805,8 +821,8 @@ export function MapCanvas() {
   const atlas = useMemo(() => getAtlas(scope.atlasId), [scope.atlasId])
   /* In the projection's own space, so it follows the fitted size rather than the live one. */
   const targetInsets = useMemo(
-    () => buildInsets(atlas, targetProjection, fit.width, fit.height, geo?.meta),
-    [atlas, targetProjection, fit.width, fit.height, geo],
+    () => buildInsets(atlas, targetProjection, fit.width, fit.height, geo?.meta, fitArea),
+    [atlas, targetProjection, fit.width, fit.height, geo, fitArea],
   )
 
   /**
@@ -827,7 +843,7 @@ export function MapCanvas() {
   // enlarged coarse borders on screen until an asynchronous replacement finished.
   // Keep every point at every zoom so live and settled navigation draw the same land.
   const landTolerance = 0
-  const landKey = landKeyOf(scope.regionIds, scope.projectionId, scope.padding, fit.width, fit.height, landTolerance)
+  const landKey = landKeyOf(scope.regionIds, scope.projectionId, scope.padding, fit.width, fit.height, landTolerance, fitArea)
   const land = useProjectedLand(
     geo,
     targetProjection,
@@ -854,7 +870,7 @@ export function MapCanvas() {
     if (fit.width < 2 || fit.height < 2) return
     let cancelled = false
     const views: PrewarmView[] = regionsForAtlas(scope.atlasId).map((region) => ({
-      key: landKeyOf([region.id], scope.projectionId, scope.padding, fit.width, fit.height, 0),
+      key: landKeyOf([region.id], scope.projectionId, scope.padding, fit.width, fit.height, 0, fitArea),
       make: () => {
         const projection = buildProjection({
           framing: computeFraming([region.id], geo),
@@ -862,8 +878,9 @@ export function MapCanvas() {
           width: fit.width,
           height: fit.height,
           padding: scope.padding,
+          box: fitArea,
         })
-        return { projection, insets: buildInsets(atlas, projection, fit.width, fit.height, geo.meta) }
+        return { projection, insets: buildInsets(atlas, projection, fit.width, fit.height, geo.meta, fitArea) }
       },
     }))
     const timer = window.setTimeout(() => void prewarmLand(geo, views, fit.width, fit.height, () => cancelled), 1500)
@@ -871,7 +888,7 @@ export function MapCanvas() {
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [geo, land, atlas, scope.atlasId, scope.projectionId, scope.padding, fit.width, fit.height])
+  }, [geo, land, atlas, scope.atlasId, scope.projectionId, scope.padding, fit.width, fit.height, fitArea])
 
   useEffect(() => {
     /*

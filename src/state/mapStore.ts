@@ -29,6 +29,18 @@ export type Transform = { k: number; x: number; y: number }
 
 export const IDENTITY_TRANSFORM: Transform = { k: 1, x: 0, y: 0 }
 
+type FitRect = NonNullable<MapDocument['scope']['fitRect']>
+
+/**
+ * What a map is fitted into when it is framed: the frame its composition was made in, if one was
+ * kept (`scope.fitRect`); otherwise the canvas frame that is on now, so a map opened or given a
+ * region sits inside the frame with the same margin as every other; otherwise the whole canvas.
+ */
+export function fitBoxOf(doc: MapDocument): FitRect | null {
+  if (doc.scope.fitRect !== undefined) return doc.scope.fitRect
+  return doc.screen.enabled ? doc.screen.rect : null
+}
+
 /**
  * One step on the undo stack: the document and the selection as they stood before an edit.
  *
@@ -272,6 +284,12 @@ interface MapStore {
   transform: Transform
   /** Incremented whenever the framing changes, so the canvas knows to reset the camera. */
   framingEpoch: number
+  /**
+   * The canvas frame the map is fitted into while the frame is on, or `null` for the whole
+   * canvas. Read each time the map is framed (`fitBoxOf`), so dragging the frame afterwards moves
+   * the frame over the map and never refits it.
+   */
+  fitBox: FitRect | null
 
   /* interaction */
   hoveredCountryId: CountryId | null
@@ -528,6 +546,7 @@ export const useMapStore = create<MapStore>((set, get) => {
 
   transform: IDENTITY_TRANSFORM,
   framingEpoch: 0,
+  fitBox: null,
 
   hoveredCountryId: null,
   selectedCountryIds: [],
@@ -657,6 +676,8 @@ export const useMapStore = create<MapStore>((set, get) => {
       hoveredWaterId: null,
       transform: IDENTITY_TRANSFORM,
       framingEpoch: state.framingEpoch + 1,
+      // Into the frame that is on now — unless a frame was placed on this map, which it keeps.
+      fitBox: fitBoxOf(next.doc),
     })
 
     void get().loadDataset(next.doc.scope.datasetId)
@@ -726,7 +747,22 @@ export const useMapStore = create<MapStore>((set, get) => {
 
     const framingChanged =
       outcome.doc.scope.regionIds !== doc.scope.regionIds ||
-      outcome.doc.scope.projectionId !== doc.scope.projectionId
+      outcome.doc.scope.projectionId !== doc.scope.projectionId ||
+      ops.some((op) => op.op === 'refit_scope')
+
+    /*
+     * A frame placed, moved or changed on this map is placed over the composition, never the
+     * other way round: the map keeps the box it is drawn in now, and keeps it when another map is
+     * opened and this one comes back. Taking the frame away fits the map to the canvas again.
+     */
+    if (!framingChanged && outcome.doc.screen !== doc.screen) {
+      const { fitBox } = get()
+      const drawnIn = doc.screen.enabled && outcome.doc.screen.enabled ? fitBox : null
+      if (outcome.doc.scope.fitRect !== drawnIn) {
+        outcome.doc = { ...outcome.doc, scope: { ...outcome.doc.scope, fitRect: drawnIn } }
+      }
+    }
+    const fitBox = fitBoxOf(outcome.doc)
 
     /*
      * History records the document as it was *before* an edit, and only for edits
@@ -752,6 +788,7 @@ export const useMapStore = create<MapStore>((set, get) => {
       log: [...log, ...outcome.results].slice(-200),
       past: nextPast,
       future: nextFuture,
+      ...(fitBox !== get().fitBox ? { fitBox } : {}),
       ...(framingChanged
         ? { transform: IDENTITY_TRANSFORM, framingEpoch: get().framingEpoch + 1 }
         : {}),
@@ -1181,7 +1218,7 @@ export const useMapStore = create<MapStore>((set, get) => {
   },
 
   resetTransform() {
-    set({ transform: IDENTITY_TRANSFORM, framingEpoch: get().framingEpoch + 1 })
+    set({ transform: IDENTITY_TRANSFORM, framingEpoch: get().framingEpoch + 1, fitBox: fitBoxOf(get().doc) })
   },
   }
 })

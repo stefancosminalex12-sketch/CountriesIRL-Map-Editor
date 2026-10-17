@@ -492,10 +492,20 @@ function applyOperation(doc: MapDocument, op: MapOperation): MapDocument {
     }
     case 'set_scope_dataset':
       return { ...doc, scope: { ...doc.scope, datasetId: op.datasetId } }
-    case 'set_scope_regions':
-      return { ...doc, scope: { ...doc.scope, regionIds: op.regionIds as RegionId[] } }
-    case 'set_scope_projection':
-      return { ...doc, scope: { ...doc.scope, projectionId: op.projectionId } }
+    // A new region or projection is a new composition: fitted into the frame on now, not a kept one.
+    case 'set_scope_regions': {
+      const { fitRect: _kept, ...scope } = doc.scope
+      return { ...doc, scope: { ...scope, regionIds: op.regionIds as RegionId[] } }
+    }
+    case 'set_scope_projection': {
+      const { fitRect: _kept, ...scope } = doc.scope
+      return { ...doc, scope: { ...scope, projectionId: op.projectionId } }
+    }
+    case 'refit_scope': {
+      if (doc.scope.fitRect === undefined) return doc
+      const { fitRect: _kept, ...scope } = doc.scope
+      return { ...doc, scope }
+    }
     case 'set_style':
       return { ...doc, style: { ...doc.style, ...(op.patch as Partial<MapStyle>) } }
     /*

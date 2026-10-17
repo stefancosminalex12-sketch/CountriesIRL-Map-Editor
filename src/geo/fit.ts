@@ -215,6 +215,12 @@ export interface ProjectionSpec {
   width: number
   height: number
   padding: number
+  /**
+   * The part of the canvas to fit into, when it is not all of it: the canvas frame the map is
+   * composed in (`fitBoxOf` in the store). In canvas pixels; the fit is the same as for a canvas
+   * of the box's size, moved to where the box is.
+   */
+  box?: { x: number; y: number; width: number; height: number } | null
 }
 
 /*
@@ -228,6 +234,12 @@ export interface ProjectionSpec {
  * instead, which is the same geometry read the other way round.
  */
 export function buildProjection(spec: ProjectionSpec): GeoProjection {
+  const box = spec.box && spec.box.width >= 2 && spec.box.height >= 2 ? spec.box : null
+  if (box) {
+    const projection = buildProjection({ ...spec, width: box.width, height: box.height, box: null })
+    const [tx, ty] = projection.translate()
+    return projection.translate([tx + box.x, ty + box.y])
+  }
   const { framing, width, height } = spec
   const projectionId = resolveProjectionId(spec.projectionId)
   const def = getProjectionDef(projectionId)

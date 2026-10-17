@@ -39,7 +39,8 @@ async function placeFrame(template: MapTemplate, before: ReturnType<typeof getLi
   const projection = getLiveProjection()
   const canvas = document.getElementById(MAP_SVG_ID)
   if (!projection || !canvas) return
-  const box = canvas.getBoundingClientRect()
+  // The canvas's own box, which the frame is held inside — not the drawing running on under the bars.
+  const box = (canvas.parentElement ?? canvas).getBoundingClientRect()
   const project = (points: readonly [number, number][]) =>
     points.map((p) => projection([p[0], p[1]])).filter((p): p is [number, number] => !!p)
   const { transform, dispatch } = useMapStore.getState()

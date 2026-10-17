@@ -503,7 +503,12 @@ export const ATLASES: Atlas[] = [
     family: 'europe',
     noun: { one: 'country', many: 'countries' },
     datasets: EUROPE_COUNTRY_DATASETS,
-    defaultDatasetId: 'europe-countries-full',
+    /*
+     * Light, which draws the continent with about as many points as the World map draws it: at
+     * 1:1M the borders at this scale were ten times denser than the World map's, and read
+     * thicker and jagged at the same width. Full Detail is a click away under Resolution.
+     */
+    defaultDatasetId: 'europe-countries-light',
     datasetLabel: 'Detail',
     note: 'Countries and territories · EuroGlobalMap 1:1M',
     /*

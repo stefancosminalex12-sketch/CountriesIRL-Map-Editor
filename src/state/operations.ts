@@ -98,6 +98,12 @@ export type MapOperation =
    */
   | { op: 'set_screen'; patch: Record<string, unknown> }
   /*
+   * Fit the map into the canvas frame that is on now, forgetting the one its composition was
+   * made in (`scope.fitRect`): a ratio chosen for the frame is a fresh composition. Part of the
+   * scope, so not undoable, like a region.
+   */
+  | { op: 'refit_scope' }
+  /*
    * Groups, and the merges they become. Additive and reversible: a group records which
    * entities it holds, merging it draws them as one, deleting it restores them, and the
    * dataset is never touched by any of it.
@@ -214,6 +220,7 @@ const IMPLEMENTED: Record<MapOperationType, true> = {
   set_scope_dataset: true,
   set_scope_regions: true,
   set_scope_projection: true,
+  refit_scope: true,
   set_style: true,
   set_map_name: true,
   set_active_layer: true,

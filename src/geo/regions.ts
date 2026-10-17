@@ -159,6 +159,12 @@ const NO_TRIM = { coreAreaFraction: 0, maxDetachmentDegrees: Infinity }
 
 const AMERICAS_NORTH = new Set(['North America', 'Central America', 'Caribbean'])
 
+/**
+ * The margin round the three maps' own regions — the World, Europe and the United States — so
+ * each opens with the same breathing room inside the canvas or its frame.
+ */
+const HOME_MARGIN = 0.02
+
 export const REGIONS: RegionPreset[] = [
   {
     id: 'world',
@@ -166,7 +172,7 @@ export const REGIONS: RegionPreset[] = [
     includes: () => true,
     // Antarctica is cropped by the domain: that is a cartographic choice about the
     // world view, not an outlier problem, so no trimming is applied.
-    framing: { domain: [-180, -60, 180, 84], trim: NO_TRIM, margin: 0.01, fill: { amount: 0 } },
+    framing: { domain: [-180, -60, 180, 84], trim: NO_TRIM, margin: HOME_MARGIN, fill: { amount: 0 } },
     bbox: [-179.9, -58, 179.9, 84],
     projectionId: 'equalEarth',
   },
@@ -198,17 +204,15 @@ export const REGIONS: RegionPreset[] = [
     framing: {
       domain: [-13, 34, 50, 71.6],
       trim: { coreAreaFraction: 0.005, maxDetachmentDegrees: 3 },
-      margin: 0.015,
-      // Europe projects wider than it is tall, so a plain fit hangs its slack above
-      // the North Cape and below Crete — Arctic Ocean and the Libyan Sea, and the
-      // gap Bear Island kept reappearing in. The keep box names the composition
-      // proper: Iceland and the Atlantic approaches in the west, and in the east
-      // European Russia as far as the lower Volga and the crest of the Caucasus.
-      // The Caspian shore running on to the 50th meridian is the surplus the camera
-      // may spend closing that gap. 45°E is where spending it stops costing whole
-      // countries: Georgia, Armenia and Türkiye stay in frame at every viewport
-      // shape, and only Azerbaijan's Caspian half leaves.
-      fill: { amount: 1, keep: [-13, 34, 45, 71.6] },
+      margin: HOME_MARGIN,
+      /*
+       * A plain contain-fit, like the World and the United States: the continent whole, with
+       * the same margin round it, rather than filling the canvas edge to edge. It used to close
+       * the letterbox (amount 1, keeping [-13, 34, 45, 71.6]), which ran Europe off every edge
+       * of the canvas and of a frame while the World map sat inside them — and that showed in
+       * videos cutting from one map to the other.
+       */
+      fill: { amount: 0 },
     },
     bbox: [-13, 34, 50, 71.5],
     projectionId: 'conicEqualArea',
@@ -340,7 +344,7 @@ export const REGIONS: RegionPreset[] = [
     framing: {
       domain: [-125.1, 24.3, -66.8, 49.5],
       trim: { coreAreaFraction: 0.004, maxDetachmentDegrees: 3 },
-      margin: 0.02,
+      margin: HOME_MARGIN,
       /*
        * A plain contain-fit, with no letterbox reclaimed.
        *
