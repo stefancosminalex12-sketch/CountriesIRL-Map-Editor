@@ -241,7 +241,11 @@ export function buildProjection(spec: ProjectionSpec): GeoProjection {
   if (box) {
     const projection = buildProjection({ ...spec, width: box.width, height: box.height, box: null })
     const [tx, ty] = projection.translate()
-    return projection.translate([tx + box.x, ty + box.y])
+    projection.translate([tx + box.x, ty + box.y])
+    // A clip set in the box's own pixels (the World's Mercator) moves with it.
+    const clip = projection.clipExtent()
+    if (clip) projection.clipExtent([[clip[0][0] + box.x, clip[0][1] + box.y], [clip[1][0] + box.x, clip[1][1] + box.y]])
+    return projection
   }
   const { framing, width, height } = spec
   const projectionId = resolveProjectionId(spec.projectionId)
@@ -445,7 +449,71 @@ export function buildProjection(spec: ProjectionSpec): GeoProjection {
     }
   }
 
+  centreGlobe(projection, projectionId, framing, target, height, pad)
+
   return projection
+}
+
+/** Where the World's Mercator stops in the north: 85°, as web maps do. */
+const MERCATOR_NORTH = 85
+
+/**
+ * The whole world, centred on what is drawn rather than on the land it was fitted to.
+ *
+ * The World is fitted to its land, 60°S to 84°N, but the globe drawn round it reaches the poles:
+ * its outline and Antarctica hang far further below the land than the Arctic rises above it, so a
+ * fit centred on the land left the globe low — a wide gap under the bar, its bottom on the status
+ * bar. This moves it up or down so the globe's outline sits halfway between the two, the same
+ * space above as below. A globe taller than the canvas allows (Winkel Tripel's, on a wide screen)
+ * is first made just small enough to fit inside the padding, so it is whole and centred too.
+ * Mercator's globe has no top or bottom, so the World's Mercator is cut to its own: 85°N, where
+ * web maps stop, and the Antarctic strip's southern edge (`mercatorSouth`), and centred on those.
+ */
+function centreGlobe(
+  projection: GeoProjection,
+  projectionId: ProjectionId,
+  framing: ResolvedFraming,
+  target: MultiPoint,
+  height: number,
+  pad: number,
+): void {
+  const [west, , east] = framing.framing.domain
+  if (east - west < 359) return
+  if (projectionId === 'mercator') {
+    const south = framing.framing.mercatorSouth
+    const north = projection([framing.centerLon, MERCATOR_NORTH])?.[1]
+    const edge = south === undefined ? undefined : projection([framing.centerLon, south])?.[1]
+    if (north === undefined || edge === undefined || !Number.isFinite(north) || !Number.isFinite(edge)) return
+    const shift = height / 2 - (north + edge) / 2
+    const [tx, ty] = projection.translate()
+    projection.translate([tx, ty + shift])
+    // Across any width: Mercator's own clipping still ends the world at the antimeridian.
+    projection.clipExtent([[-1e6, north + shift], [1e6, edge + shift]])
+    return
+  }
+  const globe = () => geoPath(projection).bounds({ type: 'Sphere' })
+  let [[left, top], [right, bottom]] = globe()
+  if (![left, top, right, bottom].every(Number.isFinite)) return
+  const room = height - 2 * pad
+  if (room > 0 && bottom - top > room) {
+    // Smaller about the globe's own centre, so it stays where it was across the canvas.
+    const centreX = (left + right) / 2
+    projection.scale(projection.scale() * (room / (bottom - top)))
+    ;[[left, top], [right, bottom]] = globe()
+    const [tx, ty] = projection.translate()
+    projection.translate([tx + centreX - (left + right) / 2, ty + height / 2 - (top + bottom) / 2])
+    return
+  }
+  const land = projectCloud(projection, target, []).ys
+  if (land.length < 2) return
+  const [landTop, landBottom] = extent(land)
+  let shift = height / 2 - (top + bottom) / 2
+  // Never so far that the land leaves the canvas's padding at either edge.
+  shift = Math.min(shift, Math.max(0, height - pad - landBottom))
+  shift = Math.max(shift, Math.min(0, pad - landTop))
+  if (Math.abs(shift) < 0.5) return
+  const [tx, ty] = projection.translate()
+  projection.translate([tx, ty + shift])
 }
 
 /** Screen-space bounds of a projected geometry, used for zoom-to-country. */
