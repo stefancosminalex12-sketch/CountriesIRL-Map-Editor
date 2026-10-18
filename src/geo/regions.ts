@@ -111,12 +111,6 @@ export interface RegionFraming {
   margin: number
   /** How the camera closes the letterbox a plain fit leaves behind. */
   fill: FillPolicy
-  /**
-   * `top`: the map starts a small, fixed gap below the top of the canvas (or its frame) instead
-   * of being centred, and whatever room is left goes below it. The three maps' own regions —
-   * the World, Europe, the United States — so each opens at the same height under the bar.
-   */
-  align?: 'top'
 }
 
 /**
@@ -178,13 +172,7 @@ export const REGIONS: RegionPreset[] = [
     includes: () => true,
     // Antarctica is cropped by the domain: that is a cartographic choice about the
     // world view, not an outlier problem, so no trimming is applied.
-    /*
-     * Filled: the World is wider than the canvas is, so a plain fit left it as a band across the
-     * middle with empty canvas above and below. It zooms in until the Pacific's outer islands and
-     * the globe's curved sides reach the edges — the fill's own limits say how far — and starts
-     * at the top, like Europe and the United States.
-     */
-    framing: { domain: [-180, -60, 180, 84], trim: NO_TRIM, margin: HOME_MARGIN, fill: { amount: 1 }, align: 'top' },
+    framing: { domain: [-180, -60, 180, 84], trim: NO_TRIM, margin: HOME_MARGIN, fill: { amount: 0 } },
     bbox: [-179.9, -58, 179.9, 84],
     projectionId: 'equalEarth',
   },
@@ -217,9 +205,8 @@ export const REGIONS: RegionPreset[] = [
       domain: [-13, 34, 50, 71.6],
       trim: { coreAreaFraction: 0.005, maxDetachmentDegrees: 3 },
       margin: HOME_MARGIN,
-      align: 'top',
       /*
-       * A plain contain-fit, like the United States: the continent whole, with
+       * A plain contain-fit, like the World and the United States: the continent whole, with
        * the same margin round it, rather than filling the canvas edge to edge. It used to close
        * the letterbox (amount 1, keeping [-13, 34, 45, 71.6]), which ran Europe off every edge
        * of the canvas and of a frame while the World map sat inside them — and that showed in
@@ -358,7 +345,6 @@ export const REGIONS: RegionPreset[] = [
       domain: [-125.1, 24.3, -66.8, 49.5],
       trim: { coreAreaFraction: 0.004, maxDetachmentDegrees: 3 },
       margin: HOME_MARGIN,
-      align: 'top',
       /*
        * A plain contain-fit, with no letterbox reclaimed.
        *

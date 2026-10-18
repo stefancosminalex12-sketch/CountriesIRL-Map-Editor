@@ -11,11 +11,14 @@ import type { ResolvedFraming } from './framing'
 import type { BBox } from './regions'
 import type { ProjectionId } from '../types/map'
 
-/** Mercator cannot represent the poles; clamp the fit target into a usable band. */
+/**
+ * Mercator cannot represent the poles; clamp the fit target into a usable band. 85°, the band web
+ * maps use: at 80° the north of Greenland (83.6°) and Canada's Arctic islands fell off the top.
+ */
 function clampForMercator(target: MultiPoint): MultiPoint {
   return {
     type: 'MultiPoint',
-    coordinates: target.coordinates.filter(([, lat]) => lat >= -80 && lat <= 80),
+    coordinates: target.coordinates.filter(([, lat]) => lat >= -85 && lat <= 85),
   }
 }
 
@@ -274,12 +277,9 @@ export function buildProjection(spec: ProjectionSpec): GeoProjection {
   const basePadding = compact ? Math.min(spec.padding, 10) : spec.padding
   const padding = basePadding + framing.margin * Math.min(width, height)
   const pad = Math.min(padding, Math.min(width, height) / 4)
-  // A map aligned to the top starts the same small gap below it everywhere — see `topGap`.
-  const alignTop = framing.framing.align === 'top'
-  const padTop = alignTop ? Math.min(pad, topGap(width, height)) : pad
   const fitBox: [[number, number], [number, number]] = [
-    [pad, padTop],
-    [Math.max(pad + 1, width - pad), Math.max(padTop + 1, height - pad)],
+    [pad, pad],
+    [Math.max(pad + 1, width - pad), Math.max(pad + 1, height - pad)],
   ]
 
   projection.fitExtent(fitBox, target)
@@ -438,33 +438,7 @@ export function buildProjection(spec: ProjectionSpec): GeoProjection {
     }
   }
 
-  /*
-   * Up to the top: the map's highest point the same gap below the top as every other map's, the
-   * room left over below it. Never so far that the region's core leaves the bottom, nor down
-   * over a top the fill has already spent.
-   */
-  if (alignTop) {
-    const cloud = projectCloud(projection, target, framing.fitWeights)
-    if (cloud.ys.length >= 2) {
-      const [top] = extent(cloud.ys)
-      const core = coreInterval(cloud.ys, cloud.weights, CROPPABLE_AREA_TAIL)
-      const residual = RESIDUAL_MARGIN * Math.min(width, height)
-      let shift = Math.min(padTop - top, 0)
-      shift = Math.max(shift, Math.min(0, residual - core[0]))
-      const translate = projection.translate()
-      projection.translate([translate[0], translate[1] + shift])
-    }
-  }
-
   return projection
-}
-
-/**
- * The gap above a map aligned to the top: 2.5% of the canvas's short side, never under 12px —
- * about 23px on a laptop, 12px on a phone. The same for the World, Europe and the United States.
- */
-export function topGap(width: number, height: number): number {
-  return Math.max(12, 0.025 * Math.min(width, height))
 }
 
 /** Screen-space bounds of a projected geometry, used for zoom-to-country. */
