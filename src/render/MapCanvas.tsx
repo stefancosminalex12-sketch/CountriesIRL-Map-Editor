@@ -80,6 +80,7 @@ import { STICKER_ANCHORS } from '../stickers/anchors'
 import { coastlineWidthOf } from '../state/lineWidths'
 import { entityFlagCode } from '../flags/flagChoices'
 import { resolveScreen } from './screenFrame'
+import { homeBox } from './homeBox'
 import { mergeCountries } from '../geo/merge'
 import { borderArcsWithout, bordersWithout, coastByEntity, type LoadedDataset } from '../geo/datasets'
 
@@ -323,7 +324,7 @@ const ANSWER_CAP = 0.72
 
 /** What a view of the land is remembered by: everything that decides its projection. See `projectedLand.ts`. */
 function landKeyOf(regionIds: readonly string[], projectionId: string, padding: number, width: number, height: number, tolerance: number, area: FitArea): string {
-  const box = area ? `@${Math.round(area.x)},${Math.round(area.y)},${Math.round(area.width)}x${Math.round(area.height)}` : ''
+  const box = area ? `@${Math.round(area.x)},${Math.round(area.y)},${Math.round(area.width)}x${Math.round(area.height)}${area.boxed ? 'b' : ''}` : ''
   return `${[...regionIds].sort().join('+')}|${projectionId}|${padding}|${width}x${height}${box}|t${tolerance}`
 }
 
@@ -361,7 +362,7 @@ function insetView(
 }
 
 /** The part of the canvas the map is fitted into — its frame — or `null` for all of it. */
-type FitArea = { x: number; y: number; width: number; height: number } | null
+type FitArea = { x: number; y: number; width: number; height: number; boxed?: boolean } | null
 
 const ZOOM_RANGE: [number, number] = [1, MAX_MAP_ZOOM]
 /** How much of the map's width or height an entity searched for is zoomed to fill. */
@@ -809,26 +810,35 @@ export function MapCanvas() {
    * The composition frame this viewport currently has.
    *
    * Resolved rather than read, so a frame stored at another window size is clamped to
-   * one that fits — see `resolveScreen`. An uncomposed map resolves to the whole
-   * canvas, which is what makes the frame invisible to everything downstream until an
-   * author actually sets one.
+   * one that fits — see `resolveScreen`. Without a frame it is the map's box (`homeBox`): the
+   * globe-shaped, outlined box every map is drawn in, which exports are cropped to and the
+   * legend and caption sit in.
    */
   const screenOn = doc.screen.enabled
+  const box = useMemo(() => homeBox(width, height), [width, height])
   const screen = useMemo(
-    () => resolveScreen(screenOn ? doc.screen.rect : null, width, height),
-    [screenOn, doc.screen.rect, width, height],
+    () => (screenOn ? resolveScreen(doc.screen.rect, width, height) : box),
+    [screenOn, doc.screen.rect, width, height, box],
   )
+  /*
+   * Without a frame, nothing is drawn outside the map's box — the map, its names, its stickers —
+   * and nothing there takes the pointer. In the drawing's own coordinates, which run on under the
+   * bars (`useBleed`). A frame keeps the map visible round it instead.
+   */
+  const boxClip = screenOn
+    ? undefined
+    : `inset(${bleed.top + box.y}px ${Math.max(0, sheetWidth - bleed.left - box.x - box.width)}px ${Math.max(0, sheetHeight - bleed.top - box.y - box.height)}px ${bleed.left + box.x}px)`
 
   /**
-   * What the map is fitted into: the canvas frame it is composed in while the frame is on, so
-   * every map sits inside the frame with the same margin; the whole canvas otherwise. Read when
-   * the map is framed (`fitBox` in the store), never while the frame is dragged.
+   * What the map is fitted into: the map's box (`homeBox`), filled — or, while a canvas frame is
+   * on, the frame the map was composed in. Read when the map is framed (`fitBox` in the store),
+   * never while the frame is dragged. `null`: the whole canvas, for a map composed before the box.
    */
   const fitBox = useMapStore((s) => s.fitBox)
-  const fitArea: FitArea = useMemo(
-    () => (screenOn && fitBox ? resolveScreen(fitBox, fit.width, fit.height) : null),
-    [screenOn, fitBox, fit.width, fit.height],
-  )
+  const fitArea: FitArea = useMemo(() => {
+    if (!screenOn || fitBox === 'home') return { ...homeBox(fit.width, fit.height), boxed: true }
+    return fitBox ? resolveScreen(fitBox, fit.width, fit.height) : null
+  }, [screenOn, fitBox, fit.width, fit.height])
 
   /** The projection this view asks for. What is drawn through is `projection`, below. */
   const targetProjection = useMemo(() => {
@@ -3695,7 +3705,12 @@ export function MapCanvas() {
   })
 
   return (
-    <div className="map-canvas" ref={containerRef}>
+    <div
+      className="map-canvas"
+      ref={containerRef}
+      // The same cut for the drawing layer that stands in for the map while it moves.
+      style={screenOn ? undefined : ({ '--map-box-clip': `inset(${box.y}px ${Math.max(0, width - box.x - box.width)}px ${Math.max(0, height - box.y - box.height)}px ${box.x}px)` } as CSSProperties)}
+    >
       <svg
         id={MAP_SVG_ID}
         ref={svgRef}
@@ -3703,7 +3718,7 @@ export function MapCanvas() {
         width={sheetWidth}
         height={sheetHeight}
         viewBox={`${-bleed.left} ${-bleed.top} ${sheetWidth} ${sheetHeight}`}
-        style={{ left: -bleed.left, top: -bleed.top }}
+        style={{ left: -bleed.left, top: -bleed.top, clipPath: boxClip }}
         /*
          * The composition frame, published for the exporter. On the element it already
          * receives, so no export path has to learn a new argument to be cropped.
@@ -4450,7 +4465,10 @@ export function MapCanvas() {
           `<svg>` deliberately: the exporter copies this element, so a legend rendered
           as an HTML overlay would be absent from every PNG, JPG and SVG.
         */}
-        <MapLegend doc={doc} width={width} height={height} />
+        {/* Placed in the box or the frame, the picture it belongs to. */}
+        <g transform={`translate(${screen.x} ${screen.y})`}>
+          <MapLegend doc={doc} width={screen.width} height={screen.height} />
+        </g>
 
         {/*
           The caption, last of all and in screen space. Drawn after the legend so nothing
@@ -4473,6 +4491,15 @@ export function MapCanvas() {
         The composition frame. HTML rather than SVG, and a sibling of the map rather
         than a child of it, so it cannot reach the export — see `MapScreen`.
       */}
+      {/* The map's box, outlined. Beside the map, like the frame below, so no export has it. */}
+      {!screenOn && (
+        <div
+          className="map-canvas__box"
+          aria-hidden="true"
+          style={{ left: box.x, top: box.y, width: box.width, height: box.height }}
+        />
+      )}
+
       <MapScreen
         screen={screen}
         width={width}

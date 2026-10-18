@@ -34,11 +34,11 @@ type FitRect = NonNullable<MapDocument['scope']['fitRect']>
 /**
  * What a map is fitted into when it is framed: the frame its composition was made in, if one was
  * kept (`scope.fitRect`); otherwise the canvas frame that is on now, so a map opened or given a
- * region sits inside the frame with the same margin as every other; otherwise the whole canvas.
+ * region sits inside the frame like every other; otherwise the map's box (`'home'`, `homeBox`).
  */
 export function fitBoxOf(doc: MapDocument): FitRect | null {
   if (doc.scope.fitRect !== undefined) return doc.scope.fitRect
-  return doc.screen.enabled ? doc.screen.rect : null
+  return doc.screen.enabled ? doc.screen.rect : 'home'
 }
 
 /**
@@ -766,11 +766,12 @@ export const useMapStore = create<MapStore>((set, get) => {
     /*
      * A frame placed, moved or changed on this map is placed over the composition, never the
      * other way round: the map keeps the box it is drawn in now, and keeps it when another map is
-     * opened and this one comes back. Taking the frame away fits the map to the canvas again.
+     * opened and this one comes back. Taking the frame away fits the map to its box again.
      */
     if (!framingChanged && outcome.doc.screen !== doc.screen) {
       const { fitBox } = get()
-      const drawnIn = doc.screen.enabled && outcome.doc.screen.enabled ? fitBox : null
+      // A frame put on a map drawn in its box keeps it there; one taken off leaves it in the box.
+      const drawnIn = doc.screen.enabled && outcome.doc.screen.enabled ? fitBox : 'home'
       if (outcome.doc.scope.fitRect !== drawnIn) {
         outcome.doc = { ...outcome.doc, scope: { ...outcome.doc.scope, fitRect: drawnIn } }
       }

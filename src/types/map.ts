@@ -603,12 +603,12 @@ export interface GeoScope {
   padding: number
   /**
    * The canvas frame this map's composition was made in, kept once a frame is placed or changed
-   * on it: the rectangle the map is fitted into while the frame is on, or `null` for the whole
-   * canvas. Absent until then, and cleared by a new region or projection: the map is then fitted
+   * on it: the rectangle the map is fitted into while the frame is on, `'home'` for the map's box
+   * (`homeBox`), or `null` for the whole canvas — a map composed before the box existed. Absent until then, and cleared by a new region or projection: the map is then fitted
    * into whichever frame is on when it is framed — opened, or given a region — so every map sits
    * in the frame with the same margin. See `fitBoxOf` in the store.
    */
-  fitRect?: { x: number; y: number; width: number; height: number } | null
+  fitRect?: { x: number; y: number; width: number; height: number } | null | 'home'
 }
 
 /**
