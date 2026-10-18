@@ -220,12 +220,7 @@ export interface ProjectionSpec {
    * composed in (`fitBoxOf` in the store). In canvas pixels; the fit is the same as for a canvas
    * of the box's size, moved to where the box is.
    */
-  box?: { x: number; y: number; width: number; height: number; boxed?: boolean } | null
-  /**
-   * The box is the map's box (`homeBox`, marked `boxed`): the map fills it, a hair inside its
-   * outline, rather than keeping the canvas's own padding round it.
-   */
-  boxed?: boolean
+  box?: { x: number; y: number; width: number; height: number } | null
 }
 
 /*
@@ -241,7 +236,7 @@ export interface ProjectionSpec {
 export function buildProjection(spec: ProjectionSpec): GeoProjection {
   const box = spec.box && spec.box.width >= 2 && spec.box.height >= 2 ? spec.box : null
   if (box) {
-    const projection = buildProjection({ ...spec, width: box.width, height: box.height, box: null, boxed: spec.boxed ?? box.boxed })
+    const projection = buildProjection({ ...spec, width: box.width, height: box.height, box: null })
     const [tx, ty] = projection.translate()
     return projection.translate([tx + box.x, ty + box.y])
   }
@@ -278,22 +273,16 @@ export function buildProjection(spec: ProjectionSpec): GeoProjection {
   const compact = Math.min(width, height) < 480
   const basePadding = compact ? Math.min(spec.padding, 10) : spec.padding
   const padding = basePadding + framing.margin * Math.min(width, height)
-  /*
-   * In the map's box the World's globe touches the outline, as the box is its shape, and every
-   * other map keeps only a hair inside it: the box is already the margin.
-   */
-  const globe = !!framing.framing.fitGlobe && projectionId !== 'mercator'
-  const pad = spec.boxed
-    ? globe
-      ? 1
-      : Math.max(2, BOXED_PADDING * Math.min(width, height))
-    : Math.min(padding, Math.min(width, height) / 4)
+  const pad = Math.min(padding, Math.min(width, height) / 4)
+  // A map aligned to the top starts the same small gap below it everywhere — see `topGap`.
+  const alignTop = framing.framing.align === 'top'
+  const padTop = alignTop ? Math.min(pad, topGap(width, height)) : pad
   const fitBox: [[number, number], [number, number]] = [
-    [pad, pad],
-    [Math.max(pad + 1, width - pad), Math.max(pad + 1, height - pad)],
+    [pad, padTop],
+    [Math.max(pad + 1, width - pad), Math.max(padTop + 1, height - pad)],
   ]
 
-  projection.fitExtent(fitBox, globe ? SPHERE : target)
+  projection.fitExtent(fitBox, target)
 
   /**
    * Close the letterbox.
@@ -449,14 +438,34 @@ export function buildProjection(spec: ProjectionSpec): GeoProjection {
     }
   }
 
+  /*
+   * Up to the top: the map's highest point the same gap below the top as every other map's, the
+   * room left over below it. Never so far that the region's core leaves the bottom, nor down
+   * over a top the fill has already spent.
+   */
+  if (alignTop) {
+    const cloud = projectCloud(projection, target, framing.fitWeights)
+    if (cloud.ys.length >= 2) {
+      const [top] = extent(cloud.ys)
+      const core = coreInterval(cloud.ys, cloud.weights, CROPPABLE_AREA_TAIL)
+      const residual = RESIDUAL_MARGIN * Math.min(width, height)
+      let shift = Math.min(padTop - top, 0)
+      shift = Math.max(shift, Math.min(0, residual - core[0]))
+      const translate = projection.translate()
+      projection.translate([translate[0], translate[1] + shift])
+    }
+  }
+
   return projection
 }
 
-/** The whole globe, for a fit to its outline. */
-const SPHERE = { type: 'Sphere' } as const
-
-/** What a map keeps inside the map's box, as a share of the box's short side: a hair. */
-const BOXED_PADDING = 0.01
+/**
+ * The gap above a map aligned to the top: 2.5% of the canvas's short side, never under 12px —
+ * about 23px on a laptop, 12px on a phone. The same for the World, Europe and the United States.
+ */
+export function topGap(width: number, height: number): number {
+  return Math.max(12, 0.025 * Math.min(width, height))
+}
 
 /** Screen-space bounds of a projected geometry, used for zoom-to-country. */
 export function projectedBounds(

@@ -2094,17 +2094,6 @@ body {
   overflow: visible;
 }
 
-/* The map's box (`homeBox`): a thin outline round the picture, and the drawing layer cut to it. */
-.map-canvas__box {
-  position: absolute;
-  border: 1px solid var(--line-strong);
-  pointer-events: none;
-}
-
-.map-canvas > canvas {
-  clip-path: var(--map-box-clip, none);
-}
-
 .map-canvas__svg {
   position: absolute;
   display: block;
