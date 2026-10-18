@@ -260,6 +260,13 @@ export function buildProjection(spec: ProjectionSpec): GeoProjection {
   if (projectionId === 'mercator') {
     const clamped = clampForMercator(target)
     if (clamped.coordinates.length > 0) target = clamped
+    // The World reaches down to Antarctica's coast: a strip of it along the bottom.
+    const south = framing.framing.mercatorSouth
+    if (south !== undefined) {
+      const strip: [number, number][] = []
+      for (let lon = -180; lon <= 180; lon += 30) strip.push([framing.centerLon + lon, south])
+      target = { type: 'MultiPoint', coordinates: [...target.coordinates, ...strip] }
+    }
   }
 
   // The region's margin is applied as viewport padding rather than by inflating the

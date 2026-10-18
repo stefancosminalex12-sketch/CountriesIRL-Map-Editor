@@ -111,6 +111,12 @@ export interface RegionFraming {
   margin: number
   /** How the camera closes the letterbox a plain fit leaves behind. */
   fill: FillPolicy
+  /**
+   * Under Mercator, how far south the camera reaches whatever the domain says: the World's -72°,
+   * so Antarctica's coast shows as a strip along the bottom. Mercator stretches it towards
+   * infinity, so the domain's -60° left it off the map entirely.
+   */
+  mercatorSouth?: number
 }
 
 /**
@@ -172,7 +178,7 @@ export const REGIONS: RegionPreset[] = [
     includes: () => true,
     // Antarctica is cropped by the domain: that is a cartographic choice about the
     // world view, not an outlier problem, so no trimming is applied.
-    framing: { domain: [-180, -60, 180, 84], trim: NO_TRIM, margin: HOME_MARGIN, fill: { amount: 0 } },
+    framing: { domain: [-180, -60, 180, 84], trim: NO_TRIM, margin: HOME_MARGIN, fill: { amount: 0 }, mercatorSouth: -72 },
     bbox: [-179.9, -58, 179.9, 84],
     projectionId: 'equalEarth',
   },
