@@ -5436,6 +5436,19 @@ html.file-menu-open .sidebar__attached {
   pointer-events: none;
 }
 
+/*
+ * The rail's tools step aside too: the File menu opens over the rail, a little in from the window's
+ * edge, and the tools' names showed in the strip beside it, as if cut off by the menu.
+ */
+.sidebar__rail > * {
+  transition: opacity var(--dur) var(--ease);
+}
+
+html.file-menu-open .sidebar__rail > * {
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* File → Maps: the families on the region bar's track, and the chosen one's maps under it. */
 .top-maps {
   display: flex;
