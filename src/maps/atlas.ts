@@ -479,17 +479,7 @@ export const REPLACED_DATASETS: Record<string, string> = {
   'europe-countries-standard': 'europe-countries-10m',
   'europe-countries-light': 'europe-countries-25m',
   'europe-countries-full': 'europe-countries-10m',
-  // The past years, off the menu while their borders are rebuilt (`PAST_YEARS_OFFERED`).
-  ...Object.fromEntries([1914, 1938, 1945, 1990].map((year) => [`world-${year}`, 'modern-25m'])),
-  ...Object.fromEntries([1914, 1938, 1945].map((year) => [`europe-${year}`, 'europe-countries-25m'])),
 }
-
-/**
- * Whether File → Maps lists the past years. Off while 1914, 1938, 1945 and 1990 are rebuilt from
- * detailed borders: the first build's came from a coarse source and drew straight lines and gaps.
- * The datasets stay registered; a saved map on one opens at today's map (`REPLACED_DATASETS`).
- */
-export const PAST_YEARS_OFFERED = false
 
 const EUROPE_ADMIN_DATASETS: GeoDataset[] = [
   {

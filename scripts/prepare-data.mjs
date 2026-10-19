@@ -162,7 +162,8 @@ writeFileSync(
 
 /**
  * Written whole by `scripts/historical/build-historical.mjs` — the World map in 1914, 1938, 1945
- * and 1990 — so this only copies it, with its licence (GPL v3, from historical-basemaps).
+ * and 1990 — so this only copies it, with its licence (GPL v3, for the historical-basemaps fill
+ * in OpenHistoricalMap's gaps).
  */
 {
   const src = resolve(root, 'data/historical')

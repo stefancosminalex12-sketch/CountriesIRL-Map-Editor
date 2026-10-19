@@ -658,10 +658,11 @@ A historical entity lists its continents (`EntityMeta.regions`), so the Ottoman 
 on a map of Europe and of Asia. It also names the modern country with most of its land
 (`modern`), which is the language its Yes or No is in.
 
-Built by `scripts/historical/build-historical.mjs`. 1914, 1938 and 1945 are historical-basemaps'
-borders (GPL v3) cut into the modern map's own land, so they have its coastline. 1990 is the
-modern map's countries joined as they were. The source's many errors are corrected in
-`scripts/historical/curation.mjs`, each with its reason; see `data/historical/README.md`.
+Built by `scripts/historical/build-historical.mjs`. 1914, 1938 and 1945 are OpenHistoricalMap's
+borders (CC0), with gaps it has not drawn filled from historical-basemaps (GPL v3), cut into the
+modern map's own land, so they have its coastline. 1990 is the modern map's countries joined as
+they were. Names and corrections are in `scripts/historical/curation.mjs` and the build, each
+with its reason; see `data/historical/README.md`.
 
 
 ### How region framing works

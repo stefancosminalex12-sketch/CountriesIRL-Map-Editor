@@ -1,101 +1,111 @@
 [
  {
   "year": 1914,
-  "units": 141,
-  "unclaimed": [
-   "ABW",
-   "ALA",
-   "ATA",
-   "ATF",
-   "BHR",
-   "BMU",
-   "COK",
-   "COM",
-   "CPV",
-   "CYM",
-   "FLK",
-   "FRO",
-   "FSM",
-   "GGY",
-   "GIB",
-   "GUM",
-   "HMD",
-   "IMN",
-   "IOT",
-   "JEY",
-   "KIR",
-   "MAC",
-   "MDV",
-   "MHL",
-   "MNP",
-   "MUS",
-   "NCL",
-   "NFK",
-   "NRU",
-   "PCN",
-   "PLW",
-   "PYF",
-   "SGS",
-   "SHN",
-   "SLB",
-   "SPM",
-   "STP",
-   "SYC",
-   "TUV",
-   "UMI",
-   "VGB",
-   "VUT",
-   "XBN",
-   "XCP",
-   "XCS",
-   "XIO",
-   "XSN",
-   "XSP",
-   "XSR"
-  ],
-  "failures": [],
+  "units": 164,
+  "unclaimed": 8,
+  "failures": 0,
   "overlaps": [
    {
     "base": "ARE",
     "kept": "Trucial States (UK)",
-    "gave": "Aden Protectorate (UK)",
-    "km2": 65317
+    "gave": "Muscat and Oman",
+    "km2": 10537
+   },
+   {
+    "base": "BOL",
+    "kept": "Bolivia",
+    "gave": "Paraguay",
+    "km2": 86304
+   },
+   {
+    "base": "BTN",
+    "kept": "Bhutan",
+    "gave": "Tibet",
+    "km2": 1170
    },
    {
     "base": "CAN",
     "kept": "Newfoundland",
     "gave": "Canada",
-    "km2": 374136
+    "km2": 201250
    },
    {
-    "base": "GAB",
+    "base": "COD",
+    "kept": "Belgian Congo (Belgium)",
+    "gave": "Northern Rhodesia (UK)",
+    "km2": 3382
+   },
+   {
+    "base": "CYP",
+    "kept": "Cyprus (UK)",
+    "gave": "Ottoman Empire",
+    "km2": 5412
+   },
+   {
+    "base": "FJI",
+    "kept": "Fiji (UK)",
+    "gave": "British Western Pacific Territories",
+    "km2": 18781
+   },
+   {
+    "base": "IND",
+    "kept": "British Raj (UK)",
+    "gave": "Tibet",
+    "km2": 2877
+   },
+   {
+    "base": "KWT",
+    "kept": "Kuwait (UK)",
+    "gave": "Ottoman Empire",
+    "km2": 17020
+   },
+   {
+    "base": "LBY",
     "kept": "French Equatorial Africa (France)",
-    "gave": "Kamerun (Germany)",
-    "km2": 10413
+    "gave": "French West Africa (France)",
+    "km2": 2027
+   },
+   {
+    "base": "NER",
+    "kept": "French West Africa (France)",
+    "gave": "French Equatorial Africa (France)",
+    "km2": 1447
    },
    {
     "base": "OMN",
     "kept": "Muscat and Oman",
     "gave": "Aden Protectorate (UK)",
-    "km2": 288753
+    "km2": 201040
    },
    {
     "base": "OMN",
     "kept": "Trucial States (UK)",
     "gave": "Aden Protectorate (UK)",
-    "km2": 8566
+    "km2": 6041
    },
    {
-    "base": "PNG",
-    "kept": "Papua (Australia)",
-    "gave": "German New Guinea (Germany)",
-    "km2": 210784
+    "base": "PHL",
+    "kept": "Philippines (USA)",
+    "gave": "United States",
+    "km2": 295827
+   },
+   {
+    "base": "PRY",
+    "kept": "Paraguay",
+    "gave": "Bolivia",
+    "km2": 241344
+   },
+   {
+    "base": "SAU",
+    "kept": "Kuwait (UK)",
+    "gave": "Ottoman Empire",
+    "km2": 2374
    },
    {
     "base": "SAU",
     "kept": "Trucial States (UK)",
     "gave": "Aden Protectorate (UK)",
-    "km2": 28328
+    "km2": 28312
    },
    {
     "base": "SAU",
@@ -104,461 +114,792 @@
     "km2": 12721
    },
    {
+    "base": "SLB",
+    "kept": "British Solomon Islands Protectorate",
+    "gave": "British Western Pacific Territories",
+    "km2": 27119
+   },
+   {
     "base": "SOM",
     "kept": "British East Africa (UK)",
     "gave": "Italian Somaliland (Italy)",
-    "km2": 104759
+    "km2": 17602
    },
    {
-    "base": "TUR",
-    "kept": "Russian Empire",
+    "base": "TCD",
+    "kept": "French Equatorial Africa (France)",
+    "gave": "French West Africa (France)",
+    "km2": 132474
+   },
+   {
+    "base": "VUT",
+    "kept": "New Hebrides / Nouvelles-Hébrides",
+    "gave": "British Western Pacific Territories",
+    "km2": 12228
+   },
+   {
+    "base": "XNC",
+    "kept": "Cyprus (UK)",
     "gave": "Ottoman Empire",
-    "km2": 26115
+    "km2": 3320
+   },
+   {
+    "base": "XPI",
+    "kept": "Chile",
+    "gave": "Argentina",
+    "km2": 1239
+   },
+   {
+    "base": "YEM",
+    "kept": "Aden Protectorate (UK)",
+    "gave": "British Raj (UK)",
+    "km2": 236922
    },
    {
     "base": "YEM",
     "kept": "Muscat and Oman",
     "gave": "Aden Protectorate (UK)",
-    "km2": 4995
+    "km2": 3127
    }
   ],
-  "overlapsKm2": 1137162,
-  "reconciledKm2": 3316984,
+  "overlapsKm2": 1579370,
+  "reconciledKm2": 342267,
   "badMerges": [],
   "moves": [
+   {
+    "base": "DZA",
+    "from": "France",
+    "to": "Algeria (France)",
+    "km2": 2309159
+   },
+   {
+    "base": "MAR",
+    "from": "Spain",
+    "to": "Spanish Morocco (Spain)",
+    "km2": 227876
+   },
    {
     "base": "MCO",
     "to": "Monaco",
     "km2": 19
    },
    {
-    "base": "SMR",
-    "to": "San Marino",
-    "km2": 60
-   },
-   {
-    "base": "LIE",
-    "to": "Liechtenstein",
-    "km2": 137
-   },
-   {
-    "base": "GRL",
-    "to": "Greenland (Denmark)",
-    "km2": 2137328
-   },
-   {
-    "base": "AND",
-    "to": "Andorra",
-    "km2": 452
-   },
-   {
-    "base": "TUR",
-    "from": "Bulgaria",
-    "to": "Ottoman Empire",
-    "km2": 23609
-   },
-   {
-    "base": "MDA",
-    "from": "Romania",
-    "to": "Russian Empire",
-    "km2": 28930
-   },
-   {
-    "base": "UKR",
-    "from": "Romania",
-    "to": "Russian Empire",
-    "km2": 17179
-   },
-   {
     "base": "FRA",
-    "from": "Italy",
+    "from": "Monaco",
     "to": "France",
-    "km2": 11672
+    "km2": 0
    },
    {
-    "base": "KWT",
-    "to": "Kuwait (UK)",
-    "km2": 17469
+    "base": "FIN",
+    "from": "Russian Empire",
+    "to": "Finland (Russia)",
+    "km2": 331502
    },
    {
-    "base": "TCD",
-    "from": "French West Africa (France)",
-    "to": "French Equatorial Africa (France)",
-    "km2": 1235885
+    "base": "ALA",
+    "from": "Russian Empire",
+    "to": "Finland (Russia)",
+    "km2": 1012
    },
    {
-    "base": "CAF",
-    "from": "French West Africa (France)",
-    "to": "French Equatorial Africa (France)",
-    "km2": 476948
+    "base": "PNG",
+    "from": "Australia",
+    "to": "Papua (Australia)",
+    "km2": 226070
    },
    {
-    "base": "COG",
-    "from": "French West Africa (France)",
-    "to": "French Equatorial Africa (France)",
-    "km2": 36752
-   }
-  ],
-  "stripsKm2": 475987,
-  "entities": 195
- },
- {
-  "year": 1938,
-  "units": 160,
-  "unclaimed": [
-   "ABW",
-   "ALA",
-   "ATA",
-   "ATF",
-   "BHR",
-   "BMU",
-   "COK",
-   "COM",
-   "CPV",
-   "CYM",
-   "FLK",
-   "FRO",
-   "FSM",
-   "GGY",
-   "GIB",
-   "HMD",
-   "IMN",
-   "IOT",
-   "JEY",
-   "MAC",
-   "MDV",
-   "MHL",
-   "MLT",
-   "MUS",
-   "NFK",
-   "NRU",
-   "PCN",
-   "PLW",
-   "PYF",
-   "SGS",
-   "SHN",
-   "SPM",
-   "STP",
-   "SYC",
-   "TUV",
-   "UMI",
-   "VGB",
-   "XBN",
-   "XCP",
-   "XCS",
-   "XIO",
-   "XSN",
-   "XSP",
-   "XSR"
-  ],
-  "failures": [],
-  "overlaps": [
-   {
-    "base": "CHN",
-    "kept": "Manchukuo (Japan)",
-    "gave": "Empire of Japan",
-    "km2": 1109549
+    "base": "MNG",
+    "from": "China",
+    "to": "Mongolia",
+    "km2": 1560297
    },
    {
-    "base": "CHN",
-    "kept": "Burma (UK)",
-    "gave": "British Raj (UK)",
-    "km2": 2377
+    "base": "QAT",
+    "from": "Ottoman Empire",
+    "to": "Qatar",
+    "km2": 11147
    },
    {
-    "base": "FRA",
-    "kept": "France",
-    "gave": "Switzerland",
-    "km2": 1197
+    "base": "ESH",
+    "to": "Río de Oro (Spain)",
+    "km2": 90465
    },
    {
     "base": "MAR",
-    "kept": "Spanish Morocco (Spain)",
-    "gave": "Morocco (France)",
-    "km2": 36323
+    "from": "Spanish Morocco (Spain)",
+    "to": "Río de Oro (Spain)",
+    "southOf": 27.666666666666668,
+    "km2": 179023
+   }
+  ],
+  "stripsKm2": 110152,
+  "far": [
+   "Netherlands -> Netherlands Antilles (Netherlands) 19 km²",
+   "Netherlands -> Netherlands Antilles (Netherlands) 268 km²"
+  ],
+  "overseas": [
+   "Suriname: Netherlands -> Suriname (Netherlands)",
+   "Curaçao: Netherlands -> Netherlands Antilles (Netherlands)",
+   "Aruba: Netherlands -> Aruba (Netherlands)",
+   "Sint Maarten: Netherlands -> Netherlands Antilles (Netherlands)",
+   "Belgium: Netherlands seam -> Belgium",
+   "Brazil: Netherlands seam -> Brazil",
+   "Germany: Netherlands seam -> German Empire",
+   "France: Netherlands seam -> France",
+   "Guyana: Netherlands seam -> British Guiana (UK)",
+   "Saint Martin: Netherlands seam -> Guadeloupe (France)",
+   "Gabon: Spain seam -> French Equatorial Africa (France)",
+   "Equatorial Guinea: Spain -> Spanish Guinea (Spain)",
+   "Andorra: Spain seam -> Andorra",
+   "Cameroon: Spain seam -> Kamerun (Germany)",
+   "Algeria: Spain seam -> Algeria (France)",
+   "France: Spain seam -> France",
+   "Mauritania: Spain seam -> French West Africa (France)",
+   "Portugal: Spain seam -> Portugal",
+   "Andorra: France seam -> Andorra",
+   "Belgium: France seam -> Belgium",
+   "Switzerland: France seam -> Switzerland",
+   "Spain: France seam -> Spain",
+   "Italy: France seam -> Italy",
+   "Libya: France seam -> Libya (Italy)",
+   "Luxembourg: France seam -> Luxembourg",
+   "Morocco: France seam -> Morocco (France)",
+   "Mali: France seam -> French West Africa (France)",
+   "Niger: France seam -> French West Africa (France)",
+   "Tunisia: France seam -> Tunisia (France)",
+   "Falkland Islands: Argentina -> Falkland Islands (UK)",
+   "Bolivia: Argentina seam -> Bolivia",
+   "Brazil: Argentina seam -> Brazil",
+   "Paraguay: Argentina seam -> Paraguay",
+   "Uruguay: Argentina seam -> Uruguay",
+   "Southern Patagonian Ice Field: Argentina seam -> Chile",
+   "Puerto Rico: United States -> Puerto Rico (USA)",
+   "Panama: United States -> Panama Canal Zone (USA)",
+   "Guam: United States -> Guam (USA)",
+   "American Samoa: United States -> American Samoa (USA)",
+   "United States Minor Outlying Islands: United States -> US Minor Outlying Islands (USA)",
+   "Mexico: United States seam -> Mexico",
+   "Philippines: United States seam -> Philippines (USA)",
+   "Norfolk Island: Australia -> Norfolk Island (Australia)",
+   "Indonesia: Australia seam -> Dutch East Indies (Netherlands)",
+   "Austria: German Empire seam -> Austria-Hungary",
+   "Switzerland: German Empire seam -> Switzerland",
+   "Luxembourg: German Empire seam -> Luxembourg",
+   "Netherlands: German Empire seam -> Netherlands",
+   "Austria: Italy seam -> Austria-Hungary",
+   "Switzerland: Italy seam -> Switzerland",
+   "San Marino: Italy seam -> San Marino",
+   "Slovenia: Italy seam -> Austria-Hungary",
+   "Germany: Belgium seam -> German Empire",
+   "France: Belgium seam -> France",
+   "Luxembourg: Belgium seam -> Luxembourg",
+   "Netherlands: Belgium seam -> Netherlands",
+   "Namibia: Union of South Africa seam -> German South-West Africa",
+   "Botswana: Union of South Africa seam -> Bechuanaland (UK)",
+   "Lesotho: Union of South Africa seam -> Basutoland (UK)",
+   "Eswatini: Union of South Africa seam -> Swaziland (UK)",
+   "Zimbabwe: Union of South Africa seam -> Rhodesia (UK)",
+   "Niue: New Zealand -> Niue (New Zealand)",
+   "Cook Islands: New Zealand seam -> Cook Islands",
+   "Greenland: Denmark -> Greenland (Denmark)",
+   "Iceland: Denmark -> Iceland (Denmark)",
+   "Faroe Islands: Denmark -> Faroe Islands (Denmark)",
+   "Spain: Portugal seam -> Spain",
+   "Finland: Norway seam -> Finland (Russia)",
+   "Russia: Norway seam -> Russian Empire",
+   "Sweden: Norway seam -> Sweden"
+  ],
+  "entities": 191,
+  "fillsGone": []
+ },
+ {
+  "year": 1938,
+  "units": 181,
+  "unclaimed": 6,
+  "failures": 0,
+  "overlaps": [
+   {
+    "base": "ARE",
+    "kept": "Trucial States (UK)",
+    "gave": "Muscat and Oman",
+    "km2": 10537
    },
    {
-    "base": "MMR",
-    "kept": "Burma (UK)",
-    "gave": "British Raj (UK)",
-    "km2": 640602
+    "base": "BTN",
+    "kept": "Bhutan",
+    "gave": "Tibet",
+    "km2": 1170
    },
    {
-    "base": "PER",
-    "kept": "Peru",
-    "gave": "Ecuador",
-    "km2": 189949
-   },
-   {
-    "base": "POL",
-    "kept": "Germany",
-    "gave": "Poland",
-    "km2": 23682
-   },
-   {
-    "base": "POL",
-    "kept": "Free City of Danzig",
-    "gave": "Poland",
-    "km2": 1003
-   },
-   {
-    "base": "PRK",
+    "base": "CHN",
     "kept": "Manchukuo (Japan)",
-    "gave": "Empire of Japan",
-    "km2": 1782
+    "gave": "China",
+    "km2": 1275338
+   },
+   {
+    "base": "EGY",
+    "kept": "Egypt",
+    "gave": "Anglo-Egyptian Sudan",
+    "km2": 18971
+   },
+   {
+    "base": "FJI",
+    "kept": "Fiji (UK)",
+    "gave": "British Western Pacific Territories",
+    "km2": 18781
+   },
+   {
+    "base": "IND",
+    "kept": "British Raj (UK)",
+    "gave": "Tibet",
+    "km2": 2877
+   },
+   {
+    "base": "IRQ",
+    "kept": "Iraq",
+    "gave": "Saudi Arabia",
+    "km2": 3573
+   },
+   {
+    "base": "ISL",
+    "kept": "Iceland",
+    "gave": "Denmark",
+    "km2": 101557
+   },
+   {
+    "base": "MNG",
+    "kept": "Manchukuo (Japan)",
+    "gave": "China",
+    "km2": 7479
+   },
+   {
+    "base": "PHL",
+    "kept": "Philippines (USA)",
+    "gave": "United States",
+    "km2": 295827
    },
    {
     "base": "RUS",
     "kept": "Manchukuo (Japan)",
-    "gave": "Empire of Japan",
-    "km2": 6428
+    "gave": "China",
+    "km2": 2272
    },
    {
-    "base": "THA",
-    "kept": "Burma (UK)",
-    "gave": "British Raj (UK)",
-    "km2": 2234
+    "base": "SAU",
+    "kept": "Saudi Arabia",
+    "gave": "Iraq",
+    "km2": 3326
    },
    {
-    "base": "TUR",
-    "kept": "Hatay State",
-    "gave": "Syria (France)",
-    "km2": 5206
+    "base": "SLB",
+    "kept": "British Solomon Islands Protectorate",
+    "gave": "British Western Pacific Territories",
+    "km2": 27119
    },
    {
-    "base": "YEM",
-    "kept": "Yemen",
-    "gave": "Saudi Arabia",
-    "km2": 97433
+    "base": "TZA",
+    "kept": "Zanzibar (UK)",
+    "gave": "Tanganyika (UK)",
+    "km2": 2508
+   },
+   {
+    "base": "VUT",
+    "kept": "New Hebrides / Nouvelles-Hébrides",
+    "gave": "British Western Pacific Territories",
+    "km2": 12228
+   },
+   {
+    "base": "WSM",
+    "kept": "Western Samoa (New Zealand)",
+    "gave": "New Zealand",
+    "km2": 2762
+   },
+   {
+    "base": "XPI",
+    "kept": "Chile",
+    "gave": "Argentina",
+    "km2": 1239
    }
   ],
-  "overlapsKm2": 2122864,
-  "reconciledKm2": 3375634,
+  "overlapsKm2": 1793504,
+  "reconciledKm2": 6272478,
   "badMerges": [],
   "moves": [
+   {
+    "base": "DZA",
+    "from": "France",
+    "to": "Algeria (France)",
+    "km2": 2310013
+   },
+   {
+    "base": "MAR",
+    "from": "Spain",
+    "to": "Spanish Morocco (Spain)",
+    "km2": 227847
+   },
    {
     "base": "MCO",
     "to": "Monaco",
     "km2": 19
    },
    {
-    "base": "SMR",
-    "to": "San Marino",
-    "km2": 60
-   },
-   {
-    "base": "LIE",
-    "to": "Liechtenstein",
-    "km2": 137
-   },
-   {
-    "base": "GRL",
-    "to": "Greenland (Denmark)",
-    "km2": 2137328
-   },
-   {
-    "base": "VAT",
-    "to": "Vatican City",
+    "base": "FRA",
+    "from": "Monaco",
+    "to": "France",
     "km2": 0
-   },
-   {
-    "base": "TUR",
-    "from": "Greece",
-    "to": "Turkey",
-    "km2": 25489
-   },
-   {
-    "base": "TUR",
-    "from": "Soviet Union",
-    "to": "Turkey",
-    "km2": 148553
-   },
-   {
-    "base": "TUR",
-    "from": "Syria (France)",
-    "to": "Turkey",
-    "km2": 106908
-   },
-   {
-    "base": "ISL",
-    "to": "Iceland",
-    "km2": 101557
-   },
-   {
-    "base": "LBN",
-    "to": "Lebanon (France)",
-    "km2": 9996
-   },
-   {
-    "base": "JOR",
-    "to": "Transjordan (UK)",
-    "km2": 88825
-   },
-   {
-    "base": "KWT",
-    "to": "Kuwait (UK)",
-    "km2": 17469
-   },
-   {
-    "base": "SAU",
-    "from": "Iraq",
-    "to": "Saudi Arabia",
-    "km2": 21304
    },
    {
     "base": "NAM",
     "from": "Union of South Africa",
     "to": "South West Africa (South Africa)",
-    "km2": 813588
+    "km2": 824587
    },
    {
     "base": "PNG",
+    "from": "Australia",
     "to": "Papua and New Guinea (Australia)",
-    "km2": 467570
-   }
-  ],
-  "stripsKm2": 515586,
-  "entities": 210
- },
- {
-  "year": 1945,
-  "units": 166,
-  "unclaimed": [
-   "ABW",
-   "ALA",
-   "ATF",
-   "BHR",
-   "BMU",
-   "COK",
-   "COM",
-   "CPV",
-   "CYM",
-   "FLK",
-   "FRO",
-   "FSM",
-   "GGY",
-   "GIB",
-   "GUM",
-   "HMD",
-   "IMN",
-   "IOT",
-   "JEY",
-   "KIR",
-   "MAC",
-   "MDV",
-   "MHL",
-   "MLT",
-   "MNP",
-   "MUS",
-   "NCL",
-   "NFK",
-   "NRU",
-   "PCN",
-   "PLW",
-   "PYF",
-   "SGS",
-   "SHN",
-   "SLB",
-   "SPM",
-   "STP",
-   "SYC",
-   "TUV",
-   "UMI",
-   "VGB",
-   "VUT",
-   "XBN",
-   "XCP",
-   "XCS",
-   "XIO",
-   "XSN",
-   "XSP",
-   "XSR"
-  ],
-  "failures": [],
-  "overlaps": [
-   {
-    "base": "CAN",
-    "kept": "Newfoundland",
-    "gave": "Canada",
-    "km2": 374136
+    "km2": 465220
    },
    {
-    "base": "FRA",
-    "kept": "France",
-    "gave": "Switzerland",
-    "km2": 1197
+    "base": "FSM",
+    "from": "Empire of Japan",
+    "to": "South Seas Mandate (Japan)",
+    "km2": 686
+   },
+   {
+    "base": "MNP",
+    "from": "Empire of Japan",
+    "to": "South Seas Mandate (Japan)",
+    "km2": 582
+   },
+   {
+    "base": "MHL",
+    "from": "Empire of Japan",
+    "to": "South Seas Mandate (Japan)",
+    "km2": 192
+   },
+   {
+    "base": "PLW",
+    "from": "Empire of Japan",
+    "to": "South Seas Mandate (Japan)",
+    "km2": 494
+   },
+   {
+    "base": "ESH",
+    "to": "Spanish Sahara (Spain)",
+    "km2": 90465
    },
    {
     "base": "MAR",
-    "kept": "Spanish Morocco (Spain)",
-    "gave": "Morocco (France)",
-    "km2": 36323
+    "from": "Spanish Morocco (Spain)",
+    "to": "Spanish Sahara (Spain)",
+    "southOf": 27.666666666666668,
+    "km2": 179023
+   },
+   {
+    "base": "TGO",
+    "from": "French West Africa (France)",
+    "to": "Togoland (UK and France)",
+    "km2": 57007
+   }
+  ],
+  "stripsKm2": 127067,
+  "far": [
+   "Netherlands -> Netherlands Antilles (Netherlands) 19 km²",
+   "Netherlands -> Netherlands Antilles (Netherlands) 268 km²"
+  ],
+  "overseas": [
+   "Suriname: Netherlands -> Suriname (Netherlands)",
+   "Curaçao: Netherlands -> Netherlands Antilles (Netherlands)",
+   "Aruba: Netherlands -> Aruba (Netherlands)",
+   "Sint Maarten: Netherlands -> Netherlands Antilles (Netherlands)",
+   "Belgium: Netherlands seam -> Belgium",
+   "Brazil: Netherlands seam -> Brazil",
+   "Germany: Netherlands seam -> Germany",
+   "France: Netherlands seam -> France",
+   "Guyana: Netherlands seam -> British Guiana (UK)",
+   "Saint Martin: Netherlands seam -> Guadeloupe (France)",
+   "Angola: Union of South Africa seam -> Angola (Portugal)",
+   "Botswana: Union of South Africa seam -> Bechuanaland (UK)",
+   "Lesotho: Union of South Africa seam -> Basutoland (UK)",
+   "Eswatini: Union of South Africa seam -> Swaziland (UK)",
+   "Zambia: Union of South Africa seam -> Northern Rhodesia (UK)",
+   "Zimbabwe: Union of South Africa seam -> Southern Rhodesia (UK)",
+   "Albania: Italy seam -> Albania",
+   "Austria: Italy seam -> Germany",
+   "Switzerland: Italy seam -> Switzerland",
+   "San Marino: Italy seam -> San Marino",
+   "Equatorial Guinea: Spain -> Spanish Guinea (Spain)",
+   "Gabon: Spain seam -> French Equatorial Africa (France)",
+   "Andorra: Spain seam -> Andorra",
+   "Cameroon: Spain seam -> French Cameroons (France)",
+   "Algeria: Spain seam -> Algeria (France)",
+   "France: Spain seam -> France",
+   "Mauritania: Spain seam -> French West Africa (France)",
+   "Portugal: Spain seam -> Portugal",
+   "Andorra: France seam -> Andorra",
+   "Belgium: France seam -> Belgium",
+   "Switzerland: France seam -> Switzerland",
+   "Germany: France seam -> Germany",
+   "Spain: France seam -> Spain",
+   "Italy: France seam -> Italy",
+   "Libya: France seam -> Libya (Italy)",
+   "Luxembourg: France seam -> Luxembourg",
+   "Morocco: France seam -> Morocco (France)",
+   "Mali: France seam -> French West Africa (France)",
+   "Niger: France seam -> French West Africa (France)",
+   "Tunisia: France seam -> Tunisia (France)",
+   "Falkland Islands: Argentina -> Falkland Islands (UK)",
+   "Bolivia: Argentina seam -> Bolivia",
+   "Brazil: Argentina seam -> Brazil",
+   "Paraguay: Argentina seam -> Paraguay",
+   "Uruguay: Argentina seam -> Uruguay",
+   "Southern Patagonian Ice Field: Argentina seam -> Chile",
+   "Puerto Rico: United States -> Puerto Rico (USA)",
+   "Panama: United States -> Panama Canal Zone (USA)",
+   "Guam: United States -> Guam (USA)",
+   "United States Virgin Islands: United States -> US Virgin Islands (USA)",
+   "American Samoa: United States -> American Samoa (USA)",
+   "United States Minor Outlying Islands: United States -> US Minor Outlying Islands (USA)",
+   "Mexico: United States seam -> Mexico",
+   "Philippines: United States seam -> Philippines (USA)",
+   "Norfolk Island: Australia -> Norfolk Island (Australia)",
+   "Indonesia: Australia seam -> Dutch East Indies (Netherlands)",
+   "Germany: Belgium seam -> Germany",
+   "France: Belgium seam -> France",
+   "Luxembourg: Belgium seam -> Luxembourg",
+   "Netherlands: Belgium seam -> Netherlands",
+   "Niue: New Zealand -> Niue (New Zealand)",
+   "Cook Islands: New Zealand seam -> Cook Islands",
+   "Samoa: New Zealand seam -> Western Samoa (New Zealand)",
+   "Greenland: Denmark -> Greenland (Denmark)",
+   "Faroe Islands: Denmark -> Faroe Islands (Denmark)",
+   "Germany: Denmark seam -> Germany",
+   "Iceland: Denmark seam -> Iceland",
+   "Spain: Portugal seam -> Spain",
+   "Finland: Norway seam -> Finland",
+   "Russia: Norway seam -> Soviet Union",
+   "Sweden: Norway seam -> Sweden",
+   "Ireland: United Kingdom seam -> Ireland"
+  ],
+  "entities": 208,
+  "fillsGone": [
+   "Trinidad (UK)"
+  ]
+ },
+ {
+  "year": 1945,
+  "units": 185,
+  "unclaimed": 8,
+  "failures": 0,
+  "overlaps": [
+   {
+    "base": "ARE",
+    "kept": "Trucial States (UK)",
+    "gave": "Muscat and Oman",
+    "km2": 10537
+   },
+   {
+    "base": "BTN",
+    "kept": "Bhutan",
+    "gave": "Tibet",
+    "km2": 1170
+   },
+   {
+    "base": "CHN",
+    "kept": "China",
+    "gave": "Japan (USA)",
+    "km2": 3709
+   },
+   {
+    "base": "EGY",
+    "kept": "Egypt",
+    "gave": "Anglo-Egyptian Sudan",
+    "km2": 18971
+   },
+   {
+    "base": "FJI",
+    "kept": "Fiji (UK)",
+    "gave": "British Western Pacific Territories",
+    "km2": 18781
+   },
+   {
+    "base": "IND",
+    "kept": "British India (UK)",
+    "gave": "Tibet",
+    "km2": 2877
+   },
+   {
+    "base": "IRQ",
+    "kept": "Iraq",
+    "gave": "Saudi Arabia",
+    "km2": 3573
+   },
+   {
+    "base": "KOR",
+    "kept": "Korea (USA)",
+    "gave": "Japan (USA)",
+    "km2": 93165
+   },
+   {
+    "base": "KOR",
+    "kept": "Japan (USA)",
+    "gave": "Soviet Union",
+    "km2": 5737
+   },
+   {
+    "base": "KOR",
+    "kept": "Korea (USSR)",
+    "gave": "Japan (USA)",
+    "km2": 5737
+   },
+   {
+    "base": "MYS",
+    "kept": "Malaya (UK)",
+    "gave": "Straits Settlements (UK)",
+    "km2": 2668
+   },
+   {
+    "base": "PHL",
+    "kept": "Philippines (USA)",
+    "gave": "United States",
+    "km2": 295827
+   },
+   {
+    "base": "PRK",
+    "kept": "Japan (USA)",
+    "gave": "Soviet Union",
+    "km2": 119240
+   },
+   {
+    "base": "PRK",
+    "kept": "Korea (USSR)",
+    "gave": "Japan (USA)",
+    "km2": 119240
+   },
+   {
+    "base": "PRK",
+    "kept": "Korea (USA)",
+    "gave": "Japan (USA)",
+    "km2": 2409
+   },
+   {
+    "base": "RUS",
+    "kept": "Soviet Union",
+    "gave": "Japan (USA)",
+    "km2": 33738
    },
    {
     "base": "SAU",
-    "kept": "Aden Protectorate (UK)",
-    "gave": "Yemen",
-    "km2": 1202
+    "kept": "Saudi Arabia",
+    "gave": "Iraq",
+    "km2": 3326
+   },
+   {
+    "base": "SLB",
+    "kept": "British Solomon Islands Protectorate",
+    "gave": "British Western Pacific Territories",
+    "km2": 27119
+   },
+   {
+    "base": "TZA",
+    "kept": "Zanzibar (UK)",
+    "gave": "Tanganyika (UK)",
+    "km2": 2508
+   },
+   {
+    "base": "VUT",
+    "kept": "New Hebrides / Nouvelles-Hébrides",
+    "gave": "British Western Pacific Territories",
+    "km2": 12228
+   },
+   {
+    "base": "WSM",
+    "kept": "Western Samoa (New Zealand)",
+    "gave": "New Zealand",
+    "km2": 2762
+   },
+   {
+    "base": "XPI",
+    "kept": "Chile",
+    "gave": "Argentina",
+    "km2": 1239
    },
    {
     "base": "YEM",
     "kept": "Aden Protectorate (UK)",
     "gave": "Yemen",
-    "km2": 291014
+    "km2": 42047
    }
   ],
-  "overlapsKm2": 704181,
-  "reconciledKm2": 3431037,
+  "overlapsKm2": 834147,
+  "reconciledKm2": 522459,
   "badMerges": [],
   "moves": [
+   {
+    "base": "DZA",
+    "from": "France",
+    "to": "Algeria (France)",
+    "km2": 2310013
+   },
+   {
+    "base": "MAR",
+    "from": "Spain",
+    "to": "Spanish Morocco (Spain)",
+    "km2": 227847
+   },
    {
     "base": "MCO",
     "to": "Monaco",
     "km2": 19
    },
    {
-    "base": "SMR",
-    "to": "San Marino",
-    "km2": 60
-   },
-   {
-    "base": "LIE",
-    "to": "Liechtenstein",
-    "km2": 137
-   },
-   {
-    "base": "GRL",
-    "to": "Greenland (Denmark)",
-    "km2": 2137328
-   },
-   {
-    "base": "VAT",
-    "to": "Vatican City",
+    "base": "FRA",
+    "from": "Monaco",
+    "to": "France",
     "km2": 0
    },
    {
-    "base": "KWT",
-    "to": "Kuwait (UK)",
-    "km2": 17471
+    "base": "NAM",
+    "from": "Union of South Africa",
+    "to": "South West Africa (South Africa)",
+    "km2": 824587
    },
    {
-    "base": "SAU",
-    "from": "Iraq",
-    "to": "Saudi Arabia",
-    "km2": 10707
+    "base": "PNG",
+    "from": "Australia",
+    "to": "Papua and New Guinea (Australia)",
+    "km2": 465220
    },
    {
-    "base": "SAU",
-    "from": "Transjordan (UK)",
-    "to": "Saudi Arabia",
-    "km2": 7451
+    "base": "FSM",
+    "from": "Japan (USA)",
+    "to": "Caroline Islands (USA)",
+    "km2": 686
+   },
+   {
+    "base": "MHL",
+    "from": "Japan (USA)",
+    "to": "Marshall Islands (USA)",
+    "km2": 192
+   },
+   {
+    "base": "PLW",
+    "from": "Japan (USA)",
+    "to": "Palau (USA)",
+    "km2": 494
+   },
+   {
+    "base": "MNP",
+    "from": "Japan (USA)",
+    "to": "Mariana Islands (USA)",
+    "km2": 582
+   },
+   {
+    "base": "ESH",
+    "to": "Spanish Sahara (Spain)",
+    "km2": 90465
+   },
+   {
+    "base": "MAR",
+    "from": "Spanish Morocco (Spain)",
+    "to": "Spanish Sahara (Spain)",
+    "southOf": 27.666666666666668,
+    "km2": 179023
+   },
+   {
+    "base": "TGO",
+    "from": "French West Africa (France)",
+    "to": "Togoland (UK and France)",
+    "km2": 57007
    }
   ],
-  "stripsKm2": 539020,
-  "entities": 220
+  "stripsKm2": 130807,
+  "far": [
+   "Netherlands -> Netherlands Antilles (Netherlands) 19 km²",
+   "Netherlands -> Netherlands Antilles (Netherlands) 268 km²"
+  ],
+  "overseas": [
+   "Suriname: Netherlands -> Suriname (Netherlands)",
+   "Curaçao: Netherlands -> Netherlands Antilles (Netherlands)",
+   "Aruba: Netherlands -> Aruba (Netherlands)",
+   "Sint Maarten: Netherlands -> Netherlands Antilles (Netherlands)",
+   "Belgium: Netherlands seam -> Belgium",
+   "Brazil: Netherlands seam -> Brazil",
+   "Germany: Netherlands seam -> Germany (USA)",
+   "France: Netherlands seam -> France",
+   "Guyana: Netherlands seam -> British Guiana (UK)",
+   "Saint Martin: Netherlands seam -> Guadeloupe (France)",
+   "Angola: Union of South Africa seam -> Angola (Portugal)",
+   "Botswana: Union of South Africa seam -> Bechuanaland (UK)",
+   "Lesotho: Union of South Africa seam -> Basutoland (UK)",
+   "Eswatini: Union of South Africa seam -> Swaziland (UK)",
+   "Zambia: Union of South Africa seam -> Northern Rhodesia (UK)",
+   "Zimbabwe: Union of South Africa seam -> Southern Rhodesia (UK)",
+   "Equatorial Guinea: Spain -> Spanish Guinea (Spain)",
+   "Gabon: Spain seam -> French Equatorial Africa (France)",
+   "Andorra: Spain seam -> Andorra",
+   "Cameroon: Spain seam -> French Cameroons (France)",
+   "Algeria: Spain seam -> Algeria (France)",
+   "France: Spain seam -> France",
+   "Mauritania: Spain seam -> French West Africa (France)",
+   "Portugal: Spain seam -> Portugal",
+   "Andorra: France seam -> Andorra",
+   "Belgium: France seam -> Belgium",
+   "Switzerland: France seam -> Switzerland",
+   "Spain: France seam -> Spain",
+   "Italy: France seam -> Italy",
+   "Libya: France seam -> Libya (UK)",
+   "Luxembourg: France seam -> Luxembourg",
+   "Morocco: France seam -> Morocco (France)",
+   "Mali: France seam -> French West Africa (France)",
+   "Niger: France seam -> French West Africa (France)",
+   "Tunisia: France seam -> Tunisia (France)",
+   "Falkland Islands: Argentina -> Falkland Islands (UK)",
+   "Bolivia: Argentina seam -> Bolivia",
+   "Brazil: Argentina seam -> Brazil",
+   "Paraguay: Argentina seam -> Paraguay",
+   "Uruguay: Argentina seam -> Uruguay",
+   "Southern Patagonian Ice Field: Argentina seam -> Chile",
+   "Puerto Rico: United States -> Puerto Rico (USA)",
+   "Panama: United States -> Panama Canal Zone (USA)",
+   "Guam: United States -> Guam (USA)",
+   "United States Virgin Islands: United States -> US Virgin Islands (USA)",
+   "American Samoa: United States -> American Samoa (USA)",
+   "United States Minor Outlying Islands: United States -> US Minor Outlying Islands (USA)",
+   "Mexico: United States seam -> Mexico",
+   "Philippines: United States seam -> Philippines (USA)",
+   "Norfolk Island: Australia -> Norfolk Island (Australia)",
+   "Indonesia: Australia seam -> Dutch East Indies (Netherlands)",
+   "Austria: Italy seam -> Austria",
+   "Switzerland: Italy seam -> Switzerland",
+   "San Marino: Italy seam -> San Marino",
+   "Slovenia: Italy seam -> Yugoslavia",
+   "France: Belgium seam -> France",
+   "Luxembourg: Belgium seam -> Luxembourg",
+   "Netherlands: Belgium seam -> Netherlands",
+   "Niue: New Zealand -> Niue (New Zealand)",
+   "Cook Islands: New Zealand seam -> Cook Islands",
+   "Samoa: New Zealand seam -> Western Samoa (New Zealand)",
+   "Greenland: Denmark -> Greenland (Denmark)",
+   "Germany: Denmark seam -> Germany (USA)",
+   "Spain: Portugal seam -> Spain",
+   "Finland: Norway seam -> Finland",
+   "Russia: Norway seam -> Soviet Union",
+   "Sweden: Norway seam -> Sweden",
+   "Ireland: United Kingdom seam -> Ireland"
+  ],
+  "entities": 213,
+  "fillsGone": [
+   "Trinidad (UK)",
+   "Antarctica",
+   "Italian Somaliland (UK administration)"
+  ]
  },
  {
   "year": 1990,
-  "entities": 233
+  "entities": 233,
+  "failures": 0,
+  "unclaimed": 0
  }
 ]

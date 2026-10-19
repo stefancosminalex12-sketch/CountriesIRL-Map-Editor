@@ -9,10 +9,14 @@ The Europe Countries map opens the same files for Europe 1914, 1938 and 1945 (`E
 
 ## Sources and licence
 
-- **Borders of 1914, 1938 and 1945:** Andrés Ourednik, *historical-basemaps*
-  (github.com/aourednik/historical-basemaps), GNU GPL v3. The 1930 map of the same project
-  supplies East Prussia and Danzig for 1938. These three maps are derived from it and are
-  therefore **GPL v3** as well: see `LICENSE`.
+- **Borders of 1914, 1938 and 1945:** OpenHistoricalMap (openhistoricalmap.org), public domain
+  (CC0): the administrative-level-2 relations valid on 1 July 1914, 31 December 1938 and
+  31 December 1945, fetched by `scripts/historical/ohm.mjs` and simplified to 0.4 km. Its
+  borders are traced from topographic maps, so they follow rivers and ridges.
+- **Land OpenHistoricalMap leaves uncovered** (a colony it has not drawn yet, such as part of
+  Italian Somaliland) is filled from Andrés Ourednik, *historical-basemaps*
+  (github.com/aourednik/historical-basemaps), GNU GPL v3, and only where at least 300 km² and
+  6 km wide is uncovered. Because of that fill these three maps are **GPL v3**: see `LICENSE`.
 - **Land, coasts and islands:** Natural Earth 25m admin-0 (public domain), the modern World map's
   own. The historical borders are cut into it, so a historical map has the modern map's coastline.
 - **Outlines no historical map draws** — the Kars provinces (Russian 1878–1918), the Hatay State,
@@ -22,7 +26,10 @@ The Europe Countries map opens the same files for Europe 1914, 1938 and 1945 (`E
 
 ## Corrections
 
-The source's names, and a number of its borders, are not of the year. `scripts/historical/curation.mjs`
+OpenHistoricalMap's names are its own ("French Republic", "British Military Administration of
+Libya"); `build-historical.mjs` maps them to the names the World map uses, and splits land a
+country holds overseas into the colony it was (Suriname out of the Netherlands, Papua out of
+Australia). The fill's names, and a number of its borders, are not of the year. `scripts/historical/curation.mjs`
 lists every correction with its reason: names and colonial rulers, units dropped, units carved from
 another year's outline (the Kingdom of Yemen of 1938 from 1945's), overlaps settled, and land moved
 within one modern country (the source's 1938 Turkey is the Treaty of Sèvres one; its 1914 Bulgaria

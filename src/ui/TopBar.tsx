@@ -32,7 +32,7 @@ import { GeographicFeatureToggles, LabelsAndHelpers, LineWidthSwatches, MapColor
 import { DataSources, SelectionHighlight, ThemePicker, TransparencySwitch } from './SettingsPanel'
 import { TemplatePicker } from './TemplatePicker'
 import { useMapStore } from '../state/mapStore'
-import { ATLAS_FAMILIES, ATLASES, getAtlas, MODERN_YEAR, PAST_YEARS_OFFERED, yearOfDataset, type Atlas } from '../maps/atlas'
+import { ATLAS_FAMILIES, ATLASES, getAtlas, MODERN_YEAR, yearOfDataset, type Atlas } from '../maps/atlas'
 import { barChildren, getRegion, regionsForAtlas, type RegionPreset } from '../geo/regions'
 import { datasetsForAtlas, getDataset } from '../geo/datasets'
 import { noteDetailChosen } from '../maps/startingDetail'
@@ -93,7 +93,7 @@ function MapChoices({ done }: { done: () => void }) {
               done()
             }}
           />,
-          ...[...(PAST_YEARS_OFFERED ? (a.years ?? []) : [])].reverse().map((d) => (
+          ...[...(a.years ?? [])].reverse().map((d) => (
             <MenuItem
               key={d.id}
               name={d.name}
