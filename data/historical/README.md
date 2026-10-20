@@ -1,8 +1,10 @@
 # Historical world maps
 
 `world-1914.json`, `world-1938.json`, `world-1945.json` and `world-1990.json` (TopoJSON, object
-`countries`), each with a `-meta.json` entity table in the modern map's format. Built by
-`scripts/historical/build-historical.mjs`; `report.json` is that build's report.
+`countries`), each with a `-meta.json` entity table in the modern map's format, cut into the
+modern map's 25m land; and the same years cut into its 10m land, `world-1914-10m.json` and so on,
+whose borders stay curved when zoomed in. Built by `scripts/historical/build-historical.mjs`
+(`--detail=10m` for the second set); `report.json` and `report-10m.json` are the builds' reports.
 
 The Europe Countries map opens the same files for Europe 1914, 1938 and 1945 (`EUROPE_YEARS` in
 `src/maps/atlas.ts`), framed on Europe: one set of borders and corrections for both maps.
@@ -35,6 +37,14 @@ another year's outline (the Kingdom of Yemen of 1938 from 1945's), overlaps sett
 within one modern country (the source's 1938 Turkey is the Treaty of Sèvres one; its 1914 Bulgaria
 has Edirne). The build also gives a neighbour's thin strips along a modern border, where the coarse
 source draws an unchanged border a few kilometres off, to the country they lie in.
+
+Where two countries' outlines run a few metres apart — OpenHistoricalMap draws some borders once
+for each side, simplified differently — the border would be drawn as two coasts, or not at all.
+`scripts/historical/heal.mjs` makes them one line: on edges no other outline shares it takes out
+needle-thin spikes and puts in the other side's points within 15 m. A strip set aside during a cut
+is also no longer handed out twice (it made two countries overlap). Checked with a border audit
+(`.cache/hist-tools/audit.mjs`): at 10m no undrawn border in Europe in any year; at 25m two spikes
+under 3 km remain (Bohumín 1938, the Luxembourg–French zone border 1945).
 
 The build fails if a unit of the year is missing from its map, or if a unit's joined area is not
 the sum of its pieces (a merge across a pinched ring once took most of the United States for

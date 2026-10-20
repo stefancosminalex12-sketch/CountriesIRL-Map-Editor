@@ -106,7 +106,8 @@ function offered(atlas: Atlas) {
 /** Called when the author chooses a detail themselves. See the note above. */
 export function noteDetailChosen(atlas?: Atlas, datasetId?: string): void {
   automatic = false
-  const dataset = atlas && offered(atlas).find((d) => d.id === datasetId)
+  // A past year's level counts too: 10m chosen on 1938 is 10m on today's map.
+  const dataset = atlas && [...offered(atlas), ...(atlas.years ?? [])].find((d) => d.id === datasetId)
   if (atlas && dataset && offersResolutions(atlas)) chosenDetail = dataset.detail
 }
 

@@ -163,7 +163,7 @@
    }
   ],
   "overlapsKm2": 1579370,
-  "reconciledKm2": 342267,
+  "reconciledKm2": 232160,
   "badMerges": [],
   "moves": [
    {
@@ -309,6 +309,7 @@
    "Russia: Norway seam -> Russian Empire",
    "Sweden: Norway seam -> Sweden"
   ],
+  "healed": 15,
   "entities": 191,
   "fillsGone": []
  },
@@ -422,7 +423,7 @@
    }
   ],
   "overlapsKm2": 1793504,
-  "reconciledKm2": 6272478,
+  "reconciledKm2": 6145073,
   "badMerges": [],
   "moves": [
    {
@@ -452,7 +453,7 @@
     "base": "NAM",
     "from": "Union of South Africa",
     "to": "South West Africa (South Africa)",
-    "km2": 824587
+    "km2": 824571
    },
    {
     "base": "PNG",
@@ -529,8 +530,8 @@
    "Austria: Italy seam -> Germany",
    "Switzerland: Italy seam -> Switzerland",
    "San Marino: Italy seam -> San Marino",
-   "Equatorial Guinea: Spain -> Spanish Guinea (Spain)",
    "Gabon: Spain seam -> French Equatorial Africa (France)",
+   "Equatorial Guinea: Spain -> Spanish Guinea (Spain)",
    "Andorra: Spain seam -> Andorra",
    "Cameroon: Spain seam -> French Cameroons (France)",
    "Algeria: Spain seam -> Algeria (France)",
@@ -582,6 +583,7 @@
    "Sweden: Norway seam -> Sweden",
    "Ireland: United Kingdom seam -> Ireland"
   ],
+  "healed": 14,
   "entities": 208,
   "fillsGone": [
    "Trinidad (UK)"
@@ -733,7 +735,7 @@
    }
   ],
   "overlapsKm2": 834147,
-  "reconciledKm2": 522459,
+  "reconciledKm2": 391270,
   "badMerges": [],
   "moves": [
    {
@@ -763,7 +765,7 @@
     "base": "NAM",
     "from": "Union of South Africa",
     "to": "South West Africa (South Africa)",
-    "km2": 824587
+    "km2": 824571
    },
    {
     "base": "PNG",
@@ -836,8 +838,8 @@
    "Eswatini: Union of South Africa seam -> Swaziland (UK)",
    "Zambia: Union of South Africa seam -> Northern Rhodesia (UK)",
    "Zimbabwe: Union of South Africa seam -> Southern Rhodesia (UK)",
-   "Equatorial Guinea: Spain -> Spanish Guinea (Spain)",
    "Gabon: Spain seam -> French Equatorial Africa (France)",
+   "Equatorial Guinea: Spain -> Spanish Guinea (Spain)",
    "Andorra: Spain seam -> Andorra",
    "Cameroon: Spain seam -> French Cameroons (France)",
    "Algeria: Spain seam -> Algeria (France)",
@@ -889,6 +891,7 @@
    "Sweden: Norway seam -> Sweden",
    "Ireland: United Kingdom seam -> Ireland"
   ],
+  "healed": 25,
   "entities": 213,
   "fillsGone": [
    "Trinidad (UK)",

@@ -57,6 +57,7 @@ import {
 } from '../admin/geometry.mjs'
 import { unpinched } from '../europe/unpinch.mjs'
 import { CURATION, ISLANDS } from './curation.mjs'
+import { healSeams } from './heal.mjs'
 import { countriesOf, fetchDay } from './ohm.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
@@ -100,7 +101,15 @@ const log = (...args) => console.log('[historical]', ...args)
 
 /* ---------------------------------------------------------------- inputs */
 
-const modernTopology = JSON.parse(readFileSync(resolve(root, 'data/natural-earth/countries-25m.json'), 'utf8'))
+/**
+ * The modern map the years are cut into: 25m by default, or `--detail=10m` for the detailed one,
+ * whose borders stay curved when zoomed in (25m draws them in straight runs of 20–60 km). The 10m
+ * files are written beside the 25m ones with "-10m" in their names.
+ */
+const DETAIL = (process.argv.find((a) => a.startsWith('--detail=')) ?? '--detail=25m').slice(9)
+if (DETAIL !== '25m' && DETAIL !== '10m') throw new Error(`--detail must be 25m or 10m, not ${DETAIL}`)
+const SUFFIX = DETAIL === '25m' ? '' : `-${DETAIL}`
+const modernTopology = JSON.parse(readFileSync(resolve(root, `data/natural-earth/countries-${DETAIL}.json`), 'utf8'))
 const metaPath = resolve(root, 'public/geo/country-meta.json')
 if (!existsSync(metaPath)) throw new Error('public/geo/country-meta.json is missing: run `npm run prepare-data` first')
 const modernMeta = JSON.parse(readFileSync(metaPath, 'utf8')).entities
@@ -268,7 +277,11 @@ function cutBase(base, units, report, beats, stripKm = STRIP_WIDTH_KM) {
       else loose.push(p)
     })
   })
-  const residual = safely(() => clipper.difference(base.polygons, ...parts.map((p) => p.polygons)))
+  // What no part holds — less the scraps and strips already set aside above. Without them taken
+  // off too, a strip was handed out twice (once itself, once inside the residual), sometimes to two
+  // different units: they overlapped there, neither outline was the other's, and the border
+  // between them was not drawn (Czechoslovakia and Germany in 1945, near 13.9° E 50.8° N).
+  const residual = safely(() => clipper.difference(base.polygons, ...parts.map((p) => p.polygons), loose))
   if (residual.error) report.failures.push({ base: base.id, stage: 'residual', error: String(residual.error.message ?? residual.error) })
   else loose.push(...residual)
 
@@ -611,6 +624,8 @@ function buildYear(year, sources, units = unitsOf(sources, year), curated = true
     splitOverseas(year, pieces, curatedUnits ?? [], report)
   }
   node(pieces, clipper.created)
+  // And the borders that run a few metres apart made one line, so every one is drawn (`heal.mjs`).
+  report.healed = healSeams(pieces)
 
   // Each entity's pieces, joined exactly; and where its land lies, for its regions.
   const entities = new Map()
@@ -1057,9 +1072,9 @@ function build1990() {
 function write(year, { features, meta, report }) {
   const topology = topojsonServer.topology({ countries: { type: 'FeatureCollection', features } }, QUANTIZATION)
   mkdirSync(outDir, { recursive: true })
-  writeFileSync(resolve(outDir, `world-${year}.json`), JSON.stringify(topology))
+  writeFileSync(resolve(outDir, `world-${year}${SUFFIX}.json`), JSON.stringify(topology))
   writeFileSync(
-    resolve(outDir, `world-${year}-meta.json`),
+    resolve(outDir, `world-${year}${SUFFIX}-meta.json`),
     JSON.stringify({ generatedAt: new Date().toISOString().slice(0, 10), numericToId: {}, nameToId: {}, entities: meta }),
   )
   log(`${year}: ${report.entities} entities`, JSON.stringify({ ...report, failures: report.failures?.length ?? 0, unclaimed: report.unclaimed?.length ?? 0 }))
@@ -1083,5 +1098,5 @@ for (const year of YEARS) {
   reports.push(write(year, buildYear(year, sources, units, false, beats, curated)))
 }
 reports.push(write(1990, build1990()))
-writeFileSync(resolve(outDir, 'report.json'), JSON.stringify(reports, null, 1))
+writeFileSync(resolve(outDir, `report${SUFFIX}.json`), JSON.stringify(reports, null, 1))
 log('done ->', outDir)

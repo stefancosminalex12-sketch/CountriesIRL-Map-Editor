@@ -652,7 +652,8 @@ stickers, and a value given in one year waits in the document while another is s
 other map, a year opens the World map; Modern World goes back to today's. On a past year:
 
 - only the continents are offered, because the subregions are made of today's countries;
-- there is no Resolution row, because each year has one detail level, 25m.
+- Resolution offers the year's two details, 25m and 10m. A year opens at the detail the map is at
+  (10m stays 10m from year to year, and back to today's map); anything coarser opens at 25m.
 
 A historical entity lists its continents (`EntityMeta.regions`), so the Ottoman Empire of 1914 is
 on a map of Europe and of Asia. It also names the modern country with most of its land

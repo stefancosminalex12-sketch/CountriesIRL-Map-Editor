@@ -15,13 +15,13 @@ import {
   type MapOperation,
   type OperationResult,
 } from './operations'
-import { loadGeoDataset, type GeoDataset, type LoadedDataset } from '../geo/datasets'
+import { getDataset, loadGeoDataset, type GeoDataset, type LoadedDataset } from '../geo/datasets'
 import { lakeLayerForDetail, loadLakes, type LoadedLakes } from '../geo/lakes'
 import { riverLayerForDetail, loadRivers, type LoadedRivers } from '../geo/rivers'
 import { loadMaritime, type LoadedMaritime } from '../geo/maritime'
 import { isWaterId, loadWaters, partitionByWater, type LoadedWaters } from '../geo/waters'
 import { countriesInRegions, getRegion, resolveFraming } from '../geo/regions'
-import { DEFAULT_ATLAS_ID, getAtlas, MODERN_YEAR, yearOfDataset } from '../maps/atlas'
+import { DEFAULT_ATLAS_ID, getAtlas, MODERN_YEAR, yearDataset, yearOfDataset } from '../maps/atlas'
 import { startingDatasetId } from '../maps/startingDetail'
 import type { CountryId, MapDocument, RegionId } from '../types/map'
 
@@ -701,7 +701,9 @@ export const useMapStore = create<MapStore>((set, get) => {
     const atlas = atlasId ? getAtlas(atlasId) : open.years?.length ? open : getAtlas(DEFAULT_ATLAS_ID)
     if (get().doc.scope.atlasId !== atlas.id) get().setAtlas(atlas.id)
     const { scope } = get().doc
-    const past = year === MODERN_YEAR ? null : atlas.years?.find((d) => d.year === year)
+    // At the detail the map is at: 10m stays 10m from year to year; anything coarser opens at 25m.
+    const detail = getDataset(scope.datasetId).detail === '10m' ? '10m' : '25m'
+    const past = year === MODERN_YEAR ? null : yearDataset(atlas, year, detail)
     if (year !== MODERN_YEAR && !past) return
     /*
      * Today's map at the detail it opens at — the author's choice this session, if they made

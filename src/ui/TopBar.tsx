@@ -32,7 +32,7 @@ import { GeographicFeatureToggles, LabelsAndHelpers, LineWidthSwatches, MapColor
 import { DataSources, SelectionHighlight, ThemePicker, TransparencySwitch } from './SettingsPanel'
 import { TemplatePicker } from './TemplatePicker'
 import { useMapStore } from '../state/mapStore'
-import { ATLAS_FAMILIES, ATLASES, getAtlas, MODERN_YEAR, yearOfDataset, type Atlas } from '../maps/atlas'
+import { ATLAS_FAMILIES, ATLASES, getAtlas, MODERN_YEAR, resolutionChoices, yearOfDataset, type Atlas } from '../maps/atlas'
 import { barChildren, getRegion, regionsForAtlas, type RegionPreset } from '../geo/regions'
 import { datasetsForAtlas, getDataset } from '../geo/datasets'
 import { noteDetailChosen } from '../maps/startingDetail'
@@ -93,7 +93,8 @@ function MapChoices({ done }: { done: () => void }) {
               done()
             }}
           />,
-          ...[...(a.years ?? [])].reverse().map((d) => (
+          // One row a year: the year opens at the map's detail (`setYear`), switched in Resolution.
+          ...[...(a.years ?? []).filter((d) => d.detail === '25m')].reverse().map((d) => (
             <MenuItem
               key={d.id}
               name={d.name}
@@ -262,7 +263,7 @@ function ResolutionChoices({ done }: { done: () => void }) {
   return (
     <div className="top-menu__group">
       <span className="top-menu__heading">Resolution</span>
-      {datasetsForAtlas(scope.atlasId).map((d) => (
+      {resolutionChoices(scope.atlasId, scope.datasetId).map((d) => (
         <MenuItem
           key={d.id}
           name={shortDataset(d)}
@@ -518,7 +519,8 @@ function FileMenu() {
   const scope = useMapStore((s) => s.doc.scope)
   const outside = useMapStore((s) => s.doc.style.outsideScope)
   const atlas = getAtlas(scope.atlasId)
-  const datasets = datasetsForAtlas(scope.atlasId)
+  // Today's map's levels, or a past year's own two (25m and 10m).
+  const datasets = resolutionChoices(scope.atlasId, scope.datasetId)
   const dataset = datasets.find((d) => d.id === scope.datasetId)
 
   const close = () => {
@@ -564,7 +566,6 @@ function FileMenu() {
       value: getDataset(scope.datasetId).era === 'historical' ? getDataset(scope.datasetId).name : (atlas.menuName ?? atlas.name),
       render: (done) => <MapChoices done={done} />,
     },
-    // A past year is one map, at one detail.
     ...(datasets.length > 1 && dataset
       ? [{ id: 'resolution', name: 'Resolution', value: dataset ? shortDataset(dataset) : '—', render: (done: () => void) => <ResolutionChoices done={done} /> }]
       : []),

@@ -229,20 +229,35 @@ const WORLD_YEAR_NOTES: Record<number, string> = {
   1990: 'The end of the Cold War',
 }
 
-const WORLD_YEARS: GeoDataset[] = [1914, 1938, 1945, 1990].map((year) => ({
-  id: `world-${year}`,
-  atlasId: 'world',
-  name: `World ${year}`,
-  label: String(year),
-  description: WORLD_YEAR_NOTES[year],
-  era: 'historical',
-  year,
-  detail: '25m',
-  url: `geo/historical/world-${year}.json`,
-  objectName: 'countries',
-  metaUrl: `geo/historical/world-${year}-meta.json`,
-  identify: 'feature-id',
-}))
+/**
+ * Each past year at two levels of detail, like today's map: 25m, and 10m, whose borders stay
+ * curved when zoomed in (25m draws them in straight runs of 20–60 km). A year opens at the detail
+ * the map is at; File → Resolution switches between the two. The 10m files are the same build cut
+ * into the 10m map (`build-historical.mjs --detail=10m`).
+ */
+const YEAR_DETAILS = [
+  { detail: '25m', suffix: '' },
+  { detail: '10m', suffix: '-10m' },
+] as const
+
+const pastYears = (atlasId: string, prefix: string, title: string, years: number[]): GeoDataset[] =>
+  years.flatMap((year) =>
+    YEAR_DETAILS.map(({ detail, suffix }) => ({
+      id: `${prefix}-${year}${suffix}`,
+      atlasId,
+      name: `${title} ${year}`,
+      description: WORLD_YEAR_NOTES[year],
+      era: 'historical' as const,
+      year,
+      detail,
+      url: `geo/historical/world-${year}${suffix}.json`,
+      objectName: 'countries',
+      metaUrl: `geo/historical/world-${year}${suffix}-meta.json`,
+      identify: 'feature-id' as const,
+    })),
+  )
+
+const WORLD_YEARS: GeoDataset[] = pastYears('world', 'world', 'World', [1914, 1938, 1945, 1990])
 
 /**
  * Europe in 1914, 1938 and 1945: the World map's own past years — the same curated borders and
@@ -251,20 +266,7 @@ const WORLD_YEARS: GeoDataset[] = [1914, 1938, 1945, 1990].map((year) => ({
  * coast: historical-basemaps' borders were drawn and corrected against Natural Earth's, and only
  * fit it. Its 25m land draws Europe with about as many points as the Light detail.
  */
-const EUROPE_YEARS: GeoDataset[] = [1914, 1938, 1945].map((year) => ({
-  id: `europe-${year}`,
-  atlasId: 'europe-countries',
-  name: `Europe ${year}`,
-  label: String(year),
-  description: WORLD_YEAR_NOTES[year],
-  era: 'historical',
-  year,
-  detail: '25m',
-  url: `geo/historical/world-${year}.json`,
-  objectName: 'countries',
-  metaUrl: `geo/historical/world-${year}-meta.json`,
-  identify: 'feature-id',
-}))
+const EUROPE_YEARS: GeoDataset[] = pastYears('europe-countries', 'europe', 'Europe', [1914, 1938, 1945])
 
 /**
  * The modern world by region: each country drawn at the level of subdivision that suits it.
@@ -849,6 +851,23 @@ export function atlasForDataset(datasetId: string): Atlas {
 export const ALL_DATASETS: GeoDataset[] = ATLASES.flatMap((a) => [...a.datasets, ...(a.years ?? [])])
 
 /** The year a dataset's map is of: its own for a past year, {@link MODERN_YEAR} for today's. */
+/**
+ * A past year of an atlas at a level of detail: 10m when asked for and built, else its 25m.
+ * `undefined` when the atlas has no such year.
+ */
+export function yearDataset(atlas: Atlas, year: number, detail: string): GeoDataset | undefined {
+  const all = atlas.years?.filter((d) => d.year === year) ?? []
+  return all.find((d) => d.detail === detail) ?? all.find((d) => d.detail === '25m') ?? all[0]
+}
+
+/** What File → Resolution offers: a past year's own levels, or today's map's. */
+export function resolutionChoices(atlasId: string, datasetId: string): GeoDataset[] {
+  const atlas = getAtlas(atlasId)
+  const year = ALL_DATASETS.find((d) => d.id === datasetId && d.era === 'historical')?.year
+  if (year !== undefined) return atlas.years?.filter((d) => d.year === year) ?? []
+  return atlas.datasets.filter((d) => !d.hidden)
+}
+
 export function yearOfDataset(datasetId: string): number {
   return ALL_DATASETS.find((d) => d.id === datasetId && d.era === 'historical')?.year ?? MODERN_YEAR
 }
