@@ -691,6 +691,9 @@ function buildYear(year, sources, units = unitsOf(sources, year), curated = true
       areaKm2: Math.round(area),
     }
   }
+  // Once more on the countries as joined: an edge two pieces of one country shared before the join
+  // is gone after it, and a spike it hid is a seam now (Luxembourg and the French zone in 1945).
+  report.healed += healSeams(features.map((f) => ({ polygons: f.geometry.coordinates })))
   report.entities = features.length
   // Every unit of the year is on the map, and each is exactly the sum of its pieces.
   // A unit only filled in from historical-basemaps may come to nothing — its land is OpenHistoricalMap's after all.

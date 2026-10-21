@@ -310,7 +310,7 @@
    "Russia: Norway seam -> Russian Empire",
    "Sweden: Norway seam -> Sweden"
   ],
-  "healed": 15,
+  "healed": 17,
   "entities": 191,
   "fillsGone": []
  },
@@ -585,7 +585,7 @@
    "Sweden: Norway seam -> Sweden",
    "Ireland: United Kingdom seam -> Ireland"
   ],
-  "healed": 13,
+  "healed": 15,
   "entities": 208,
   "fillsGone": [
    "Trinidad (UK)"
@@ -894,7 +894,7 @@
    "Sweden: Norway seam -> Sweden",
    "Ireland: United Kingdom seam -> Ireland"
   ],
-  "healed": 20,
+  "healed": 22,
   "entities": 213,
   "fillsGone": [
    "Trinidad (UK)",

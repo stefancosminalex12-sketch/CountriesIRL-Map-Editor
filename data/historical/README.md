@@ -43,8 +43,9 @@ for each side, simplified differently — the border would be drawn as two coast
 `scripts/historical/heal.mjs` makes them one line: on edges no other outline shares it takes out
 needle-thin spikes and puts in the other side's points within 15 m. A strip set aside during a cut
 is also no longer handed out twice (it made two countries overlap). Checked with a border audit
-(`.cache/hist-tools/audit.mjs`): at 10m no undrawn border in Europe in any year; at 25m two spikes
-under 3 km remain (Bohumín 1938, the Luxembourg–French zone border 1945).
+(`.cache/hist-tools/audit.mjs`): no undrawn border in Europe in any year, at either detail. Healing runs
+twice: on the pieces, and again on each country as joined, where a spike two of its pieces hid
+is left facing a neighbour (Luxembourg and the French zone in 1945).
 
 The build fails if a unit of the year is missing from its map, or if a unit's joined area is not
 the sum of its pieces (a merge across a pinched ring once took most of the United States for
