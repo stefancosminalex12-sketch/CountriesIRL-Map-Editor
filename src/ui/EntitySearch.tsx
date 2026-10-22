@@ -2,12 +2,14 @@
  * A territory found by typing its name — the header's Search and the Overlay tool's search.
  *
  * It offers what the map draws: the open dataset's entities — countries, or subdivisions on an
- * administrative map — and each merged body under its own name, in place of its members. Names
+ * administrative map — and each merged body under its own name, in place of its members; and, where
+ * asked (`waters`), the oceans and seas, whose names are known before their geometry loads. Names
  * that start with what was typed come first, then names that contain it, then codes. Arrow keys
  * move through the matches and Enter takes the highlighted one.
  */
 import { useMemo, useState, type ReactNode } from 'react'
 import { useMapStore } from '../state/mapStore'
+import { WATER_REGIONS } from '../geo/waters'
 
 /** How many matches are offered at once. Enough to choose from, short enough to scan. */
 const MAX_MATCHES = 30
@@ -19,6 +21,7 @@ export function EntitySearch({
   label = 'Search',
   trailing,
   exclude,
+  waters = false,
 }: {
   onChoose: (id: string) => void
   placeholder?: string
@@ -28,6 +31,8 @@ export function EntitySearch({
   trailing?: ReactNode
   /** Entities not to offer: ones already picked, or that cannot be. */
   exclude?: (id: string) => boolean
+  /** Offer the water regions too: the Overlay tool copies a sea as it copies a country. */
+  waters?: boolean
 }) {
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
@@ -43,8 +48,9 @@ export function EntitySearch({
       // Not every entity is named — a dataset can carry one without — so the id stands in.
       .map(([id, meta]) => ({ id, name: meta?.name || id, code: meta?.iso2 ?? '' }))
     for (const m of merged) out.push({ id: m.id, name: m.name || m.id, code: '' })
+    if (waters) for (const w of WATER_REGIONS) out.push({ id: w.id, name: w.name, code: '' })
     return out.sort((a, b) => a.name.localeCompare(b.name))
-  }, [geo, merges])
+  }, [geo, merges, waters])
 
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase()

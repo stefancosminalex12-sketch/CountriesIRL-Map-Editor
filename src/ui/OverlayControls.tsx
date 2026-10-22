@@ -23,6 +23,7 @@ import { OVERLAY_MODES, OVERLAY_TEXTURES, texturePatch } from './overlayChoices'
 import { FlagPicker } from './FlagPicker'
 import { EntitySearch } from './EntitySearch'
 import { flagOptions } from '../flags/flagChoices'
+import { isWaterId, waterName } from '../geo/waters'
 
 const NO_OVERLAYS: MapOverlay[] = []
 
@@ -33,7 +34,9 @@ export function OverlayControls() {
   const overlays = useMapStore((s) => s.doc.overlays) ?? NO_OVERLAYS
   const merges = useMapStore((s) => s.doc.merges)
   const geo = useMapStore((s) => s.geo)
-  const selected = useMapStore((s) => s.selectedCountryIds)
+  const selectedLand = useMapStore((s) => s.selectedCountryIds)
+  const selectedWater = useMapStore((s) => s.selectedWaterIds)
+  const waters = useMapStore((s) => s.waters)
   const activeId = useMapStore((s) => s.activeOverlayId)
   const dispatch = useMapStore((s) => s.dispatch)
   const setOverlayMode = useMapStore((s) => s.setOverlayMode)
@@ -57,9 +60,11 @@ export function OverlayControls() {
 
   const mergeById = new Map(merges.map((m) => [m.id, m]))
   const nameOf = (id: string) =>
-    mergeById.get(id)?.name ?? geo?.meta[id]?.name ?? geo?.byId.get(id)?.properties.name ?? id
-  /* What can be copied: selected entities of this map, merged groups included. */
-  const copyable = selected.filter((id) => mergeById.has(id) || !!geo?.byId.has(id))
+    isWaterId(id) ? waterName(id) : (mergeById.get(id)?.name ?? geo?.meta[id]?.name ?? geo?.byId.get(id)?.properties.name ?? id)
+  /* What can be copied: selected entities of this map, merged groups included, and selected seas. */
+  const copyable = [...selectedLand.filter((id) => mergeById.has(id) || !!geo?.byId.has(id)), ...selectedWater]
+  /* A group copy is of land: a sea in the selection is copied on its own beside it. */
+  const landCopyable = copyable.filter((id) => !isWaterId(id))
   const active = overlays.find((o) => o.id === activeId) ?? null
   const scale = clampOverlayScale(active?.scale ?? 1)
   const [scaleInput, setScaleInput] = useState(String(scale))
@@ -75,7 +80,11 @@ export function OverlayControls() {
   const moveOver = (id: string) => {
     if (!geo) return
     const merge = mergeById.get(id)
-    const geometry = merge ? mergeCountries(geo, merge.members) : geo.byId.get(id)?.geometry
+    const geometry = isWaterId(id)
+      ? waters?.byId.get(id)?.geometry
+      : merge
+        ? mergeCountries(geo, merge.members)
+        : geo.byId.get(id)?.geometry
     const centre = landCentre(geometry)
     if (centre) update({ anchor: centre })
   }
@@ -92,16 +101,24 @@ export function OverlayControls() {
         {/*
           Type a name and the overlay is made — no selecting first. The selection is left alone.
         */}
-        <EntitySearch onChoose={(id) => createFromSelection(false, [id])} label="Search" placeholder="Search" />
+        <EntitySearch onChoose={(id) => createFromSelection(false, [id])} label="Search" placeholder="Search" waters />
+        {copyable.length === 1 && (
+          <button type="button" className="btn btn--on" onClick={() => createFromSelection(false)}>
+            Copy {nameOf(copyable[0])}
+          </button>
+        )}
         {copyable.length > 1 && (
           <>
             {/*
               Several selected: one object that moves and sizes as a whole, with the borders
               between them kept — or a copy of each, moved on its own.
             */}
-            <button type="button" className="btn btn--on" onClick={() => createFromSelection(true)}>
-              Copy {copyable.length} {noun.many} as one group
-            </button>
+            {landCopyable.length > 1 && (
+              <button type="button" className="btn btn--on" onClick={() => createFromSelection(true)}>
+                Copy {landCopyable.length} {noun.many} as one group
+                {copyable.length > landCopyable.length ? ', each sea on its own' : ''}
+              </button>
+            )}
             <button type="button" className="btn" onClick={() => createFromSelection(false)}>
               Copy each separately ({copyable.length} overlays)
             </button>

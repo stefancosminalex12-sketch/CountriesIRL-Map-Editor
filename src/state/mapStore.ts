@@ -19,7 +19,7 @@ import { getDataset, loadGeoDataset, type GeoDataset, type LoadedDataset } from 
 import { lakeLayerForDetail, loadLakes, type LoadedLakes } from '../geo/lakes'
 import { riverLayerForDetail, loadRivers, type LoadedRivers } from '../geo/rivers'
 import { loadMaritime, type LoadedMaritime } from '../geo/maritime'
-import { isWaterId, loadWaters, partitionByWater, type LoadedWaters } from '../geo/waters'
+import { isKnownWaterId, isWaterId, loadWaters, partitionByWater, waterName, type LoadedWaters } from '../geo/waters'
 import { countriesInRegions, getRegion, resolveFraming } from '../geo/regions'
 import { DEFAULT_ATLAS_ID, getAtlas, MODERN_YEAR, yearDataset, yearOfDataset } from '../maps/atlas'
 import { startingDatasetId } from '../maps/startingDetail'
@@ -1045,8 +1045,14 @@ export const useMapStore = create<MapStore>((set, get) => {
     const existing = state.doc.overlays ?? []
     const taken = new Set(existing.map((o) => o.id))
     const stamp = Date.now().toString(36)
-    const copyable = (ids ?? state.selectedCountryIds).filter((id) => mergeById.has(id) || geo.byId.has(id))
+    // Seas too: a water region is copied as a country is, from the water layer's own outline.
+    const copyable = (ids ?? [...state.selectedCountryIds, ...state.selectedWaterIds]).filter((id) =>
+      isWaterId(id) ? isKnownWaterId(id) : mergeById.has(id) || geo.byId.has(id),
+    )
     if (copyable.length === 0) return []
+    if (copyable.some(isWaterId)) get().ensureWaters()
+    const land = copyable.filter((id) => !isWaterId(id))
+    const seas = copyable.filter(isWaterId)
 
     /*
      * Each copy is named as its own thing — "United States 2", "Canada 3" — numbered by how many
@@ -1060,7 +1066,9 @@ export const useMapStore = create<MapStore>((set, get) => {
     const copyName = (id: string) => {
       const n = (copies.get(id) ?? 0) + 1
       copies.set(id, n)
-      const base = mergeById.get(id)?.name ?? geo.meta[id]?.name ?? geo.byId.get(id)?.properties.name ?? id
+      const base = isWaterId(id)
+        ? waterName(id)
+        : (mergeById.get(id)?.name ?? geo.meta[id]?.name ?? geo.byId.get(id)?.properties.name ?? id)
       return `${base} ${n + 1}`
     }
     const newId = (n: number) => {
@@ -1075,19 +1083,29 @@ export const useMapStore = create<MapStore>((set, get) => {
       mode: 'shape' as const,
       anchor: null,
       color: OVERLAY_COLORS[(existing.length + n - 1) % OVERLAY_COLORS.length],
-      // A copy of land by default: the map's land colour, edged with coastline.
-      opacity: 1,
-      texture: 'land' as const,
+      // A copy of land by default: the map's land colour, edged with coastline. A sea is its colour
+      // alone, so it never reads as land.
+      opacity: isWaterId(sourceId) ? 0.6 : 1,
+      texture: isWaterId(sourceId) ? ('solid' as const) : ('land' as const),
       scale: 1,
     })
 
+    // A group copy is of land; each sea in the selection is copied on its own beside it.
     const overlays: MapOverlay[] =
-      asGroup && copyable.length > 1
-        ? [{ ...base(copyable[0], 1), members: [...copyable], name: copyable.map(copyName).join(' & ') }]
+      asGroup && land.length > 1
+        ? [
+            { ...base(land[0], 1), members: [...land], name: land.map(copyName).join(' & ') },
+            ...seas.map((sourceId, index) => ({ ...base(sourceId, index + 2), name: copyName(sourceId) })),
+          ]
         : copyable.map((sourceId, index) => ({ ...base(sourceId, index + 1), name: copyName(sourceId) }))
     get().dispatch(overlays.map((overlay) => ({ op: 'create_overlay' as const, overlay })))
     const copied = new Set(copyable)
-    if (!ids) withLastEdit({ selectedCountryIds: get().selectedCountryIds.filter((id) => !copied.has(id)) })
+    if (!ids) {
+      withLastEdit({
+        selectedCountryIds: get().selectedCountryIds.filter((id) => !copied.has(id)),
+        selectedWaterIds: get().selectedWaterIds.filter((id) => !copied.has(id)),
+      })
+    }
     set({ activeOverlayId: overlays[overlays.length - 1].id })
     return overlays.map((o) => o.id)
   },
@@ -1104,7 +1122,9 @@ export const useMapStore = create<MapStore>((set, get) => {
     // Numbered after every copy of the same entities: "France 3" beside "France 2".
     const n = existing.filter((o) => (o.members ?? [o.sourceId]).join('+') === key).length + 1
     const baseName = (entity: string) =>
-      mergeById.get(entity)?.name ?? geo?.meta[entity]?.name ?? geo?.byId.get(entity)?.properties.name ?? entity
+      isWaterId(entity)
+        ? waterName(entity)
+        : (mergeById.get(entity)?.name ?? geo?.meta[entity]?.name ?? geo?.byId.get(entity)?.properties.name ?? entity)
     const name = members.map((m) => `${baseName(m)} ${n + 1}`).join(' & ')
     const taken = new Set(existing.map((o) => o.id))
     let newId = `overlay-${Date.now().toString(36)}-d`

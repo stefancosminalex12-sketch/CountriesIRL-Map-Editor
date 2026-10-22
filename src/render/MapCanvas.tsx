@@ -1092,10 +1092,26 @@ export function MapCanvas() {
    * draws it — the country's own path, or the merged body's — so an overlay starts exactly over
    * the entity it copies, islands, holes and all.
    */
+  /* A sea's overlay draws from the water layer, fetched for it even while Water Regions is off. */
+  const copiesWater = overlays.some((overlay) => isWaterId(overlay.sourceId))
+  useEffect(() => {
+    if (copiesWater) ensureWaters()
+  }, [copiesWater, ensureWaters])
+
   const overlaySources = useMemo(() => {
     const out = new Map<string, OverlaySource>()
     if (!overlaySourceKey || !geo || !projection) return out
     for (const id of overlaySourceKey.split('\n')) {
+      /*
+       * A sea: its outline as the water layer draws it, by the map's own projection — insets frame
+       * land, and the sea in one is the map's background water.
+       */
+      if (isWaterId(id)) {
+        const feature = waters?.byId.get(id)
+        const source = feature ? overlaySource(feature.geometry, geoPath(projection)(feature), projection) : null
+        if (source) out.set(id, source)
+        continue
+      }
       /*
        * A group copy: its members dissolved into one outline — whose edge is the coastline — and
        * the borders between them kept as a line of their own, to be drawn when Borders is on. A
@@ -1138,7 +1154,7 @@ export function MapCanvas() {
       if (source) out.set(id, source)
     }
     return out
-  }, [overlaySourceKey, geo, projection, land, insets, mergeGeometry, mergedShapes])
+  }, [overlaySourceKey, geo, projection, land, insets, mergeGeometry, mergedShapes, waters])
 
   /*
    * How an overlay's edges are drawn: its outer edge as coastline and the borders inside a group
