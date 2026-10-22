@@ -873,6 +873,11 @@ export interface MapOverlay {
    * about the point it is put on, so it keeps its true shape there. Absent for unturned.
    */
   rotation?: number
+  /**
+   * Taken off the map, one copy at a time: kept in the list and editable, and shown again from
+   * there. Hiding the entity it copies leaves its copies alone. Absent for shown.
+   */
+  hidden?: boolean
 }
 
 /** How far an overlay can be shrunk and grown: 1000 times smaller or larger. */

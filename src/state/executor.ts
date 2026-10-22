@@ -355,6 +355,7 @@ function overlayFieldsProblem(fields: Record<string, unknown>): string | null {
   if (fields.rotation !== undefined && !(typeof fields.rotation === 'number' && Number.isFinite(fields.rotation))) {
     return 'rotation must be a number of degrees'
   }
+  if (fields.hidden !== undefined && typeof fields.hidden !== 'boolean') return 'hidden must be true or false'
   if (fields.mode !== undefined && !OVERLAY_MODES.has(fields.mode as string)) {
     return 'mode must be "shape" or "projection"'
   }

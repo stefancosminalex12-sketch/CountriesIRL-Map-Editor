@@ -1265,23 +1265,14 @@ export function MapCanvas() {
   const hiddenIds = useKeyed(rawHiddenIds, Array.from(rawHiddenIds).sort().join('\u0001'))
 
   /**
-   * The overlays still on the map: an overlay is a copy of a territory, so it goes with the
-   * territory it copies. A merged group's overlay goes when every member is hidden. The overlay
-   * itself is kept, listed and editable, and comes back when its territory is shown again.
+   * The overlays still on the map: each is hidden on its own, from the Overlay list, one copy at a
+   * time. Hiding the territory a copy is of takes the territory off the map and leaves its copies
+   * where they are. A hidden overlay is kept, listed and editable.
    */
   const visibleOverlays = useMemo(() => {
-    if (hiddenIds.size === 0) return overlays
-    const membersOf = new Map(mergeGeometry.map((merge) => [merge.id, merge.members]))
-    return overlays.filter((overlay) => {
-      if (overlay.members && overlay.members.length > 1) {
-        // A group copy goes when every entity in it is hidden.
-        const all = overlay.members.flatMap((id) => membersOf.get(id) ?? [id])
-        return !all.every((id) => hiddenIds.has(id))
-      }
-      const members = membersOf.get(overlay.sourceId)
-      return members ? !members.every((id) => hiddenIds.has(id)) : !hiddenIds.has(overlay.sourceId)
-    })
-  }, [overlays, hiddenIds, mergeGeometry])
+    if (!overlays.some((overlay) => overlay.hidden)) return overlays
+    return overlays.filter((overlay) => !overlay.hidden)
+  }, [overlays])
 
   /*
    * Every territory's shape, hidden or not: measuring one is the costly part, so hiding a

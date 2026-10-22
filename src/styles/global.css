@@ -3080,6 +3080,16 @@ body {
   color: var(--text);
 }
 
+.overlay-row__eye {
+  display: grid;
+  place-items: center;
+}
+
+/* A hidden copy: still listed and editable, dimmed so it reads as off the map. */
+.overlay-row--hidden .overlay-row__pick {
+  opacity: 0.5;
+}
+
 .overlay-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

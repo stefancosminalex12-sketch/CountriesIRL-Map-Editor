@@ -135,7 +135,10 @@ export function OverlayControls() {
             {overlays.map((overlay) => {
               const on = overlay.id === activeId
               return (
-                <li key={overlay.id} className={`overlay-row${on ? ' overlay-row--on' : ''}`}>
+                <li
+                  key={overlay.id}
+                  className={`overlay-row${on ? ' overlay-row--on' : ''}${overlay.hidden ? ' overlay-row--hidden' : ''}`}
+                >
                   <button
                     type="button"
                     className="overlay-row__pick"
@@ -147,6 +150,23 @@ export function OverlayControls() {
                     <span className="overlay-row__swatch" style={{ background: overlay.color }} aria-hidden="true" />
                     <span className="overlay-row__name">{overlay.name}</span>
                     <span className="overlay-row__mode">{overlay.mode === 'shape' ? 'Shape' : 'Projection'}</span>
+                  </button>
+                  {/* This copy alone: the others, and the entity it copies, stay as they are. */}
+                  <button
+                    type="button"
+                    className="overlay-row__drop overlay-row__eye"
+                    aria-label={overlay.hidden ? `Show ${overlay.name}` : `Hide ${overlay.name}`}
+                    aria-pressed={!!overlay.hidden}
+                    title={overlay.hidden ? 'Show overlay' : 'Hide overlay'}
+                    onClick={() => {
+                      dispatch({ op: 'update_overlay', id: overlay.id, patch: { hidden: !overlay.hidden } })
+                    }}
+                  >
+                    <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+                      <path d="M2.4 10c2-3.6 4.6-5.4 7.6-5.4s5.6 1.8 7.6 5.4c-2 3.6-4.6 5.4-7.6 5.4S4.4 13.6 2.4 10z" />
+                      <circle cx="10" cy="10" r="2.4" />
+                      {overlay.hidden && <path d="M3.6 16.4 16.4 3.6" />}
+                    </svg>
                   </button>
                   <button
                     type="button"
