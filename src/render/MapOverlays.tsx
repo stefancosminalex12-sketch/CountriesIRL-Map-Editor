@@ -28,7 +28,7 @@ import { memo, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMou
 import { geoPath, type GeoProjection } from 'd3-geo'
 import type { MultiPolygon } from 'geojson'
 import type { MapOverlay } from '../types/map'
-import { anchorAt, carry, overlayKey, placeOverlay, type OverlayPlacement, type OverlaySource } from './overlayGeometry'
+import { anchorAt, carry, globeTarget, overlayKey, overlayRotation, placeOverlay, type OverlayPlacement, type OverlaySource } from './overlayGeometry'
 import { fitFlag, patternGeometry, type FlagFit } from './MapFlags'
 import { flagFraming } from './flagPlacement'
 import { getLiveProjection } from './liveProjection'
@@ -65,14 +65,15 @@ interface OverlayFlag {
  * clusters are still the clusters.
  */
 function overlayFlag(
-  overlay: Pick<MapOverlay, 'mode' | 'anchor'>,
+  overlay: Pick<MapOverlay, 'mode' | 'anchor' | 'rotation'>,
   source: OverlaySource,
   projection: GeoProjection,
 ): OverlayFlag | null {
   const { main, territories } = flagFraming(source.geometry)
-  const to = overlay.anchor && overlay.mode === 'projection' ? overlay.anchor : null
+  const to = globeTarget(overlay, source)
+  const turn = overlayRotation(overlay.rotation)
   const drawnWith = to ? projection : source.homeProjection
-  const place = (land: MultiPolygon): MultiPolygon => (to ? (carry(land, source.geoCentre, to) as MultiPolygon) : land)
+  const place = (land: MultiPolygon): MultiPolygon => (to ? (carry(land, source.geoCentre, to, turn) as MultiPolygon) : land)
   const path = geoPath(drawnWith)
   const fit = fitFlag(place(main), path, drawnWith)
   if (!fit) return null
@@ -120,9 +121,15 @@ export function overlayBeside(id: string): [number, number] | null {
   return null
 }
 
-/** The placement as an SVG transform: a translation and a uniform scale. */
-const transformOf = (place: OverlayPlacement) =>
-  place.matrix ? `matrix(${place.matrix[0]},0,0,${place.matrix[0]},${place.matrix[1]},${place.matrix[2]})` : undefined
+/** The placement as an SVG transform: a translation, a uniform scale and a turn. */
+const transformOf = (place: OverlayPlacement) => {
+  if (!place.matrix) return undefined
+  const [s, x, y, turn] = place.matrix
+  const t = (turn * Math.PI) / 180
+  const a = s * Math.cos(t)
+  const b = s * Math.sin(t)
+  return `matrix(${a},${b},${-b},${a},${x},${y})`
+}
 
 export interface MapOverlaysProps {
   overlays: MapOverlay[]
@@ -182,7 +189,9 @@ export const MapOverlays = memo(function MapOverlays({
       const source = sources.get(overlayKey(overlay))
       out.set(
         overlay.id,
-        source ? placeOverlay({ mode: overlay.mode, anchor: overlay.anchor, scale: overlay.scale ?? 1 }, source, projection) : null,
+        source
+          ? placeOverlay({ mode: overlay.mode, anchor: overlay.anchor, scale: overlay.scale ?? 1, rotation: overlay.rotation }, source, projection)
+          : null,
       )
     }
     return out
@@ -208,11 +217,11 @@ export const MapOverlays = memo(function MapOverlays({
       if (preview?.id === overlay.id) {
         const source = sources.get(overlayKey(overlay))
         place = source
-          ? placeOverlay({ mode: overlay.mode, anchor: preview.anchor, scale: overlay.scale ?? 1 }, source, projection)
+          ? placeOverlay({ mode: overlay.mode, anchor: preview.anchor, scale: overlay.scale ?? 1, rotation: overlay.rotation }, source, projection)
           : null
         // A Projection-aware overlay is new land wherever it goes, so its flag is framed again; a Shape overlay's moves with it.
         if (source && overlay.texture === 'flag' && overlay.mode === 'projection') {
-          flag = overlayFlag({ mode: overlay.mode, anchor: preview.anchor }, source, projection)
+          flag = overlayFlag({ mode: overlay.mode, anchor: preview.anchor, rotation: overlay.rotation }, source, projection)
         }
       }
       if (place) out.push({ overlay, place, flag })

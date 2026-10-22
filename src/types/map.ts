@@ -867,6 +867,12 @@ export interface MapOverlay {
    * the map draws it. Scaled about its centre, so resizing never moves it.
    */
   scale: number
+  /**
+   * How far it is turned, in degrees clockwise, within (-180, 180] — about its centre, so turning
+   * never moves it. A Shape overlay turns on the screen; a Projection-aware one turns on the globe,
+   * about the point it is put on, so it keeps its true shape there. Absent for unturned.
+   */
+  rotation?: number
 }
 
 /** How far an overlay can be shrunk and grown: 1000 times smaller or larger. */

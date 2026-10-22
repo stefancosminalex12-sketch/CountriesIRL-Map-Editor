@@ -62,11 +62,12 @@ export interface OverlayPlacement {
   /** The borders between a group copy's members, placed exactly as `d` is; null for a single entity. */
   bordersD: string | null
   /**
-   * How `d` is placed, as the `s`, `x` and `y` of `matrix(s, 0, 0, s, x, y)` — a translation
-   * (Shape mode) and the overlay's scale about its centre — or `null` when `d` is already
-   * exactly where it belongs.
+   * How `d` is placed: its scale `s`, the `x` and `y` of `matrix(a, b, c, d, x, y)`, and the
+   * turn in degrees clockwise — a translation (Shape mode), the overlay's scale about its centre
+   * and, in Shape mode, its rotation about it — or `null` when `d` is already exactly where it
+   * belongs.
    */
-  matrix: [number, number, number] | null
+  matrix: [number, number, number, number] | null
   /** Where its centre is drawn, in the zoomed group's coordinates: its drag handle, and what it scales about. */
   centre: [number, number]
 }
@@ -143,17 +144,25 @@ export function overlaySource(
 }
 
 /**
- * The land moved across the globe so that `from` lands on `to`.
+ * The land moved across the globe so that `from` lands on `to`, and turned there by `turn`
+ * degrees clockwise about it.
  *
- * Two rotations of the sphere: `from` to the point where the equator meets the prime meridian,
- * then from there to `to`. Rotations keep every distance and area on the globe, so the land keeps
- * its true size and shape; and a move along a parallel or a meridian comes out as a single turn
- * about the axis that move is around, so north stays north.
+ * Rotations of the sphere: `from` to the point where the equator meets the prime meridian, turned
+ * about the axis through that point, then from there to `to`. Rotations keep every distance and
+ * area on the globe, so the land keeps its true size and shape; and a move along a parallel or a
+ * meridian comes out as a single turn about the axis that move is around, so north stays north.
  */
-export function carry<G extends OverlayGeometry | MultiLineString>(geometry: G, from: [number, number], to: [number, number]): G {
+export function carry<G extends OverlayGeometry | MultiLineString>(
+  geometry: G,
+  from: [number, number],
+  to: [number, number],
+  turn = 0,
+): G {
   const lift = geoRotation([-from[0], -from[1]])
+  // d3's roll turns east towards north, counter-clockwise as a map is read.
+  const spin = geoRotation([0, 0, -turn])
   const lower = geoRotation([-to[0], -to[1]])
-  const move = (point: Position): Position => lower.invert(lift([point[0], point[1]]))
+  const move = (point: Position): Position => lower.invert(spin(lift([point[0], point[1]])))
   const ring = (points: Position[]) => points.map(move)
   if (geometry.type === 'Polygon') return { type: 'Polygon', coordinates: geometry.coordinates.map(ring) } as G
   if (geometry.type === 'MultiLineString') return { type: 'MultiLineString', coordinates: geometry.coordinates.map(ring) } as G
@@ -164,32 +173,68 @@ export function carry<G extends OverlayGeometry | MultiLineString>(geometry: G, 
  * Where an overlay is drawn by this projection — or `null` when the place it has been moved to
  * is not on this map at all (the far side of a globe).
  */
+/** An overlay's turn in degrees clockwise, within (-180, 180]. */
+export function overlayRotation(rotation: number | undefined): number {
+  if (!rotation || !Number.isFinite(rotation)) return 0
+  const turn = ((((rotation + 180) % 360) + 360) % 360) - 180
+  return turn === -180 ? 180 : turn
+}
+
+/**
+ * Where a Projection-aware overlay's land is put on the globe, or `null` when it is drawn as the
+ * map draws the entity: where it has been moved to, or — turned but not moved — where it is.
+ */
+export function globeTarget(
+  overlay: Pick<MapOverlay, 'mode' | 'anchor' | 'rotation'>,
+  source: Pick<OverlaySource, 'geoCentre'>,
+): [number, number] | null {
+  if (overlay.mode !== 'projection') return null
+  return overlay.anchor ?? (overlayRotation(overlay.rotation) !== 0 ? source.geoCentre : null)
+}
+
 export function placeOverlay(
-  overlay: Pick<MapOverlay, 'mode' | 'anchor' | 'scale'>,
+  overlay: Pick<MapOverlay, 'mode' | 'anchor' | 'scale' | 'rotation'>,
   source: OverlaySource,
   projection: GeoProjection,
 ): OverlayPlacement | null {
   const scale = clampOverlayScale(overlay.scale)
+  const rotation = overlayRotation(overlay.rotation)
   /* `d`, where the centre of its main landmass is drawn in it, and where that centre belongs. */
   let d = source.homePath
   let bordersD = source.homeBordersPath
   let from = source.homeCentre
   let centre = source.homeCentre
+  // Turned on the screen, or — Projection-aware — on the globe, where the land is put.
+  let screenTurn = rotation
   if (overlay.anchor) {
     const at = projection(overlay.anchor)
     if (!at || !finite(at)) return null
     centre = [at[0], at[1]]
-    if (overlay.mode === 'projection') {
-      d = geoPath(projection)(carry(source.geometry, source.geoCentre, overlay.anchor)) ?? ''
-      if (!d) return null
-      bordersD = source.borders ? geoPath(projection)(carry(source.borders, source.geoCentre, overlay.anchor)) || null : null
-      from = centre
-    }
   }
-  // p ↦ centre + scale · (p − from): carried to where it belongs, and scaled about its centre.
-  const x = centre[0] - scale * from[0]
-  const y = centre[1] - scale * from[1]
-  const matrix: OverlayPlacement['matrix'] = scale === 1 && x === 0 && y === 0 ? null : [scale, x, y]
+  const target = globeTarget(overlay, source)
+  if (target) {
+    d = geoPath(projection)(carry(source.geometry, source.geoCentre, target, rotation)) ?? ''
+    if (!d) return null
+    bordersD = source.borders ? geoPath(projection)(carry(source.borders, source.geoCentre, target, rotation)) || null : null
+    if (!overlay.anchor) {
+      const at = projection(target)
+      if (!at || !finite(at)) return null
+      centre = [at[0], at[1]]
+    }
+    from = centre
+    screenTurn = 0
+  }
+  /*
+   * p ↦ centre + scale · R · (p − from): carried to where it belongs, and scaled and turned about
+   * its centre. With y pointing down, (cos, sin, −sin, cos) turns clockwise.
+   */
+  const t = (screenTurn * Math.PI) / 180
+  const a = scale * Math.cos(t)
+  const b = scale * Math.sin(t)
+  const x = centre[0] - (a * from[0] - b * from[1])
+  const y = centre[1] - (b * from[0] + a * from[1])
+  const matrix: OverlayPlacement['matrix'] =
+    scale === 1 && screenTurn === 0 && x === 0 && y === 0 ? null : [scale, x, y, screenTurn]
   return { d, bordersD, matrix, centre }
 }
 

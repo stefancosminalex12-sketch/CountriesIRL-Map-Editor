@@ -19,6 +19,7 @@ import { landCentre } from '../render/overlayGeometry'
 import { overlayBeside } from '../render/MapOverlays'
 import { clampOverlayScale, overlayScaleAt, OVERLAY_SIZE_MIN, OVERLAY_SIZE_MAX } from '../render/overlayScale'
 import { OVERLAY_SCALE_RANGE, type MapOverlay, type OverlayTexture } from '../types/map'
+import { overlayRotation } from '../render/overlayGeometry'
 import { OVERLAY_MODES, OVERLAY_TEXTURES, texturePatch } from './overlayChoices'
 import { FlagPicker } from './FlagPicker'
 import { EntitySearch } from './EntitySearch'
@@ -70,6 +71,10 @@ export function OverlayControls() {
   const [scaleInput, setScaleInput] = useState(String(scale))
   useEffect(() => setScaleInput(String(scale)), [activeId, scale])
   const percent = (scale * 100).toLocaleString(undefined, { maximumFractionDigits: 3 })
+  const rotation = overlayRotation(active?.rotation)
+  const [rotationInput, setRotationInput] = useState(String(rotation))
+  useEffect(() => setRotationInput(String(rotation)), [activeId, rotation])
+  const turnTo = (degrees: number) => update({ rotation: overlayRotation(Math.round(degrees * 10) / 10) })
   /* "Move over": the entity selected last. */
   const target = copyable.length > 0 ? copyable[copyable.length - 1] : null
 
@@ -293,6 +298,58 @@ export function OverlayControls() {
                 }}
               >
                 Reset scale
+              </button>
+            </div>
+
+            {/*
+              Rotation, about the overlay's centre: a dial from -180° to 180°, the exact angle, and
+              quarter turns. A Projection-aware overlay turns on the globe, keeping its true shape.
+            */}
+            <label className="field">
+              <span className="field__row">
+                <span className="field__label">Rotation</span>
+                <span className="field__value">{rotation}°</span>
+              </span>
+              <input
+                className="slider"
+                type="range"
+                min={-180}
+                max={180}
+                step={1}
+                value={rotation}
+                aria-label="Rotation"
+                aria-valuetext={`${rotation} degrees clockwise`}
+                onChange={(event) => turnTo(Number(event.target.value))}
+              />
+            </label>
+
+            <label className="field">
+              <span className="field__label">Angle (degrees)</span>
+              <input
+                type="number"
+                aria-label="Angle in degrees"
+                step="any"
+                value={rotationInput}
+                onChange={(event) => setRotationInput(event.target.value)}
+                onBlur={() => {
+                  const value = Number(rotationInput)
+                  const next = rotationInput.trim() && Number.isFinite(value) ? overlayRotation(Math.round(value * 10) / 10) : rotation
+                  setRotationInput(String(next))
+                  if (next !== rotation) update({ rotation: next })
+                }}
+                onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur() }}
+              />
+            </label>
+
+            <div className="overlay-actions">
+              <button type="button" className="btn" title="Turn 90° anticlockwise" onClick={() => turnTo(rotation - 90)}>
+                ↺ 90°
+              </button>
+              <button type="button" className="btn" title="Turn 90° clockwise" onClick={() => turnTo(rotation + 90)}>
+                ↻ 90°
+              </button>
+              <button type="button" className="btn" disabled={rotation === 0} onClick={() => update({ rotation: 0 })}>
+                Reset rotation
               </button>
             </div>
             <button

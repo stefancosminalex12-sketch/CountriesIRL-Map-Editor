@@ -352,6 +352,9 @@ const OVERLAY_TEXTURES = new Set(['hatch', 'dots', 'none', 'flag', 'solid', 'lan
 
 /** Why an overlay's fields are malformed, or `null`. Only the fields present are checked. */
 function overlayFieldsProblem(fields: Record<string, unknown>): string | null {
+  if (fields.rotation !== undefined && !(typeof fields.rotation === 'number' && Number.isFinite(fields.rotation))) {
+    return 'rotation must be a number of degrees'
+  }
   if (fields.mode !== undefined && !OVERLAY_MODES.has(fields.mode as string)) {
     return 'mode must be "shape" or "projection"'
   }
