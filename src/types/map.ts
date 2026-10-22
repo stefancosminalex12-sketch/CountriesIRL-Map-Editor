@@ -816,10 +816,11 @@ export type OverlayMode = 'shape' | 'projection'
 /**
  * What an overlay is filled with: a texture over its tint, the tint alone, or a flag — which
  * replaces the tint, framed over the overlay's own outline and clipped to it — or **land**: the
- * map's own land colour, so the copy reads as more of the map. With land, a flag or a solid fill
- * the overlay's edge is drawn as coastline (see `MapOverlays`).
+ * map's own land colour, so the copy reads as more of the map — or **sea**: the map's own water
+ * colour, for a copy of an ocean or a sea. With land, sea, a flag or a solid fill the overlay's
+ * edge is drawn as coastline (see `MapOverlays`).
  */
-export type OverlayTexture = 'hatch' | 'dots' | 'none' | 'flag' | 'solid' | 'land'
+export type OverlayTexture = 'hatch' | 'dots' | 'none' | 'flag' | 'solid' | 'land' | 'sea'
 
 /**
  * A movable copy of an entity's shape, for comparing one place with another.

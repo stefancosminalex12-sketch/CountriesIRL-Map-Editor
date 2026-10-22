@@ -348,7 +348,7 @@ export function validateOperation(op: MapOperation, ctx: ExecutionContext = {}):
 }
 
 const OVERLAY_MODES = new Set(['shape', 'projection'])
-const OVERLAY_TEXTURES = new Set(['hatch', 'dots', 'none', 'flag', 'solid', 'land'])
+const OVERLAY_TEXTURES = new Set(['hatch', 'dots', 'none', 'flag', 'solid', 'land', 'sea'])
 
 /** Why an overlay's fields are malformed, or `null`. Only the fields present are checked. */
 function overlayFieldsProblem(fields: Record<string, unknown>): string | null {
@@ -356,7 +356,7 @@ function overlayFieldsProblem(fields: Record<string, unknown>): string | null {
     return 'mode must be "shape" or "projection"'
   }
   if (fields.texture !== undefined && !OVERLAY_TEXTURES.has(fields.texture as string)) {
-    return 'texture must be "hatch", "dots", "none", "flag", "solid" or "land"'
+    return 'texture must be "hatch", "dots", "none", "flag", "solid", "land" or "sea"'
   }
   if (fields.flag !== undefined && fields.flag !== null && !(typeof fields.flag === 'string' && hasFlag(fields.flag))) {
     return 'flag must be the code of a flag in the library, or null'

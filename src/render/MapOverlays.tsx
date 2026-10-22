@@ -138,13 +138,13 @@ export interface MapOverlaysProps {
   flags: ReadonlyMap<string, string>
   /**
    * The map's own lines: whether coastlines and borders are drawn, in what colour and width, and
-   * its land colour — for an overlay that is more of the map rather than a highlight over it.
+   * its land and sea colours — for an overlay that is more of the map rather than a highlight over it.
    */
-  lines: { coast: boolean; borders: boolean; color: string; width: number; land: string }
+  lines: { coast: boolean; borders: boolean; color: string; width: number; land: string; sea: string }
 }
 
 /** Textures under which an overlay is a copy of land: its edge is coastline, drawn as the map draws coast. */
-const LAND_LIKE = new Set(['land', 'solid', 'flag'])
+const LAND_LIKE = new Set(['land', 'sea', 'solid', 'flag'])
 
 interface Drag {
   id: string
@@ -384,6 +384,9 @@ export const MapOverlays = memo(function MapOverlays({
           ) : overlay.texture === 'land' ? (
             // More of the map: the map's own land colour.
             <path d={place.d} fill={lines.land} />
+          ) : overlay.texture === 'sea' ? (
+            // More of the map's water: its own sea colour.
+            <path d={place.d} fill={lines.sea} />
           ) : (
             <path d={place.d} fill={overlay.color} fillOpacity={overlay.texture === 'solid' ? 1 : TINT} />
           )}

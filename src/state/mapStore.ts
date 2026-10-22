@@ -1083,10 +1083,10 @@ export const useMapStore = create<MapStore>((set, get) => {
       mode: 'shape' as const,
       anchor: null,
       color: OVERLAY_COLORS[(existing.length + n - 1) % OVERLAY_COLORS.length],
-      // A copy of land by default: the map's land colour, edged with coastline. A sea is its colour
-      // alone, so it never reads as land.
-      opacity: isWaterId(sourceId) ? 0.6 : 1,
-      texture: isWaterId(sourceId) ? ('solid' as const) : ('land' as const),
+      // A copy of land by default: the map's land colour, edged with coastline; and of a sea, the
+      // map's sea colour.
+      opacity: 1,
+      texture: isWaterId(sourceId) ? ('sea' as const) : ('land' as const),
       scale: 1,
     })
 

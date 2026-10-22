@@ -1168,8 +1168,10 @@ export function MapCanvas() {
       color: style.border,
       width: style.borderWidth,
       land: style.land,
+      // The sea is the map's background.
+      sea: style.background,
     }),
-    [style.showCoastlines, style.showBorders, style.border, style.borderWidth, style.land],
+    [style.showCoastlines, style.showBorders, style.border, style.borderWidth, style.land, style.background],
   )
 
   const chooseOverlay = useCallback((id: string) => useMapStore.getState().setActiveOverlay(id), [])

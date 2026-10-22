@@ -17,6 +17,7 @@ export const OVERLAY_MODES: Array<[OverlayMode, string, string]> = [
 
 export const OVERLAY_TEXTURES: Array<[OverlayTexture, string]> = [
   ['land', 'Land'],
+  ['sea', 'Sea'],
   ['hatch', 'Hatching'],
   ['dots', 'Dots'],
   ['flag', 'Flag'],
